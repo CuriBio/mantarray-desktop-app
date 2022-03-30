@@ -22,6 +22,7 @@ from mantarray_desktop_app import UnrecognizedCommandFromServerToMainError
 from mantarray_desktop_app import UnrecognizedMantarrayNamingCommandError
 from mantarray_desktop_app import UnrecognizedRecordingCommandError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.constants import UPDATES_NEEDED_STATE
 from pulse3D.constants import BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
@@ -279,11 +280,14 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_stop_recording_command
 
 
-def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__passes_start_stim_checks_command_to_mc_comm(
-    test_process_manager_creator, test_monitor, mocker
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__passes_start_stim_checks_command_to_mc_comm__and_resets_results(
+    test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, *_ = test_monitor(test_process_manager)
+    monitor_thread, svd, *_ = test_monitor(test_process_manager)
+
+    test_num_wells = 24
+    svd["stimulator_circuit_statuses"] = ["any"] * test_num_wells
 
     start_stim_checks_command = {"communication_type": "stimulation", "command": "start_stim_checks"}
 
@@ -295,6 +299,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__passe
     )
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
+
+    assert (
+        svd["stimulator_circuit_statuses"] == [StimulatorCircuitStatuses.CALCULATING.value] * test_num_wells
+    )
 
     main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)

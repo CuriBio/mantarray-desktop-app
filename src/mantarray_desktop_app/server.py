@@ -74,6 +74,7 @@ from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from .constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
 from .constants import STIM_MAX_PULSE_DURATION_MICROSECONDS
+from .constants import StimulatorCircuitStatuses
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SYSTEM_STATUS_UUIDS
@@ -294,8 +295,11 @@ def start_calibration() -> Response:
     shared_values_dict = _get_values_from_process_monitor()
     if shared_values_dict["system_status"] not in (CALIBRATION_NEEDED_STATE, CALIBRATED_STATE):
         return Response(status="403 Route cannot be called unless in calibration_needed or calibrated state")
-    if shared_values_dict["beta_2_mode"] and _is_stimulating_on_any_well():
-        return Response(status="403 Cannot calibrate while stimulation is running")
+    if shared_values_dict["beta_2_mode"]:
+        if _are_stimulator_checks_running():
+            return Response(status="403 Cannot calibrate while stimulator checks are running")
+        if _is_stimulating_on_any_well():
+            return Response(status="403 Cannot calibrate while stimulation is running")
 
     if shared_values_dict["beta_2_mode"]:
         comm_dict = {"communication_type": "calibration", "command": "run_calibration"}
@@ -306,9 +310,11 @@ def start_calibration() -> Response:
     return response
 
 
-@flask_app.route("/start_stim_checks", methods=["GET"])
+@flask_app.route("/start_stim_checks", methods=["POST"])
 def start_stim_checks() -> Response:
     """Start the stimulator impedence checks on the Mantarray.
+
+    Not available for Beta 1 instruments.
 
     Can be invoked by:  curl http://localhost:4567/start_stim_checks
     """
@@ -319,6 +325,8 @@ def start_stim_checks() -> Response:
         return Response(status="403 Route cannot be called unless in calibrated state")
     if _is_stimulating_on_any_well():
         return Response(status="403 Cannot perform stimulator checks while stimulation is running")
+    if _are_stimulator_checks_running():
+        return Response(status="304 Stimulator checks already running")
 
     response = queue_command_to_main({"communication_type": "stimulation", "command": "start_stim_checks"})
     return response
@@ -384,6 +392,23 @@ def _get_stim_info_from_process_monitor() -> Dict[Any, Any]:
 
 def _is_stimulating_on_any_well() -> bool:
     return any(_get_values_from_process_monitor()["stimulation_running"])
+
+
+def _are_stimulator_checks_running() -> bool:
+    stimulator_circuit_statuses = _get_values_from_process_monitor()["stimulator_circuit_statuses"]
+    return any(
+        status == StimulatorCircuitStatuses.CALCULATING.value for status in stimulator_circuit_statuses
+    )
+
+
+def _are_initial_stimulator_checks_complete() -> bool:
+    stimulator_circuit_statuses = _get_values_from_process_monitor()["stimulator_circuit_statuses"]
+    return not any(status is None for status in stimulator_circuit_statuses)
+
+
+def _are_any_stimulator_circuits_short() -> bool:
+    stimulator_circuit_statuses = _get_values_from_process_monitor()["stimulator_circuit_statuses"]
+    return any(status == StimulatorCircuitStatuses.SHORT.value for status in stimulator_circuit_statuses)
 
 
 @flask_app.route("/set_protocols", methods=["POST"])
@@ -519,8 +544,17 @@ def set_stim_status() -> Response:
     if shared_values_dict["stimulation_info"] is None:
         return Response(status="406 Protocols have not been set")
     system_status = shared_values_dict["system_status"]
-    if stim_status and system_status not in (CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE):
-        return Response(status=f"403 Cannot start stimulation while {system_status}")
+    if stim_status:
+        if system_status not in (CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE):
+            return Response(status=f"403 Cannot start stimulation while {system_status}")
+        if not _are_initial_stimulator_checks_complete():
+            return Response(
+                status="403 Cannot start stimulation before initial stimulator circuit checks complete"
+            )
+        if _are_stimulator_checks_running():
+            return Response(status="403 Cannot start stimulation while running stimulator circuit checks")
+        if _are_any_stimulator_circuits_short():
+            return Response(status="403 Cannot start stimulation when a stimulator has a short circuit")
     if stim_status is _is_stimulating_on_any_well():
         return Response(status="304 Status not updated")
 
@@ -650,6 +684,8 @@ def start_managed_acquisition() -> Response:
     if not shared_values_dict["mantarray_serial_number"][0]:
         response = Response(status="406 Mantarray has not been assigned a Serial Number")
         return response
+    if _are_stimulator_checks_running():
+        return Response(status="403 Cannot start managed acquisition while stimulator checks are running")
 
     response = queue_command_to_main(START_MANAGED_ACQUISITION_COMMUNICATION)
     return response

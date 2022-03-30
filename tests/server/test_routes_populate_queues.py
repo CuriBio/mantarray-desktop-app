@@ -1319,7 +1319,7 @@ def test_start_stim_checks__populates_queue_to_process_monitor_with_correct_comm
 
     expected_comm_dict = {"communication_type": "stimulation", "command": "start_stim_checks"}
 
-    response = test_client.get("/start_stim_checks")
+    response = test_client.post("/start_stim_checks")
     assert response.status_code == 200
 
     comm_queue = server_manager.get_queue_to_main()

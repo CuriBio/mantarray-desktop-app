@@ -21,6 +21,7 @@ from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
+from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 import pytest
 
 from ..fixtures import fixture_generic_queue_container
@@ -277,12 +278,39 @@ def test_start_calibration__returns_error_code_and_message_if_called_in_beta_2_m
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = [False] * 24
+
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulation_running"][0] = True  # arbitrary well
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
 
     response = test_client.get("/start_calibration")
     assert response.status_code == 403
     assert response.status.endswith("Cannot calibrate while stimulation is running") is True
+
+
+def test_start_calibration__returns_error_code_and_message_if_called_in_beta_2_mode_while_stimulator_checks_are_running(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    shared_values_dict["beta_2_mode"] = True
+
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
+    # set random circuit status to calculating
+    shared_values_dict["stimulator_circuit_statuses"][
+        randint(0, test_num_wells)
+    ] = StimulatorCircuitStatuses.CALCULATING.value
+
+    response = test_client.get("/start_calibration")
+    assert response.status_code == 403
+    assert response.status.endswith("Cannot calibrate while stimulator checks are running") is True
 
 
 def test_start_stim_checks__returns_error_code_and_message_if_called_in_beta_1_mode(
@@ -291,7 +319,7 @@ def test_start_stim_checks__returns_error_code_and_message_if_called_in_beta_1_m
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = False
 
-    response = test_client.get("/start_stim_checks")
+    response = test_client.post("/start_stim_checks")
     assert response.status_code == 403
     assert response.status.endswith("Route cannot be called in beta 1 mode") is True
 
@@ -317,11 +345,16 @@ def test_start_stim_checks__returns_correct_response(
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = test_system_status
-    shared_values_dict["stimulation_running"] = [False] * 24
+
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
 
     expected_status_code = 200 if test_system_status in (CALIBRATED_STATE) else 403
 
-    response = test_client.get("/start_stim_checks")
+    response = test_client.post("/start_stim_checks")
     assert response.status_code == expected_status_code
     if expected_status_code == 403:
         assert response.status.endswith("Route cannot be called unless in calibrated state") is True
@@ -333,12 +366,38 @@ def test_start_stim_checks__returns_error_code_and_message_if_called_while_stimu
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = [False] * 24
-    shared_values_dict["stimulation_running"][0] = True  # arbitrary well
 
-    response = test_client.get("/start_stim_checks")
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
+    shared_values_dict["stimulation_running"][0] = True  # arbitrary well
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
+
+    response = test_client.post("/start_stim_checks")
     assert response.status_code == 403
     assert response.status.endswith("Cannot perform stimulator checks while stimulation is running") is True
+
+
+def test_set_start_stim_checks__returns_code_and_message_if_checks_are_already_running(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
+    # set random circuit status to calculating
+    shared_values_dict["stimulator_circuit_statuses"][
+        randint(0, test_num_wells)
+    ] = StimulatorCircuitStatuses.CALCULATING.value
+
+    response = test_client.post("/start_stim_checks")
+    assert response.status_code == 304
+    assert response.status.endswith("Stimulator checks already running") is True
 
 
 def test_dev_begin_hardware_script__returns_correct_response(test_client):
@@ -417,6 +476,33 @@ def test_start_managed_acquisition__returns_error_code_and_message_if_mantarray_
     response = test_client.get("/start_managed_acquisition")
     assert response.status_code == 406
     assert response.status.endswith("Mantarray has not been assigned a Serial Number") is True
+
+
+def test_start_managed_acquisition__returns_error_code_and_message_called_while_stimulator_checks_are_running(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+
+    board_idx = 0
+    shared_values_dict["mantarray_serial_number"] = {
+        board_idx: MantarrayMcSimulator.default_mantarray_serial_number
+    }
+
+    test_num_wells = 24
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
+    # set random circuit status to calculating
+    shared_values_dict["stimulator_circuit_statuses"][
+        randint(0, test_num_wells)
+    ] = StimulatorCircuitStatuses.CALCULATING.value
+
+    response = test_client.get("/start_managed_acquisition")
+    assert response.status_code == 403
+    assert (
+        response.status.endswith("Cannot start managed acquisition while stimulator checks are running")
+        is True
+    )
 
 
 def test_update_settings__returns_error_message_when_customer_creds_dont_make_stored_pairs(
@@ -611,17 +697,9 @@ def test_set_stim_status__returns_error_code_and_message_if_running_arg_is_not_g
     assert response.status.endswith("Request missing 'running' parameter") is True
 
 
-@pytest.mark.parametrize(
-    "test_status,test_description",
-    [
-        (False, "returns error code when setting status to False"),
-        (True, "returns error code when setting status to True"),
-    ],
-)
+@pytest.mark.parametrize("test_status", [True, False])
 def test_set_stim_status__returns_error_code_and_message_if_called_before_protocols_are_set(
-    test_status,
-    test_description,
-    client_and_server_manager_and_shared_values,
+    test_status, client_and_server_manager_and_shared_values
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
@@ -652,20 +730,95 @@ def test_set_stim_status__returns_error_code_and_message_if_called_with_true_dur
     assert response.status.endswith(f"Cannot start stimulation while {test_system_status}") is True
 
 
+def test_set_stim_status__returns_error_code_and_message_if_called_with_true_before_initial_stim_circuit_checks_complete(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
+    shared_values_dict["stimulation_info"] = create_random_stim_info()
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
+    # set random circuit status to None
+    shared_values_dict["stimulator_circuit_statuses"][randint(0, test_num_wells)] = None
+
+    response = test_client.post("/set_stim_status?running=true")
+    assert response.status_code == 403
+    assert (
+        response.status.endswith("Cannot start stimulation before initial stimulator circuit checks complete")
+        is True
+    )
+
+
+def test_set_stim_status__returns_error_code_and_message_if_called_with_true_if_any_circuits_are_short(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
+    shared_values_dict["stimulation_info"] = create_random_stim_info()
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
+    # set random circuit status to short
+    shared_values_dict["stimulator_circuit_statuses"][
+        randint(0, test_num_wells)
+    ] = StimulatorCircuitStatuses.SHORT.value
+
+    response = test_client.post("/set_stim_status?running=true")
+    assert response.status_code == 403
+    assert response.status.endswith("Cannot start stimulation when a stimulator has a short circuit") is True
+
+
+def test_set_stim_status__returns_error_code_and_message_if_called_with_true_while_stim_circuit_checks_are_running(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
+    shared_values_dict["stimulation_info"] = create_random_stim_info()
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
+    # set random circuit status to calculating
+    shared_values_dict["stimulator_circuit_statuses"][
+        randint(0, test_num_wells)
+    ] = StimulatorCircuitStatuses.CALCULATING.value
+
+    response = test_client.post("/set_stim_status?running=true")
+    assert response.status_code == 403
+    assert (
+        response.status.endswith("Cannot start stimulation while running stimulator circuit checks") is True
+    )
+
+
 def test_set_stim_status__returns_code_and_message_if_new_status_is_the_same_as_the_current_status(
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = CALIBRATED_STATE
-    shared_values_dict["stimulation_running"] = [False] * 24
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulation_info"] = {}
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
 
     response = test_client.post("/set_stim_status?running=false")
     assert response.status_code == 304
     assert response.status.endswith("Status not updated") is True
 
-    shared_values_dict["stimulation_running"] = [False] * 24
     shared_values_dict["stimulation_running"][0] = True  # arbitrary well
     response = test_client.post("/set_stim_status?running=true")
     assert response.status_code == 304

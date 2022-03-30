@@ -365,8 +365,9 @@ STIM_NO_PROTOCOL_ASSIGNED = 255
 
 
 class StimulatorCircuitStatuses(Enum):
+    CALCULATING = "calculating"
     OPEN = "open"
-    CLOSED = "closed"
+    SHORT = "short"
     MEDIA = "media"
 
 

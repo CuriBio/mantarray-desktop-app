@@ -517,8 +517,9 @@ def test_serial_comm():
     assert STIM_NO_PROTOCOL_ASSIGNED == 255
 
     assert issubclass(StimulatorCircuitStatuses, Enum) is True
+    assert StimulatorCircuitStatuses.CALCULATING.value == "calculating"
     assert StimulatorCircuitStatuses.OPEN.value == "open"
-    assert StimulatorCircuitStatuses.CLOSED.value == "closed"
+    assert StimulatorCircuitStatuses.SHORT.value == "short"
     assert StimulatorCircuitStatuses.MEDIA.value == "media"
 
     assert issubclass(StimProtocolStatuses, IntEnum) is True

@@ -49,6 +49,7 @@ from .constants import RECORDING_STATE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
+from .constants import StimulatorCircuitStatuses
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import UPDATE_ERROR_STATE
 from .constants import UPDATES_COMPLETE_STATE
@@ -261,6 +262,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._values_to_share_to_server["stimulation_info"] = communication["stim_info"]
                 self._put_communication_into_instrument_comm_queue(communication)
             elif command == "start_stim_checks":
+                self._values_to_share_to_server["stimulator_circuit_statuses"] = [
+                    StimulatorCircuitStatuses.CALCULATING.value
+                ] * 24
                 self._put_communication_into_instrument_comm_queue(communication)
             else:
                 # Tanner (8/9/21): could make this a custom error if needed
