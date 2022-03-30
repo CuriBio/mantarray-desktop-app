@@ -21,7 +21,7 @@ from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .constants import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import STIM_MODULE_ID_TO_WELL_IDX
-from .constants import StimStatuses
+from .constants import StimProtocolStatuses
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
 
@@ -359,7 +359,7 @@ cdef _parse_stim_data(
             time_index = (<uint64_t *> &stim_packet_bytes[bytes_idx + 2])[0]
             subprotocol_idx = stim_packet_bytes[bytes_idx + 2 + TIME_INDEX_LEN]
             bytes_idx += 2 + TIME_INDEX_LEN + 1
-            if stim_status == StimStatuses.RESTARTING:
+            if stim_status == StimProtocolStatuses.RESTARTING:
                 continue
             if well_idx not in stim_data_dict:
                 stim_data_dict[well_idx] = [[time_index], [subprotocol_idx]]

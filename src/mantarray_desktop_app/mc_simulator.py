@@ -81,7 +81,7 @@ from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from .constants import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from .constants import STIM_WELL_IDX_TO_MODULE_ID
-from .constants import StimStatuses
+from .constants import StimProtocolStatuses
 from .exceptions import SerialCommInvalidSamplingPeriodError
 from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
@@ -634,7 +634,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             well_idx = GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
             status_update_bytes += (
                 bytes([STIM_WELL_IDX_TO_MODULE_ID[well_idx]])
-                + bytes([StimStatuses.FINISHED])
+                + bytes([StimProtocolStatuses.FINISHED])
                 + stop_time_index.to_bytes(8, byteorder="little")
                 + bytes([STIM_COMPLETE_SUBPROTOCOL_IDX])
             )
@@ -767,7 +767,9 @@ class MantarrayMcSimulator(InfiniteProcess):
                 protocol_stopping = not protocol["run_until_stopped"] if protocol_complete else False
                 if protocol_complete:
                     protocol_complete_status = (
-                        StimStatuses.FINISHED if protocol_stopping else StimStatuses.RESTARTING
+                        StimProtocolStatuses.FINISHED
+                        if protocol_stopping
+                        else StimProtocolStatuses.RESTARTING
                     )
                     protocol_complete_bytes = bytes([protocol_complete_status]) + status_bytes[1:]
                     if protocol_stopping:
@@ -810,7 +812,11 @@ class MantarrayMcSimulator(InfiniteProcess):
     def _get_stim_status_value(self, protocol_idx: int) -> int:
         subprotocol_idx = self._stim_subprotocol_indices[protocol_idx]
         subprotocol_dict = self._stim_info["protocols"][protocol_idx]["subprotocols"][subprotocol_idx]
-        return StimStatuses.NULL if is_null_subprotocol(subprotocol_dict) else StimStatuses.ACTIVE
+        return (
+            StimProtocolStatuses.NULL
+            if is_null_subprotocol(subprotocol_dict)
+            else StimProtocolStatuses.ACTIVE
+        )
 
     def read(self, size: int = 1) -> bytes:
         """Read the given number of bytes from the simulator."""

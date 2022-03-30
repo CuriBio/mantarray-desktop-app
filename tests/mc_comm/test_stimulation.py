@@ -12,7 +12,7 @@ from mantarray_desktop_app import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
 from mantarray_desktop_app import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
-from mantarray_desktop_app import StimStatuses
+from mantarray_desktop_app import StimProtocolStatuses
 from mantarray_desktop_app import StimulationProtocolUpdateFailedError
 from mantarray_desktop_app import StimulationProtocolUpdateWhileStimulatingError
 from mantarray_desktop_app import StimulationStatusUpdateFailedError
@@ -83,7 +83,7 @@ def test_handle_data_packets__parses_single_stim_data_packet_with_a_single_statu
     stim_packet_payload = (
         bytes([1])  # num status updates in packet
         + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
-        + bytes([StimStatuses.ACTIVE])
+        + bytes([StimProtocolStatuses.ACTIVE])
         + test_time_index.to_bytes(8, byteorder="little")
         + bytes([test_subprotocol_idx])
     )
@@ -108,7 +108,7 @@ def test_handle_data_packets__parses_single_stim_data_packet_with_multiple_statu
     test_time_indices = [random_time_index(), random_time_index(), random_time_index()]
     test_well_idx = randint(0, 23)
     test_subprotocol_indices = [randint(0, 5), randint(0, 5), 0]
-    test_statuses = [StimStatuses.ACTIVE, StimStatuses.NULL, StimStatuses.RESTARTING]
+    test_statuses = [StimProtocolStatuses.ACTIVE, StimProtocolStatuses.NULL, StimProtocolStatuses.RESTARTING]
 
     stim_packet_payload = bytes([3])  # num status updates in packet
     for packet_idx in range(3):
@@ -144,8 +144,8 @@ def test_handle_data_packets__parses_multiple_stim_data_packet_with_multiple_wel
         [randint(0, 5), randint(0, 5), STIM_COMPLETE_SUBPROTOCOL_IDX],
     ]
     test_statuses = [
-        [StimStatuses.RESTARTING, StimStatuses.NULL],
-        [StimStatuses.ACTIVE, StimStatuses.NULL, StimStatuses.FINISHED],
+        [StimProtocolStatuses.RESTARTING, StimProtocolStatuses.NULL],
+        [StimProtocolStatuses.ACTIVE, StimProtocolStatuses.NULL, StimProtocolStatuses.FINISHED],
     ]
 
     stim_packet_payload_1 = (

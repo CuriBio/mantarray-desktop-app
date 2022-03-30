@@ -370,7 +370,7 @@ class StimulatorCircuitStatuses(Enum):
     MEDIA = "media"
 
 
-class StimStatuses(IntEnum):
+class StimProtocolStatuses(IntEnum):
     ACTIVE = 0
     NULL = 1
     RESTARTING = 2

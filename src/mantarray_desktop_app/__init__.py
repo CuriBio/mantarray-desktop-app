@@ -162,7 +162,7 @@ from .constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
 from .constants import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from .constants import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from .constants import STIM_NO_PROTOCOL_ASSIGNED
-from .constants import StimStatuses
+from .constants import StimProtocolStatuses
 from .constants import STM_VID
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SUBPROCESS_JOIN_TIMEOUT_SECONDS
@@ -574,7 +574,7 @@ __all__ = [
     "StimulationProtocolUpdateWhileStimulatingError",
     "StimulationProtocolUpdateFailedError",
     "StimulationStatusUpdateFailedError",
-    "StimStatuses",
+    "StimProtocolStatuses",
     "SERIAL_COMM_STIM_STATUS_PACKET_TYPE",
     "STIM_COMPLETE_SUBPROTOCOL_IDX",
     "STIM_NO_PROTOCOL_ASSIGNED",
