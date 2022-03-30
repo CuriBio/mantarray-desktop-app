@@ -571,11 +571,11 @@ def test_start_recording__returns_no_error_message_with_multiple_hardware_test_r
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
 
     response = test_client.get(
-        f"/start_recording?barcode={MantarrayMcSimulator.default_barcode}&is_hardware_test_recording=True"
+        f"/start_recording?barcode={MantarrayMcSimulator.default_plate_barcode}&is_hardware_test_recording=True"
     )
     assert response.status_code == 200
     response = test_client.get(
-        f"/start_recording?barcode={MantarrayMcSimulator.default_barcode}&is_hardware_test_recording=True"
+        f"/start_recording?barcode={MantarrayMcSimulator.default_plate_barcode}&is_hardware_test_recording=True"
     )
     assert response.status_code == 200
 
@@ -633,7 +633,7 @@ def test_start_recording__returns_error_code_and_message_if_already_recording(
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
     shared_values_dict["system_status"] = RECORDING_STATE
 
-    response = test_client.get(f"/start_recording?barcode={MantarrayMcSimulator.default_barcode}")
+    response = test_client.get(f"/start_recording?barcode={MantarrayMcSimulator.default_plate_barcode}")
     assert response.status_code == 304
     assert response.status.endswith("Already recording") is True
 

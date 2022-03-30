@@ -147,7 +147,8 @@ class MantarrayMcSimulator(InfiniteProcess):
     default_mantarray_serial_number = "MA2022001000"
     default_main_firmware_version = "0.0.0"
     default_channel_firmware_version = "0.0.0"
-    default_barcode = "ML2022001000"
+    default_plate_barcode = "ML2022001000"
+    default_stim_barcode = "MS2022001000"
     default_metadata_values: Dict[UUID, Any] = immutabledict(
         {
             BOOT_FLAGS_UUID: 0b00000000,
@@ -619,7 +620,7 @@ class MantarrayMcSimulator(InfiniteProcess):
     def _handle_barcode(self) -> None:
         if self._ready_to_send_barcode:
             self._send_data_packet(
-                SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE, bytes(self.default_barcode, encoding="ascii")
+                SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE, bytes(self.default_plate_barcode, encoding="ascii")
             )
             self._ready_to_send_barcode = False
 

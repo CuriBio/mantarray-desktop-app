@@ -58,7 +58,8 @@ def test_MantarrayMcSimulator__class_attributes():
     assert MantarrayMcSimulator.default_mantarray_serial_number == "MA2022001000"
     assert MantarrayMcSimulator.default_main_firmware_version == "0.0.0"
     assert MantarrayMcSimulator.default_channel_firmware_version == "0.0.0"
-    assert MantarrayMcSimulator.default_barcode == "ML2022001000"
+    assert MantarrayMcSimulator.default_plate_barcode == "ML2022001000"
+    assert MantarrayMcSimulator.default_stim_barcode == "MS2022001000"
     assert MantarrayMcSimulator.default_metadata_values == {
         BOOT_FLAGS_UUID: 0b00000000,
         MANTARRAY_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_mantarray_serial_number,
@@ -519,5 +520,5 @@ def test_MantarrayMcSimulator__automatically_sends_plate_barcode_after_first_dat
     assert_serial_packet_is_expected(
         barcode_packet,
         SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE,
-        additional_bytes=bytes(MantarrayMcSimulator.default_barcode, encoding="ascii"),
+        additional_bytes=bytes(MantarrayMcSimulator.default_plate_barcode, encoding="ascii"),
     )

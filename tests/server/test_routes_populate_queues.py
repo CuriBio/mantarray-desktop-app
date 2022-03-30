@@ -816,32 +816,32 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_correct_wel
     "scanned_barcode,user_entered_barcode,expected_result,test_description",
     [
         (
-            MantarrayMcSimulator.default_barcode,
-            MantarrayMcSimulator.default_barcode[:-1] + "2",
+            MantarrayMcSimulator.default_plate_barcode,
+            MantarrayMcSimulator.default_plate_barcode[:-1] + "2",
             False,
             "correctly sets value to False with scanned barcode present",
         ),
         (
             "",
-            MantarrayMcSimulator.default_barcode[:-1] + "2",
+            MantarrayMcSimulator.default_plate_barcode[:-1] + "2",
             False,
             "correctly sets value to False after barcode scan fails",
         ),
         (
             None,
-            MantarrayMcSimulator.default_barcode[:-1] + "2",
+            MantarrayMcSimulator.default_plate_barcode[:-1] + "2",
             False,
             "correctly sets value to False without scanned barcode present",
         ),
         (
-            MantarrayMcSimulator.default_barcode,
-            MantarrayMcSimulator.default_barcode,
+            MantarrayMcSimulator.default_plate_barcode,
+            MantarrayMcSimulator.default_plate_barcode,
             True,
             "correctly sets value to True",
         ),
     ],
 )
-def test_start_recording_command__correctly_sets_barcode_from_scanner_value(
+def test_start_recording_command__correctly_sets_plate_barcode_from_scanner_value(
     scanned_barcode,
     user_entered_barcode,
     expected_result,
@@ -868,6 +868,10 @@ def test_start_recording_command__correctly_sets_barcode_from_scanner_value(
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][BARCODE_IS_FROM_SCANNER_UUID]
+        is expected_result
+    )
 
 
 @freeze_time(

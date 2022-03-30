@@ -1245,13 +1245,13 @@ def test_start_recording__returns_error_code_and_message_if_called_with_is_hardw
 
     shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
     response = test_client.get(
-        f"/start_recording?barcode={MantarrayMcSimulator.default_barcode}&is_hardware_test_recording=True"
+        f"/start_recording?barcode={MantarrayMcSimulator.default_plate_barcode}&is_hardware_test_recording=True"
     )
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
     shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
     response = test_client.get(
-        f"/start_recording?barcode={MantarrayMcSimulator.default_barcode}&is_hardware_test_recording=False"
+        f"/start_recording?barcode={MantarrayMcSimulator.default_plate_barcode}&is_hardware_test_recording=False"
     )
     assert response.status_code == 403
     assert (
@@ -1539,7 +1539,7 @@ def test_after_request__redacts_mantarray_nicknames_from_start_recording_log_mes
     spied_server_logger = mocker.spy(server.logger, "info")
 
     expected_nickname = shared_values_dict["mantarray_nickname"][board_idx]
-    response = test_client.get(f"/start_recording?barcode={MantarrayMcSimulator.default_barcode}")
+    response = test_client.get(f"/start_recording?barcode={MantarrayMcSimulator.default_plate_barcode}")
     assert response.status_code == 200
     response_json = response.get_json()
     assert (

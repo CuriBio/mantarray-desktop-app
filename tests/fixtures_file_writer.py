@@ -117,7 +117,7 @@ GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
         USER_ACCOUNT_ID_UUID: CURI_BIO_USER_ACCOUNT_ID,
         SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
         SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
-        PLATE_BARCODE_UUID: MantarrayMcSimulator.default_barcode,  # this will work for beta 1 as well
+        PLATE_BARCODE_UUID: MantarrayMcSimulator.default_plate_barcode,  # this will work for beta 1 as well
         BACKEND_LOG_UUID: uuid.UUID("9a3d03f2-1f5a-4ecd-b843-0dc9ecde5f67"),
         COMPUTER_NAME_HASH_UUID: hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest(),
         BARCODE_IS_FROM_SCANNER_UUID: True,
