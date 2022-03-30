@@ -4,6 +4,7 @@ import datetime
 import json
 import os
 import queue
+from random import choice
 import threading
 import time
 
@@ -38,6 +39,7 @@ from mantarray_desktop_app import UPDATE_ERROR_STATE
 from mantarray_desktop_app import UPDATES_COMPLETE_STATE
 from mantarray_desktop_app import UPDATES_NEEDED_STATE
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.server import queue_command_to_instrument_comm
 from mantarray_desktop_app.utils import redact_sensitive_info_from_path
 import numpy as np
@@ -1577,10 +1579,7 @@ def test_MantarrayProcessesMonitor__does_not_update_any_values_or_send_barcode_u
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     expected_board_idx = 0
-    expected_dict = {
-        "plate_barcode": expected_barcode,
-        "barcode_status": None,
-    }
+    expected_dict = {"plate_barcode": expected_barcode, "barcode_status": None}
     shared_values_dict["barcodes"] = {expected_board_idx: expected_dict}
 
     from_instrument_comm_queue = (
@@ -1824,3 +1823,37 @@ def test_MantarrayProcessesMonitor__updates_stimulation_running_list_and_stimula
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["stimulation_running"] == [False] * 24
     assert shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] == [None]
+
+
+def test_MantarrayProcessesMonitor__passes_stim_status_check_results_from_mc_comm_to_websocket_queue__and_stores_them_in_shared_values_dictionary(
+    test_monitor, test_process_manager_creator
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+
+    instrument_comm_to_main = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
+    )
+    queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
+
+    test_num_wells = 24
+    possible_stim_statuses = [member.value for member in StimulatorCircuitStatuses.__members__.values()]
+    stim_check_results = [choice(possible_stim_statuses) for _ in range(test_num_wells)]
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "communication_type": "stimulation",
+            "command": "start_stim_checks",
+            "stimulator_circuit_statuses": stim_check_results,
+        },
+        instrument_comm_to_main,
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["stimulator_circuit_statuses"] == stim_check_results
+
+    confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
+    ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert ws_message == {
+        "data_type": "stimulator_circuit_statuses",
+        "data_json": json.dumps(stim_check_results),
+    }

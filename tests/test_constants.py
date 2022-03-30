@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import datetime
+from enum import Enum
 from enum import IntEnum
 import uuid
 
@@ -164,6 +165,7 @@ from mantarray_desktop_app import VALID_SCRIPTING_COMMANDS
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH
+from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 
@@ -513,6 +515,11 @@ def test_serial_comm():
     assert STIM_COMPLETE_SUBPROTOCOL_IDX == 255
 
     assert STIM_NO_PROTOCOL_ASSIGNED == 255
+
+    assert issubclass(StimulatorCircuitStatuses, Enum) is True
+    assert StimulatorCircuitStatuses.OPEN.value == "open"
+    assert StimulatorCircuitStatuses.CLOSED.value == "closed"
+    assert StimulatorCircuitStatuses.MEDIA.value == "media"
 
     assert issubclass(StimStatuses, IntEnum) is True
     assert StimStatuses.ACTIVE == 0

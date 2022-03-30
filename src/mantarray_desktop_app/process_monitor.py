@@ -472,6 +472,15 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     self._values_to_share_to_server["stimulation_running"][well_idx] = False
                 if not any(self._values_to_share_to_server["stimulation_running"]):
                     self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [None]
+            elif command == "start_stim_checks":
+                stimulator_circuit_statuses = communication["stimulator_circuit_statuses"]
+                self._values_to_share_to_server["stimulator_circuit_statuses"] = stimulator_circuit_statuses
+                self._queue_websocket_message(
+                    {
+                        "data_type": "stimulator_circuit_statuses",
+                        "data_json": json.dumps(stimulator_circuit_statuses),
+                    }
+                )
         elif communication_type == "board_connection_status_change":
             board_idx = communication["board_index"]
             self._values_to_share_to_server["in_simulation_mode"] = not communication["is_connected"]

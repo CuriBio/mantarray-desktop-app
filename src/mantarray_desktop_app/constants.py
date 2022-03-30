@@ -9,6 +9,7 @@ The following constants are based off the geometry of Mantarray Board Rev 2
 * WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 """
 import datetime
+from enum import Enum
 from enum import IntEnum
 from typing import Dict
 from typing import Tuple
@@ -361,6 +362,12 @@ STIM_MAX_PULSE_DURATION_MICROSECONDS = int(50e3)
 STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL = 50
 STIM_COMPLETE_SUBPROTOCOL_IDX = 255
 STIM_NO_PROTOCOL_ASSIGNED = 255
+
+
+class StimulatorCircuitStatuses(Enum):
+    OPEN = "open"
+    CLOSED = "closed"
+    MEDIA = "media"
 
 
 class StimStatuses(IntEnum):
