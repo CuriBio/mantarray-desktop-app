@@ -424,7 +424,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
             msg = f"Communication from the Instrument Controller: {comm_copy}"
         else:
             # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
-            msg = f"Communication from the Instrument Controller: {communication}".replace(r"\\", "\\")
+            msg = f"Communication from the Instrument Controller: {communication}"
+        msg = msg.replace(r"\\", "\\")
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.info(msg)
@@ -811,7 +812,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self, shutdown_server: bool = True, error: bool = True
     ) -> None:
         process_items = self._process_manager.hard_stop_and_join_processes(shutdown_server=shutdown_server)
-        msg = f"Remaining items in process queues: {process_items}"
+        msg = f"Remaining items in process queues: {process_items}".replace(r"\\", "\\")
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             if error:

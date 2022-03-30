@@ -2,6 +2,7 @@
 import copy
 import logging
 from multiprocessing import Queue
+from random import randint
 
 from freezegun import freeze_time
 from mantarray_desktop_app import create_data_packet
@@ -231,8 +232,8 @@ def test_McCommunicationProcess_teardown_after_loop__puts_teardown_log_message_i
     )
 
 
-def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_serial_data___if_error_occurred_in_mc_comm(
-    patch_print, four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_serial_data__and_unread_data_in_cache__if_error_occurred_in_mc_comm(
+    patch_print, four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
@@ -241,6 +242,10 @@ def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
+
+    # add data to mc_process cache
+    expected_cache_data = bytes([randint(0, 255) for _ in range(15)])
+    mc_process._data_packet_cache = expected_cache_data
 
     # add one data packet with bad magic word to raise error and additional bytes to flush from simulator
     test_read_bytes = [
@@ -264,6 +269,7 @@ def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_
     expected_bytes = bytes(
         sum([len(packet) for packet in test_read_bytes]) - len(SERIAL_COMM_MAGIC_WORD_BYTES)
     )
+    assert str(expected_cache_data) in actual["message"]
     assert str(expected_bytes) in actual["message"]
 
 

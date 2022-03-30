@@ -320,12 +320,10 @@ class McCommunicationProcess(InstrumentCommProcess):
         )
         board = self._board_connections[board_idx]
         if board is not None:
-            # flush and log remaining serial data
-            remaining_serial_data = board.read_all()
-            serial_data_flush_msg = f"Remaining Serial Data {str(remaining_serial_data)}"
+            # log any data in cache, flush and log remaining serial data
             put_log_message_into_queue(
                 logging.INFO,
-                serial_data_flush_msg,
+                f"Remaining serial data in cache: {str(self._data_packet_cache)}, in buffer: {str(board.read_all())}",
                 self._board_queues[board_idx][1],
                 self.get_logging_level(),
             )
