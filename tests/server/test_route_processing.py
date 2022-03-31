@@ -889,6 +889,7 @@ def test_send_single_start_managed_acquisition_command__sets_system_status_to_bu
     shared_values_dict["mantarray_serial_number"] = {
         board_idx: RunningFIFOSimulator.default_mantarray_serial_number
     }
+    shared_values_dict["stimulator_circuit_statuses"] = [None] * 24
 
     comm_to_ok_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     comm_from_ok_queue = (
@@ -1245,13 +1246,13 @@ def test_start_recording__returns_error_code_and_message_if_called_with_is_hardw
 
     shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
     response = test_client.get(
-        f"/start_recording?barcode={MantarrayMcSimulator.default_plate_barcode}&is_hardware_test_recording=True"
+        f"/start_recording?plate_barcode={MantarrayMcSimulator.default_plate_barcode}&is_hardware_test_recording=True"
     )
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
     shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
     response = test_client.get(
-        f"/start_recording?barcode={MantarrayMcSimulator.default_plate_barcode}&is_hardware_test_recording=False"
+        f"/start_recording?plate_barcode={MantarrayMcSimulator.default_plate_barcode}&is_hardware_test_recording=False"
     )
     assert response.status_code == 403
     assert (
@@ -1300,7 +1301,7 @@ def test_start_recording_command__gets_processed_with_given_time_index_parameter
         PLATE_BARCODE_UUID
     ]
     response = test_client.get(
-        f"/start_recording?barcode={expected_barcode}&active_well_indices=3&time_index={expected_time_index}"
+        f"/start_recording?plate_barcode={expected_barcode}&active_well_indices=3&time_index={expected_time_index}"
     )
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
@@ -1357,7 +1358,7 @@ def test_start_recording_command__gets_processed_in_beta_1_mode__and_creates_a_f
         PLATE_BARCODE_UUID
     ]
     response = test_client.get(
-        f"/start_recording?barcode={expected_barcode}&active_well_indices=3&is_hardware_test_recording=False"
+        f"/start_recording?plate_barcode={expected_barcode}&active_well_indices=3&is_hardware_test_recording=False"
     )
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
@@ -1403,7 +1404,7 @@ def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_all
     ]
 
     response = test_client.get(
-        f"/start_recording?barcode={expected_barcode}&is_hardware_test_recording=False"
+        f"/start_recording?plate_barcode={expected_barcode}&is_hardware_test_recording=False"
     )
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
@@ -1539,7 +1540,7 @@ def test_after_request__redacts_mantarray_nicknames_from_start_recording_log_mes
     spied_server_logger = mocker.spy(server.logger, "info")
 
     expected_nickname = shared_values_dict["mantarray_nickname"][board_idx]
-    response = test_client.get(f"/start_recording?barcode={MantarrayMcSimulator.default_plate_barcode}")
+    response = test_client.get(f"/start_recording?plate_barcode={MantarrayMcSimulator.default_plate_barcode}")
     assert response.status_code == 200
     response_json = response.get_json()
     assert (

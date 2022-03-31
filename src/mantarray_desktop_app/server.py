@@ -569,16 +569,16 @@ def start_recording() -> Response:
     """Tell the FileWriter to begin recording data to disk.
 
     Can be invoked by: curl http://localhost:4567/start_recording
-    curl http://localhost:4567/start_recording?active_well_indices=2,5,9&barcode=ML2022001000&time_index=9600&is_hardware_test_recording=True
+    curl http://localhost:4567/start_recording?active_well_indices=2,5,9&plate_barcode=ML2022001000&stim_barcode=MS2022001000&time_index=9600&is_hardware_test_recording=True
 
     Args:
         active_well_indices: [Optional, default=all 24] CSV of well indices to record from
         time_index: [Optional, int] microseconds since acquisition began to start the recording at. Defaults to when this command is received
     """
-    if "barcode" not in request.args:
-        return Response(status="400 Request missing 'barcode' parameter")
-    barcode = request.args["barcode"]
-    error_message = check_barcode_for_errors(barcode)
+    if "plate_barcode" not in request.args:
+        return Response(status="400 Request missing 'plate_barcode' parameter")
+    plate_barcode = request.args["plate_barcode"]
+    error_message = check_barcode_for_errors(plate_barcode)
     if error_message:
         return Response(status=f"400 {error_message}")
 
@@ -607,7 +607,7 @@ def start_recording() -> Response:
         shared_values_dict,
         time_index=time_index_str,
         active_well_indices=active_well_indices,
-        barcode=barcode,
+        barcodes={"plate_barcode": plate_barcode},
         is_hardware_test_recording=is_hardware_test_recording,
     )
 

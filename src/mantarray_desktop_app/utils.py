@@ -238,7 +238,7 @@ def _create_start_recording_command(
     shared_values_dict: Dict[str, Any],
     time_index: Optional[Union[str, int]] = 0,
     active_well_indices: Optional[List[int]] = None,
-    barcode: Union[str, UUID] = NOT_APPLICABLE_H5_METADATA,
+    barcodes: Dict[str, Union[str, UUID]] = {"plate_barcode": NOT_APPLICABLE_H5_METADATA},
     is_calibration_recording: bool = False,
     is_hardware_test_recording: bool = False,
 ) -> Dict[str, Any]:
@@ -262,8 +262,10 @@ def _create_start_recording_command(
         active_well_indices = list(range(24))
 
     are_barcodes_matching: Union[bool, UUID] = NOT_APPLICABLE_H5_METADATA
-    if isinstance(barcode, str):
-        are_barcodes_matching = _check_scanned_barcode_vs_user_value(barcode, shared_values_dict)
+    if isinstance(barcodes["plate_barcode"], str):
+        are_barcodes_matching = _check_scanned_barcode_vs_user_value(
+            barcodes["plate_barcode"], shared_values_dict
+        )
 
     customer_account_id = shared_values_dict["config_settings"].get(
         "customer_account_id", NOT_APPLICABLE_H5_METADATA
@@ -290,7 +292,7 @@ def _create_start_recording_command(
             MAIN_FIRMWARE_VERSION_UUID: shared_values_dict["main_firmware_version"][board_idx],
             MANTARRAY_SERIAL_NUMBER_UUID: shared_values_dict["mantarray_serial_number"][board_idx],
             MANTARRAY_NICKNAME_UUID: shared_values_dict["mantarray_nickname"][board_idx],
-            PLATE_BARCODE_UUID: barcode,
+            PLATE_BARCODE_UUID: barcodes["plate_barcode"],
             BARCODE_IS_FROM_SCANNER_UUID: are_barcodes_matching,
         },
         "timepoint_to_begin_recording_at": begin_time_index,

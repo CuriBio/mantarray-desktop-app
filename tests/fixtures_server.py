@@ -117,6 +117,8 @@ def put_generic_beta_2_start_recording_info_in_dict(shared_values_dict):
     shared_values_dict["beta_2_mode"] = True
 
     board_idx = 0
+    num_wells = 24
+
     timestamp = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         UTC_BEGINNING_DATA_ACQUISTION_UUID
     ]
@@ -148,8 +150,9 @@ def put_generic_beta_2_start_recording_info_in_dict(shared_values_dict):
     shared_values_dict["instrument_metadata"] = {board_idx: MantarrayMcSimulator.default_metadata_values}
 
     shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [None]
-    shared_values_dict["stimulation_running"] = [False] * 24
+    shared_values_dict["stimulation_running"] = [False] * num_wells
     shared_values_dict["stimulation_info"] = None
+    shared_values_dict["stimulator_circuit_statuses"] = [None] * num_wells
 
 
 @pytest.fixture(scope="function", name="test_socketio_client")

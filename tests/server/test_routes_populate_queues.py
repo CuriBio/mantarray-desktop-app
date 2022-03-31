@@ -15,6 +15,7 @@ from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import utils
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.mc_simulator import MantarrayMcSimulator
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import BACKEND_LOG_UUID
@@ -663,6 +664,7 @@ def test_send_single_start_managed_acquisition_command__populates_queues(
 
     board_idx = 0
     shared_values_dict["mantarray_serial_number"] = {board_idx: "M02001801"}
+    shared_values_dict["stimulator_circuit_statuses"] = [None] * 24
 
     response = test_client.get("/start_managed_acquisition")
     assert response.status_code == 200
@@ -729,7 +731,7 @@ def test_start_recording_command__populates_queue__with_correct_adc_offset_value
     barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
-    response = test_client.get(f"/start_recording?barcode={barcode}")
+    response = test_client.get(f"/start_recording?plate_barcode={barcode}")
     assert response.status_code == 200
 
     comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -751,7 +753,7 @@ def test_start_recording_command__populates_queue__with_given_time_index_paramet
         PLATE_BARCODE_UUID
     ]
     response = test_client.get(
-        f"/start_recording?barcode={barcode}&time_index={expected_time_index}&is_hardware_test_recording=false"
+        f"/start_recording?plate_barcode={barcode}&time_index={expected_time_index}&is_hardware_test_recording=false"
     )
     assert response.status_code == 200
 
@@ -778,7 +780,7 @@ def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_
         PLATE_BARCODE_UUID
     ]
     response = test_client.get(
-        f"/start_recording?barcode={expected_barcode}&active_well_indices=0,5,8&is_hardware_test_recording=false"
+        f"/start_recording?plate_barcode={expected_barcode}&active_well_indices=0,5,8&is_hardware_test_recording=false"
     )
     assert response.status_code == 200
 
@@ -801,7 +803,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_correct_wel
         PLATE_BARCODE_UUID
     ]
     response = test_client.get(
-        f"/start_recording?barcode={expected_barcode}&is_hardware_test_recording=False"
+        f"/start_recording?plate_barcode={expected_barcode}&is_hardware_test_recording=False"
     )
     assert response.status_code == 200
 
@@ -860,7 +862,7 @@ def test_start_recording_command__correctly_sets_plate_barcode_from_scanner_valu
         shared_values_dict["barcodes"][board_idx]["plate_barcode"] = scanned_barcode
 
     response = test_client.get(
-        f"/start_recording?barcode={user_entered_barcode}&is_hardware_test_recording=False"
+        f"/start_recording?plate_barcode={user_entered_barcode}&is_hardware_test_recording=False"
     )
     assert response.status_code == 200
 
@@ -902,7 +904,7 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
         PLATE_BARCODE_UUID
     ]
     response = test_client.get(
-        f"/start_recording?barcode={expected_barcode}&is_hardware_test_recording=false"
+        f"/start_recording?plate_barcode={expected_barcode}&is_hardware_test_recording=false"
     )
     assert response.status_code == 200
 
@@ -1024,7 +1026,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
         PLATE_BARCODE_UUID
     ]
     response = test_client.get(
-        f"/start_recording?barcode={expected_barcode}&is_hardware_test_recording=false"
+        f"/start_recording?plate_barcode={expected_barcode}&is_hardware_test_recording=false"
     )
     assert response.status_code == 200
 
@@ -1152,7 +1154,9 @@ def test_start_recording_command__beta_2_mode__populates_queue_with_stim_metadat
     test_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
-    response = test_client.get(f"/start_recording?barcode={test_barcode}&is_hardware_test_recording=false")
+    response = test_client.get(
+        f"/start_recording?plate_barcode={test_barcode}&is_hardware_test_recording=false"
+    )
     assert response.status_code == 200
 
     comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -1227,7 +1231,11 @@ def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_statu
     shared_values_dict["stimulation_info"] = {"protocols": [None] * 4, "protocol_assignments": {}}
 
     expected_status_bool = test_status in ("true", "True")
-    shared_values_dict["stimulation_running"] = [not expected_status_bool] * 24
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [not expected_status_bool] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
 
     response = test_client.post(f"/set_stim_status?running={test_status}")
     assert response.status_code == 200
@@ -1298,7 +1306,9 @@ def test_start_calibration__populates_queue_to_process_monitor_with_correct_comm
     shared_values_dict["system_status"] = CALIBRATION_NEEDED_STATE
     shared_values_dict["beta_2_mode"] = test_beta_2_mode
     if test_beta_2_mode:
-        shared_values_dict["stimulation_running"] = [False] * 24
+        test_num_wells = 24
+        shared_values_dict["stimulation_running"] = [False] * test_num_wells
+        shared_values_dict["stimulator_circuit_statuses"] = [None] * test_num_wells
 
     response = test_client.get("/start_calibration")
     assert response.status_code == 200
@@ -1319,7 +1329,10 @@ def test_start_stim_checks__populates_queue_to_process_monitor_with_correct_comm
     ) = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = [False] * 24
+
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = [None] * test_num_wells
 
     expected_comm_dict = {"communication_type": "stimulation", "command": "start_stim_checks"}
 

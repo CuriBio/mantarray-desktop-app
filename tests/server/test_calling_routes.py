@@ -554,7 +554,7 @@ def test_update_settings__returns_error_message_when_unexpected_argument_is_give
 
 
 def test_route_error_message_is_logged(mocker, test_client):
-    expected_error_msg = "400 Request missing 'barcode' parameter"
+    expected_error_msg = "400 Request missing 'plate_barcode' parameter"
 
     mocked_logger = mocker.spy(server.logger, "info")
 
@@ -571,11 +571,11 @@ def test_start_recording__returns_no_error_message_with_multiple_hardware_test_r
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
 
     response = test_client.get(
-        f"/start_recording?barcode={MantarrayMcSimulator.default_plate_barcode}&is_hardware_test_recording=True"
+        f"/start_recording?plate_barcode={MantarrayMcSimulator.default_plate_barcode}&is_hardware_test_recording=True"
     )
     assert response.status_code == 200
     response = test_client.get(
-        f"/start_recording?barcode={MantarrayMcSimulator.default_plate_barcode}&is_hardware_test_recording=True"
+        f"/start_recording?plate_barcode={MantarrayMcSimulator.default_plate_barcode}&is_hardware_test_recording=True"
     )
     assert response.status_code == 200
 
@@ -585,7 +585,7 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_not_given
 ):
     response = test_client.get("/start_recording")
     assert response.status_code == 400
-    assert response.status.endswith("Request missing 'barcode' parameter") is True
+    assert response.status.endswith("Request missing 'plate_barcode' parameter") is True
 
 
 @pytest.mark.parametrize(
@@ -608,7 +608,7 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
     test_barcode,
     expected_error_message,
 ):
-    response = test_client.get(f"/start_recording?barcode={test_barcode}")
+    response = test_client.get(f"/start_recording?plate_barcode={test_barcode}")
     assert response.status_code == 400
     assert response.status.endswith(expected_error_message) is True
 
@@ -622,7 +622,7 @@ def test_start_recording__allows_correct_barcode_headers(
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
-    response = test_client.get(f"/start_recording?barcode={test_barcode}")
+    response = test_client.get(f"/start_recording?plate_barcode={test_barcode}")
     assert response.status_code == 200
 
 
@@ -633,7 +633,7 @@ def test_start_recording__returns_error_code_and_message_if_already_recording(
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
     shared_values_dict["system_status"] = RECORDING_STATE
 
-    response = test_client.get(f"/start_recording?barcode={MantarrayMcSimulator.default_plate_barcode}")
+    response = test_client.get(f"/start_recording?plate_barcode={MantarrayMcSimulator.default_plate_barcode}")
     assert response.status_code == 304
     assert response.status.endswith("Already recording") is True
 

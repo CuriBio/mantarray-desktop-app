@@ -258,7 +258,7 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
             "metadata_to_copy_onto_main_file_attributes"
         ][PLATE_BARCODE_UUID]
         response = requests.get(
-            f"{get_api_endpoint()}start_recording?barcode={expected_barcode}&is_hardware_test_recording=False"
+            f"{get_api_endpoint()}start_recording?plate_barcode={expected_barcode}&is_hardware_test_recording=False"
         )
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
@@ -422,7 +422,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         converted_start_recording_time_index_1 = 9600 / MICROSECONDS_PER_CENTIMILLISECOND
         # Tanner (12/30/20): Start recording with barcode1 to create first set of files. Don't start recording at time index 0 since that data frame is discarded due to bit file issues
         response = requests.get(
-            f"{get_api_endpoint()}start_recording?barcode={expected_barcode_1}&time_index={start_recording_time_index_1}&is_hardware_test_recording=False"
+            f"{get_api_endpoint()}start_recording?plate_barcode={expected_barcode_1}&time_index={start_recording_time_index_1}&is_hardware_test_recording=False"
         )
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
@@ -440,7 +440,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         # Tanner (12/30/20): Start recording with barcode2 to create second set of files. Use known timepoint a just after end of first set of data
         expected_start_index_2 = expected_stop_index_1 + 1
         response = requests.get(
-            f"{get_api_endpoint()}start_recording?barcode={expected_barcode_2}&time_index={expected_start_index_2}&is_hardware_test_recording=False"
+            f"{get_api_endpoint()}start_recording?plate_barcode={expected_barcode_2}&time_index={expected_start_index_2}&is_hardware_test_recording=False"
         )
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
@@ -764,7 +764,7 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
             "metadata_to_copy_onto_main_file_attributes"
         ][PLATE_BARCODE_UUID]
         response = requests.get(
-            f"{get_api_endpoint()}start_recording?barcode={expected_barcode}&is_hardware_test_recording=False"
+            f"{get_api_endpoint()}start_recording?plate_barcode={expected_barcode}&is_hardware_test_recording=False"
         )
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 5) is True
@@ -914,7 +914,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         ][PLATE_BARCODE_UUID]
         expected_start_index_1 = NUM_INITIAL_PACKETS_TO_DROP * DEFAULT_SAMPLING_PERIOD
         response = requests.get(
-            f"{get_api_endpoint()}start_recording?barcode={expected_barcode_1}&time_index={expected_start_index_1}&is_hardware_test_recording=False"
+            f"{get_api_endpoint()}start_recording?plate_barcode={expected_barcode_1}&time_index={expected_start_index_1}&is_hardware_test_recording=False"
         )
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
@@ -970,7 +970,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
 
         # Tanner (6/1/21): Start recording with second barcode to create second set of files
         response = requests.get(
-            f"{get_api_endpoint()}start_recording?barcode={expected_barcode_2}&time_index={expected_start_index_2}&is_hardware_test_recording=False"
+            f"{get_api_endpoint()}start_recording?plate_barcode={expected_barcode_2}&time_index={expected_start_index_2}&is_hardware_test_recording=False"
         )
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
