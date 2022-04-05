@@ -207,12 +207,11 @@ class McCommunicationProcess(InstrumentCommProcess):
     def __init__(self, *args: Any, hardware_test_mode: bool = False, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self._error: Optional[Exception] = None
-        self._instrument_error_status_codes: Optional[Dict[str, int]] = None
+        self._instrument_error = False
         self._in_simulation_mode = False
         self._simulator_error_queues: List[
             Optional[Queue[Tuple[Exception, str]]]  # pylint: disable=unsubscriptable-object
         ] = [None] * len(self._board_queues)
-        self._is_instrument_in_error_state = False
         self._num_wells = 24
         self._is_registered_with_serial_comm: List[bool] = [False] * len(self._board_queues)
         self._auto_get_metadata = False
@@ -331,20 +330,14 @@ class McCommunicationProcess(InstrumentCommProcess):
                 if board.is_alive():
                     board.hard_stop()  # hard stop to drain all queues of simulator
                     board.join()
-            elif self._error and self._instrument_error_status_codes is None:
+            elif self._error and not self._instrument_error:
+                # TODO probably a better way to handle a FW error here
                 self._send_data_packet(board_idx, SERIAL_COMM_REBOOT_PACKET_TYPE)
         super()._teardown_after_loop()
 
     def _report_fatal_error(self, the_err: Exception) -> None:
         self._error = the_err
         super()._report_fatal_error(the_err)
-
-    def _report_instrument_firmware_error(self, reboot_timeout: bool = False) -> None:
-        error_msg = "Instrument reported firmware error"
-        if reboot_timeout:
-            error_msg += ", and failed to complete reboot before timeout"
-        error_msg += f". Status codes: {self._instrument_error_status_codes}"
-        raise InstrumentFirmwareError(error_msg)
 
     def _reset_stim_status_buffers(self) -> None:
         self._stim_status_buffers = {well_idx: [[], []] for well_idx in range(self._num_wells)}
@@ -603,6 +596,14 @@ class McCommunicationProcess(InstrumentCommProcess):
                 raise UnrecognizedCommandFromMainToMcCommError(
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
                 )
+        elif communication_type == "test":  # pragma: no cover
+            if comm_from_main["command"] == "trigger_firmware_error":
+                packet_type = 103
+                bytes_to_send = bytes(comm_from_main["first_two_status_codes"])
+            else:
+                raise UnrecognizedCommandFromMainToMcCommError(
+                    f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
+                )
         else:
             raise UnrecognizedCommandFromMainToMcCommError(
                 f"Invalid communication_type: {communication_type}"
@@ -732,9 +733,6 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         board_idx = 0
         if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
-            if self._instrument_error_status_codes is not None:
-                # if _instrument_error_status_codes, it means that this beacon is signaling the completion of a automatic instrument reboot that occurred after an error ping was sent
-                self._report_instrument_firmware_error()
             self._process_status_beacon(packet_payload)
         elif packet_type == SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE:
             raise NotImplementedError(
@@ -752,7 +750,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             prev_command = self._commands_awaiting_response.popleft()
             if prev_command["command"] == "handshake":
                 status_codes_dict = convert_status_code_bytes_to_dict(response_data)
-                self._log_status_codes(status_codes_dict, "Handshake Response")
+                self._handle_status_codes(status_codes_dict, "Handshake Response")
                 return
             if prev_command["command"] == "get_metadata":
                 prev_command["board_index"] = board_idx
@@ -881,16 +879,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                 "valid": check_barcode_is_valid(barcode),
             }
             self._board_queues[board_idx][1].put_nowait(barcode_comm)
-        elif packet_type == SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE:
-            self._instrument_error_status_codes = convert_status_code_bytes_to_dict(packet_payload[1:])
-            self._send_data_packet(board_idx, SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE)
-            if not packet_payload[0]:
-                # if this error ping was sent after an automatic reboot of the instrument, report error immediatelys
-                self._report_instrument_firmware_error()
-            else:
-                # set up values for reboot
-                self._is_waiting_for_reboot = True
-                self._time_of_reboot_start = perf_counter()
         else:
             raise UnrecognizedSerialCommPacketTypeError(f"Packet Type ID: {packet_type} is not defined")
 
@@ -912,8 +900,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         status_codes_dict = convert_status_code_bytes_to_dict(
             packet_payload[:SERIAL_COMM_STATUS_CODE_LENGTH_BYTES]
         )
-        self._log_status_codes(status_codes_dict, "Status Beacon")
-        if status_codes_dict["main"] == SERIAL_COMM_OKAY_CODE and self._auto_get_metadata:
+        self._handle_status_codes(status_codes_dict, "Status Beacon")
+        if status_codes_dict["main_status"] == SERIAL_COMM_OKAY_CODE and self._auto_get_metadata:
             self._send_data_packet(
                 board_idx,
                 SERIAL_COMM_GET_METADATA_PACKET_TYPE,
@@ -1129,10 +1117,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             return
         oldest_command = self._commands_awaiting_response[0]
         secs_since_command_sent = _get_secs_since_command_sent(oldest_command["timepoint"])
-        if (
-            secs_since_command_sent >= SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS
-            and self._instrument_error_status_codes is None
-        ):
+        if secs_since_command_sent >= SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS:
             raise SerialCommCommandResponseTimeoutError(oldest_command["command"])
 
     def _check_reboot_status(self) -> None:
@@ -1140,10 +1125,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             return
         reboot_dur_secs = _get_secs_since_reboot_start(self._time_of_reboot_start)
         if reboot_dur_secs >= MAX_MC_REBOOT_DURATION_SECONDS:
-            if self._instrument_error_status_codes:
-                self._report_instrument_firmware_error(reboot_timeout=True)
-            else:
-                raise InstrumentRebootTimeoutError()
+            raise InstrumentRebootTimeoutError()
 
     def _check_firmware_update_status(self) -> None:
         if self._time_of_firmware_update_start is None:
@@ -1157,11 +1139,17 @@ class McCommunicationProcess(InstrumentCommProcess):
         if update_dur_secs >= timeout_dur:
             raise FirmwareUpdateTimeoutError(self._firmware_update_type)
 
-    def _log_status_codes(self, status_codes_dict: Dict[str, int], comm_type: str) -> None:
-        log_msg = f"{comm_type} received from instrument. Status Codes: {status_codes_dict}"
+    def _handle_status_codes(self, status_codes_dict: Dict[str, int], comm_type: str) -> None:
+        # TODO unit test this
+        status_codes_msg = f"{comm_type} received from instrument. Status Codes: {status_codes_dict}"
+        if any(status_codes_dict.values()):
+            board_idx = 0
+            self._send_data_packet(board_idx, SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE)
+            self._instrument_error = True
+            raise InstrumentFirmwareError(status_codes_msg)
         put_log_message_into_queue(
             logging.INFO,
-            log_msg,
+            status_codes_msg,
             self._board_queues[0][1],
             self.get_logging_level(),
         )

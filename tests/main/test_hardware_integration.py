@@ -56,6 +56,8 @@ RANDOM_STIM_INFO_2 = create_random_stim_info()  # type: ignore
 
 COMMAND_RESPONSE_SEQUENCE = [
     ("get_metadata", "get_metadata"),
+    # ERROR HANDLING
+    # ("trigger_firmware_error", None),
     # MAGNETOMETERS
     ("start_managed_acquisition", "start_md_1"),
     ("start_managed_acquisition", "start_md_2"),
@@ -77,6 +79,11 @@ COMMAND_RESPONSE_SEQUENCE = [
 ]
 
 COMMANDS_FROM_MAIN = {
+    "trigger_firmware_error": {
+        "communication_type": "test",
+        "command": "trigger_firmware_error",
+        "first_two_status_codes": [42, 42],
+    },
     "start_managed_acquisition": {
         "communication_type": "acquisition_manager",
         "command": "start_managed_acquisition",
@@ -247,7 +254,7 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
             command_dict = COMMANDS_FROM_MAIN[command]
             print(f"Sending command: {command}, expecting response: {response_key}")  # allow-print
             input_queue.put_nowait(command_dict)
-            expected_response = RESPONSES[response_key]
+            expected_response = {} if response_key is None else RESPONSES[response_key]
         else:
             print("Waiting for metadata")  # allow-print
             expected_response = RESPONSES[response_key]
@@ -256,7 +263,7 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
         error = None
         try:
             while not response_found:
-                # check for error
+                # check for error. using empty() instead of get with a timeout to speed up test
                 if not error_queue.empty():
                     try:
                         error = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -284,7 +291,7 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
                         msg_to_main["command"] == "update_completed"
                         and msg_to_main["firmware_type"] == "main"
                     )
-                elif comm_type == expected_response["communication_type"]:
+                elif comm_type == expected_response.get("communication_type", None):
                     if msg_to_main.get("command", "") == "status_update":
                         print("###", msg_to_main)  # allow-print
                         continue
@@ -316,6 +323,9 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
                 elif msg_to_main.get("command", None) == "set_time" or comm_type == "barcode_comm":
                     # this branch not needed for real board
                     print("@@@", msg_to_main)  # allow-print
+                    continue
+                elif not expected_response:
+                    # for triggering fw error 
                     continue
                 else:
                     # o/w stop test
