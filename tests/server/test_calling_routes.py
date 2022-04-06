@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 from random import randint
+import urllib
 
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
@@ -305,7 +306,7 @@ def test_start_calibration__returns_error_code_and_message_if_called_in_beta_2_m
     ] * test_num_wells
     # set random circuit status to calculating
     shared_values_dict["stimulator_circuit_statuses"][
-        randint(0, test_num_wells)
+        randint(0, test_num_wells - 1)
     ] = StimulatorCircuitStatuses.CALCULATING.value
 
     response = test_client.get("/start_calibration")
@@ -392,7 +393,7 @@ def test_set_start_stim_checks__returns_code_and_message_if_checks_are_already_r
     ] * test_num_wells
     # set random circuit status to calculating
     shared_values_dict["stimulator_circuit_statuses"][
-        randint(0, test_num_wells)
+        randint(0, test_num_wells - 1)
     ] = StimulatorCircuitStatuses.CALCULATING.value
 
     response = test_client.post("/start_stim_checks")
@@ -494,7 +495,7 @@ def test_start_managed_acquisition__returns_error_code_and_message_called_while_
     ] * test_num_wells
     # set random circuit status to calculating
     shared_values_dict["stimulator_circuit_statuses"][
-        randint(0, test_num_wells)
+        randint(0, test_num_wells - 1)
     ] = StimulatorCircuitStatuses.CALCULATING.value
 
     response = test_client.get("/start_managed_acquisition")
@@ -570,17 +571,19 @@ def test_start_recording__returns_no_error_message_with_multiple_hardware_test_r
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
 
-    response = test_client.get(
-        f"/start_recording?plate_barcode={MantarrayMcSimulator.default_plate_barcode}&is_hardware_test_recording=True"
-    )
+    params = {
+        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
+        "is_hardware_test_recording": True,
+    }
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
     assert response.status_code == 200
-    response = test_client.get(
-        f"/start_recording?plate_barcode={MantarrayMcSimulator.default_plate_barcode}&is_hardware_test_recording=True"
-    )
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
     assert response.status_code == 200
 
 
-def test_start_recording__returns_error_code_and_message_if_barcode_is_not_given(
+# TODO
+def test_start_recording__returns_error_code_and_message_if_either_barcode_is_not_given(
     test_client,
 ):
     response = test_client.get("/start_recording")
@@ -588,41 +591,53 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_not_given
     assert response.status.endswith("Request missing 'plate_barcode' parameter") is True
 
 
+@pytest.mark.parametrize("test_barcode_type", ["Stim", "Plate"])
 @pytest.mark.parametrize(
     "test_barcode,expected_error_message",
     [
-        ("ML12345678901", "Barcode is incorrect length"),
-        ("ML123456789", "Barcode is incorrect length"),
-        ("MA1234567890", "Barcode contains invalid header: 'MA'"),
-        ("MB1234567890", "Barcode contains invalid header: 'MB'"),
-        ("ME1234567890", "Barcode contains invalid header: 'ME'"),
-        ("ML2021$72144", "Barcode contains invalid character: '$'"),
-        ("ML20211721)4", "Barcode contains invalid character: ')'"),
-        ("ML2020172144", "Barcode contains invalid year: '2020'"),
-        ("ML2021000144", "Barcode contains invalid Julian date: '000'"),
-        ("ML2021367144", "Barcode contains invalid Julian date: '367'"),
+        ("M*12345678901", "barcode is incorrect length"),
+        ("M*123456789", "barcode is incorrect length"),
+        ("MA1234567890", "barcode contains invalid header: 'MA'"),
+        ("MB1234567890", "barcode contains invalid header: 'MB'"),
+        ("ME1234567890", "barcode contains invalid header: 'ME'"),
+        ("M*2021$72144", "barcode contains invalid character: '$'"),
+        ("M*20211721)4", "barcode contains invalid character: ')'"),
+        ("M*2020172144", "barcode contains invalid year: '2020'"),
+        ("M*2021000144", "barcode contains invalid Julian date: '000'"),
+        ("M*2021367144", "barcode contains invalid Julian date: '367'"),
     ],
 )
 def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
+    test_barcode_type,
     test_client,
     test_barcode,
     expected_error_message,
 ):
-    response = test_client.get(f"/start_recording?plate_barcode={test_barcode}")
+    barcode_type_letter = "S" if test_barcode_type == "Stim" else "L"
+    barcodes = {
+        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
+    }
+    barcodes[f"{test_barcode_type.lower()}_barcode"] = test_barcode.replace("*", barcode_type_letter)
+
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
     assert response.status_code == 400
-    assert response.status.endswith(expected_error_message) is True
+    assert response.status.endswith(f"{test_barcode_type} {expected_error_message}") is True
 
 
-@pytest.mark.parametrize(
-    "test_barcode,test_description",
-    [("ML2021172003", "allows header 'ML'"), ("MS2021172002", "allows header 'MS'")],
-)
-def test_start_recording__allows_correct_barcode_headers(
-    test_barcode, test_description, client_and_server_manager_and_shared_values
+# TODO test for error if ML/MS headers are swapped
+
+
+def test_start_recording__allows_correct_barcode_headers__for_correct_barcode_type(
+    client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    barcodes = {
+        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
+    }
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
-    response = test_client.get(f"/start_recording?plate_barcode={test_barcode}")
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
     assert response.status_code == 200
 
 
@@ -633,7 +648,11 @@ def test_start_recording__returns_error_code_and_message_if_already_recording(
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
     shared_values_dict["system_status"] = RECORDING_STATE
 
-    response = test_client.get(f"/start_recording?plate_barcode={MantarrayMcSimulator.default_plate_barcode}")
+    params = {
+        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
+    }
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
     assert response.status_code == 304
     assert response.status.endswith("Already recording") is True
 
@@ -744,7 +763,7 @@ def test_set_stim_status__returns_error_code_and_message_if_called_with_true_bef
         StimulatorCircuitStatuses.MEDIA.value
     ] * test_num_wells
     # set random circuit status to None
-    shared_values_dict["stimulator_circuit_statuses"][randint(0, test_num_wells)] = None
+    shared_values_dict["stimulator_circuit_statuses"][randint(0, test_num_wells - 1)] = None
 
     response = test_client.post("/set_stim_status?running=true")
     assert response.status_code == 403
@@ -769,7 +788,7 @@ def test_set_stim_status__returns_error_code_and_message_if_called_with_true_if_
     ] * test_num_wells
     # set random circuit status to short
     shared_values_dict["stimulator_circuit_statuses"][
-        randint(0, test_num_wells)
+        randint(0, test_num_wells - 1)
     ] = StimulatorCircuitStatuses.SHORT.value
 
     response = test_client.post("/set_stim_status?running=true")
@@ -792,7 +811,7 @@ def test_set_stim_status__returns_error_code_and_message_if_called_with_true_whi
     ] * test_num_wells
     # set random circuit status to calculating
     shared_values_dict["stimulator_circuit_statuses"][
-        randint(0, test_num_wells)
+        randint(0, test_num_wells - 1)
     ] = StimulatorCircuitStatuses.CALCULATING.value
 
     response = test_client.post("/set_stim_status?running=true")

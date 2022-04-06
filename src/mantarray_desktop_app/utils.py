@@ -207,16 +207,16 @@ def get_current_software_version() -> str:
 def check_barcode_for_errors(barcode: str) -> str:
     """Return error message if barcode contains an error."""
     if len(barcode) != 12:
-        return "Barcode is incorrect length"
+        return "barcode is incorrect length"
     if barcode[:2] not in ("ML", "MS"):
-        return f"Barcode contains invalid header: '{barcode[:2]}'"
+        return f"barcode contains invalid header: '{barcode[:2]}'"
     for char in barcode[2:]:
         if not char.isnumeric():
-            return f"Barcode contains invalid character: '{char}'"
+            return f"barcode contains invalid character: '{char}'"
     if int(barcode[2:6]) < 2021:
-        return f"Barcode contains invalid year: '{barcode[2:6]}'"
+        return f"barcode contains invalid year: '{barcode[2:6]}'"
     if int(barcode[6:9]) < 1 or int(barcode[6:9]) > 366:
-        return f"Barcode contains invalid Julian date: '{barcode[6:9]}'"
+        return f"barcode contains invalid Julian date: '{barcode[6:9]}'"
     return ""
 
 

@@ -575,12 +575,16 @@ def start_recording() -> Response:
         active_well_indices: [Optional, default=all 24] CSV of well indices to record from
         time_index: [Optional, int] microseconds since acquisition began to start the recording at. Defaults to when this command is received
     """
-    if "plate_barcode" not in request.args:
-        return Response(status="400 Request missing 'plate_barcode' parameter")
+    for barcode_type in ("plate_barcode", "stim_barcode"):
+        if barcode_type not in request.args:
+            return Response(status=f"400 Request missing '{barcode_type}' parameter")
+    for barcode_type in ("Plate", "Stim"):
+        barcode = request.args[f"{barcode_type.lower()}_barcode"]
+        error_message = check_barcode_for_errors(barcode)
+        if error_message:
+            return Response(status=f"400 {barcode_type} {error_message}")
     plate_barcode = request.args["plate_barcode"]
-    error_message = check_barcode_for_errors(plate_barcode)
-    if error_message:
-        return Response(status=f"400 {error_message}")
+    stim_barcode = request.args["stim_barcode"]
 
     if _is_recording():
         return Response(status="304 Already recording")

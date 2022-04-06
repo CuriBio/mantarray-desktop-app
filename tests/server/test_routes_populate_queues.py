@@ -728,7 +728,8 @@ def test_start_recording_command__populates_queue__with_correct_adc_offset_value
     for well_idx in range(24):
         expected_adc_offsets[well_idx] = {"construct": 0, "ref": 0}
 
-    barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+    # TODO
+    barcodes = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
     response = test_client.get(f"/start_recording?plate_barcode={barcode}")
