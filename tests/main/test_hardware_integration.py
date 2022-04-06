@@ -138,7 +138,7 @@ RESPONSES = {
             MANTARRAY_SERIAL_NUMBER_UUID: bytes([0] * 12).decode("ascii"),
             MAIN_FIRMWARE_VERSION_UUID: "0.0.0",
             CHANNEL_FIRMWARE_VERSION_UUID: "0.0.0",
-            "status_codes_prior_to_reboot": {"TODO": "TODO"}
+            "status_codes_prior_to_reboot": {"TODO": "TODO"},
         },
         # "metadata": MantarrayMcSimulator.default_metadata_values,
     },
@@ -325,7 +325,7 @@ def test_communication_with_live_board(four_board_mc_comm_process_hardware_test_
                     print("@@@", msg_to_main)  # allow-print
                     continue
                 elif not expected_response:
-                    # for triggering fw error 
+                    # for triggering fw error
                     continue
                 else:
                     # o/w stop test
