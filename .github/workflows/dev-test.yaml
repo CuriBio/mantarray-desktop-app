@@ -164,14 +164,14 @@ jobs:
       - name: Install NPM Dependencies
         run: pipenv run npm ci --cache .npm_cache/
 
-      - name: Run pre-commit hooks
-        if: matrix.IS_FASTEST_JOB == true
-        env:
-          PRE_COMMIT_HOME: ~/.precommit_cache
-        # only enable pre-commit on the fastest job. When pipenv runs an install, even using --deploy, it makes tweaks...somehow...to the Pipfile
-        run: |
-          pipenv run pre-commit install
-          pipenv run pre-commit run -a
+      # - name: Run pre-commit hooks
+      #   if: matrix.IS_FASTEST_JOB == true
+      #   env:
+      #     PRE_COMMIT_HOME: ~/.precommit_cache
+      #   # only enable pre-commit on the fastest job. When pipenv runs an install, even using --deploy, it makes tweaks...somehow...to the Pipfile
+      #   run: |
+      #     pipenv run pre-commit install
+      #     pipenv run pre-commit run -a
       - name: Move OpalKelly .so file to needed location (Linux)
         if: runner.os == 'Linux' # Eli (10/20/20): not sure if copying to both locations is needed...but it's working and haven't checked which is required...should theoretically only be one needed
         run: |

@@ -127,7 +127,7 @@ def convert_status_code_bytes_to_dict(status_code_bytes: bytes) -> Dict[str, int
         raise ValueError(
             f"Status code bytes must have len of {SERIAL_COMM_STATUS_CODE_LENGTH_BYTES}, {len(status_code_bytes)} bytes given: {str(status_code_bytes)}"
         )
-    status_code_labels = ("main", "channel", "index_of_thread_with_error", "TBD")
+    status_code_labels = ("main_status", "index_of_thread_with_error", "channel_status", "module_id_of_error")
     return {label: status_code_bytes[i] for i, label in enumerate(status_code_labels)}
 
 

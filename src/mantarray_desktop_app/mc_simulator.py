@@ -46,7 +46,7 @@ from .constants import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
-from .constants import SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE
+from .constants import SERIAL_COMM_ERROR_ACK_PACKET_TYPE
 from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from .constants import SERIAL_COMM_GOING_DORMANT_PACKET_TYPE
@@ -570,7 +570,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             if not checksum_failure:
                 self._reboot_time_secs = perf_counter()
                 self._reboot_again = True
-        elif packet_type == SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE:
+        elif packet_type == SERIAL_COMM_ERROR_ACK_PACKET_TYPE:  # pragma: no cover
             # Tanner (3/24/22): As of right now, simulator does not need to handle this message at all, so it is the responsibility of tests to prompt simulator to go through the rest of the error handling procedure
             pass
         else:
@@ -677,11 +677,6 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._is_stimulating = test_comm["status"]
         elif command == "set_firmware_update_type":
             self._firmware_update_type = test_comm["firmware_type"]
-        elif command == "send_error_ping":
-            self._send_data_packet(
-                SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE,
-                bytes([test_comm["error_before_reboot"]]) + convert_to_status_code_bytes(self._status_code),
-            )
         else:
             raise UnrecognizedSimulatorTestCommandError(command)
 
