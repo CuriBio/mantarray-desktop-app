@@ -14,13 +14,12 @@ from mantarray_desktop_app import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
 from mantarray_desktop_app import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import mc_simulator
-from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
-from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_PAYLOAD_INDEX
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
-from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app.firmware_downloader import call_firmware_route
 from mantarray_desktop_app.mc_comm import download_firmware_updates
 from mantarray_desktop_app.mc_comm import get_latest_firmware_versions
@@ -38,7 +37,6 @@ from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import set_connection_and_register_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
-from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -372,9 +370,8 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
     )
 
     set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator)
-    set_simulator_idle_ready(mantarray_mc_simulator)
 
-    test_firmware_len = randint(1000, SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES * 3)
+    test_firmware_len = randint(1000, SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES * 3)
     test_firmware_bytes = bytes([randint(0, 255) for _ in range(test_firmware_len)])
     if firmware_type == "main":
         mc_process._main_firmware_update_bytes = test_firmware_bytes
@@ -402,10 +399,7 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
 
     # send another command and make sure it is ignored until firmware update process is complete
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {
-            "communication_type": "metadata_comm",
-            "command": "get_metadata",
-        },
+        {"communication_type": "metadata_comm", "command": "get_metadata"},
         from_main_queue,
     )
     # confirm that only a single item is in queue
@@ -419,7 +413,7 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
 
     # send firmware bytes to instrument
     num_iterations_to_send_firmware = math.ceil(
-        test_firmware_len / (SERIAL_COMM_MAX_PACKET_BODY_LENGTH_BYTES - 1)
+        test_firmware_len / (SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES - 1)
     )
     for packet_idx in range(num_iterations_to_send_firmware):
         # send packet and process response
@@ -520,7 +514,6 @@ def test_McCommunicationProcess__raises_error_if_begin_firmware_update_command_f
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     test_firmware_type = choice(["main", "channel"])
     test_firmware_bytes = bytes(1000)
@@ -561,7 +554,6 @@ def test_McCommunicationProcess__raises_error_if_firmware_update_packet_fails(
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     test_firmware_type = choice(["main", "channel"])
     test_firmware_bytes = bytes(1000)
@@ -588,7 +580,7 @@ def test_McCommunicationProcess__raises_error_if_firmware_update_packet_fails(
     invoke_process_run_and_check_errors(simulator)
     response = simulator.read_all()
     response = bytearray(response)
-    response[SERIAL_COMM_ADDITIONAL_BYTES_INDEX + SERIAL_COMM_TIMESTAMP_LENGTH_BYTES] = 1
+    response[SERIAL_COMM_PAYLOAD_INDEX] = 1
     response[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:] = crc32(
         response[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
     ).to_bytes(4, byteorder="little")
@@ -611,7 +603,6 @@ def test_McCommunicationProcess__raises_error_if_end_firmware_update_command_fai
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     test_firmware_type = choice(["main", "channel"])
     test_firmware_bytes = bytes(1000)
@@ -670,7 +661,6 @@ def test_McCommunicationProcess__raises_error_if_firmware_update_timeout_occurs(
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     test_firmware_bytes = bytes(1000)
     if firmware_type == "main":

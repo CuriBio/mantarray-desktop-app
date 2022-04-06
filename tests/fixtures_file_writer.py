@@ -25,9 +25,8 @@ from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import RunningFIFOSimulator
-from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
-from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
+from mantarray_desktop_app.constants import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import numpy as np
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
@@ -39,7 +38,6 @@ from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import COMPUTER_NAME_HASH_UUID
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
-from pulse3D.constants import MAGNETOMETER_CONFIGURATION_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
@@ -79,20 +77,6 @@ for this_well_idx in range(24):
         "construct": this_well_idx * 2,
         "ref": this_well_idx * 2 + 1,
     }
-
-GENERIC_WELL_MAGNETOMETER_CONFIGURATION = {
-    channel_id: channel_id
-    in (SERIAL_COMM_DEFAULT_DATA_CHANNEL, SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"])
-    for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS)
-}
-GENERIC_NUM_CHANNELS_ENABLED = sum(GENERIC_WELL_MAGNETOMETER_CONFIGURATION.values())
-GENERIC_NUM_SENSORS_ENABLED = 2
-GENERIC_BOARD_MAGNETOMETER_CONFIGURATION: Dict[int, Dict[int, bool]] = dict()
-for module_id in range(1, 25):
-    GENERIC_BOARD_MAGNETOMETER_CONFIGURATION[module_id] = copy.deepcopy(
-        GENERIC_WELL_MAGNETOMETER_CONFIGURATION
-    )
-
 
 GENERIC_STIM_PROTOCOL_ASSIGNMENTS: Dict[str, Optional[str]] = {
     GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): None for well_idx in range(24)
@@ -175,8 +159,7 @@ GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
         MANTARRAY_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_mantarray_serial_number,
         MANTARRAY_NICKNAME_UUID: MantarrayMcSimulator.default_mantarray_nickname,
         BOOT_FLAGS_UUID: MantarrayMcSimulator.default_metadata_values[BOOT_FLAGS_UUID],
-        MAGNETOMETER_CONFIGURATION_UUID: GENERIC_BOARD_MAGNETOMETER_CONFIGURATION,
-        TISSUE_SAMPLING_PERIOD_UUID: 10000,
+        TISSUE_SAMPLING_PERIOD_UUID: DEFAULT_SAMPLING_PERIOD,
         STIMULATION_PROTOCOL_UUID: GENERIC_STIM_INFO,
         UTC_BEGINNING_STIMULATION_UUID: GENERIC_BASE_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
@@ -426,26 +409,28 @@ def populate_calibration_folder(fw_process):
             pass
 
 
-def create_simple_1d_array(start_timepoint, num_data_points, dtype):
-    return np.arange(start_timepoint, start_timepoint + num_data_points, dtype=dtype)
+def create_simple_1d_array(start_timepoint, num_data_points, dtype, step=1):
+    return np.arange(start_timepoint, start_timepoint + (num_data_points * step), step, dtype=dtype)
 
 
-def create_simple_2d_array(start_timepoint, num_data_points, dtype, step=1):
-    return np.array(
-        [
-            np.arange(start_timepoint, start_timepoint + (num_data_points * step), step, dtype=dtype),
-            np.arange(start_timepoint, start_timepoint + (num_data_points * step), step, dtype=dtype),
-        ]
-    )
+def create_simple_2d_array(*args, n=2, **kwargs):
+    return np.array([create_simple_1d_array(*args, **kwargs) for _ in range(n)])
+
+
+def create_simple_time_offsets(*args, **kwargs):
+    return create_simple_2d_array(*args, n=3, **kwargs)
 
 
 def create_simple_magnetometer_well_dict(start_timepoint, num_data_points):
     test_value_arr = create_simple_1d_array(start_timepoint, num_data_points, np.uint16)
-    return {
-        "time_offsets": create_simple_2d_array(start_timepoint, num_data_points, np.uint16) * 2,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: test_value_arr * 3,
-        SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: test_value_arr * 4,
-    }
+    well_dict = {"time_offsets": create_simple_time_offsets(start_timepoint, num_data_points, np.uint16) * 2}
+    well_dict.update(
+        {
+            channel_idx: test_value_arr * (channel_idx + 1)
+            for channel_idx in range(SERIAL_COMM_NUM_DATA_CHANNELS)
+        }
+    )
+    return well_dict
 
 
 def create_simple_beta_2_data_packet(

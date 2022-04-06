@@ -138,10 +138,6 @@ class InstrumentCommIncorrectHeaderError(Exception):
     pass
 
 
-class UnrecognizedSerialCommModuleIdError(Exception):
-    pass
-
-
 class UnrecognizedSerialCommPacketTypeError(Exception):
     pass
 
@@ -206,19 +202,11 @@ class SerialCommInvalidSamplingPeriodError(Exception):
     pass
 
 
-class MagnetometerConfigUpdateWhileDataStreamingError(Exception):
+class SamplingPeriodUpdateWhileDataStreamingError(Exception):
     pass
 
 
 class InstrumentRebootTimeoutError(Exception):
-    pass
-
-
-class IncorrectMagnetometerConfigFromInstrumentError(Exception):
-    pass
-
-
-class IncorrectSamplingPeriodFromInstrumentError(Exception):
     pass
 
 
@@ -254,13 +242,9 @@ class FirmwareDownloadError(Exception):
     pass
 
 
-class MantarrayInstrumentError(Exception):
+class InstrumentFirmwareError(Exception):
     """Errors occurring on the Mantarray instrument itself."""
 
 
-class InstrumentFatalError(MantarrayInstrumentError):
-    pass
-
-
-class InstrumentSoftError(MantarrayInstrumentError):
+class FirmwareGoingDormantError(Exception):
     pass

@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import copy
 import datetime
 import json
 import os
@@ -10,7 +9,6 @@ from freezegun import freeze_time
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
-from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
@@ -21,8 +19,6 @@ from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import redact_sensitive_info_from_path
 from mantarray_desktop_app import RunningFIFOSimulator
-from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
-from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
 from mantarray_desktop_app import utils
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
@@ -1382,7 +1378,7 @@ def test_start_recording_command__gets_processed_in_beta_1_mode__and_creates_a_f
         UTC_BEGINNING_RECORDING_UUID
     ]
 )
-def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_a_file__and_updates_shared_values_dict(
+def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_all_files__and_updates_shared_values_dict(
     test_process_manager_creator,
     test_client,
     mocker,
@@ -1398,11 +1394,6 @@ def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_a_f
     populate_calibration_folder(fw_process)
     to_fw_queue = test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
     fw_error_queue = test_process_manager.queue_container().get_file_writer_error_queue()
-
-    # set up config so only one well has a channel enabled
-    test_magnetometer_config = create_magnetometer_config_dict(24)
-    test_magnetometer_config[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[3]][0] = True
-    shared_values_dict["magnetometer_config_dict"]["magnetometer_config"] = test_magnetometer_config
 
     timestamp_str = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         UTC_BEGINNING_RECORDING_UUID
@@ -1426,7 +1417,10 @@ def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_a_f
     file_dir = fw_process.get_file_directory()
     actual_files = os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}"))
     actual_files = [file_path for file_path in actual_files if "Calibration" not in file_path]
-    assert actual_files == [f"{expected_barcode}__{timestamp_str}__D1.h5"]
+    assert set(actual_files) == set(
+        f"{expected_barcode}__{timestamp_str}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(idx)}.h5"
+        for idx in range(24)
+    )
 
 
 def test_send_single_get_status_command__gets_processed(test_process_manager_creator, test_client):
@@ -1453,51 +1447,6 @@ def test_send_single_get_status_command__gets_processed(test_process_manager_cre
         "is_board_initialized": False,
         "bit_file_name": None,
     }
-
-
-def test_set_magnetometer_config__gets_processed__and_default_channel_is_enabled(
-    test_process_manager_creator, test_monitor, test_client
-):
-    test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
-    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    shared_values_dict["system_status"] = CALIBRATED_STATE
-    assert "magnetometer_config_dict" not in shared_values_dict
-
-    test_num_wells = 24
-    expected_config_dict = {
-        "magnetometer_config": create_magnetometer_config_dict(test_num_wells),
-        "sampling_period": 10000,
-    }
-
-    # reverse order of magnetometer config keys here to test that they get sorted
-    reversed_config_dict = copy.deepcopy(expected_config_dict)
-    reversed_config_dict["magnetometer_config"] = dict(
-        reversed(reversed_config_dict["magnetometer_config"].items())
-    )
-    # also reverse inner dicts
-    for key, inner_dict in reversed_config_dict["magnetometer_config"].items():
-        reversed_config_dict["magnetometer_config"][key] = dict(reversed(inner_dict.items()))
-
-    response = test_client.post("/set_magnetometer_config", json=json.dumps(reversed_config_dict))
-    assert response.status_code == 200
-    response_json = response.get_json()
-    assert "magnetometer_config" in response_json
-    assert "sampling_period" in response_json
-
-    invoke_process_run_and_check_errors(monitor_thread)
-
-    # enable default channel in expected config
-    for module_dict in expected_config_dict["magnetometer_config"].values():
-        module_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL] = True
-
-    assert shared_values_dict["magnetometer_config_dict"] == expected_config_dict
-    # make sure module ID keys and inner channel keys are fully sorted
-    module_configs = shared_values_dict["magnetometer_config_dict"]["magnetometer_config"]
-    key_list = list(module_configs.keys())
-    assert all(key_list[i] == key_list[i + 1] - 1 for i in range(len(key_list) - 1)) is True
-    for key, inner_dict in module_configs.items():
-        key_list = list(inner_dict.keys())
-        assert all(key_list[i] == key_list[i + 1] - 1 for i in range(len(key_list) - 1)) is True
 
 
 def test_set_protocols__waits_for_stim_info_in_shared_values_dict_to_be_updated_before_returning(

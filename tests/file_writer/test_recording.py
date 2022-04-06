@@ -7,8 +7,6 @@ import h5py
 from mantarray_desktop_app import CalibrationFilesMissingError
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
-from mantarray_desktop_app import create_magnetometer_config_dict
-from mantarray_desktop_app import create_sensor_axis_dict
 from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
 from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
@@ -30,8 +28,9 @@ from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
+from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
-from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import numpy as np
@@ -47,7 +46,6 @@ from pulse3D.constants import FILE_FORMAT_VERSION_METADATA_KEY
 from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
 from pulse3D.constants import IS_CALIBRATION_FILE_UUID
 from pulse3D.constants import IS_FILE_ORIGINAL_UNTRIMMED_UUID
-from pulse3D.constants import MAGNETOMETER_CONFIGURATION_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
@@ -88,8 +86,6 @@ from ..fixtures_file_writer import fixture_runnable_four_board_file_writer_proce
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
-from ..fixtures_file_writer import GENERIC_NUM_CHANNELS_ENABLED
-from ..fixtures_file_writer import GENERIC_NUM_SENSORS_ENABLED
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_UPDATE_CUSTOMER_SETTINGS
 from ..fixtures_file_writer import open_the_generic_h5_file
@@ -140,7 +136,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         if test_beta_version == 1
         else GENERIC_BETA_2_START_RECORDING_COMMAND
     )
-    data_shape = (0,) if test_beta_version == 1 else (GENERIC_NUM_CHANNELS_ENABLED, 0)
+    data_shape = (0,) if test_beta_version == 1 else (SERIAL_COMM_NUM_DATA_CHANNELS, 0)
     data_type = np.int32 if test_beta_version == 1 else np.uint16
     simulator_class = RunningFIFOSimulator if test_beta_version == 1 else MantarrayMcSimulator
     file_version = (
@@ -283,12 +279,6 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
                 == MantarrayMcSimulator.default_channel_firmware_version
             )
             assert bool(this_file.attrs[str(IS_CALIBRATION_FILE_UUID)]) is False
-            well_config = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
-                MAGNETOMETER_CONFIGURATION_UUID
-            ][SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]]
-            assert this_file.attrs[str(MAGNETOMETER_CONFIGURATION_UUID)] == json.dumps(
-                create_sensor_axis_dict(well_config)
-            )
             assert (
                 this_file.attrs[str(TISSUE_SAMPLING_PERIOD_UUID)]
                 == start_recording_command["metadata_to_copy_onto_main_file_attributes"][
@@ -301,7 +291,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
             )
             assert get_time_index_dataset_from_file(this_file).shape == (0,)
             assert get_time_index_dataset_from_file(this_file).dtype == "uint64"
-            assert get_time_offset_dataset_from_file(this_file).shape == (GENERIC_NUM_SENSORS_ENABLED, 0)
+            assert get_time_offset_dataset_from_file(this_file).shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, 0)
             assert get_time_offset_dataset_from_file(this_file).dtype == "uint16"
         # test data sets
         assert get_reference_dataset_from_file(this_file).shape == data_shape
@@ -352,7 +342,7 @@ def test_FileWriterProcess__beta_1_mode__only_creates_file_indices_specified__wh
 
 
 @pytest.mark.timeout(4)
-def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_magnetometer_config_for_all_active_wells__when_receiving_communication_to_start_recording__and_reports_command_receipt_to_main(
+def test_FileWriterProcess__beta_2_mode__creates_files_for_all_active_wells__when_receiving_communication_to_start_recording__and_reports_command_receipt_to_main(
     four_board_file_writer_process, mocker
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -372,17 +362,7 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_magnetometer
 
     # remove stim info
     this_command["metadata_to_copy_onto_main_file_attributes"][STIMULATION_PROTOCOL_UUID] = None
-
-    active_well_indices = [4, 9, 15]
-    this_command["active_well_indices"] = active_well_indices
-    test_magnetometer_config = create_magnetometer_config_dict(24)
-    for i, well_idx in enumerate(active_well_indices):
-        module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]
-        for channel in range(i + 1):
-            test_magnetometer_config[module_id][channel] = True
-    this_command["metadata_to_copy_onto_main_file_attributes"][
-        MAGNETOMETER_CONFIGURATION_UUID
-    ] = test_magnetometer_config
+    this_command["stim_running_statuses"] = [False] * 24
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
@@ -392,10 +372,10 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_magnetometer
     actual_set_of_files = {file_path for file_path in actual_set_of_files if expected_barcode in file_path}
     expected_set_of_files = {
         f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5"
-        for well_idx in active_well_indices
+        for well_idx in range(24)
     }
     assert actual_set_of_files == expected_set_of_files
-    for well_idx in active_well_indices:
+    for well_idx in range(24):
         this_file = h5py.File(
             os.path.join(
                 file_dir,
@@ -404,15 +384,8 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_magnetometer
             ),
             "r",
         )
-        module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]
-        assert json.loads(this_file.attrs[str(MAGNETOMETER_CONFIGURATION_UUID)]) == create_sensor_axis_dict(
-            test_magnetometer_config[module_id]
-        )
-        # magnetometer config will only affect the shapes of time offsets and tissue data
-        assert get_time_offset_dataset_from_file(this_file).shape[0] == 1
-        assert get_tissue_dataset_from_file(this_file).shape[0] == sum(
-            test_magnetometer_config[module_id].values()
-        )
+        assert get_time_offset_dataset_from_file(this_file).shape[0] == SERIAL_COMM_NUM_SENSORS_PER_WELL
+        assert get_tissue_dataset_from_file(this_file).shape[0] == SERIAL_COMM_NUM_DATA_CHANNELS
 
         # make sure stim metadata is correct
         assert this_file.attrs[str(STIMULATION_PROTOCOL_UUID)] == json.dumps(None), well_idx
@@ -994,18 +967,19 @@ def test_FileWriterProcess__records_all_requested_beta_2_magnetometer_data_in_bu
         expected_start_timepoint, expected_start_timepoint + expected_total_num_data_points, dtype=np.uint64
     )
     base_data = np.ones(num_data_points_per_packet, dtype=np.uint16)
-    base_time_offsets = np.ones((GENERIC_NUM_SENSORS_ENABLED, num_data_points_per_packet), dtype=np.uint16)
+    base_time_offsets = np.ones(
+        (SERIAL_COMM_NUM_SENSORS_PER_WELL, num_data_points_per_packet), dtype=np.uint16
+    )
     for i in range(expected_num_packets_recorded):
         curr_idx = i * num_data_points_per_packet
         data_packet = {
             "time_indices": expected_time_indices[curr_idx : curr_idx + num_data_points_per_packet]
         }
         for well_idx in range(24):
-            channel_dict = {
-                "time_offsets": base_time_offsets * well_idx,
-                SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: base_data * well_idx,
-                SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: base_data * well_idx,
-            }
+            channel_dict = {"time_offsets": base_time_offsets * well_idx}
+            channel_dict.update(
+                {channel_idx: base_data * well_idx for channel_idx in range(SERIAL_COMM_NUM_DATA_CHANNELS)}
+            )
             data_packet[well_idx] = channel_dict
         data_packet_buffer.append(data_packet)
 
@@ -1014,8 +988,8 @@ def test_FileWriterProcess__records_all_requested_beta_2_magnetometer_data_in_bu
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
 
-    expected_time_offsets_shape = (GENERIC_NUM_SENSORS_ENABLED, expected_total_num_data_points)
-    expected_data_shape = (GENERIC_NUM_CHANNELS_ENABLED, expected_total_num_data_points)
+    expected_time_offsets_shape = (SERIAL_COMM_NUM_SENSORS_PER_WELL, expected_total_num_data_points)
+    expected_data_shape = (SERIAL_COMM_NUM_DATA_CHANNELS, expected_total_num_data_points)
     expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
@@ -1419,7 +1393,9 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     num_data_points_per_packet = 4
     expected_total_num_data_points = expected_remaining_packets_recorded * num_data_points_per_packet
     base_data = np.zeros(num_data_points_per_packet, dtype=np.uint16)
-    base_time_offsets = np.zeros((GENERIC_NUM_SENSORS_ENABLED, num_data_points_per_packet), dtype=np.uint16)
+    base_time_offsets = np.zeros(
+        (SERIAL_COMM_NUM_SENSORS_PER_WELL, num_data_points_per_packet), dtype=np.uint16
+    )
     expected_time_indices = np.arange(expected_total_num_data_points, dtype=np.uint64)
     # add packets whose data will remain in the file
     for i in range(expected_remaining_packets_recorded):
@@ -1430,11 +1406,10 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
             "is_first_packet_of_stream": False,
         }
         for well_idx in range(24):
-            channel_dict = {
-                "time_offsets": base_time_offsets + well_idx,
-                SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: base_data + well_idx,
-                SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: base_data + well_idx,
-            }
+            channel_dict = {"time_offsets": base_time_offsets + well_idx}
+            channel_dict.update(
+                {channel_idx: base_data + well_idx for channel_idx in range(SERIAL_COMM_NUM_DATA_CHANNELS)}
+            )
             data_packet[well_idx] = channel_dict
         instrument_board_queues[0][0].put_nowait(data_packet)
     # add packets whose data will later be removed from the file
@@ -1449,21 +1424,18 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
             "is_first_packet_of_stream": False,
         }
         for well_idx in range(24):
-            channel_dict = {
-                "time_offsets": base_time_offsets,
-                SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]: base_data,
-                SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["C"]["Z"]: base_data,
-            }
+            channel_dict = {"time_offsets": base_time_offsets}
+            channel_dict.update(
+                {channel_idx: base_data * well_idx for channel_idx in range(SERIAL_COMM_NUM_DATA_CHANNELS)}
+            )
             data_packet[well_idx] = channel_dict
         instrument_board_queues[0][0].put_nowait(data_packet)
     # process all packets
     confirm_queue_is_eventually_of_size(
-        instrument_board_queues[0][0],
-        expected_remaining_packets_recorded + num_dummy_packets,
+        instrument_board_queues[0][0], expected_remaining_packets_recorded + num_dummy_packets
     )
     invoke_process_run_and_check_errors(
-        file_writer_process,
-        num_iterations=(expected_remaining_packets_recorded + num_dummy_packets),
+        file_writer_process, num_iterations=(expected_remaining_packets_recorded + num_dummy_packets)
     )
     confirm_queue_is_eventually_empty(instrument_board_queues[0][0])
 
@@ -1473,8 +1445,7 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     # ensure queue is empty before putting something else in
     confirm_queue_is_eventually_empty(comm_from_main_queue)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        stop_recording_command,
-        comm_from_main_queue,
+        stop_recording_command, comm_from_main_queue
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -1483,8 +1454,8 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     ]
     timestamp_str = "2020_02_09_190322"
 
-    expected_time_offsets_shape = (GENERIC_NUM_SENSORS_ENABLED, expected_total_num_data_points)
-    expected_data_shape = (GENERIC_NUM_CHANNELS_ENABLED, expected_total_num_data_points)
+    expected_time_offsets_shape = (SERIAL_COMM_NUM_SENSORS_PER_WELL, expected_total_num_data_points)
+    expected_data_shape = (SERIAL_COMM_NUM_DATA_CHANNELS, expected_total_num_data_points)
     for well_idx in range(24):
         this_file = h5py.File(
             os.path.join(

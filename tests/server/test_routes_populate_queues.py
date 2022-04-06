@@ -6,12 +6,10 @@ from freezegun import freeze_time
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
-from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import REFERENCE_VOLTAGE
-from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import server
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
@@ -27,7 +25,6 @@ from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import COMPUTER_NAME_HASH_UUID
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
-from pulse3D.constants import MAGNETOMETER_CONFIGURATION_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
@@ -38,7 +35,6 @@ from pulse3D.constants import SOFTWARE_BUILD_NUMBER_UUID
 from pulse3D.constants import SOFTWARE_RELEASE_VERSION_UUID
 from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
 from pulse3D.constants import STIMULATION_PROTOCOL_UUID
-from pulse3D.constants import TISSUE_SAMPLING_PERIOD_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
@@ -793,21 +789,14 @@ def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_
     assert set(communication["active_well_indices"]) == set([0, 8, 5])
 
 
-def test_start_recording_command__beta_2_mode__populates_queue__with_correct_well_indices_based_on_magnetometer_configuration(
+def test_start_recording_command__beta_2_mode__populates_queue__with_correct_well_indices(
     test_process_manager_creator, test_client
 ):
     test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
     shared_values_dict = test_process_manager.get_values_to_share_to_server()
     put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
 
-    test_num_total_wells = 24
-    test_magnetometer_config = create_magnetometer_config_dict(test_num_total_wells)
-    # enable first channel of arbitrary 3 wells
-    expected_well_indices = [1, 10, 17]
-    for well_idx in expected_well_indices:
-        test_magnetometer_config[SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]][0] = True
-    shared_values_dict["magnetometer_config_dict"]["magnetometer_config"] = test_magnetometer_config
-
+    total_num_wells = 24
     expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
@@ -820,7 +809,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_correct_wel
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
-    assert set(communication["active_well_indices"]) == set(expected_well_indices)
+    assert set(communication["active_well_indices"]) == set(range(total_num_wells))
 
 
 @pytest.mark.parametrize(
@@ -1082,15 +1071,6 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     )
     assert communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID] == expected_barcode
     assert communication["metadata_to_copy_onto_main_file_attributes"][HARDWARE_TEST_RECORDING_UUID] is False
-    magnetometer_config_dict = shared_values_dict["magnetometer_config_dict"]
-    assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][TISSUE_SAMPLING_PERIOD_UUID]
-        == magnetometer_config_dict["sampling_period"]
-    )
-    assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][MAGNETOMETER_CONFIGURATION_UUID]
-        == magnetometer_config_dict["magnetometer_config"]
-    )
     # metadata values from instrument
     instrument_metadata = shared_values_dict["instrument_metadata"][0]
     assert (

@@ -9,8 +9,6 @@ Custom HTTP Error Codes:
 * 400 - Call to /set_mantarray_nickname with invalid nickname parameter
 * 400 - Call to /update_settings with unexpected argument or a recording directory that doesn't exist
 * 400 - Call to /insert_xem_command_into_queue/set_mantarray_serial_number with invalid serial_number parameter
-* 400 - Call to /set_magnetometer_config with invalid configuration dict
-* 400 - Call to /set_magnetometer_config with invalid or missing sampling period
 * 400 - Call to /set_protocols with an invalid protocol or protocol assignments
 * 400 - Call to /set_stim_status with missing 'running' status
 * 401 - Call to /update_settings with invalid customer credentials
@@ -18,16 +16,12 @@ Custom HTTP Error Codes:
 * 403 - Call to any /insert_xem_command_into_queue/* route when in Beta 2 mode
 * 403 - Call to /boot_up when in Beta 2 mode
 * 403 - Call to /start_calibration when not in calibration_needed or calibrated state
-* 403 - Call to /set_magnetometer_config when in Beta 1 mode
-* 403 - Call to /set_magnetometer_config while data is streaming in Beta 2 mode
-* 403 - Call to /set_magnetometer_config before instrument finishes initializing in Beta 2 mode
 * 403 - Call to /set_protocols when in Beta 1 mode
 * 403 - Call to /set_protocols while stimulation is running
 * 403 - Call to /set_stim_status when in Beta 1 mode
 * 403 - Call to /set_stim_status with running set to True while recording
 * 404 - Route not implemented
 * 406 - Call to /set_stim_status before protocol is set or while recording
-* 406 - Call to /start_managed_acquisition before magnetometer configuration is set
 * 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
 * 406 - Call to /start_recording before customer_account_uuid and user_account_uuid are set
 * 520 - Call to /system_status when Electron and Flask EXE versions don't match
@@ -71,17 +65,11 @@ from .constants import CALIBRATED_STATE
 from .constants import CALIBRATION_NEEDED_STATE
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import GENERIC_24_WELL_DEFINITION
-from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
-from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import RECORDING_STATE
-from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
-from .constants import SERIAL_COMM_METADATA_BYTES_LENGTH
-from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
-from .constants import SERVER_INITIALIZING_STATE
-from .constants import SERVER_READY_STATE
+from .constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from .constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
@@ -105,7 +93,6 @@ from .utils import get_current_software_version
 from .utils import get_redacted_string
 from .utils import upload_log_files_to_s3
 from .utils import validate_customer_credentials
-from .utils import validate_magnetometer_config_keys
 from .utils import validate_settings
 
 
@@ -282,7 +269,7 @@ def set_mantarray_nickname() -> Response:
     Can be invoked by: curl http://localhost:4567/set_mantarray_nickname?nickname=My%20Mantarray
     """
     shared_values_dict = _get_values_from_process_monitor()
-    max_num_bytes = SERIAL_COMM_METADATA_BYTES_LENGTH if shared_values_dict["beta_2_mode"] else 23
+    max_num_bytes = SERIAL_COMM_NICKNAME_BYTES_LENGTH if shared_values_dict["beta_2_mode"] else 23
 
     nickname = request.args["nickname"]
     if len(nickname.encode("utf-8")) > max_num_bytes:
@@ -371,88 +358,9 @@ def update_settings() -> Response:
     return response
 
 
-@flask_app.route("/set_magnetometer_config", methods=["POST"])
-def set_magnetometer_config() -> Response:
-    """Set the magnetometer configuration on a Beta 2 Mantarray.
-
-    Not available for Beta 1 instruments.
-
-    Can be invoked by: curl -d '<magnetometer configuration as json>' -H 'Content-Type: application/json' -X POST http://localhost:4567/set_magnetometer_config
-    """
-    # Tanner (6/3/21): could eventually separate out setting the sampling period into its own route if needed
-    shared_values_dict = _get_values_from_process_monitor()
-    if not shared_values_dict["beta_2_mode"]:
-        return Response(status="403 Route cannot be called in beta 1 mode")
-    if _is_data_streaming():
-        return Response(status="403 Magnetometer Configuration cannot be changed while data is streaming")
-    if not _is_instrument_initialized():
-        return Response(
-            status="403 Magnetometer Configuration cannot be set until instrument finishes initializing"
-        )
-
-    # load configuration
-    magnetometer_config_dict_json = request.get_json()
-    magnetometer_config_dict = json.loads(
-        magnetometer_config_dict_json, object_hook=_fix_magnetometer_config_dict_keys
-    )
-    # validate sampling period
-    try:
-        sampling_period = magnetometer_config_dict["sampling_period"]
-    except KeyError:
-        return Response(status="400 Sampling period not specified")
-    if sampling_period % MICROSECONDS_PER_MILLISECOND != 0:
-        return Response(status=f"400 Invalid sampling period {sampling_period}")
-    # validate configuration dictionary
-    num_wells = 24
-    error_msg = validate_magnetometer_config_keys(
-        magnetometer_config_dict["magnetometer_config"], 1, num_wells + 1
-    )
-    if error_msg:
-        return Response(status=f"400 {error_msg}")
-
-    # make sure default channel is enabled
-    for module_dict in magnetometer_config_dict["magnetometer_config"].values():
-        module_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL] = True
-
-    queue_command_to_main(
-        {
-            "communication_type": "set_magnetometer_config",
-            "magnetometer_config_dict": magnetometer_config_dict,
-        }
-    )
-
-    return Response(magnetometer_config_dict_json, mimetype="application/json")
-
-
-def _fix_magnetometer_config_dict_keys(magnetometer_config_dict: Dict[str, Any]) -> Dict[Any, Any]:
-    fixed_dict = {_fix_json_key(k): v for k, v in magnetometer_config_dict.items()}
-    return dict(sorted(fixed_dict.items()))
-
-
-def _fix_json_key(key: str) -> Union[int, str]:
-    try:
-        return int(key)
-    except ValueError:
-        return key
-
-
-def _is_data_streaming() -> bool:
-    current_system_status = _get_values_from_process_monitor()["system_status"]
-    return current_system_status in (BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE)
-
-
 def _is_recording() -> bool:
     current_system_status = _get_values_from_process_monitor()["system_status"]
     return current_system_status == RECORDING_STATE  # type: ignore  # mypy doesn't think this is a bool
-
-
-def _is_instrument_initialized() -> bool:
-    current_system_status = _get_values_from_process_monitor()["system_status"]
-    return current_system_status not in (
-        SERVER_INITIALIZING_STATE,
-        SERVER_READY_STATE,
-        INSTRUMENT_INITIALIZING_STATE,
-    )
 
 
 def _get_stim_info_from_process_monitor() -> Dict[Any, Any]:
@@ -639,15 +547,7 @@ def start_recording() -> Response:
             status="403 Cannot make standard recordings after previously making hardware test recordings. Server and board must both be restarted before making any more standard recordings"
         )
 
-    # Tanner (6/11/21): Using magnetometer config to implicitly specify the active well indices in beta 2 mode
-    if shared_values_dict["beta_2_mode"]:
-        magnetometer_config = shared_values_dict["magnetometer_config_dict"]["magnetometer_config"]
-        active_well_indices = [
-            SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
-            for module_id, module_config in magnetometer_config.items()
-            if any(module_config.values())
-        ]
-    elif "active_well_indices" in request.args:
+    if "active_well_indices" in request.args and not shared_values_dict["beta_2_mode"]:
         active_well_indices = [int(x) for x in request.args["active_well_indices"].split(",")]
     else:
         active_well_indices = list(range(24))
@@ -734,9 +634,6 @@ def start_managed_acquisition() -> Response:
     shared_values_dict = _get_values_from_process_monitor()
     if not shared_values_dict["mantarray_serial_number"][0]:
         response = Response(status="406 Mantarray has not been assigned a Serial Number")
-        return response
-    if shared_values_dict["beta_2_mode"] and "magnetometer_config_dict" not in shared_values_dict:
-        response = Response(status="406 Magnetometer Configuration has not been set yet")
         return response
 
     response = queue_command_to_main(START_MANAGED_ACQUISITION_COMMUNICATION)

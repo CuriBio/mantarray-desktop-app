@@ -23,8 +23,8 @@ from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
-from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
-from .constants import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
+from .constants import SERIAL_COMM_OKAY_CODE
+from .constants import SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
 from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
@@ -50,7 +50,6 @@ METADATA_TYPES = immutabledict(
         BOOT_FLAGS_UUID: int,
     }
 )
-BITMASK_SHIFT_VALUE = 16 - SERIAL_COMM_NUM_DATA_CHANNELS  # 16 for number of bits in int16
 
 
 def _get_checksum_bytes(packet: bytes) -> bytes:
@@ -59,19 +58,19 @@ def _get_checksum_bytes(packet: bytes) -> bytes:
 
 def create_data_packet(
     timestamp: int,
-    module_id: int,
     packet_type: int,
-    packet_data: bytes = bytes(0),
+    packet_payload: bytes = bytes(0),
 ) -> bytes:
     """Create a data packet to send to the PC."""
-    packet_body = convert_to_timestamp_bytes(timestamp)
-    packet_body += bytes([module_id, packet_type])
-    packet_body += packet_data
-    packet_length = len(packet_body) + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+    packet_base = convert_to_timestamp_bytes(timestamp) + bytes([packet_type])
+    packet_remainder_size = len(packet_base) + len(packet_payload) + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 
     data_packet = SERIAL_COMM_MAGIC_WORD_BYTES
-    data_packet += packet_length.to_bytes(SERIAL_COMM_PACKET_INFO_LENGTH_BYTES, byteorder="little")
-    data_packet += packet_body
+    data_packet += packet_remainder_size.to_bytes(
+        SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES, byteorder="little"
+    )
+    data_packet += packet_base
+    data_packet += packet_payload
     data_packet += _get_checksum_bytes(data_packet)
     return data_packet
 
@@ -85,7 +84,7 @@ def validate_checksum(comm_from_pc: bytes) -> bool:
     return actual_checksum == expected_checksum
 
 
-def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[UUID, Any]:
+def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[Any, Any]:
     """Parse bytes containing metadata and return as Dict."""
     return {
         BOOT_FLAGS_UUID: metadata_bytes[0],
@@ -93,6 +92,7 @@ def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[UUID, Any]:
         MANTARRAY_SERIAL_NUMBER_UUID: metadata_bytes[14:26].decode("ascii"),
         MAIN_FIRMWARE_VERSION_UUID: convert_semver_bytes_to_str(metadata_bytes[26:29]),
         CHANNEL_FIRMWARE_VERSION_UUID: convert_semver_bytes_to_str(metadata_bytes[29:32]),
+        "status_codes_prior_to_reboot": convert_status_code_bytes_to_dict(metadata_bytes[32:36]),
     }
 
 
@@ -103,6 +103,9 @@ def convert_metadata_to_bytes(metadata_dict: Dict[UUID, Any]) -> bytes:
         + bytes(metadata_dict[MANTARRAY_SERIAL_NUMBER_UUID], encoding="ascii")
         + convert_semver_str_to_bytes(metadata_dict[MAIN_FIRMWARE_VERSION_UUID])
         + convert_semver_str_to_bytes(metadata_dict[CHANNEL_FIRMWARE_VERSION_UUID])
+        # this function is only used in the simulator, so always send default status code
+        + convert_to_status_code_bytes(SERIAL_COMM_OKAY_CODE)
+        + bytes(28)
     )
 
 
@@ -115,7 +118,17 @@ def convert_semver_str_to_bytes(semver_str: str) -> bytes:
 
 
 def convert_to_status_code_bytes(status_code: int) -> bytes:
-    return status_code.to_bytes(SERIAL_COMM_STATUS_CODE_LENGTH_BYTES, byteorder="little")
+    # simulator will only ever change byte 0 of status code
+    return bytes([status_code, 0, 0, 0])
+
+
+def convert_status_code_bytes_to_dict(status_code_bytes: bytes) -> Dict[str, int]:
+    if len(status_code_bytes) != SERIAL_COMM_STATUS_CODE_LENGTH_BYTES:
+        raise ValueError(
+            f"Status code bytes must have len of {SERIAL_COMM_STATUS_CODE_LENGTH_BYTES}, {len(status_code_bytes)} bytes given: {str(status_code_bytes)}"
+        )
+    status_code_labels = ("main_status", "index_of_thread_with_error", "channel_status", "module_id_of_error")
+    return {label: status_code_bytes[i] for i, label in enumerate(status_code_labels)}
 
 
 def convert_to_timestamp_bytes(timestamp: int) -> bytes:
@@ -127,43 +140,6 @@ def get_serial_comm_timestamp() -> int:
     return (
         datetime.datetime.now(tz=datetime.timezone.utc) - SERIAL_COMM_TIMESTAMP_EPOCH
     ) // datetime.timedelta(microseconds=1)
-
-
-def create_sensor_axis_bitmask(config_dict: Dict[int, bool]) -> int:
-    bitmask = 0
-    for sensor_axis_id, config_value in config_dict.items():
-        bitmask += int(config_value) << sensor_axis_id
-    return bitmask
-
-
-def create_magnetometer_config_bytes(config_dict: Dict[int, Dict[int, bool]]) -> bytes:
-    config_bytes = bytes(0)
-    for module_id, well_config in config_dict.items():
-        config_bytes += bytes([module_id])
-        config_bytes += create_sensor_axis_bitmask(well_config).to_bytes(2, byteorder="little")
-    return config_bytes
-
-
-def convert_bitmask_to_config_dict(bitmask: int) -> Dict[int, bool]:
-    config_dict: Dict[int, bool] = dict()
-    bit = 1
-    for sensor_axis_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
-        config_dict[sensor_axis_id] = bool(bitmask & bit)
-        bit <<= 1
-    return config_dict
-
-
-def convert_bytes_to_config_dict(
-    magnetometer_config_bytes: bytes,
-) -> Dict[int, Dict[int, bool]]:
-    """Covert bytes from the instrument to a configuration dictionary."""
-    config_dict: Dict[int, Dict[int, bool]] = dict()
-    for config_block_idx in range(0, len(magnetometer_config_bytes), 3):
-        module_id = magnetometer_config_bytes[config_block_idx]
-        bitmask_bytes = magnetometer_config_bytes[config_block_idx + 1 : config_block_idx + 3]
-        bitmask = int.from_bytes(bitmask_bytes, byteorder="little")
-        config_dict[module_id] = convert_bitmask_to_config_dict(bitmask)
-    return config_dict
 
 
 def is_null_subprotocol(subprotocol_dict: Dict[str, int]) -> bool:

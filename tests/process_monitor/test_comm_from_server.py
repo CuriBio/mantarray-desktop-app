@@ -9,7 +9,6 @@ from freezegun import freeze_time
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_RECORDING_DUR_SECONDS
-from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
@@ -710,42 +709,6 @@ def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_manta
     expected_comm = copy.deepcopy(test_comm)
     expected_comm["mantarray_nickname"] = get_redacted_string(len(test_nickname))
     mocked_logger.assert_called_once_with(f"Communication from the Server: {expected_comm}")
-
-
-def test_MantarrayProcessesMonitor__passes_magnetometer_config_dict_from_server_to_mc_comm_and__data_analyzer(
-    test_process_manager_creator, test_monitor
-):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, *_ = test_monitor(test_process_manager)
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
-    main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
-    main_to_da_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
-    )
-
-    test_num_wells = 24
-    expected_sampling_period = 10000
-    expected_config_dict = {
-        "magnetometer_config": create_magnetometer_config_dict(test_num_wells),
-        "sampling_period": expected_sampling_period,
-    }
-    test_dict_from_server = {
-        "communication_type": "set_magnetometer_config",
-        "magnetometer_config_dict": expected_config_dict,
-    }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_dict_from_server, server_to_main_queue
-    )
-    invoke_process_run_and_check_errors(monitor_thread)
-    confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
-    confirm_queue_is_eventually_of_size(main_to_da_queue, 1)
-
-    expected_comm = {"communication_type": "acquisition_manager", "command": "change_magnetometer_config"}
-    expected_comm.update(expected_config_dict)
-    assert main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_comm
-    assert main_to_da_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_comm
 
 
 @pytest.mark.parametrize(

@@ -15,13 +15,10 @@ from typing import List
 from typing import Optional
 from typing import Union
 
-from mantarray_desktop_app import SERIAL_COMM_ADDITIONAL_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_INDEX
-from mantarray_desktop_app import SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
+from mantarray_desktop_app import SERIAL_COMM_PAYLOAD_INDEX
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 import stdlib_utils
@@ -151,24 +148,22 @@ def convert_after_request_log_msg_to_json(log_msg: str) -> Dict[Any, Any]:
 
 def assert_serial_packet_is_expected(
     full_packet: bytes,
-    module_id: int,
     packet_type: int,
     additional_bytes: bytes = bytes(0),
     timestamp: Optional[int] = None,
     error_msg: Optional[str] = None,
 ) -> None:
     try:
-        assert full_packet[SERIAL_COMM_MODULE_ID_INDEX] == module_id
         assert full_packet[SERIAL_COMM_PACKET_TYPE_INDEX] == packet_type
-        packet_body = full_packet[SERIAL_COMM_ADDITIONAL_BYTES_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
-        if packet_body != additional_bytes:
+        packet_payload = full_packet[SERIAL_COMM_PAYLOAD_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
+        if packet_payload != additional_bytes:
             expected_len = len(additional_bytes)
-            actual_len = len(packet_body)
+            actual_len = len(packet_payload)
             if expected_len != actual_len:
                 error_info = f"Expected len: {expected_len}, Actual len: {actual_len}"
-                assert packet_body == additional_bytes, error_info
+                assert packet_payload == additional_bytes, error_info
             else:
-                assert packet_body == additional_bytes
+                assert packet_payload == additional_bytes
         if timestamp is not None:
             actual_timestamp_bytes = full_packet[
                 SERIAL_COMM_TIMESTAMP_BYTES_INDEX : SERIAL_COMM_TIMESTAMP_BYTES_INDEX
@@ -189,11 +184,6 @@ def assert_serial_packet_is_expected(
         raise e
 
 
-def get_full_packet_size_from_packet_body_size(packet_body_size: int) -> int:
-    full_packet_size: int = (
-        len(SERIAL_COMM_MAGIC_WORD_BYTES)
-        + SERIAL_COMM_PACKET_INFO_LENGTH_BYTES
-        + SERIAL_COMM_MIN_PACKET_BODY_SIZE_BYTES
-        + packet_body_size
-    )
-    return full_packet_size
+def get_full_packet_size_from_payload_len(payload_len: int) -> int:
+    packet_size: int = SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES + payload_len
+    return packet_size
