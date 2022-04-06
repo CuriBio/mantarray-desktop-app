@@ -207,7 +207,6 @@ class McCommunicationProcess(InstrumentCommProcess):
     def __init__(self, *args: Any, hardware_test_mode: bool = False, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self._error: Optional[Exception] = None
-        self._instrument_error = False
         self._in_simulation_mode = False
         self._simulator_error_queues: List[
             Optional[Queue[Tuple[Exception, str]]]  # pylint: disable=unsubscriptable-object
@@ -330,8 +329,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 if board.is_alive():
                     board.hard_stop()  # hard stop to drain all queues of simulator
                     board.join()
-            elif self._error and not self._instrument_error:
-                # TODO probably a better way to handle a FW error here
+            elif self._error and not isinstance(self._error, InstrumentFirmwareError):
                 self._send_data_packet(board_idx, SERIAL_COMM_REBOOT_PACKET_TYPE)
         super()._teardown_after_loop()
 
@@ -1144,12 +1142,10 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise FirmwareUpdateTimeoutError(self._firmware_update_type)
 
     def _handle_status_codes(self, status_codes_dict: Dict[str, int], comm_type: str) -> None:
-        # TODO unit test this
         status_codes_msg = f"{comm_type} received from instrument. Status Codes: {status_codes_dict}"
         if any(status_codes_dict.values()):
             board_idx = 0
             self._send_data_packet(board_idx, SERIAL_COMM_ERROR_ACK_PACKET_TYPE)
-            self._instrument_error = True
             raise InstrumentFirmwareError(status_codes_msg)
         put_log_message_into_queue(
             logging.INFO,
