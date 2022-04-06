@@ -44,7 +44,7 @@ from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES
 from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
-from .constants import SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE
+from .constants import SERIAL_COMM_ERROR_ACK_PACKET_TYPE
 from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from .constants import SERIAL_COMM_GOING_DORMANT_PACKET_TYPE
@@ -662,12 +662,16 @@ class McCommunicationProcess(InstrumentCommProcess):
         board_idx = 0
         if self._board_connections[board_idx] is None:
             return
-        if self._time_of_last_handshake_secs is None:
+        if not self._has_initial_handshake_been_sent():
             self._send_handshake(board_idx)
             return
-        seconds_elapsed = _get_secs_since_last_handshake(self._time_of_last_handshake_secs)
+        seconds_elapsed = _get_secs_since_last_handshake(self._time_of_last_handshake_secs)  # type: ignore
         if seconds_elapsed >= SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS:
             self._send_handshake(board_idx)
+
+    def _has_initial_handshake_been_sent(self) -> bool:
+        # Extracting this into its own method to make mocking in tests easier
+        return self._time_of_last_handshake_secs is not None
 
     def _send_handshake(self, board_idx: int) -> None:
         self._time_of_last_handshake_secs = perf_counter()
@@ -1144,7 +1148,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         status_codes_msg = f"{comm_type} received from instrument. Status Codes: {status_codes_dict}"
         if any(status_codes_dict.values()):
             board_idx = 0
-            self._send_data_packet(board_idx, SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE)
+            self._send_data_packet(board_idx, SERIAL_COMM_ERROR_ACK_PACKET_TYPE)
             self._instrument_error = True
             raise InstrumentFirmwareError(status_codes_msg)
         put_log_message_into_queue(

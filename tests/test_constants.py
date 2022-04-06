@@ -87,7 +87,7 @@ from mantarray_desktop_app import SERIAL_COMM_COMMAND_SUCCESS_BYTE
 from mantarray_desktop_app import SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
-from mantarray_desktop_app import SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_ERROR_ACK_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_GOING_DORMANT_PACKET_TYPE
@@ -483,7 +483,7 @@ def test_serial_comm():
     assert SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE == 73
     assert SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE == 74
     assert SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE == 90
-    assert SERIAL_COMM_ERROR_PING_PONG_PACKET_TYPE == 254
+    assert SERIAL_COMM_ERROR_ACK_PACKET_TYPE == 254
     assert SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE == 255
 
     assert SERIAL_COMM_COMMAND_SUCCESS_BYTE == 0
