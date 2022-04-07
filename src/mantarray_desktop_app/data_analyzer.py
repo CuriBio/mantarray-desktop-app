@@ -47,13 +47,13 @@ from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from .constants import CONSTRUCT_SENSORS_PER_REF_SENSOR
 from .constants import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
+from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
-from .utils import get_active_wells_from_config
 
 
 METRIC_CALCULATORS = {
@@ -226,14 +226,14 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._data_analysis_streams: Dict[int, Tuple[Stream, Stream]] = dict()
         self._data_analysis_stream_zipper: Optional[Stream] = None
         self._active_wells: List[int] = list(range(24))
-        self._filter_coefficients = create_filter(
+        self._filter_coefficients = create_filter(  # updated in set_sampling_period if in beta 2 mode
             BUTTERWORTH_LOWPASS_30_UUID, CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
         )
         # Beta 1 items
         self._well_offsets: List[Union[int, float, None]] = [None] * 24
         self._calibration_settings: Union[None, Dict[Any, Any]] = None
         # Beta 2 items
-        self._beta_2_buffer_size: Optional[int] = None
+        self._beta_2_buffer_size: Optional[int] = None  # set in set_sampling_period if in beta 2 mode
 
     def start(self) -> None:
         for board_queue_tuple in self._board_queues:
@@ -253,9 +253,6 @@ class DataAnalyzerProcess(InfiniteProcess):
         if self._beta_2_mode:
             raise NotImplementedError("Beta 2 mode does not currently have calibration settings")
         return self._calibration_settings
-
-    def get_active_wells(self) -> List[int]:
-        return self._active_wells
 
     def get_buffer_size(self) -> int:
         return self._beta_2_buffer_size if self._beta_2_mode else DATA_ANALYZER_BETA_1_BUFFER_SIZE  # type: ignore
@@ -305,11 +302,10 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._data_analysis_stream_zipper = Stream.zip(*ends)
         self._data_analysis_stream_zipper.sink(self._dump_outgoing_well_metrics)
 
-    def change_magnetometer_config(self, new_config: Dict[str, Any]) -> None:
+    def set_sampling_period(self, sampling_period: int) -> None:
         if not self._beta_2_mode:
-            raise NotImplementedError("Beta 1 device does not have a magnetometer config")
-        self._active_wells = get_active_wells_from_config(new_config["magnetometer_config"])
-        sampling_period_us = new_config["sampling_period"]
+            raise NotImplementedError("Beta 1 device cannot change sampling period")
+        sampling_period_us = sampling_period
         self._beta_2_buffer_size = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * int(
             MICRO_TO_BASE_CONVERSION / sampling_period_us
         )
@@ -318,7 +314,10 @@ class DataAnalyzerProcess(InfiniteProcess):
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
-        self.init_streams()
+        if self._beta_2_mode:
+            self.set_sampling_period(DEFAULT_SAMPLING_PERIOD)
+        else:
+            self.init_streams()
 
     def _commands_for_each_run_iteration(self) -> None:
         self._process_next_command_from_main()
@@ -352,8 +351,8 @@ class DataAnalyzerProcess(InfiniteProcess):
                 for well_index in range(24):
                     self._data_buffer[well_index] = {"construct_data": None, "ref_data": None}
                 self.init_streams()
-            elif communication["command"] == "change_magnetometer_config":
-                self.change_magnetometer_config(communication)
+            elif communication["command"] == "set_sampling_period":
+                self.set_sampling_period(communication["sampling_period"])
             else:
                 raise UnrecognizedCommandFromMainToDataAnalyzerError(
                     f"Invalid command: {communication['command']} for communication_type: {communication_type}"

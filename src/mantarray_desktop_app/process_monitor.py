@@ -53,8 +53,6 @@ from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import UPDATE_ERROR_STATE
 from .constants import UPDATES_COMPLETE_STATE
 from .constants import UPDATES_NEEDED_STATE
-from .exceptions import IncorrectMagnetometerConfigFromInstrumentError
-from .exceptions import IncorrectSamplingPeriodFromInstrumentError
 from .exceptions import UnrecognizedCommandFromServerToMainError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
@@ -250,8 +248,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
             )
         elif communication_type == "firmware_update_confirmation":
             shared_values_dict["firmware_update_accepted"] = communication["update_accepted"]
-        elif communication_type == "set_magnetometer_config":
-            self._update_magnetometer_config_dict(communication["magnetometer_config_dict"])
         elif communication_type == "stimulation":
             command = communication["command"]
             if command == "set_stim_status":
@@ -354,25 +350,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     f"Invalid command: {command} for communication_type: {communication_type}"
                 )
 
-    def _update_magnetometer_config_dict(
-        self, magnetometer_config_dict: Dict[str, Any], update_instrument_comm: bool = True
-    ) -> None:
-        self._values_to_share_to_server["magnetometer_config_dict"] = magnetometer_config_dict
-
-        main_to_da_queue = (
-            self._process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
-        )
-
-        comm_to_subprocesses = {
-            "communication_type": "acquisition_manager",
-            "command": "change_magnetometer_config",
-        }
-        comm_to_subprocesses.update(magnetometer_config_dict)
-
-        if update_instrument_comm:
-            self._put_communication_into_instrument_comm_queue(comm_to_subprocesses)
-        main_to_da_queue.put_nowait(comm_to_subprocesses)
-
     def _put_communication_into_instrument_comm_queue(self, communication: Dict[str, Any]) -> None:
         main_to_instrument_comm_queue = (
             self._process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
@@ -447,7 +424,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
             msg = f"Communication from the Instrument Controller: {comm_copy}"
         else:
             # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
-            msg = f"Communication from the Instrument Controller: {communication}".replace(r"\\", "\\")
+            msg = f"Communication from the Instrument Controller: {communication}"
+        msg = msg.replace(r"\\", "\\")
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.info(msg)
@@ -457,19 +435,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         if communication_type == "acquisition_manager":
             if command == "start_managed_acquisition":
-                if self._values_to_share_to_server["beta_2_mode"]:
-                    if (
-                        self._values_to_share_to_server["magnetometer_config_dict"]["sampling_period"]
-                        != communication["sampling_period"]
-                    ):
-                        raise IncorrectSamplingPeriodFromInstrumentError(communication["sampling_period"])
-                    if (
-                        self._values_to_share_to_server["magnetometer_config_dict"]["magnetometer_config"]
-                        != communication["magnetometer_config"]
-                    ):
-                        raise IncorrectMagnetometerConfigFromInstrumentError(
-                            communication["magnetometer_config"]
-                        )
                 self._values_to_share_to_server["utc_timestamps_of_beginning_of_data_acquisition"] = [
                     communication["timestamp"]
                 ]
@@ -477,6 +442,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 if not communication.get("is_calibration_recording", False):
                     self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
                     self._data_dump_buffer_size = 0
+            else:
+                raise NotImplementedError(
+                    f"Unrecognized acquisition_manager command from Instrument Comm: {command}"
+                )
         elif communication_type == "stimulation":
             if command == "start_stimulation":
                 self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [
@@ -566,6 +535,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._queue_websocket_message(barcode_update_message)
         elif communication_type == "metadata_comm":
             board_idx = communication["board_index"]
+            # remove keys that aren't UUIDs as these don't need to be stored. They are only included in the comm so that the values are logged
+            for key in list(communication["metadata"].keys()):
+                if not isinstance(key, uuid.UUID):
+                    communication["metadata"].pop(key)
             self._values_to_share_to_server["instrument_metadata"] = {board_idx: communication["metadata"]}
             # TODO Tanner (4/23/21): eventually these three following values won't need their own fields as they will be accessible through the above entry in shared_values_dict. Need to keep these until Beta 1 is phased out though
             self._values_to_share_to_server["main_firmware_version"] = {
@@ -577,10 +550,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._values_to_share_to_server["mantarray_nickname"] = {
                 board_idx: communication["metadata"][MANTARRAY_NICKNAME_UUID]
             }
-        elif communication_type == "default_magnetometer_config":
-            self._update_magnetometer_config_dict(
-                communication["magnetometer_config_dict"], update_instrument_comm=False
-            )
         elif communication_type == "firmware_update":
             if command == "get_latest_firmware_versions":
                 if "error" in communication:
@@ -843,7 +812,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self, shutdown_server: bool = True, error: bool = True
     ) -> None:
         process_items = self._process_manager.hard_stop_and_join_processes(shutdown_server=shutdown_server)
-        msg = f"Remaining items in process queues: {process_items}"
+        msg = f"Remaining items in process queues: {process_items}".replace(r"\\", "\\")
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             if error:

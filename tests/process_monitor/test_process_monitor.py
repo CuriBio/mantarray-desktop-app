@@ -17,13 +17,8 @@ from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import CHECKING_FOR_UPDATES_STATE
-from mantarray_desktop_app import create_magnetometer_config_dict
-from mantarray_desktop_app import DEFAULT_MAGNETOMETER_CONFIG
-from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import DOWNLOADING_UPDATES_STATE
 from mantarray_desktop_app import get_redacted_string
-from mantarray_desktop_app import IncorrectMagnetometerConfigFromInstrumentError
-from mantarray_desktop_app import IncorrectSamplingPeriodFromInstrumentError
 from mantarray_desktop_app import INSTALLING_UPDATES_STATE
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
@@ -35,7 +30,6 @@ from mantarray_desktop_app import process_manager
 from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import RunningFIFOSimulator
-from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import ServerManager
@@ -415,7 +409,7 @@ def test_MantarrayProcessesMonitor__logs_errors_from_data_analyzer(
 def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queue_items_when_error_is_raised_in_ok_comm_subprocess(
     mocker, test_process_manager_creator, test_monitor
 ):
-    expected_ok_comm_item = "ok_comm_queue_item"
+    expected_ok_comm_item = f"ok_comm_queue_item, {str(bytes(4))}"
     expected_file_writer_item = "file_writer_queue_item"
     expected_da_item = "data_analyzer_queue_item"
     expected_server_item = "server_manager_queue_item"
@@ -794,10 +788,12 @@ def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm
         test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(board_idx)
     )
 
+    metadata_dict = dict(MantarrayMcSimulator.default_metadata_values)
+    metadata_dict.update({"status_codes_prior_to_reboot": {"status": "codes"}, "any": "any"})
     metadata_comm_dict = {
         "communication_type": "metadata_comm",
         "command": "get_metadata",
-        "metadata": MantarrayMcSimulator.default_metadata_values,
+        "metadata": metadata_dict,
         "board_index": board_idx,
     }
     instrument_comm_to_main_queue.put_nowait(metadata_comm_dict)
@@ -1693,71 +1689,6 @@ def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_board
     mocked_logger.assert_called_once_with(f"Communication from the Instrument Controller: {expected_comm}")
 
 
-def test_MantarrayProcessesMonitor__raises_error_if_config_dict_in_start_data_stream_command_response_from_instrument_does_not_match_expected_value(
-    test_process_manager_creator, test_monitor, patch_print
-):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    queues = test_process_manager.queue_container()
-    ic_to_main_queue = queues.get_communication_queue_from_instrument_comm_to_main(0)
-
-    test_num_wells = 24
-    expected_config_dict = create_magnetometer_config_dict(test_num_wells)
-    expected_sampling_period = 15000
-    shared_values_dict["magnetometer_config_dict"] = {
-        "magnetometer_config": copy.deepcopy(expected_config_dict),
-        "sampling_period": expected_sampling_period,
-    }
-    shared_values_dict["beta_2_mode"] = True
-
-    # Tanner (5/22/21): `x ^= True` flips the Boolean value of x. Doing this guards against changes to the default configuration value
-    expected_config_dict[1][SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]] ^= True
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {
-            "communication_type": "acquisition_manager",
-            "command": "start_managed_acquisition",
-            "magnetometer_config": expected_config_dict,
-            "sampling_period": expected_sampling_period,
-            "timestamp": None,
-        },
-        ic_to_main_queue,
-    )
-    with pytest.raises(IncorrectMagnetometerConfigFromInstrumentError, match=str(expected_config_dict)):
-        invoke_process_run_and_check_errors(monitor_thread)
-
-
-def test_MantarrayProcessesMonitor__raises_error_if_sampling_period_in_start_data_stream_command_response_from_instrument_does_not_match_expected_value(
-    test_process_manager_creator, test_monitor, patch_print
-):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    queues = test_process_manager.queue_container()
-    ic_to_main_queue = queues.get_communication_queue_from_instrument_comm_to_main(0)
-
-    test_num_wells = 24
-    expected_config_dict = create_magnetometer_config_dict(test_num_wells)
-    expected_sampling_period = 16000
-    shared_values_dict["magnetometer_config_dict"] = {
-        "magnetometer_config": copy.deepcopy(expected_config_dict),
-        "sampling_period": expected_sampling_period,
-    }
-    shared_values_dict["beta_2_mode"] = True
-
-    bad_sampling_period = expected_sampling_period - 1
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {
-            "communication_type": "acquisition_manager",
-            "command": "start_managed_acquisition",
-            "magnetometer_config": expected_config_dict,
-            "sampling_period": bad_sampling_period,
-            "timestamp": None,
-        },
-        ic_to_main_queue,
-    )
-    with pytest.raises(IncorrectSamplingPeriodFromInstrumentError, match=str(bad_sampling_period)):
-        invoke_process_run_and_check_errors(monitor_thread)
-
-
 def test_MantarrayProcessesMonitor__drains_data_analyzer_data_out_queue_after_receiving_stop_managed_acquisition_command_receipt(
     test_process_manager_creator,
     test_monitor,
@@ -1778,49 +1709,6 @@ def test_MantarrayProcessesMonitor__drains_data_analyzer_data_out_queue_after_re
 
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(da_data_out_queue)
-
-
-def test_MantarrayProcessesMonitor__updates_magnetometer_config_after_receiving_default_config_message_from_mc_comm(
-    test_process_manager_creator,
-    test_monitor,
-):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-
-    expected_magnetometer_config_dict = {
-        "magnetometer_config": copy.deepcopy(DEFAULT_MAGNETOMETER_CONFIG),
-        "sampling_period": DEFAULT_SAMPLING_PERIOD,
-    }
-
-    instrument_comm_to_main = (
-        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
-    )
-    main_to_da = test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
-    main_to_ic = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
-
-    default_config_comm = {
-        "communication_type": "default_magnetometer_config",
-        "command": "change_magnetometer_config",
-        "magnetometer_config_dict": expected_magnetometer_config_dict,
-    }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        default_config_comm, instrument_comm_to_main
-    )
-    invoke_process_run_and_check_errors(monitor_thread)
-
-    # make sure update was stored
-    assert shared_values_dict["magnetometer_config_dict"] == expected_magnetometer_config_dict
-    # make sure update was passed to data analyzer
-    confirm_queue_is_eventually_of_size(main_to_da, 1)
-    comm_to_da = main_to_da.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    expected_comm_to_da = {
-        "communication_type": "acquisition_manager",
-        "command": "change_magnetometer_config",
-    }
-    expected_comm_to_da.update(expected_magnetometer_config_dict)
-    assert comm_to_da == expected_comm_to_da
-    # make sure update was not sent back to mc_comm
-    confirm_queue_is_eventually_empty(main_to_ic)
 
 
 def test_MantarrayProcessesMonitor__sets_timestamp_and_stim_running_statuses_in_shared_values_dict_after_receiving_start_stimulation_command_response_from_instrument_comm(

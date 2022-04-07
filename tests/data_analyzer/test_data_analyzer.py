@@ -6,14 +6,12 @@ import random
 from statistics import stdev
 import time
 
-from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import data_analyzer
 from mantarray_desktop_app import DataAnalyzerProcess
-from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
-from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import UnrecognizedCommandFromMainToDataAnalyzerError
+from mantarray_desktop_app.constants import DEFAULT_SAMPLING_PERIOD
 import numpy as np
 from pulse3D.exceptions import PeakDetectionError
 import pytest
@@ -27,8 +25,6 @@ from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATI
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
-from ..fixtures_data_analyzer import set_magnetometer_config
-from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
@@ -54,6 +50,24 @@ def test_DataAnalyzerProcess_setup_before_loop__calls_super(four_board_analyzer_
     da_process, _, _, _, _ = four_board_analyzer_process
     invoke_process_run_and_check_errors(da_process, perform_setup_before_loop=True)
     spied_setup.assert_called_once()
+
+
+@pytest.mark.parametrize("beta_2_mode", [True, False])
+def test_DataAnalyzerProcess_setup_before_loop__inits_streams_correctly(
+    beta_2_mode, four_board_analyzer_process, mocker
+):
+    da_process, *_ = four_board_analyzer_process
+    da_process._beta_2_mode = beta_2_mode
+
+    spied_init_streams = mocker.spy(da_process, "init_streams")
+    spied_set_sampling_period = mocker.spy(da_process, "set_sampling_period")
+
+    invoke_process_run_and_check_errors(da_process, perform_setup_before_loop=True)
+    spied_init_streams.assert_called_once()
+    if beta_2_mode:
+        spied_set_sampling_period.assert_called_once_with(DEFAULT_SAMPLING_PERIOD)
+    else:
+        spied_set_sampling_period.assert_not_called()
 
 
 def test_DataAnalyzerProcess__drain_all_queues__drains_all_queues_except_error_queue_and_returns__all_items(
@@ -250,16 +264,6 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_dat
     mocker.patch.object(data_analyzer, "get_force_signal", autospec=True, return_value=np.zeros((2, 2)))
     mocker.patch.object(data_analyzer, "peak_detector", autospec=True, side_effect=PeakDetectionError())
 
-    # set magnetometer configuration
-    expected_sampling_period_us = 10000
-    num_data_points_per_second = MICRO_TO_BASE_CONVERSION // expected_sampling_period_us
-    set_magnetometer_config(
-        four_board_analyzer_process_beta_2_mode,
-        {
-            "magnetometer_config": GENERIC_BOARD_MAGNETOMETER_CONFIGURATION,
-            "sampling_period": expected_sampling_period_us,
-        },
-    )
     # start managed acquisition
     start_command = get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
@@ -285,6 +289,7 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_dat
     )
 
     # create test data packets
+    num_data_points_per_second = int(1e6) // DEFAULT_SAMPLING_PERIOD
     for packet_num in range(expected_num_data_packets):
         test_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
         test_packet["time_indices"] = (
@@ -293,7 +298,7 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_dat
                 num_data_points_per_second * (packet_num + 1),
                 dtype=np.int64,
             )
-            * expected_sampling_period_us
+            * DEFAULT_SAMPLING_PERIOD
         )
         put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet, board_queues[0][0])
         invoke_process_run_and_check_errors(da_process)
@@ -348,24 +353,16 @@ def test_DataAnalyzerProcess__does_not_include_performance_metrics_in_first_logg
     assert "data_creation_duration_metrics" not in actual
 
 
-def test_DataAnalyzerProcess__processes_change_magnetometer_config_command(
+def test_DataAnalyzerProcess__processes_set_sampling_period_command(
     four_board_analyzer_process_beta_2_mode,
 ):
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
 
-    test_num_wells = 24
-    expected_wells = [5, 6, 15, 16]
-    test_config_dict = create_magnetometer_config_dict(test_num_wells)
-    for well_idx in expected_wells:
-        module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]
-        test_config_dict[module_id][3] = True
-
     expected_sampling_period = 15000
     set_sampling_period_command = {
         "communication_type": "acquisition_manager",
-        "command": "change_magnetometer_config",
-        "magnetometer_config": test_config_dict,
+        "command": "set_sampling_period",
         "sampling_period": expected_sampling_period,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -373,7 +370,6 @@ def test_DataAnalyzerProcess__processes_change_magnetometer_config_command(
     )
 
     invoke_process_run_and_check_errors(da_process)
-    assert da_process.get_active_wells() == expected_wells
     expected_buffer_size = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * int(1e6 / expected_sampling_period)
     assert da_process.get_buffer_size() == expected_buffer_size
 

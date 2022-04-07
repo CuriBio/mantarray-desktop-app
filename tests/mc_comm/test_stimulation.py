@@ -8,7 +8,6 @@ from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import handle_data_packets
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
-from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
@@ -28,8 +27,8 @@ from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import set_connection_and_register_simulator
-from ..fixtures_mc_comm import set_magnetometer_config
-from ..fixtures_mc_comm import set_magnetometer_config_and_start_streaming
+from ..fixtures_mc_comm import set_sampling_period
+from ..fixtures_mc_comm import set_sampling_period_and_start_streaming
 from ..fixtures_mc_comm import start_data_stream
 from ..fixtures_mc_comm import stop_data_stream
 from ..fixtures_mc_simulator import create_random_stim_info
@@ -38,7 +37,6 @@ from ..fixtures_mc_simulator import get_null_subprotocol
 from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_mc_simulator import random_time_index
 from ..fixtures_mc_simulator import random_timestamp
-from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -82,7 +80,7 @@ def test_handle_data_packets__parses_single_stim_data_packet_with_a_single_statu
     test_well_idx = randint(0, 23)
     test_subprotocol_idx = randint(0, 5)
 
-    stim_packet_body = (
+    stim_packet_payload = (
         bytes([1])  # num status updates in packet
         + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
         + bytes([StimStatuses.ACTIVE])
@@ -90,13 +88,10 @@ def test_handle_data_packets__parses_single_stim_data_packet_with_a_single_statu
         + bytes([test_subprotocol_idx])
     )
     test_data_packet = create_data_packet(
-        random_timestamp(),
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
-        stim_packet_body,
+        random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_payload
     )
 
-    parsed_data_dict = handle_data_packets(bytearray(test_data_packet), [], base_global_time)
+    parsed_data_dict = handle_data_packets(bytearray(test_data_packet), base_global_time)
     actual_stim_data = parsed_data_dict["stim_data"]
     assert list(actual_stim_data.keys()) == [test_well_idx]
     assert actual_stim_data[test_well_idx].dtype == np.int64
@@ -115,24 +110,19 @@ def test_handle_data_packets__parses_single_stim_data_packet_with_multiple_statu
     test_subprotocol_indices = [randint(0, 5), randint(0, 5), 0]
     test_statuses = [StimStatuses.ACTIVE, StimStatuses.NULL, StimStatuses.RESTARTING]
 
-    stim_packet_body = bytes([3])  # num status updates in packet
+    stim_packet_payload = bytes([3])  # num status updates in packet
     for packet_idx in range(3):
-        stim_packet_body += (
+        stim_packet_payload += (
             bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
             + bytes([test_statuses[packet_idx]])
             + test_time_indices[packet_idx].to_bytes(8, byteorder="little")
             + bytes([test_subprotocol_indices[packet_idx]])
         )
     test_data_packet = create_data_packet(
-        random_timestamp(),
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
-        stim_packet_body,
+        random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_payload
     )
 
-    parsed_data_dict = handle_data_packets(
-        bytearray(test_data_packet), [1, 2, 3, 4], base_global_time  # arbitrary channel list,
-    )
+    parsed_data_dict = handle_data_packets(bytearray(test_data_packet), base_global_time)
     actual_stim_data = parsed_data_dict["stim_data"]
     assert list(actual_stim_data.keys()) == [test_well_idx]
     np.testing.assert_array_equal(
@@ -158,7 +148,7 @@ def test_handle_data_packets__parses_multiple_stim_data_packet_with_multiple_wel
         [StimStatuses.ACTIVE, StimStatuses.NULL, StimStatuses.FINISHED],
     ]
 
-    stim_packet_body_1 = (
+    stim_packet_payload_1 = (
         bytes([2])  # num status updates in packet
         + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_indices[0]]])
         + bytes([test_statuses[0][0]])
@@ -169,7 +159,7 @@ def test_handle_data_packets__parses_multiple_stim_data_packet_with_multiple_wel
         + test_time_indices[1][0].to_bytes(8, byteorder="little")
         + bytes([test_subprotocol_indices[1][0]])
     )
-    stim_packet_body_2 = (
+    stim_packet_payload_2 = (
         bytes([3])  # num status updates in packet
         + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_indices[1]]])
         + bytes([test_statuses[1][1]])
@@ -185,20 +175,14 @@ def test_handle_data_packets__parses_multiple_stim_data_packet_with_multiple_wel
         + bytes([test_subprotocol_indices[1][2]])
     )
     test_data_packet_1 = create_data_packet(
-        random_timestamp(),
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
-        stim_packet_body_1,
+        random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_payload_1
     )
     test_data_packet_2 = create_data_packet(
-        random_timestamp(),
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
-        stim_packet_body_2,
+        random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_payload_2
     )
 
     parsed_data_dict = handle_data_packets(
-        bytearray(test_data_packet_1 + test_data_packet_2), [], base_global_time
+        bytearray(test_data_packet_1 + test_data_packet_2), base_global_time
     )
     actual_stim_data = parsed_data_dict["stim_data"]
     assert sorted(list(actual_stim_data.keys())) == sorted(test_well_indices)
@@ -224,7 +208,6 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
     expected_stim_info = create_random_stim_info()
     set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, expected_stim_info)
     expected_stim_running_statuses = (
@@ -287,7 +270,6 @@ def test_McCommunicationProcess__raises_error_if_set_protocols_command_received_
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
     set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, create_random_stim_info())
 
     # start stimulation
@@ -318,7 +300,6 @@ def test_McCommunicationProcess__raises_error_if_set_protocols_command_fails(
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     # send set protocols command with too many subprotocols in a protocol and confirm error is raised
     bad_stim_info = create_random_stim_info()
@@ -339,7 +320,6 @@ def test_McCommunicationProcess__raises_error_if_start_stim_command_fails(
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     # start stim before protocols are set and confirm error is raised from command failure response
     start_stim_command = {"communication_type": "stimulation", "command": "start_stimulation"}
@@ -360,7 +340,6 @@ def test_McCommunicationProcess__raises_error_if_stop_stim_command_fails(
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     # stop stim when it isn't running confirm error is raised from command failure response
     stop_stim_command = {"communication_type": "stimulation", "command": "stop_stimulation"}
@@ -381,7 +360,6 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     total_active_duration_ms = 74
     test_well_indices = [randint(0, 11), randint(12, 23)]
@@ -456,7 +434,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
         return_value=0,
     )
     # start data streaming
-    set_magnetometer_config_and_start_streaming(four_board_mc_comm_process_no_handshake, simulator)
+    set_sampling_period_and_start_streaming(four_board_mc_comm_process_no_handshake, simulator)
     # check no status packets sent to file writer
     confirm_queue_is_eventually_empty(to_fw_queue)
 
@@ -471,8 +449,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
-    set_magnetometer_config(four_board_mc_comm_process_no_handshake, simulator)
+    set_sampling_period(four_board_mc_comm_process_no_handshake, simulator)
 
     total_active_duration_ms = 76
     test_well_indices = [randint(0, 11), randint(12, 23)]
@@ -602,7 +579,6 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     total_active_duration_ms = 74
     test_well_indices = [randint(0, 11), randint(12, 23)]
@@ -645,7 +621,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
         return_value=MICRO_TO_BASE_CONVERSION,
     )
     # start data streaming
-    set_magnetometer_config_and_start_streaming(four_board_mc_comm_process_no_handshake, simulator)
+    set_sampling_period_and_start_streaming(four_board_mc_comm_process_no_handshake, simulator)
     # check no status packets sent to file writer
     confirm_queue_is_eventually_empty(to_fw_queue)
 
@@ -713,7 +689,6 @@ def test_McCommunicationProcess__protocols_can_be_updated_and_stimulation_can_be
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     total_active_duration_ms = 1400
     test_well_indices = [randint(0, 11), randint(12, 23)]
@@ -789,7 +764,6 @@ def test_McCommunicationProcess__stim_packets_sent_to_file_writer_after_restarti
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     total_active_duration_ms = 1100
     test_well_idx = randint(0, 23)
@@ -818,6 +792,8 @@ def test_McCommunicationProcess__stim_packets_sent_to_file_writer_after_restarti
         autospec=True,
         return_value=total_active_duration_ms * int(1e3),
     )
+    # mock so no barcode sent
+    mocker.patch.object(simulator, "_handle_barcode", autospec=True)
 
     # send start stimulation command
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -842,7 +818,7 @@ def test_McCommunicationProcess__stim_packets_sent_to_file_writer_after_restarti
     mocked_us_since_subprotocol_start.return_value = 0
 
     # start data streaming
-    set_magnetometer_config_and_start_streaming(four_board_mc_comm_process_no_handshake, simulator)
+    set_sampling_period_and_start_streaming(four_board_mc_comm_process_no_handshake, simulator)
     # confirm most recent packet sent to file writer
     confirm_queue_is_eventually_of_size(to_fw_queue, 1)
     to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)

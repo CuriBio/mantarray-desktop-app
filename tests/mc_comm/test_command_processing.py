@@ -4,7 +4,6 @@ import queue
 from random import choice
 import time
 
-from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import InvalidCommandFromMainError
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_comm
@@ -12,9 +11,12 @@ from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import UnrecognizedCommandFromMainToMcCommError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import SERIAL_COMM_OKAY_CODE
 from mantarray_desktop_app.firmware_downloader import download_firmware_updates
 from mantarray_desktop_app.firmware_downloader import get_latest_firmware_versions
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
+from mantarray_desktop_app.serial_comm_utils import convert_status_code_bytes_to_dict
+from mantarray_desktop_app.serial_comm_utils import convert_to_status_code_bytes
 from mantarray_desktop_app.worker_thread import ErrorCatchingThread
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 import pytest
@@ -30,7 +32,6 @@ from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import get_null_subprotocol
 from ..fixtures_mc_simulator import get_random_subprotocol
-from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -162,10 +163,7 @@ def test_McCommunicationProcess__processes_get_metadata_command(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
-    expected_response = {
-        "communication_type": "metadata_comm",
-        "command": "get_metadata",
-    }
+    expected_response = {"communication_type": "metadata_comm", "command": "get_metadata"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(expected_response), input_queue
     )
@@ -176,7 +174,10 @@ def test_McCommunicationProcess__processes_get_metadata_command(
     # run mc_process one iteration to get metadata from simulator and send back to main
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(output_queue, 1)
-    expected_response["metadata"] = MantarrayMcSimulator.default_metadata_values
+    expected_response["metadata"] = dict(MantarrayMcSimulator.default_metadata_values)
+    expected_response["metadata"]["status_codes_prior_to_reboot"] = convert_status_code_bytes_to_dict(
+        convert_to_status_code_bytes(SERIAL_COMM_OKAY_CODE)
+    )
     expected_response["board_index"] = 0
     command_response = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert command_response == expected_response
@@ -193,10 +194,7 @@ def test_McCommunicationProcess__processes_commands_from_main_when_process_is_fu
     input_queue = board_queues[0][0]
     output_queue = board_queues[0][1]
 
-    test_command = {
-        "communication_type": "metadata_comm",
-        "command": "get_metadata",
-    }
+    test_command = {"communication_type": "metadata_comm", "command": "get_metadata"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(copy.deepcopy(test_command), input_queue)
     mc_process.start()
 
@@ -299,7 +297,7 @@ def test_McCommunicationProcess__processes_reboot_command(
     assert reboot_response == expected_response
 
 
-def test_McCommunicationProcess__processes_change_magnetometer_config_command(
+def test_McCommunicationProcess__processes_set_sampling_period_command(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
 ):
@@ -311,19 +309,13 @@ def test_McCommunicationProcess__processes_change_magnetometer_config_command(
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
-    test_num_wells = 24
-    # set arbitrary configuration and sampling period
-    expected_magnetometer_config = create_magnetometer_config_dict(test_num_wells)
-    for key in expected_magnetometer_config[9].keys():
-        expected_magnetometer_config[9][key] = True
+    # set arbitrary sampling period
     expected_sampling_period = 14000
     # send command to mc_process
     expected_response = {
         "communication_type": "acquisition_manager",
-        "command": "change_magnetometer_config",
-        "magnetometer_config": expected_magnetometer_config,
+        "command": "set_sampling_period",
         "sampling_period": expected_sampling_period,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -333,9 +325,8 @@ def test_McCommunicationProcess__processes_change_magnetometer_config_command(
     invoke_process_run_and_check_errors(mc_process)
     # run simulator to process command and send response
     invoke_process_run_and_check_errors(simulator)
-    # assert that sampling period and configuration were updated
+    # assert that sampling period was updated
     assert simulator.get_sampling_period_us() == expected_sampling_period
-    assert simulator.get_magnetometer_config() == expected_magnetometer_config
     # run mc_process to process command response and send message back to main
     invoke_process_run_and_check_errors(mc_process)
     # confirm correct message sent to main
@@ -356,7 +347,6 @@ def test_McCommunicationProcess__processes_set_protocols_command(
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     # confirm preconditions
     assert simulator.get_stim_info() == {}

@@ -4,19 +4,15 @@ from random import randint
 
 from mantarray_desktop_app import convert_module_id_to_well_name
 from mantarray_desktop_app import convert_stim_dict_to_bytes
-from mantarray_desktop_app import convert_to_timestamp_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_FAILURE_BYTE
-from mantarray_desktop_app import SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_SUCCESS_BYTE
-from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_START_STIM_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STOP_STIM_PACKET_TYPE
-from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
 from mantarray_desktop_app import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from mantarray_desktop_app import StimStatuses
@@ -30,10 +26,9 @@ from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import get_null_subprotocol
 from ..fixtures_mc_simulator import get_random_subprotocol
-from ..fixtures_mc_simulator import set_simulator_idle_ready
 from ..fixtures_mc_simulator import set_stim_info_and_start_stimulating
 from ..helpers import assert_serial_packet_is_expected
-from ..helpers import get_full_packet_size_from_packet_body_size
+from ..helpers import get_full_packet_size_from_payload_len
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 
@@ -47,7 +42,6 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
     mantarray_mc_simulator_no_beacon,
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     test_protocol_ids = ("A", "B", "E", None)
     stim_info_dict = {
@@ -72,7 +66,6 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
     expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     set_protocols_command = create_data_packet(
         expected_pc_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
         convert_stim_dict_to_bytes(stim_info_dict),
     )
@@ -91,15 +84,11 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
         for well_name, protocol_id in stim_info_dict["protocol_assignments"].items()
     }
     # assert command response is correct
-    stim_command_response = simulator.read(
-        size=get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1)
-    )
+    stim_command_response = simulator.read(size=get_full_packet_size_from_payload_len(1))
     assert_serial_packet_is_expected(
         stim_command_response,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
-        + bytes([SERIAL_COMM_COMMAND_SUCCESS_BYTE]),
+        SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
+        additional_bytes=bytes([SERIAL_COMM_COMMAND_SUCCESS_BYTE]),
     )
 
 
@@ -107,7 +96,6 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
     mantarray_mc_simulator_no_beacon,
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     test_protocol_ids = [chr(ord("A") + i) for i in range(25)]
     stim_info_dict = {
@@ -129,7 +117,6 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
     expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     set_protocols_command = create_data_packet(
         expected_pc_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
         convert_stim_dict_to_bytes(stim_info_dict),
     )
@@ -139,15 +126,11 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
     # assert stim info was not updated
     assert simulator.get_stim_info() == {}
     # assert command response is correct
-    stim_command_response = simulator.read(
-        size=get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1)
-    )
+    stim_command_response = simulator.read(size=get_full_packet_size_from_payload_len(1))
     assert_serial_packet_is_expected(
         stim_command_response,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
-        + bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
+        SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
+        additional_bytes=bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
     )
 
 
@@ -162,7 +145,6 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
     mantarray_mc_simulator_no_beacon, test_num_module_assignments, test_description
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     stim_info_dict = {
         "protocols": [
@@ -186,10 +168,7 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
 
     expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     set_protocols_command = create_data_packet(
-        expected_pc_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
-        stim_info_bytes,
+        expected_pc_timestamp, SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE, stim_info_bytes
     )
     simulator.write(set_protocols_command)
 
@@ -197,15 +176,11 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
     # assert stim info was not updated
     assert simulator.get_stim_info() == {}
     # assert command response is correct
-    stim_command_response = simulator.read(
-        size=get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1)
-    )
+    stim_command_response = simulator.read(size=get_full_packet_size_from_payload_len(1))
     assert_serial_packet_is_expected(
         stim_command_response,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
-        + bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
+        SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
+        additional_bytes=bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
     )
 
 
@@ -213,7 +188,6 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
     mantarray_mc_simulator_no_beacon,
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     stim_info_dict = {
         "protocols": [
@@ -235,7 +209,6 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
     expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     set_protocols_command = create_data_packet(
         expected_pc_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
         SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
         convert_stim_dict_to_bytes(stim_info_dict),
     )
@@ -245,15 +218,11 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
     # assert stim info was not updated
     assert simulator.get_stim_info() == {}
     # assert command response is correct
-    stim_command_response = simulator.read(
-        size=get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1)
-    )
+    stim_command_response = simulator.read(size=get_full_packet_size_from_payload_len(1))
     assert_serial_packet_is_expected(
         stim_command_response,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
-        + bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
+        SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
+        additional_bytes=bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
     )
 
 
@@ -261,7 +230,6 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__before_proto
     mantarray_mc_simulator_no_beacon,
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     expected_stim_running_statuses = {
         convert_module_id_to_well_name(module_id): False for module_id in range(1, 25)
@@ -269,25 +237,19 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__before_proto
 
     # send start stim command
     expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
-    start_stimulation_command = create_data_packet(
-        expected_pc_timestamp,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_START_STIM_PACKET_TYPE,
-    )
+    start_stimulation_command = create_data_packet(expected_pc_timestamp, SERIAL_COMM_START_STIM_PACKET_TYPE)
     simulator.write(start_stimulation_command)
 
     invoke_process_run_and_check_errors(simulator)
     # assert that stimulation was not started on any wells
     assert simulator.get_stim_running_statuses() == expected_stim_running_statuses
     # assert command response is correct
-    expected_size = get_full_packet_size_from_packet_body_size(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES + 1)
+    expected_size = get_full_packet_size_from_payload_len(1)
     stim_command_response = simulator.read(size=expected_size)
     assert_serial_packet_is_expected(
         stim_command_response,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-        additional_bytes=convert_to_timestamp_bytes(expected_pc_timestamp)
-        + bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
+        SERIAL_COMM_START_STIM_PACKET_TYPE,
+        additional_bytes=bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
     )
 
 
@@ -296,9 +258,7 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__after_protoc
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
-    spied_global_timer = mocker.spy(simulator, "_get_global_timer")
     # mock so no protocol status packets are sent
     mocker.patch.object(mc_simulator, "_get_us_since_subprotocol_start", autospec=True, return_value=0)
 
@@ -329,9 +289,7 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__after_protoc
         # send start stim command
         expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
         start_stimulation_command = create_data_packet(
-            expected_pc_timestamp,
-            SERIAL_COMM_MAIN_MODULE_ID,
-            SERIAL_COMM_START_STIM_PACKET_TYPE,
+            expected_pc_timestamp, SERIAL_COMM_START_STIM_PACKET_TYPE
         )
         simulator.write(start_stimulation_command)
 
@@ -339,22 +297,16 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__after_protoc
         # assert that stimulation was started on wells that were assigned a protocol
         assert simulator.get_stim_running_statuses() == expected_stim_running_statuses
         # assert command response is correct
-        additional_bytes = convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([response_byte_value])
-        if not response_byte_value:
-            additional_bytes += spied_global_timer.spy_return.to_bytes(8, byteorder="little")
-        expected_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
+        additional_bytes = bytes([response_byte_value])
+        expected_size = get_full_packet_size_from_payload_len(len(additional_bytes))
         stim_command_response = simulator.read(size=expected_size)
         assert_serial_packet_is_expected(
-            stim_command_response,
-            SERIAL_COMM_MAIN_MODULE_ID,
-            SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-            additional_bytes=additional_bytes,
+            stim_command_response, SERIAL_COMM_START_STIM_PACKET_TYPE, additional_bytes=additional_bytes
         )
 
 
 def test_MantarrayMcSimulator__processes_stop_stimulation_command(mantarray_mc_simulator_no_beacon, mocker):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
@@ -386,9 +338,7 @@ def test_MantarrayMcSimulator__processes_stop_stimulation_command(mantarray_mc_s
         # send start stim command
         expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
         stop_stimulation_command = create_data_packet(
-            expected_pc_timestamp,
-            SERIAL_COMM_MAIN_MODULE_ID,
-            SERIAL_COMM_STOP_STIM_PACKET_TYPE,
+            expected_pc_timestamp, SERIAL_COMM_STOP_STIM_PACKET_TYPE
         )
         simulator.write(stop_stimulation_command)
         invoke_process_run_and_check_errors(simulator)
@@ -406,11 +356,10 @@ def test_MantarrayMcSimulator__processes_stop_stimulation_command(mantarray_mc_s
                     + (spied_global_timer.spy_return).to_bytes(8, byteorder="little")
                     + bytes([STIM_COMPLETE_SUBPROTOCOL_IDX])
                 )
-            expected_size = get_full_packet_size_from_packet_body_size(len(status_update_bytes))
+            expected_size = get_full_packet_size_from_payload_len(len(status_update_bytes))
             stim_command_response = simulator.read(size=expected_size)
             assert_serial_packet_is_expected(
                 stim_command_response,
-                SERIAL_COMM_MAIN_MODULE_ID,
                 SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
                 additional_bytes=status_update_bytes,
             )
@@ -419,14 +368,11 @@ def test_MantarrayMcSimulator__processes_stop_stimulation_command(mantarray_mc_s
             convert_module_id_to_well_name(module_id): False for module_id in range(1, 25)
         }
         # assert command response is correct
-        additional_bytes = convert_to_timestamp_bytes(expected_pc_timestamp) + bytes([response_byte_value])
-        expected_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
+        additional_bytes = bytes([response_byte_value])
+        expected_size = get_full_packet_size_from_payload_len(len(additional_bytes))
         stim_command_response = simulator.read(size=expected_size)
         assert_serial_packet_is_expected(
-            stim_command_response,
-            SERIAL_COMM_MAIN_MODULE_ID,
-            SERIAL_COMM_COMMAND_RESPONSE_PACKET_TYPE,
-            additional_bytes=additional_bytes,
+            stim_command_response, SERIAL_COMM_STOP_STIM_PACKET_TYPE, additional_bytes=additional_bytes
         )
 
 
@@ -435,7 +381,6 @@ def test_MantarrayMcSimulator__sends_protocol_status_packet_for_initial_subproto
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
     mocker.patch.object(
@@ -486,13 +431,10 @@ def test_MantarrayMcSimulator__sends_protocol_status_packet_for_initial_subproto
             + (spied_global_timer.spy_return).to_bytes(8, byteorder="little")
             + bytes([0])  # subprotocol idx
         )
-    expected_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
+    expected_size = get_full_packet_size_from_payload_len(len(additional_bytes))
     stim_status_packet = simulator.read(size=expected_size)
     assert_serial_packet_is_expected(
-        stim_status_packet,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
-        additional_bytes=additional_bytes,
+        stim_status_packet, SERIAL_COMM_STIM_STATUS_PACKET_TYPE, additional_bytes=additional_bytes
     )
 
 
@@ -500,7 +442,6 @@ def test_MantarrayMcSimulator__sends_protocol_status_packet_when_a_new_subprotoc
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
@@ -549,13 +490,10 @@ def test_MantarrayMcSimulator__sends_protocol_status_packet_when_a_new_subprotoc
         + (spied_global_timer.spy_return + test_duration_ms * int(1e3)).to_bytes(8, byteorder="little")
         + bytes([1])  # subprotocol idx
     )
-    expected_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
+    expected_size = get_full_packet_size_from_payload_len(len(additional_bytes))
     stim_status_packet = simulator.read(size=expected_size)
     assert_serial_packet_is_expected(
-        stim_status_packet,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
-        additional_bytes=additional_bytes,
+        stim_status_packet, SERIAL_COMM_STIM_STATUS_PACKET_TYPE, additional_bytes=additional_bytes
     )
 
 
@@ -563,7 +501,6 @@ def test_MantarrayMcSimulator__sends_protocol_status_packets_when_multiple_wells
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
@@ -617,13 +554,10 @@ def test_MantarrayMcSimulator__sends_protocol_status_packets_when_multiple_wells
         + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idxs[1]]])
         + status_bytes
     )
-    expected_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
+    expected_size = get_full_packet_size_from_payload_len(len(additional_bytes))
     stim_status_packet = simulator.read(size=expected_size)
     assert_serial_packet_is_expected(
-        stim_status_packet,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
-        additional_bytes=additional_bytes,
+        stim_status_packet, SERIAL_COMM_STIM_STATUS_PACKET_TYPE, additional_bytes=additional_bytes
     )
 
 
@@ -631,7 +565,6 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_multipl
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
@@ -698,13 +631,10 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_multipl
         + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
         + status_bytes_2
     )
-    expected_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
+    expected_size = get_full_packet_size_from_payload_len(len(additional_bytes))
     stim_status_packet = simulator.read(size=expected_size)
     assert_serial_packet_is_expected(
-        stim_status_packet,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
-        additional_bytes=additional_bytes,
+        stim_status_packet, SERIAL_COMM_STIM_STATUS_PACKET_TYPE, additional_bytes=additional_bytes
     )
 
 
@@ -712,7 +642,6 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_subprot
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
@@ -788,13 +717,10 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_subprot
         + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idxs[1]]])
         + status_bytes_2
     )
-    expected_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
+    expected_size = get_full_packet_size_from_payload_len(len(additional_bytes))
     stim_status_packet = simulator.read(size=expected_size)
     assert_serial_packet_is_expected(
-        stim_status_packet,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
-        additional_bytes=additional_bytes,
+        stim_status_packet, SERIAL_COMM_STIM_STATUS_PACKET_TYPE, additional_bytes=additional_bytes
     )
 
 
@@ -802,7 +728,6 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_null_status_correctly(
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
@@ -851,13 +776,10 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_null_status_correctly(
         + (spied_global_timer.spy_return + test_duration_ms * int(1e3)).to_bytes(8, byteorder="little")
         + bytes([1])  # subprotocol idx
     )
-    expected_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
+    expected_size = get_full_packet_size_from_payload_len(len(additional_bytes))
     stim_status_packet = simulator.read(size=expected_size)
     assert_serial_packet_is_expected(
-        stim_status_packet,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
-        additional_bytes=additional_bytes,
+        stim_status_packet, SERIAL_COMM_STIM_STATUS_PACKET_TYPE, additional_bytes=additional_bytes
     )
 
 
@@ -865,7 +787,6 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_restarting_status_corr
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
@@ -917,13 +838,10 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_restarting_status_corr
         + (spied_global_timer.spy_return + test_duration_ms * int(1e3)).to_bytes(8, byteorder="little")
         + bytes([0])  # subprotocol idx
     )
-    expected_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
+    expected_size = get_full_packet_size_from_payload_len(len(additional_bytes))
     stim_status_packet = simulator.read(size=expected_size)
     assert_serial_packet_is_expected(
-        stim_status_packet,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
-        additional_bytes=additional_bytes,
+        stim_status_packet, SERIAL_COMM_STIM_STATUS_PACKET_TYPE, additional_bytes=additional_bytes
     )
 
 
@@ -931,7 +849,6 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    set_simulator_idle_ready(mantarray_mc_simulator_no_beacon)
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
@@ -1000,13 +917,10 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
         + (spied_global_timer.spy_return + test_duration_ms * int(1e3)).to_bytes(8, byteorder="little")
         + bytes([STIM_COMPLETE_SUBPROTOCOL_IDX])
     )
-    expected_size = get_full_packet_size_from_packet_body_size(len(additional_bytes))
+    expected_size = get_full_packet_size_from_payload_len(len(additional_bytes))
     stim_status_packet = simulator.read(size=expected_size)
     assert_serial_packet_is_expected(
-        stim_status_packet,
-        SERIAL_COMM_MAIN_MODULE_ID,
-        SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
-        additional_bytes=additional_bytes,
+        stim_status_packet, SERIAL_COMM_STIM_STATUS_PACKET_TYPE, additional_bytes=additional_bytes
     )
 
     invoke_process_run_and_check_errors(simulator)

@@ -26,7 +26,6 @@ from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import COMPUTER_NAME_HASH_UUID
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
-from pulse3D.constants import MAGNETOMETER_CONFIGURATION_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
@@ -53,13 +52,10 @@ from .constants import CENTIMILLISECONDS_PER_SECOND
 from .constants import CLOUD_API_ENDPOINT
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
+from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_VOLTAGE
-from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
-from .constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
-from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
-from .constants import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from .exceptions import InvalidCustomerAccountIDPasswordError
 from .exceptions import RecordingFolderDoesNotExistError
 from .file_uploader import uploader
@@ -238,118 +234,6 @@ def _trim_barcode(barcode: str) -> str:
     return barcode[:10]
 
 
-def create_magnetometer_config_dict(num_wells: int) -> Dict[int, Dict[int, bool]]:
-    """Create default magnetometer configuration dictionary.
-
-    The default magnetometer state is off, represented in this dict by
-    False.
-    """
-    magnetometer_config_dict = dict()
-    for module_id in range(1, num_wells + 1):
-        module_dict = dict()
-        for sensor_axis_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
-            module_dict[sensor_axis_id] = False
-        magnetometer_config_dict[module_id] = module_dict
-    return magnetometer_config_dict
-
-
-def validate_magnetometer_config_keys(
-    magnetometer_config_dict: Dict[Any, Any],
-    start_key: int,
-    stop_key: int,
-    key_name: str = "module ID",
-    error_msg_addition: str = "",
-) -> str:
-    """Validate keys of magnetometer configuration dictionary."""
-    key_iter = iter(sorted(magnetometer_config_dict.keys()))
-    for expected_key in range(start_key, stop_key):
-        try:
-            actual_key = next(key_iter)
-        except StopIteration:
-            return f"Configuration dictionary is missing {key_name} {expected_key}" + error_msg_addition
-        if actual_key < expected_key:
-            return f"Configuration dictionary has invalid {key_name} {actual_key}" + error_msg_addition
-        if actual_key > expected_key:
-            return f"Configuration dictionary is missing {key_name} {expected_key}" + error_msg_addition
-
-        item = magnetometer_config_dict[actual_key]
-        if isinstance(item, dict):
-            error_msg = validate_magnetometer_config_keys(
-                item,
-                0,
-                SERIAL_COMM_NUM_DATA_CHANNELS,
-                key_name="channel ID",
-                error_msg_addition=f" for {key_name} {actual_key}",
-            )
-            if not error_msg:
-                continue
-            return error_msg
-    try:
-        invalid_key = next(key_iter)
-        return f"Configuration dictionary has invalid {key_name} {invalid_key}" + error_msg_addition
-    except StopIteration:
-        return ""
-
-
-def get_active_wells_from_config(magnetometer_config: Dict[int, Dict[int, bool]]) -> List[int]:
-    """Get ascending list of enabled wells.
-
-    Enabled wells are those who have at least one channel enabled in the
-    given magnetometer configuration dictionary.
-    """
-    active_well_list = []
-    for module_id, config_dict in magnetometer_config.items():
-        if not any(config_dict.values()):
-            continue
-        well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
-        active_well_list.append(well_idx)
-    return sorted(active_well_list)
-
-
-def create_active_channel_per_sensor_list(  # pylint: disable=invalid-name  # Tanner (5/27/21): it's a little long but descriptive
-    magnetometer_config: Dict[int, Dict[int, bool]]
-) -> List[int]:
-    """Convert magnetometer configuration dictionary to list.
-
-    Contains one entry per sensor with at least one channel enabled.
-    Each entry is the number of channels enabled for that sensor.
-
-    Reflects structure of data packet body for given configuration.
-    """
-    active_sensor_channels_list = []
-    for config_dict in magnetometer_config.values():
-        config_values = list(config_dict.values())
-        for sensor_base_idx in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_CHANNELS_PER_SENSOR):
-            num_channels_for_sensor = sum(
-                config_values[sensor_base_idx : sensor_base_idx + SERIAL_COMM_NUM_CHANNELS_PER_SENSOR]
-            )
-            if num_channels_for_sensor == 0:
-                continue
-            active_sensor_channels_list.append(num_channels_for_sensor)
-    return active_sensor_channels_list
-
-
-def create_sensor_axis_dict(module_config: Dict[int, bool]) -> Dict[str, List[str]]:
-    sensor_axis_dict: Dict[str, List[str]] = dict()
-    for sensor, axis_dict in SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE.items():
-        axis_list = []
-        for axis, channel_id in axis_dict.items():
-            if module_config[channel_id]:
-                axis_list.append(axis)
-        if axis_list:
-            sensor_axis_dict[sensor] = axis_list
-    return sensor_axis_dict
-
-
-# TODO Tanner (6/2/21): move this to stdlib_utils
-def sort_nested_dict(dict_to_sort: Dict[Any, Any]) -> Dict[Any, Any]:
-    dict_to_sort = dict(sorted(dict_to_sort.items()))
-    for key, value in dict_to_sort.items():
-        if isinstance(value, dict):
-            dict_to_sort[key] = sort_nested_dict(value)
-    return dict_to_sort
-
-
 def _create_start_recording_command(
     shared_values_dict: Dict[str, Any],
     time_index: Optional[Union[str, int]] = 0,
@@ -413,7 +297,6 @@ def _create_start_recording_command(
     }
     if shared_values_dict["beta_2_mode"]:
         instrument_metadata = shared_values_dict["instrument_metadata"][board_idx]
-        magnetometer_config_dict = shared_values_dict["magnetometer_config_dict"]
         beginning_of_stim_timestamp = shared_values_dict["utc_timestamps_of_beginning_of_stimulation"][
             board_idx
         ]
@@ -424,8 +307,7 @@ def _create_start_recording_command(
             {
                 BOOT_FLAGS_UUID: instrument_metadata[BOOT_FLAGS_UUID],
                 CHANNEL_FIRMWARE_VERSION_UUID: instrument_metadata[CHANNEL_FIRMWARE_VERSION_UUID],
-                TISSUE_SAMPLING_PERIOD_UUID: magnetometer_config_dict["sampling_period"],
-                MAGNETOMETER_CONFIGURATION_UUID: magnetometer_config_dict["magnetometer_config"],
+                TISSUE_SAMPLING_PERIOD_UUID: DEFAULT_SAMPLING_PERIOD,
                 STIMULATION_PROTOCOL_UUID: stim_info_value,
                 UTC_BEGINNING_STIMULATION_UUID: beginning_of_stim_timestamp,
             }

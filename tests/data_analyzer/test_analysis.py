@@ -3,16 +3,13 @@ import copy
 import json
 
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
-from mantarray_desktop_app import create_magnetometer_config_dict
 from mantarray_desktop_app import data_analyzer
 from mantarray_desktop_app import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
-from mantarray_desktop_app import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
-from mantarray_desktop_app.constants import DEFAULT_MAGNETOMETER_CONFIG
 from mantarray_desktop_app.data_analyzer import check_for_new_twitches
 from mantarray_desktop_app.data_analyzer import get_force_signal
 from mantarray_desktop_app.data_analyzer import live_data_metrics
@@ -29,8 +26,7 @@ from stdlib_utils import invoke_process_run_and_check_errors
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
-from ..fixtures_data_analyzer import set_magnetometer_config
-from ..fixtures_file_writer import GENERIC_BOARD_MAGNETOMETER_CONFIGURATION
+from ..fixtures_data_analyzer import set_sampling_period
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
@@ -170,13 +166,7 @@ def test_append_data__beta_2__correctly_appends_x_and_y_data_from_numpy_array_to
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
 
     expected_sampling_period_us = 13000
-    set_magnetometer_config(
-        four_board_analyzer_process_beta_2_mode,
-        {
-            "magnetometer_config": GENERIC_BOARD_MAGNETOMETER_CONFIGURATION,
-            "sampling_period": expected_sampling_period_us,
-        },
-    )
+    set_sampling_period(four_board_analyzer_process_beta_2_mode, expected_sampling_period_us)
 
     init_list = [list(), list()]
     expected_list = [[0], [1]]
@@ -193,13 +183,7 @@ def test_append_data__beta_2__removes_oldest_data_points_when_buffer_exceeds_req
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
 
     expected_sampling_period_us = 15000
-    set_magnetometer_config(
-        four_board_analyzer_process_beta_2_mode,
-        {
-            "magnetometer_config": GENERIC_BOARD_MAGNETOMETER_CONFIGURATION,
-            "sampling_period": expected_sampling_period_us,
-        },
-    )
+    set_sampling_period(four_board_analyzer_process_beta_2_mode, expected_sampling_period_us)
 
     expected_buffer_size = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * int(1e6 / expected_sampling_period_us)
 
@@ -270,10 +254,9 @@ def test_get_twitch_analysis__returns_force_metrics_from_given_beta_2_data(
 ):
     # Tanner (7/12/21): This test is "True by definition", but can't think of a better way to test waveform analysis
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
-    set_magnetometer_config(
-        four_board_analyzer_process_beta_2_mode,
-        {"magnetometer_config": DEFAULT_MAGNETOMETER_CONFIG, "sampling_period": DEFAULT_SAMPLING_PERIOD},
-    )
+
+    # run setup before loop to set sampling period and init streams
+    invoke_process_run_and_check_errors(da_process, perform_setup_before_loop=True)
 
     test_y_data = (
         mantarray_mc_simulator["simulator"].get_interpolated_data(DEFAULT_SAMPLING_PERIOD).tolist()
@@ -400,13 +383,7 @@ def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_rea
     mocker.patch.object(da_process, "_handle_performance_logging", autospec=True)
 
     expected_sampling_period_us = 11000
-    set_magnetometer_config(
-        four_board_analyzer_process_beta_2_mode,
-        {
-            "magnetometer_config": GENERIC_BOARD_MAGNETOMETER_CONFIGURATION,
-            "sampling_period": expected_sampling_period_us,
-        },
-    )
+    set_sampling_period(four_board_analyzer_process_beta_2_mode, expected_sampling_period_us)
 
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     board_queues = four_board_analyzer_process_beta_2_mode["board_queues"]
@@ -546,13 +523,7 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_2_data(
     mocker.patch.object(da_process, "_handle_performance_logging", autospec=True)
 
     expected_sampling_period_us = 13000
-    set_magnetometer_config(
-        four_board_analyzer_process_beta_2_mode,
-        {
-            "magnetometer_config": GENERIC_BOARD_MAGNETOMETER_CONFIGURATION,
-            "sampling_period": expected_sampling_period_us,
-        },
-    )
+    set_sampling_period(four_board_analyzer_process_beta_2_mode, expected_sampling_period_us)
 
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     board_queues = four_board_analyzer_process_beta_2_mode["board_queues"]
@@ -619,7 +590,7 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_2_data(
             assert len(metric_list) == 1, f"Well: {well_idx}, Metric ID: {metric_id}"
 
 
-def test_DataAnalyzerProcess__data_analysis_stream_is_reconfigured_in_beta_2_mode_upon_receiving_change_magnetometer_config_command(
+def test_DataAnalyzerProcess__data_analysis_stream_is_reconfigured_in_beta_2_mode_upon_receiving_set_sampling_period_command(
     four_board_analyzer_process_beta_2_mode, mantarray_mc_simulator, mocker
 ):
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
@@ -631,13 +602,7 @@ def test_DataAnalyzerProcess__data_analysis_stream_is_reconfigured_in_beta_2_mod
     mocker.patch.object(da_process, "_handle_performance_logging", autospec=True)
 
     expected_sampling_period_us = 12000
-    set_magnetometer_config(
-        four_board_analyzer_process_beta_2_mode,
-        {
-            "magnetometer_config": GENERIC_BOARD_MAGNETOMETER_CONFIGURATION,
-            "sampling_period": expected_sampling_period_us,
-        },
-    )
+    set_sampling_period(four_board_analyzer_process_beta_2_mode, expected_sampling_period_us)
 
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     board_queues = four_board_analyzer_process_beta_2_mode["board_queues"]
@@ -677,16 +642,7 @@ def test_DataAnalyzerProcess__data_analysis_stream_is_reconfigured_in_beta_2_mod
                 len(metric_list) == MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 2
             ), f"Well: {well_idx}, Metric ID: {metric_id}"
 
-    # change magnetometer config so that only wells 20-23 are enabled
-    test_config = create_magnetometer_config_dict(24)
-    for well_idx in range(20, 24):
-        module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]
-        # enable arbitrary channel
-        test_config[module_id][2] = True
-    set_magnetometer_config(
-        four_board_analyzer_process_beta_2_mode,
-        {"magnetometer_config": test_config, "sampling_period": expected_sampling_period_us},
-    )
+    set_sampling_period(four_board_analyzer_process_beta_2_mode, expected_sampling_period_us)
 
     # send second round of data through will only some wells enabled
     test_packet_2 = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
@@ -702,10 +658,6 @@ def test_DataAnalyzerProcess__data_analysis_stream_is_reconfigured_in_beta_2_mod
     outgoing_msg = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     outgoing_metrics = json.loads(outgoing_msg["data_json"])
     for well_idx in range(24):
-        if well_idx < 20:
-            assert str(well_idx) not in outgoing_metrics, well_idx
-            continue
-
         actual_well_metric_dict = outgoing_metrics[str(well_idx)]
         assert list(actual_well_metric_dict.keys()) == [str(AMPLITUDE_UUID), str(TWITCH_FREQUENCY_UUID)]
         for metric_id, metric_list in actual_well_metric_dict.items():

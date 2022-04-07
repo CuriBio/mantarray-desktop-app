@@ -32,7 +32,6 @@ from pulse3D.constants import ADC_TISSUE_OFFSET_UUID
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import IS_CALIBRATION_FILE_UUID
 from pulse3D.constants import IS_FILE_ORIGINAL_UNTRIMMED_UUID
-from pulse3D.constants import MAGNETOMETER_CONFIGURATION_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
 from pulse3D.constants import ORIGINAL_FILE_VERSION_UUID
@@ -72,12 +71,12 @@ from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import ROUND_ROBIN_PERIOD
-from .constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
+from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
+from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .exceptions import CalibrationFilesMissingError
 from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
 from .file_uploader import uploader
-from .utils import create_sensor_axis_dict
 from .worker_thread import ErrorCatchingThread
 
 
@@ -586,18 +585,13 @@ class FileWriterProcess(InfiniteProcess):
             this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] = 0
             this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_END_UUID)] = 0
 
-            sensor_axis_dict: Dict[str, List[str]]
             for this_attr_name, this_attr_value in attrs_to_copy.items():
                 if this_attr_name == "adc_offsets":
                     this_file.attrs[str(ADC_TISSUE_OFFSET_UUID)] = this_attr_value[this_well_idx]["construct"]
                     this_file.attrs[str(ADC_REF_OFFSET_UUID)] = this_attr_value[this_well_idx]["ref"]
                     continue
-                # extract config for well from full configuration for both stim and data streaming
-                if this_attr_name == MAGNETOMETER_CONFIGURATION_UUID:
-                    module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[this_well_idx]
-                    sensor_axis_dict = create_sensor_axis_dict(this_attr_value[module_id])
-                    this_attr_value = json.dumps(sensor_axis_dict)
-                elif this_attr_name == STIMULATION_PROTOCOL_UUID:
+                if this_attr_name == STIMULATION_PROTOCOL_UUID:
+                    # extract stim configuration for well
                     if communication["stim_running_statuses"][this_well_idx]:
                         assigned_protocol_id = this_attr_value["protocol_assignments"][well_name]
                         this_attr_value = json.dumps(labeled_protocol_dict[assigned_protocol_id])
@@ -625,10 +619,8 @@ class FileWriterProcess(InfiniteProcess):
             # Tanner (5/17/21): Not sure what 100 * 3600 * 12 represents, should make it a constant or add comment if/when it is determined
             max_data_len = 100 * 3600 * 12
             if self._beta_2_mode:
-                module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[this_well_idx]
-                num_channels_enabled = sum(attrs_to_copy[MAGNETOMETER_CONFIGURATION_UUID][module_id].values())
-                data_shape = (num_channels_enabled, 0)
-                maxshape = (num_channels_enabled, max_data_len)
+                data_shape = (SERIAL_COMM_NUM_DATA_CHANNELS, 0)
+                maxshape = (SERIAL_COMM_NUM_DATA_CHANNELS, max_data_len)
                 data_dtype = "uint16"
                 # beta 2 files must also store time indices and time offsets
                 this_file.create_dataset(
@@ -638,11 +630,10 @@ class FileWriterProcess(InfiniteProcess):
                     dtype="uint64",
                     chunks=True,
                 )
-                num_sensors_active = len(sensor_axis_dict.keys())
                 this_file.create_dataset(
                     TIME_OFFSETS,
-                    (num_sensors_active, 0),
-                    maxshape=(num_sensors_active, max_data_len),
+                    (SERIAL_COMM_NUM_SENSORS_PER_WELL, 0),
+                    maxshape=(SERIAL_COMM_NUM_SENSORS_PER_WELL, max_data_len),
                     dtype="uint16",
                     chunks=True,
                 )

@@ -1,6 +1,22 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+
+0.9.0 (unreleased)
+------------------
+
+Changed:
+^^^^^^^^
+
+- Serial communication protocol:
+
+  - Removed module ID from general packet structure.
+  - Removed ability to set magnetometer configuration.
+  - Misc. other minor changes.
+
+- Instrument error handling procedure.
+
+
 0.8.1 (2022-03-18)
 ------------------
 
@@ -8,6 +24,9 @@ Changed:
 ^^^^^^^^
 
 - Accepted barcode headers are now ML and MS only.
+- Beta 2 H5 file format version to 1.0.2. Format Changes:
+
+  - Removed magnetometer configuration from metadata
 
 Fixed:
 ^^^^^^
@@ -96,7 +115,7 @@ Fixed:
 ------------------
 
 - Updated mappings between Well Indices and Module IDs to be compatible with Beta 2.2 board.
-- Changed Beta 2 file format version to 1.0.1. This file version indicates that the file was taken
+- Changed Beta 2 H5 file format version to 1.0.1. This file version indicates that the file was taken
   on an instrument of version Beta 2.2.
 
 

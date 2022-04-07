@@ -3,7 +3,7 @@
     <div class="div__sidebar">
       <div class="div__sidebar-page-divider" />
       <div class="div__plate-barcode-container">
-        <PlateBarcode />
+        <BarcodeViewer />
       </div>
       <div class="div__plate-navigator-container">
         <PlateNavigator />
@@ -15,10 +15,14 @@
         <DesktopPlayerControls @save_customer_id="save_customer_id" />
       </div>
       <div class="div__stim-barcode-container">
-        <PlateBarcode :barcode_type="'stim_barcode'" />
+        <BarcodeViewer :barcode_type="'stim_barcode'" />
       </div>
       <div class="div__status-bar-container" :style="'top: 455px;'">
-        <StatusBar :stim_specific="true" />
+        <StatusBar
+          :confirmation_request="confirmation_request"
+          :stim_specific="true"
+          @send_confirmation="send_confirmation"
+        />
       </div>
       <div
         class="div__additional_controls-controls-icon-container"
@@ -96,7 +100,7 @@
 <script>
 import {
   PlateNavigator,
-  PlateBarcode,
+  BarcodeViewer,
   DesktopPlayerControls,
   StatusBar,
   SimulationMode,
@@ -125,7 +129,7 @@ const electron_app = process.env.NODE_ENV === "test" ? dummy_electron_app : requ
 export default {
   components: {
     PlateNavigator,
-    PlateBarcode,
+    BarcodeViewer,
     DesktopPlayerControls,
     StatusBar,
     SimulationMode,

@@ -2,20 +2,23 @@
 import copy
 import logging
 from multiprocessing import Queue
+from random import randint
 
 from freezegun import freeze_time
 from mantarray_desktop_app import create_data_packet
-from mantarray_desktop_app import MantarrayInstrumentError
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import McCommunicationProcess
-from mantarray_desktop_app import SERIAL_COMM_FATAL_ERROR_CODE
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MAIN_MODULE_ID
-from mantarray_desktop_app import SERIAL_COMM_MAX_PACKET_LENGTH_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES
-from mantarray_desktop_app import SERIAL_COMM_REBOOT_COMMAND_BYTE
-from mantarray_desktop_app import SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE
+from mantarray_desktop_app import SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
+from mantarray_desktop_app import SERIAL_COMM_REBOOT_PACKET_TYPE
 from mantarray_desktop_app import SerialCommIncorrectMagicWordFromMantarrayError
+from mantarray_desktop_app.constants import SERIAL_COMM_ERROR_ACK_PACKET_TYPE
+from mantarray_desktop_app.constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
+from mantarray_desktop_app.constants import SERIAL_COMM_OKAY_CODE
+from mantarray_desktop_app.exceptions import InstrumentFirmwareError
+from mantarray_desktop_app.serial_comm_utils import convert_status_code_bytes_to_dict
+from mantarray_desktop_app.serial_comm_utils import convert_to_status_code_bytes
 import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
@@ -30,6 +33,7 @@ from ..fixtures_mc_comm import set_connection_and_register_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..helpers import assert_queue_is_eventually_not_empty
+from ..helpers import assert_serial_packet_is_expected
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
@@ -235,8 +239,8 @@ def test_McCommunicationProcess_teardown_after_loop__puts_teardown_log_message_i
     )
 
 
-def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_serial_data___if_error_occurred_in_mc_comm(
-    patch_print, four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_serial_data__and_unread_data_in_cache__if_error_occurred_in_mc_comm(
+    patch_print, four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
@@ -246,12 +250,16 @@ def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
+    # add data to mc_process cache
+    expected_cache_data = bytes([randint(0, 255) for _ in range(15)])
+    mc_process._data_packet_cache = expected_cache_data
+
     # add one data packet with bad magic word to raise error and additional bytes to flush from simulator
     test_read_bytes = [
-        bytes(SERIAL_COMM_MIN_FULL_PACKET_LENGTH_BYTES),  # bad packet
-        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES),  # start of additional bytes
-        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES),
-        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES // 2),  # arbitrary final length
+        bytes(SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES),  # bad packet
+        bytes(SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES),  # start of additional bytes
+        bytes(SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES),
+        bytes(SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES // 2),  # arbitrary final length
     ]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "add_read_bytes", "read_bytes": test_read_bytes}, testing_queue
@@ -268,6 +276,7 @@ def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_
     expected_bytes = bytes(
         sum([len(packet) for packet in test_read_bytes]) - len(SERIAL_COMM_MAGIC_WORD_BYTES)
     )
+    assert str(expected_cache_data) in actual["message"]
     assert str(expected_bytes) in actual["message"]
 
 
@@ -299,60 +308,8 @@ def test_McCommunicationProcess_teardown_after_loop__sends_reboot_command_if_err
     if in_simulation_mode or not error:
         spied_write.assert_not_called()
     else:
-        reboot_command_bytes = create_data_packet(
-            spied_timestamp.spy_return,
-            SERIAL_COMM_MAIN_MODULE_ID,
-            SERIAL_COMM_SIMPLE_COMMAND_PACKET_TYPE,
-            bytes([SERIAL_COMM_REBOOT_COMMAND_BYTE]),
-        )
+        reboot_command_bytes = create_data_packet(spied_timestamp.spy_return, SERIAL_COMM_REBOOT_PACKET_TYPE)
         spied_write.assert_called_once_with(reboot_command_bytes)
-
-
-def test_McCommunicationProcess_teardown_after_loop__handles_fatal_instrument_error(
-    patch_print, four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
-):
-    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
-    output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
-    set_connection_and_register_simulator(
-        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
-    )
-
-    mocked_write = mocker.patch.object(simulator, "write", autospec=True)
-
-    # put simulator in error state before sending beacon
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "set_status_code", "status_code": SERIAL_COMM_FATAL_ERROR_CODE}, testing_queue
-    )
-    invoke_process_run_and_check_errors(simulator)
-    # add one beacon for mc_process to read normally
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "send_single_beacon"},
-        testing_queue,
-    )
-    invoke_process_run_and_check_errors(simulator)
-    # add read bytes to flush from simulator
-    test_read_bytes = [
-        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES),
-        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES),
-        bytes(SERIAL_COMM_MAX_PACKET_LENGTH_BYTES // 2),  # arbitrary final length
-    ]
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "add_read_bytes", "read_bytes": test_read_bytes}, testing_queue
-    )
-    invoke_process_run_and_check_errors(simulator)
-    # read beacon, raise, error, then flush remaining serial data
-    with pytest.raises(MantarrayInstrumentError):
-        invoke_process_run_and_check_errors(
-            mc_process,
-            perform_teardown_after_loop=True,
-        )
-    # check that all data was flushed here
-    assert simulator.in_waiting == 0
-    # check that no commands were sent
-    mocked_write.assert_not_called()
-    drain_queue(output_queue)
 
 
 @pytest.mark.slow
@@ -383,7 +340,63 @@ def test_McCommunicationProcess__logs_status_codes_from_status_beacons(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
-    expected_status_code = 1234
+    expected_status_code_dict = convert_status_code_bytes_to_dict(
+        convert_to_status_code_bytes(SERIAL_COMM_OKAY_CODE)
+    )
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "send_single_beacon"}, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(output_queue, 1)
+    actual = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert "status beacon" in actual["message"].lower()
+    assert str(expected_status_code_dict) in actual["message"]
+
+
+def test_McCommunicationProcess__logs_status_codes_from_handshake_responses(
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon
+):
+    mc_process = four_board_mc_comm_process["mc_process"]
+    output_queue = four_board_mc_comm_process["board_queues"][0][1]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    # handshake sent in this function
+    set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator_no_beacon)
+
+    expected_status_code_dict = convert_status_code_bytes_to_dict(
+        convert_to_status_code_bytes(SERIAL_COMM_OKAY_CODE)
+    )
+
+    # process handshake
+    invoke_process_run_and_check_errors(simulator)
+    # process handshake response
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(output_queue, 1)
+    actual = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert "handshake" in actual["message"].lower()
+    assert str(expected_status_code_dict) in actual["message"]
+
+
+def test_McCommunicationProcess__handles_error_status_code_found_in_status_beacon(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    spied_write = mocker.spy(simulator, "write")
+    # mock so that mc_comm will use teardown procedure for a real instrument
+    mocker.patch.object(mc_comm, "_is_simulator", autospec=True, return_value=False)
+
+    expected_status_code = 123
+    expected_status_code_dict = convert_status_code_bytes_to_dict(
+        convert_to_status_code_bytes(expected_status_code)
+    )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "set_status_code", "status_code": expected_status_code}, testing_queue
     )
@@ -393,31 +406,60 @@ def test_McCommunicationProcess__logs_status_codes_from_status_beacons(
     )
     invoke_process_run_and_check_errors(simulator)
 
-    invoke_process_run_and_check_errors(mc_process)
-    confirm_queue_is_eventually_of_size(output_queue, 1)
-    actual = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert str(expected_status_code) in actual["message"]
+    # read beacon with error code and then teardown
+    with pytest.raises(InstrumentFirmwareError) as exc_info:
+        invoke_process_run_and_check_errors(mc_process, perform_teardown_after_loop=True)
+    # make sure only error ack packet was sent to simulator
+    spied_write.assert_called_once()
+    assert_serial_packet_is_expected(spied_write.call_args[0][0], SERIAL_COMM_ERROR_ACK_PACKET_TYPE)
+    # make sure relevant info is in error message
+    assert "status beacon" in str(exc_info.value).lower()
+    assert str(expected_status_code_dict) in str(exc_info.value)
 
 
-def test_McCommunicationProcess__logs_status_codes_from_handshake_responses(
-    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon
+def test_McCommunicationProcess__handles_error_status_code_found_in_handshake_response(
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
-    output_queue = four_board_mc_comm_process["board_queues"][0][1]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    # mock to control when handshakes are sent
+    mocked_secs_since_handshake = mocker.patch.object(
+        mc_comm, "_get_secs_since_last_handshake", autospec=True, return_value=0
+    )
+    # mock this so function mocked above controls when next handshake will be sent
+    mocker.patch.object(mc_process, "_has_initial_handshake_been_sent", autospec=True, return_value=True)
+
     set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator_no_beacon)
 
-    expected_status_code = 1234
+    # mock so that mc_comm will use teardown procedure for a real instrument
+    mocker.patch.object(mc_comm, "_is_simulator", autospec=True, return_value=False)
+
+    expected_status_code = 123
+    expected_status_code_dict = convert_status_code_bytes_to_dict(
+        convert_to_status_code_bytes(expected_status_code)
+    )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "set_status_code", "status_code": expected_status_code}, testing_queue
     )
     invoke_process_run_and_check_errors(simulator)
 
+    # send handshake and response
+    mocked_secs_since_handshake.return_value = SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
     invoke_process_run_and_check_errors(mc_process)
-    confirm_queue_is_eventually_of_size(output_queue, 1)
-    actual = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert str(expected_status_code) in actual["message"]
+    invoke_process_run_and_check_errors(simulator)
+    # read handshake response with error code and then teardown
+    mocked_secs_since_handshake.return_value = 0
+    spied_write = mocker.spy(simulator, "write")
+    with pytest.raises(InstrumentFirmwareError) as exc_info:
+        invoke_process_run_and_check_errors(mc_process, perform_teardown_after_loop=True)
+    # make sure only error ack packet was sent to simulator
+    spied_write.assert_called_once()
+    assert_serial_packet_is_expected(spied_write.call_args[0][0], SERIAL_COMM_ERROR_ACK_PACKET_TYPE)
+    # make sure relevant info is in error message
+    assert "handshake" in str(exc_info.value).lower()
+    assert str(expected_status_code_dict) in str(exc_info.value)
 
 
 def test_McCommunicationProcess__checks_for_simulator_errors_in_simulator_error_queue__and_if_error_is_present_sends_to_main_process_and_stops_itself(

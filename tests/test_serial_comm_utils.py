@@ -4,37 +4,34 @@ from random import randint
 from zlib import crc32
 
 from freezegun import freeze_time
-from mantarray_desktop_app import convert_bitmask_to_config_dict
-from mantarray_desktop_app import convert_bytes_to_config_dict
 from mantarray_desktop_app import convert_bytes_to_subprotocol_dict
+from mantarray_desktop_app import convert_status_code_bytes_to_dict
 from mantarray_desktop_app import convert_stim_dict_to_bytes
 from mantarray_desktop_app import convert_subprotocol_dict_to_bytes
 from mantarray_desktop_app import create_data_packet
-from mantarray_desktop_app import create_magnetometer_config_bytes
-from mantarray_desktop_app import create_magnetometer_config_dict
-from mantarray_desktop_app import create_sensor_axis_bitmask
 from mantarray_desktop_app import get_serial_comm_timestamp
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import parse_metadata_bytes
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_METADATA_BYTES_LENGTH
-from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_EPOCH
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import STIM_NO_PROTOCOL_ASSIGNED
 from mantarray_desktop_app import validate_checksum
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import SERIAL_COMM_PACKET_BASE_LENGTH_BYTES
+from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
+import pytest
 
 from .fixtures import fixture_patch_print
 from .fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
-from .helpers import random_bool
 
 
 __fixtures__ = [fixture_patch_print, fixture_mantarray_mc_simulator_no_beacon]
@@ -57,27 +54,24 @@ API_EXAMPLE_BYTES = bytes([0b00001110, 0b10110101, 0b00000001])
 
 def test_create_data_packet__creates_data_packet_bytes_correctly():
     test_timestamp = 100
-    test_module_id = 0
     test_packet_type = 1
     test_data = bytes([1, 5, 3])
+    test_packet_remainder_size = (
+        SERIAL_COMM_PACKET_BASE_LENGTH_BYTES + len(test_data) + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+    )
 
     expected_data_packet_bytes = SERIAL_COMM_MAGIC_WORD_BYTES
-    expected_data_packet_bytes += (17).to_bytes(2, byteorder="little")
+    expected_data_packet_bytes += test_packet_remainder_size.to_bytes(2, byteorder="little")
     expected_data_packet_bytes += test_timestamp.to_bytes(
         SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little"
     )
-    expected_data_packet_bytes += bytes([test_module_id, test_packet_type])
+    expected_data_packet_bytes += bytes([test_packet_type])
     expected_data_packet_bytes += test_data
     expected_data_packet_bytes += crc32(expected_data_packet_bytes).to_bytes(
         SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little"
     )
 
-    actual = create_data_packet(
-        test_timestamp,
-        test_module_id,
-        test_packet_type,
-        test_data,
-    )
+    actual = create_data_packet(test_timestamp, test_packet_type, test_data)
     assert actual == expected_data_packet_bytes
 
 
@@ -100,6 +94,8 @@ def test_parse_metadata_bytes__returns_expected_value():
         + bytes(MantarrayMcSimulator.default_mantarray_serial_number, encoding="ascii")
         + bytes([0, 1, 2])  # main FW version
         + bytes([255, 255, 255])  # channel FW version
+        + bytes([1, 2, 3, 4])
+        + bytes(28)
     )
     assert len(metadata_bytes) == SERIAL_COMM_METADATA_BYTES_LENGTH
 
@@ -109,6 +105,7 @@ def test_parse_metadata_bytes__returns_expected_value():
         MANTARRAY_NICKNAME_UUID: "マンタレ1",
         MAIN_FIRMWARE_VERSION_UUID: "0.1.2",
         CHANNEL_FIRMWARE_VERSION_UUID: "255.255.255",
+        "status_codes_prior_to_reboot": convert_status_code_bytes_to_dict(bytes([1, 2, 3, 4])),
     }
 
 
@@ -121,62 +118,19 @@ def test_get_serial_comm_timestamp__returns_microseconds_since_2021_01_01():
     assert actual == expected_usecs
 
 
-def test_create_sensor_axis_bitmask__returns_correct_value_for_api_definition():
-    actual = create_sensor_axis_bitmask(API_EXAMPLE_MODULE_DICT)
-    assert bin(actual) == bin(API_EXAMPLE_BITMASK)
-
-
-def test_create_magnetometer_config_bytes__matches_api_definition_for_single_well():
-    expected_module_id = API_EXAMPLE_BYTES[0]
-    test_dict = {expected_module_id: API_EXAMPLE_MODULE_DICT}
-    actual = create_magnetometer_config_bytes(test_dict)
-    for byte_idx, byte_value in enumerate(API_EXAMPLE_BYTES):
-        actual_byte = actual[byte_idx : byte_idx + 1]
-        actual_value = int.from_bytes(actual_byte, byteorder="little")
-        assert bin(actual_value) == bin(byte_value), f"Incorrect value at byte {byte_idx}"
-
-
-def test_create_magnetometer_config_bytes__returns_correct_values_for_every_module_id():
-    test_num_wells = 24
-    test_dict = create_magnetometer_config_dict(test_num_wells)
-    # arbitrarily change values
-    for key in test_dict[1].keys():
-        test_dict[1][key] = True
-    test_dict[2] = convert_bitmask_to_config_dict(0b111000100)
-    # create expected bit-masks
-    expected_uint16_bitmasks = [0b111111111, 0b111000100]
-    expected_uint16_bitmasks.extend([0 for _ in range(test_num_wells - 2)])
-    # test actual bytes
-    actual = create_magnetometer_config_bytes(test_dict)
-    for module_id in range(1, test_num_wells + 1):
-        start_idx = (module_id - 1) * 3
-        assert actual[start_idx] == module_id, f"Incorrect module_id at idx: {module_id}"
-        bitmask_bytes = expected_uint16_bitmasks[module_id - 1].to_bytes(2, byteorder="little")
-        assert (
-            actual[start_idx + 1 : start_idx + 3] == bitmask_bytes
-        ), f"Incorrect bitmask bytes for module_id: {module_id}"
-
-
-def test_convert_bitmask_to_config_dict__returns_correct_values_for_api_definition():
-    actual = convert_bitmask_to_config_dict(API_EXAMPLE_BITMASK)
-    assert actual == API_EXAMPLE_MODULE_DICT
-
-
-def test_convert_bytes_to_config_dict__returns_correct_value_for_api_definition():
-    expected_dict = {API_EXAMPLE_BYTES[0]: API_EXAMPLE_MODULE_DICT}
-    actual = convert_bytes_to_config_dict(API_EXAMPLE_BYTES)
-    assert actual == expected_dict
-
-
-def test_convert_bytes_to_config_dict__returns_correct_values_for_every_module_id():
-    test_num_wells = 24
-    expected_config_dict = {
-        module_id: {channel_id: random_bool() for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS)}
-        for module_id in range(1, test_num_wells + 1)
-    }
-    test_bytes = create_magnetometer_config_bytes(expected_config_dict)
-    actual = convert_bytes_to_config_dict(test_bytes)
-    assert actual == expected_config_dict
+@pytest.mark.parametrize(
+    "test_len", [SERIAL_COMM_STATUS_CODE_LENGTH_BYTES - 1, SERIAL_COMM_STATUS_CODE_LENGTH_BYTES + 1]
+)
+def test_convert_status_code_bytes_to_dict__raises_error_if_given_value_does_not_expected_length_exactly(
+    test_len,
+):
+    test_bytes = bytes([randint(0, 255) for _ in range(test_len)])
+    with pytest.raises(ValueError) as exc_info:
+        convert_status_code_bytes_to_dict(test_bytes)
+    assert (
+        str(exc_info.value)
+        == f"Status code bytes must have len of {SERIAL_COMM_STATUS_CODE_LENGTH_BYTES}, {test_len} bytes given: {test_bytes}"
+    )
 
 
 def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_voltage_controlled_subprotocol_is_not_a_delay():

@@ -11,9 +11,7 @@ from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import ServerManager
 from pulse3D.constants import BACKEND_LOG_UUID
 from pulse3D.constants import COMPUTER_NAME_HASH_UUID
-from pulse3D.constants import MAGNETOMETER_CONFIGURATION_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
-from pulse3D.constants import TISSUE_SAMPLING_PERIOD_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 import pytest
 import socketio as python_socketio
@@ -146,14 +144,6 @@ def put_generic_beta_2_start_recording_info_in_dict(shared_values_dict):
                 "metadata_to_copy_onto_main_file_attributes"
             ][PLATE_BARCODE_UUID]
         }
-    }
-    shared_values_dict["magnetometer_config_dict"] = {
-        "magnetometer_config": GENERIC_BETA_2_START_RECORDING_COMMAND[
-            "metadata_to_copy_onto_main_file_attributes"
-        ][MAGNETOMETER_CONFIGURATION_UUID],
-        "sampling_period": GENERIC_BETA_2_START_RECORDING_COMMAND[
-            "metadata_to_copy_onto_main_file_attributes"
-        ][TISSUE_SAMPLING_PERIOD_UUID],
     }
     shared_values_dict["instrument_metadata"] = {board_idx: MantarrayMcSimulator.default_metadata_values}
 
