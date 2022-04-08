@@ -12,6 +12,7 @@ from mantarray_desktop_app import ServerManager
 from pulse3D.constants import BACKEND_LOG_UUID
 from pulse3D.constants import COMPUTER_NAME_HASH_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
+from pulse3D.constants import STIM_BARCODE_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 import pytest
 import socketio as python_socketio
@@ -144,7 +145,10 @@ def put_generic_beta_2_start_recording_info_in_dict(shared_values_dict):
         board_idx: {
             "plate_barcode": GENERIC_BETA_2_START_RECORDING_COMMAND[
                 "metadata_to_copy_onto_main_file_attributes"
-            ][PLATE_BARCODE_UUID]
+            ][PLATE_BARCODE_UUID],
+            "stim_barcode": GENERIC_BETA_2_START_RECORDING_COMMAND[
+                "metadata_to_copy_onto_main_file_attributes"
+            ][STIM_BARCODE_UUID],
         }
     }
     shared_values_dict["instrument_metadata"] = {board_idx: MantarrayMcSimulator.default_metadata_values}

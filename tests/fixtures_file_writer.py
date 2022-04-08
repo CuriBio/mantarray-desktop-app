@@ -215,15 +215,15 @@ def open_the_generic_h5_file(
 ) -> h5py._hl.files.File:  # pylint: disable=protected-access # this is the only type definition Eli (2/24/20) could find for a File
     if timestamp_str is None:
         timestamp_str = "2020_02_09_190935" if beta_version == 1 else "2020_02_09_190359"
-    barcode = GENERIC_BASE_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+    plate_barcode = GENERIC_BASE_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
 
     actual_file = h5py.File(
         os.path.join(
             file_dir,
-            f"{barcode}__{timestamp_str}",
-            f"{barcode}__{timestamp_str}__{well_name}.h5",
+            f"{plate_barcode}__{timestamp_str}",
+            f"{plate_barcode}__{timestamp_str}__{well_name}.h5",
         ),
         "r",
     )
@@ -234,15 +234,15 @@ def open_the_generic_h5_file_as_WellFile(
     file_dir: str, well_name: str = "A2", beta_version: int = 1
 ) -> WellFile:
     timestamp_str = "2020_02_09_190935" if beta_version == 1 else "2020_02_09_190359"
-    barcode = GENERIC_BASE_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+    plate_barcode = GENERIC_BASE_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
 
     actual_file = WellFile(
         os.path.join(
             file_dir,
-            f"{barcode}__{timestamp_str}",
-            f"{barcode}__{timestamp_str}__{well_name}.h5",
+            f"{plate_barcode}__{timestamp_str}",
+            f"{plate_barcode}__{timestamp_str}__{well_name}.h5",
         ),
     )
     return actual_file

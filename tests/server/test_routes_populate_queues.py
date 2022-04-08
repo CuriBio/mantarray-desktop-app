@@ -779,11 +779,11 @@ def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     put_generic_beta_1_start_recording_info_in_dict(test_process_manager.get_values_to_share_to_server())
 
-    expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        PLATE_BARCODE_UUID
-    ]
+    expected_plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
     response = test_client.get(
-        f"/start_recording?plate_barcode={expected_barcode}&active_well_indices=0,5,8&is_hardware_test_recording=false"
+        f"/start_recording?plate_barcode={expected_plate_barcode}&active_well_indices=0,5,8&is_hardware_test_recording=false"
     )
     assert response.status_code == 200
 
@@ -802,11 +802,11 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_correct_wel
     put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
 
     total_num_wells = 24
-    expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        PLATE_BARCODE_UUID
-    ]
+    expected_plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
     response = test_client.get(
-        f"/start_recording?plate_barcode={expected_barcode}&is_hardware_test_recording=False"
+        f"/start_recording?plate_barcode={expected_plate_barcode}&is_hardware_test_recording=False"
     )
     assert response.status_code == 200
 
@@ -970,11 +970,11 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
 
     shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [expected_acquisition_timestamp]
 
-    expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        PLATE_BARCODE_UUID
-    ]
+    expected_plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
     response = test_client.get(
-        f"/start_recording?plate_barcode={expected_barcode}&is_hardware_test_recording=false"
+        f"/start_recording?plate_barcode={expected_plate_barcode}&is_hardware_test_recording=false"
     )
     assert response.status_code == 200
 
@@ -1043,7 +1043,10 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
         communication["metadata_to_copy_onto_main_file_attributes"]["adc_offsets"]
         == shared_values_dict["adc_offsets"]
     )
-    assert communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID] == expected_barcode
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID]
+        == expected_plate_barcode
+    )
     assert communication["metadata_to_copy_onto_main_file_attributes"][HARDWARE_TEST_RECORDING_UUID] is False
 
     assert (
@@ -1095,11 +1098,11 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
 
     shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [expected_acquisition_timestamp]
 
-    expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        PLATE_BARCODE_UUID
-    ]
+    expected_plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
     response = test_client.get(
-        f"/start_recording?plate_barcode={expected_barcode}&is_hardware_test_recording=false"
+        f"/start_recording?plate_barcode={expected_plate_barcode}&is_hardware_test_recording=false"
     )
     assert response.status_code == 200
 
@@ -1148,7 +1151,10 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
         communication["metadata_to_copy_onto_main_file_attributes"][MANTARRAY_NICKNAME_UUID]
         == shared_values_dict["mantarray_nickname"][0]
     )
-    assert communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID] == expected_barcode
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID]
+        == expected_plate_barcode
+    )
     assert communication["metadata_to_copy_onto_main_file_attributes"][HARDWARE_TEST_RECORDING_UUID] is False
     # metadata values from instrument
     instrument_metadata = shared_values_dict["instrument_metadata"][0]

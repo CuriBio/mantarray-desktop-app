@@ -577,9 +577,9 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_1_files_after_stop_recordi
     four_board_file_writer_process, mocker
 ):
     expected_timestamp = "2020_02_09_190935"
-    expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        PLATE_BARCODE_UUID
-    ]
+    expected_plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
 
     fw_process = four_board_file_writer_process["fw_process"]
     board_queues = four_board_file_writer_process["board_queues"]
@@ -632,8 +632,8 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_1_files_after_stop_recordi
             with h5py.File(
                 os.path.join(
                     tmp_dir,
-                    f"{expected_barcode}__{expected_timestamp}",
-                    f"{expected_barcode}__{expected_timestamp}__{well_name}.h5",
+                    f"{expected_plate_barcode}__{expected_timestamp}",
+                    f"{expected_plate_barcode}__{expected_timestamp}__{well_name}.h5",
                 ),
                 "r",
             ) as this_file:
@@ -649,9 +649,9 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
     four_board_file_writer_process, mocker
 ):
     expected_timestamp = "2020_02_09_190359"
-    expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        PLATE_BARCODE_UUID
-    ]
+    expected_plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
 
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
@@ -706,8 +706,8 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
             with h5py.File(
                 os.path.join(
                     tmp_dir,
-                    f"{expected_barcode}__{expected_timestamp}",
-                    f"{expected_barcode}__{expected_timestamp}__{well_name}.h5",
+                    f"{expected_plate_barcode}__{expected_timestamp}",
+                    f"{expected_plate_barcode}__{expected_timestamp}__{well_name}.h5",
                 ),
                 "r",
             ) as this_file:

@@ -1297,11 +1297,11 @@ def test_start_recording_command__gets_processed_with_given_time_index_parameter
         ]
     ]
 
-    expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        PLATE_BARCODE_UUID
-    ]
+    expected_plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
     response = test_client.get(
-        f"/start_recording?plate_barcode={expected_barcode}&active_well_indices=3&time_index={expected_time_index}"
+        f"/start_recording?plate_barcode={expected_plate_barcode}&active_well_indices=3&time_index={expected_time_index}"
     )
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
@@ -1313,8 +1313,8 @@ def test_start_recording_command__gets_processed_with_given_time_index_parameter
     confirm_queue_is_eventually_empty(fw_error_queue)
 
     file_dir = fw_process.get_file_directory()
-    actual_files = os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}"))
-    assert actual_files == [f"{expected_barcode}__{timestamp_str}__D1.h5"]
+    actual_files = os.listdir(os.path.join(file_dir, f"{expected_plate_barcode}__{timestamp_str}"))
+    assert actual_files == [f"{expected_plate_barcode}__{timestamp_str}__D1.h5"]
 
 
 @freeze_time(
@@ -1354,11 +1354,11 @@ def test_start_recording_command__gets_processed_in_beta_1_mode__and_creates_a_f
         )
     ).strftime("%Y_%m_%d_%H%M%S")
 
-    expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        PLATE_BARCODE_UUID
-    ]
+    expected_plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
     response = test_client.get(
-        f"/start_recording?plate_barcode={expected_barcode}&active_well_indices=3&is_hardware_test_recording=False"
+        f"/start_recording?plate_barcode={expected_plate_barcode}&active_well_indices=3&is_hardware_test_recording=False"
     )
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
@@ -1370,8 +1370,8 @@ def test_start_recording_command__gets_processed_in_beta_1_mode__and_creates_a_f
     confirm_queue_is_eventually_empty(fw_error_queue)
 
     file_dir = fw_process.get_file_directory()
-    actual_files = os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}"))
-    assert actual_files == [f"{expected_barcode}__2020_02_09_190935__D1.h5"]
+    actual_files = os.listdir(os.path.join(file_dir, f"{expected_plate_barcode}__{timestamp_str}"))
+    assert actual_files == [f"{expected_plate_barcode}__2020_02_09_190935__D1.h5"]
 
 
 @freeze_time(
@@ -1399,12 +1399,12 @@ def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_all
     timestamp_str = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         UTC_BEGINNING_RECORDING_UUID
     ].strftime("%Y_%m_%d_%H%M%S")
-    expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        PLATE_BARCODE_UUID
-    ]
+    expected_plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
 
     response = test_client.get(
-        f"/start_recording?plate_barcode={expected_barcode}&is_hardware_test_recording=False"
+        f"/start_recording?plate_barcode={expected_plate_barcode}&is_hardware_test_recording=False"
     )
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
@@ -1416,10 +1416,10 @@ def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_all
     confirm_queue_is_eventually_empty(fw_error_queue)
 
     file_dir = fw_process.get_file_directory()
-    actual_files = os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}"))
+    actual_files = os.listdir(os.path.join(file_dir, f"{expected_plate_barcode}__{timestamp_str}"))
     actual_files = [file_path for file_path in actual_files if "Calibration" not in file_path]
     assert set(actual_files) == set(
-        f"{expected_barcode}__{timestamp_str}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(idx)}.h5"
+        f"{expected_plate_barcode}__{timestamp_str}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(idx)}.h5"
         for idx in range(24)
     )
 
