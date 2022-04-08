@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import datetime
 import json
+import urllib
 
 from freezegun import freeze_time
 from mantarray_desktop_app import CALIBRATED_STATE
@@ -19,7 +20,6 @@ from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.mc_simulator import MantarrayMcSimulator
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import BACKEND_LOG_UUID
-from pulse3D.constants import BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
@@ -29,12 +29,15 @@ from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
+from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import REFERENCE_VOLTAGE_UUID
 from pulse3D.constants import SLEEP_FIRMWARE_VERSION_UUID
 from pulse3D.constants import SOFTWARE_BUILD_NUMBER_UUID
 from pulse3D.constants import SOFTWARE_RELEASE_VERSION_UUID
 from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
+from pulse3D.constants import STIM_BARCODE_IS_FROM_SCANNER_UUID
+from pulse3D.constants import STIM_BARCODE_UUID
 from pulse3D.constants import STIMULATION_PROTOCOL_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
@@ -728,8 +731,7 @@ def test_start_recording_command__populates_queue__with_correct_adc_offset_value
     for well_idx in range(24):
         expected_adc_offsets[well_idx] = {"construct": 0, "ref": 0}
 
-    # TODO
-    barcodes = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+    barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
     response = test_client.get(f"/start_recording?plate_barcode={barcode}")
@@ -854,7 +856,8 @@ def test_start_recording_command__correctly_sets_plate_barcode_from_scanner_valu
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     shared_values_dict = test_process_manager.get_values_to_share_to_server()
-    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     board_idx = 0
     if scanned_barcode is None:
@@ -872,7 +875,73 @@ def test_start_recording_command__correctly_sets_plate_barcode_from_scanner_valu
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
     assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][BARCODE_IS_FROM_SCANNER_UUID]
+        communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_IS_FROM_SCANNER_UUID]
+        is expected_result
+    )
+
+
+@pytest.mark.parametrize(
+    "scanned_barcode,user_entered_barcode,expected_result,test_description",
+    [
+        (
+            MantarrayMcSimulator.default_stim_barcode,
+            MantarrayMcSimulator.default_stim_barcode[:-1] + "2",
+            False,
+            "correctly sets value to False with scanned barcode present",
+        ),
+        (
+            "",
+            MantarrayMcSimulator.default_stim_barcode[:-1] + "2",
+            False,
+            "correctly sets value to False after barcode scan fails",
+        ),
+        (
+            None,
+            MantarrayMcSimulator.default_stim_barcode[:-1] + "2",
+            False,
+            "correctly sets value to False without scanned barcode present",
+        ),
+        (
+            MantarrayMcSimulator.default_stim_barcode,
+            MantarrayMcSimulator.default_stim_barcode,
+            True,
+            "correctly sets value to True",
+        ),
+    ],
+)
+def test_start_recording_command__correctly_sets_stim_barcode_from_scanner_value(
+    scanned_barcode,
+    user_entered_barcode,
+    expected_result,
+    test_description,
+    test_process_manager_creator,
+    test_client,
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
+    shared_values_dict["stimulation_running"] = [True] * 24
+
+    board_idx = 0
+    if scanned_barcode is None:
+        del shared_values_dict["barcodes"]
+    else:
+        shared_values_dict["barcodes"][board_idx]["stim_barcode"] = scanned_barcode
+
+    params = {
+        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
+        "stim_barcode": user_entered_barcode,
+        "is_hardware_test_recording": False,
+    }
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
+    assert response.status_code == 200
+
+    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["command"] == "start_recording"
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][STIM_BARCODE_IS_FROM_SCANNER_UUID]
         is expected_result
     )
 
@@ -983,7 +1052,10 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
             BACKEND_LOG_UUID
         ]
     )
-    assert communication["metadata_to_copy_onto_main_file_attributes"][BARCODE_IS_FROM_SCANNER_UUID] is True
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_IS_FROM_SCANNER_UUID]
+        is True
+    )
     assert (  # pylint: disable=duplicate-code
         communication["metadata_to_copy_onto_main_file_attributes"][COMPUTER_NAME_HASH_UUID]
         == GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
@@ -1101,7 +1173,10 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
             BACKEND_LOG_UUID
         ]
     )
-    assert communication["metadata_to_copy_onto_main_file_attributes"][BARCODE_IS_FROM_SCANNER_UUID] is True
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_IS_FROM_SCANNER_UUID]
+        is True
+    )
     assert (  # pylint: disable=duplicate-code
         communication["metadata_to_copy_onto_main_file_attributes"][COMPUTER_NAME_HASH_UUID]
         == GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
@@ -1152,12 +1227,18 @@ def test_start_recording_command__beta_2_mode__populates_queue_with_stim_metadat
     shared_values_dict["stimulation_info"] = test_stim_info
     shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [test_stim_start_timestamp]
 
-    test_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+    test_plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
-    response = test_client.get(
-        f"/start_recording?plate_barcode={test_barcode}&is_hardware_test_recording=false"
-    )
+    test_stim_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        STIM_BARCODE_UUID
+    ]
+    params = {
+        "plate_barcode": test_plate_barcode,
+        "stim_barcode": test_stim_barcode,
+        "is_hardware_test_recording": False,
+    }
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
     assert response.status_code == 200
 
     comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()

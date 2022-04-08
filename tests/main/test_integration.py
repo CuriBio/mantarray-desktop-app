@@ -63,7 +63,6 @@ from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import ADC_REF_OFFSET_UUID
 from pulse3D.constants import ADC_TISSUE_OFFSET_UUID
 from pulse3D.constants import BACKEND_LOG_UUID
-from pulse3D.constants import BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
@@ -79,6 +78,7 @@ from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
 from pulse3D.constants import ORIGINAL_FILE_VERSION_UUID
+from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import REF_SAMPLING_PERIOD_UUID
 from pulse3D.constants import REFERENCE_VOLTAGE_UUID
@@ -580,7 +580,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                         ][COMPUTER_NAME_HASH_UUID]
                     )
                     # Tanner (1/12/21): The barcode used for testing (which is passed to start_recording route) is different than the simulator's barcode (the one that is 'scanned' in this test), so this should result to False
-                    assert bool(this_file_attrs[str(BARCODE_IS_FROM_SCANNER_UUID)]) is False
+                    assert bool(this_file_attrs[str(PLATE_BARCODE_IS_FROM_SCANNER_UUID)]) is False
 
         # expected_timestamp = expected_timestamp[:-1] + "7"
         # Tanner (12/30/20): test second recording (only make sure it contains waveform data)
@@ -1107,7 +1107,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                     assert this_file_attrs[str(UTC_BEGINNING_STIMULATION_UUID)] == str(
                         NOT_APPLICABLE_H5_METADATA
                     ), well_idx
-                assert bool(this_file_attrs[str(BARCODE_IS_FROM_SCANNER_UUID)]) is True
+                assert bool(this_file_attrs[str(PLATE_BARCODE_IS_FROM_SCANNER_UUID)]) is True
                 # test recorded magnetometer data
                 actual_time_index_data = get_time_index_dataset_from_file(this_file)
                 assert actual_time_index_data.shape == (num_recorded_data_points_1,)

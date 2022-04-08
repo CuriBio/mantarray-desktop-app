@@ -163,6 +163,9 @@ from mantarray_desktop_app import UPDATES_NEEDED_STATE
 from mantarray_desktop_app import VALID_CONFIG_SETTINGS
 from mantarray_desktop_app import VALID_SCRIPTING_COMMANDS
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
+from mantarray_desktop_app.constants import ALL_VALID_BARCODE_HEADERS
+from mantarray_desktop_app.constants import BARCODE_HEADERS
+from mantarray_desktop_app.constants import BARCODE_LEN
 from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
@@ -193,8 +196,12 @@ def test_barcode_constants():
     assert BARCODE_POLL_PERIOD == 15
     assert BARCODE_CONFIRM_CLEAR_WAIT_SECONDS == 0.5
     assert BARCODE_GET_SCAN_WAIT_SECONDS == 6
-    assert CLEARED_BARCODE_VALUE == chr(0) * 12
-    assert NO_PLATE_DETECTED_BARCODE_VALUE == chr(21) * 12
+
+    assert BARCODE_LEN == 12
+    assert CLEARED_BARCODE_VALUE == chr(0) * BARCODE_LEN
+    assert NO_PLATE_DETECTED_BARCODE_VALUE == chr(21) * BARCODE_LEN
+    assert BARCODE_HEADERS == {"plate_barcode": "ML", "stim_barcode": "MS"}
+    assert ALL_VALID_BARCODE_HEADERS == frozenset(BARCODE_HEADERS.values())
 
 
 def test_barcode_UUIDs():

@@ -29,6 +29,7 @@ from .constants import ADC_CH_TO_24_WELL_INDEX
 from .constants import ADC_CH_TO_IS_REF_SENSOR
 from .constants import ADC_OFFSET_DESCRIPTION_TAG
 from .constants import BARCODE_INVALID_UUID
+from .constants import BARCODE_LEN
 from .constants import BARCODE_POLL_PERIOD
 from .constants import BARCODE_UNREADABLE_UUID
 from .constants import BARCODE_VALID_UUID
@@ -521,7 +522,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._add_offset_to_shared_dict(adc_index, ch_index, offset_val)
         elif communication_type == "barcode_comm":
             barcode = communication["barcode"]
-            if not self._values_to_share_to_server["beta_2_mode"] and len(barcode) == 12:
+            if not self._values_to_share_to_server["beta_2_mode"] and len(barcode) == BARCODE_LEN:
                 # Tanner (1/27/21): invalid barcodes will be sent untrimmed from ok_comm so the full string is logged, so trimming them here in order to always send trimmed barcodes to frontend.
                 barcode = _trim_barcode(barcode)
             if "barcodes" not in self._values_to_share_to_server:

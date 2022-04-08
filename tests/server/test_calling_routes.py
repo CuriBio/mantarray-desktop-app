@@ -32,7 +32,7 @@ from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
 from ..fixtures_server import fixture_server_manager
 from ..fixtures_server import fixture_test_client
-from ..fixtures_server import put_generic_beta_1_start_recording_info_in_dict
+from ..fixtures_server import put_generic_beta_2_start_recording_info_in_dict
 
 __fixtures__ = [
     fixture_client_and_server_manager_and_shared_values,
@@ -456,7 +456,6 @@ def test_set_mantarray_serial_number__returns_error_code_and_message_if_serial_n
     expected_error_message,
     test_description,
     client_and_server_manager_and_shared_values,
-    mocker,
 ):
     test_client, _, _ = client_and_server_manager_and_shared_values
 
@@ -555,11 +554,11 @@ def test_update_settings__returns_error_message_when_unexpected_argument_is_give
 
 
 def test_route_error_message_is_logged(mocker, test_client):
-    expected_error_msg = "400 Request missing 'plate_barcode' parameter"
+    expected_error_msg = "400 Invalid argument given: a"
 
     mocked_logger = mocker.spy(server.logger, "info")
 
-    response = test_client.get("/start_recording")
+    response = test_client.get("/update_settings?a=b")
     assert response.status == expected_error_msg
 
     assert expected_error_msg in mocked_logger.call_args[0][0]
@@ -569,7 +568,7 @@ def test_start_recording__returns_no_error_message_with_multiple_hardware_test_r
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
 
     params = {
         "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
@@ -582,13 +581,28 @@ def test_start_recording__returns_no_error_message_with_multiple_hardware_test_r
     assert response.status_code == 200
 
 
-# TODO
-def test_start_recording__returns_error_code_and_message_if_either_barcode_is_not_given(
-    test_client,
+def test_start_recording__returns_error_code_and_message_if_plate_barcode_is_not_given(
+    client_and_server_manager_and_shared_values,
 ):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = [True] * 24
+
     response = test_client.get("/start_recording")
     assert response.status_code == 400
     assert response.status.endswith("Request missing 'plate_barcode' parameter") is True
+
+
+def test_start_recording__returns_error_code_and_message_if_stim_barcode_is_not_given_while_stim_is_running(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = [True] * 24
+
+    response = test_client.get(f"/start_recording?plate_barcode={MantarrayMcSimulator.default_plate_barcode}")
+    assert response.status_code == 400
+    assert response.status.endswith("Request missing 'stim_barcode' parameter") is True
 
 
 @pytest.mark.parametrize("test_barcode_type", ["Stim", "Plate"])
@@ -609,15 +623,19 @@ def test_start_recording__returns_error_code_and_message_if_either_barcode_is_no
 )
 def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
     test_barcode_type,
-    test_client,
     test_barcode,
     expected_error_message,
+    client_and_server_manager_and_shared_values,
 ):
-    barcode_type_letter = "S" if test_barcode_type == "Stim" else "L"
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = [True] * 24
+
     barcodes = {
         "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
         "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
     }
+    barcode_type_letter = "S" if test_barcode_type == "Stim" else "L"
     barcodes[f"{test_barcode_type.lower()}_barcode"] = test_barcode.replace("*", barcode_type_letter)
 
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
@@ -625,18 +643,37 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
     assert response.status.endswith(f"{test_barcode_type} {expected_error_message}") is True
 
 
-# TODO test for error if ML/MS headers are swapped
+@pytest.mark.parametrize(
+    "test_barcode,expected_error_message",
+    [
+        (MantarrayMcSimulator.default_stim_barcode, "Plate barcode contains invalid header: 'MS'"),
+        (MantarrayMcSimulator.default_plate_barcode, "Stim barcode contains invalid header: 'ML'"),
+    ],
+)
+def test_start_recording__returns_error_code_if_barcode_header_and_type_do_not_match(
+    test_barcode, expected_error_message, client_and_server_manager_and_shared_values
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
+    shared_values_dict["stimulation_running"] = [True] * 24
+
+    barcodes = {"plate_barcode": test_barcode, "stim_barcode": test_barcode}
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
+    assert response.status_code == 400
+    assert response.status.endswith(expected_error_message) is True
 
 
 def test_start_recording__allows_correct_barcode_headers__for_correct_barcode_type(
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
+    shared_values_dict["stimulation_running"] = [True] * 24
+
     barcodes = {
         "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
         "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
     }
-    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
     assert response.status_code == 200
 
@@ -645,7 +682,7 @@ def test_start_recording__returns_error_code_and_message_if_already_recording(
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
     shared_values_dict["system_status"] = RECORDING_STATE
 
     params = {

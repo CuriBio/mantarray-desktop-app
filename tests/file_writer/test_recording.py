@@ -37,7 +37,6 @@ import numpy as np
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import ADC_REF_OFFSET_UUID
 from pulse3D.constants import ADC_TISSUE_OFFSET_UUID
-from pulse3D.constants import BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import COMPUTER_NAME_HASH_UUID
@@ -52,6 +51,7 @@ from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
 from pulse3D.constants import ORIGINAL_FILE_VERSION_UUID
+from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import REF_SAMPLING_PERIOD_UUID
 from pulse3D.constants import REFERENCE_VOLTAGE_UUID
@@ -224,9 +224,9 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
             == start_recording_command["metadata_to_copy_onto_main_file_attributes"][COMPUTER_NAME_HASH_UUID]
         )
         assert (
-            bool(this_file.attrs[str(BARCODE_IS_FROM_SCANNER_UUID)])
+            bool(this_file.attrs[str(PLATE_BARCODE_IS_FROM_SCANNER_UUID)])
             is start_recording_command["metadata_to_copy_onto_main_file_attributes"][
-                BARCODE_IS_FROM_SCANNER_UUID
+                PLATE_BARCODE_IS_FROM_SCANNER_UUID
             ]
         )
         # test metadata values and datasets not present in both beta versions

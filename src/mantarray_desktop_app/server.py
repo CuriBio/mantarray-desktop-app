@@ -54,6 +54,7 @@ from immutabledict import immutabledict
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
+from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
 import requests
 from semver import VersionInfo
 from stdlib_utils import drain_queue
@@ -575,26 +576,34 @@ def start_recording() -> Response:
         active_well_indices: [Optional, default=all 24] CSV of well indices to record from
         time_index: [Optional, int] microseconds since acquisition began to start the recording at. Defaults to when this command is received
     """
-    for barcode_type in ("plate_barcode", "stim_barcode"):
+    shared_values_dict = _get_values_from_process_monitor()
+
+    barcodes_to_check = ["plate_barcode"]
+    if shared_values_dict["beta_2_mode"] and _is_stimulating_on_any_well():  # TODO unit test
+        barcodes_to_check.append("stim_barcode")
+    # check that all required params are given before validating
+    for barcode_type in barcodes_to_check:
         if barcode_type not in request.args:
             return Response(status=f"400 Request missing '{barcode_type}' parameter")
-    for barcode_type in ("Plate", "Stim"):
-        barcode = request.args[f"{barcode_type.lower()}_barcode"]
-        error_message = check_barcode_for_errors(barcode)
+    # validate params separately
+    for barcode_type in barcodes_to_check:
+        barcode = request.args[barcode_type]
+        error_message = check_barcode_for_errors(barcode, barcode_type)
         if error_message:
-            return Response(status=f"400 {barcode_type} {error_message}")
-    plate_barcode = request.args["plate_barcode"]
-    stim_barcode = request.args["stim_barcode"]
+            barcode_label = barcode_type.split("_")[0].title()
+            return Response(status=f"400 {barcode_label} {error_message}")
+    barcodes = {
+        "plate_barcode": request.args["plate_barcode"],
+        "stim_barcode": request.args.get("stim_barcode", NOT_APPLICABLE_H5_METADATA),
+    }
 
     if _is_recording():
         return Response(status="304 Already recording")
 
-    shared_values_dict = _get_values_from_process_monitor()
-
+    # TODO remove this arg and don't store it in H5 files once Beta 1 is phased out
     is_hardware_test_recording = request.args.get("is_hardware_test_recording", True)
     if isinstance(is_hardware_test_recording, str):
         is_hardware_test_recording = is_hardware_test_recording.lower() == "true"
-
     if shared_values_dict.get("is_hardware_test_recording", False) and not is_hardware_test_recording:
         return Response(
             status="403 Cannot make standard recordings after previously making hardware test recordings. Server and board must both be restarted before making any more standard recordings"
@@ -611,7 +620,7 @@ def start_recording() -> Response:
         shared_values_dict,
         time_index=time_index_str,
         active_well_indices=active_well_indices,
-        barcodes={"plate_barcode": plate_barcode},
+        barcodes=barcodes,
         is_hardware_test_recording=is_hardware_test_recording,
     )
 
