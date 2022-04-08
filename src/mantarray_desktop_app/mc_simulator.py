@@ -622,6 +622,9 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._send_data_packet(
                 SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE, bytes(self.default_plate_barcode, encoding="ascii")
             )
+            self._send_data_packet(
+                SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE, bytes(self.default_stim_barcode, encoding="ascii")
+            )
             self._ready_to_send_barcode = False
 
     def _handle_manual_stim_stop(self) -> None:
