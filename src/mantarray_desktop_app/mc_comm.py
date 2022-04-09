@@ -77,12 +77,14 @@ from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from .constants import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from .constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
 from .constants import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
 from .constants import SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
 from .constants import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
+from .constants import STIM_MODULE_ID_TO_WELL_IDX
 from .constants import STM_VID
 from .data_parsing_cy import handle_data_packets
 from .exceptions import FirmwareGoingDormantError
@@ -114,6 +116,7 @@ from .firmware_downloader import download_firmware_updates
 from .firmware_downloader import get_latest_firmware_versions
 from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
+from .serial_comm_utils import convert_impedance_to_circuit_status
 from .serial_comm_utils import convert_semver_str_to_bytes
 from .serial_comm_utils import convert_status_code_bytes_to_dict
 from .serial_comm_utils import convert_stim_dict_to_bytes
@@ -134,6 +137,7 @@ COMMAND_PACKET_TYPES = frozenset(
         SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
         SERIAL_COMM_START_STIM_PACKET_TYPE,
         SERIAL_COMM_STOP_STIM_PACKET_TYPE,
+        SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE,
         SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE,
         SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE,
         SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE,
@@ -506,7 +510,9 @@ class McCommunicationProcess(InstrumentCommProcess):
                     f"Invalid command: {comm_from_main['command']} for communication_type: {communication_type}"
                 )
         elif communication_type == "stimulation":
-            if comm_from_main["command"] == "set_protocols":
+            if comm_from_main["command"] == "start_stim_checks":
+                packet_type = SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
+            elif comm_from_main["command"] == "set_protocols":
                 packet_type = SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
                 bytes_to_send = convert_stim_dict_to_bytes(comm_from_main["stim_info"])
                 if self._is_stimulating and not self._hardware_test_mode:
@@ -800,6 +806,18 @@ class McCommunicationProcess(InstrumentCommProcess):
                     prev_command["hardware_test_message"] = "Data stream already stopped"  # pragma: no cover
                 self._is_stopping_data_stream = False
                 self._is_data_streaming = False
+            elif prev_command["command"] == "start_stim_checks":
+                payload_len = len(response_data)
+                bytes_per_module_id = 3
+                stimulator_circuit_statuses: List[Optional[str]] = [None] * self._num_wells
+                for byte_idx in range(0, payload_len, bytes_per_module_id):
+                    # TODO figure out if this is the correct mapping to use
+                    well_idx = STIM_MODULE_ID_TO_WELL_IDX[response_data[byte_idx]]
+                    impedance = int.from_bytes(
+                        response_data[byte_idx + 1 : byte_idx + bytes_per_module_id], byteorder="little"
+                    )
+                    stimulator_circuit_statuses[well_idx] = convert_impedance_to_circuit_status(impedance)
+                prev_command["stimulator_circuit_statuses"] = stimulator_circuit_statuses
             elif prev_command["command"] == "set_protocols":
                 if response_data[0]:
                     if not self._hardware_test_mode:

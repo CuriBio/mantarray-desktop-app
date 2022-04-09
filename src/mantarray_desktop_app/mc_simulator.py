@@ -73,6 +73,7 @@ from .constants import SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
 from .constants import SERIAL_COMM_START_STIM_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from .constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
+from .constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
 from .constants import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
 from .constants import SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
 from .constants import SERIAL_COMM_STOP_STIM_PACKET_TYPE
@@ -158,6 +159,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             CHANNEL_FIRMWARE_VERSION_UUID: default_channel_firmware_version,
         }
     )
+    default_impedance_value = 0xFF
     global_timer_offset_secs = 2.5  # TODO Tanner (11/17/21): figure out if this should be removed
 
     def __init__(
@@ -201,6 +203,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._boot_up_time_secs: Optional[float] = None
         self._status_code: int
         self._sampling_period_us: int
+        self._impedance_values: List[int]
         self._stim_info: Dict[str, Any]
         self._stim_running_statuses: Dict[str, bool]
         self._timepoints_of_subprotocols_start: List[Optional[int]]
@@ -301,6 +304,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._reboot_time_secs = None
         self._status_code = SERIAL_COMM_OKAY_CODE
         self._sampling_period_us = DEFAULT_SAMPLING_PERIOD
+        self._impedance_values = [self.default_impedance_value] * self._num_wells
         self._stim_info = {}
         self._is_stimulating = False
         self._firmware_update_idx = None
@@ -504,6 +508,12 @@ class MantarrayMcSimulator(InfiniteProcess):
             if not command_failed:
                 self._handle_manual_stim_stop()
                 self._is_stimulating = False
+        elif packet_type == SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE:
+            # Tanner (4/8/22): currently assuming that stim checks will take a negligible amount of time
+            for i, impedance in enumerate(self._impedance_values):
+                module_id = i + 1
+                response_body += bytes([module_id])
+                response_body += impedance.to_bytes(2, byteorder="little")
         elif packet_type == SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE:
             response_body += self._update_sampling_period(comm_from_pc)
         elif packet_type == SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE:
@@ -674,6 +684,10 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._simulated_data_index = test_comm.get("simulated_data_index", 0)
         elif command == "set_sampling_period":
             self._sampling_period_us = test_comm["sampling_period"]
+        elif command == "set_impedance_values":
+            for well_idx, impedance in enumerate(test_comm["impendance_values"]):
+                module_id = STIM_WELL_IDX_TO_MODULE_ID[well_idx]
+                self._impedance_values[module_id - 1] = impedance
         elif command == "set_stim_info":
             self._stim_info = test_comm["stim_info"]
         elif command == "set_stim_status":

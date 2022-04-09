@@ -5,6 +5,7 @@ from random import randint
 from mantarray_desktop_app import convert_module_id_to_well_name
 from mantarray_desktop_app import convert_stim_dict_to_bytes
 from mantarray_desktop_app import create_data_packet
+from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_FAILURE_BYTE
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_SUCCESS_BYTE
@@ -17,6 +18,7 @@ from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
 from mantarray_desktop_app import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from mantarray_desktop_app import StimProtocolStatuses
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
 from mantarray_desktop_app.constants import STIM_WELL_IDX_TO_MODULE_ID
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -36,6 +38,28 @@ __fixtures__ = [
     fixture_mantarray_mc_simulator,
     fixture_mantarray_mc_simulator_no_beacon,
 ]
+
+
+def test_MantarrayMcSimulator__processes_start_stimulator_checks_command(mantarray_mc_simulator_no_beacon):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    start_checks_command = create_data_packet(
+        expected_pc_timestamp, SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
+    )
+    simulator.write(start_checks_command)
+
+    invoke_process_run_and_check_errors(simulator)
+    # make sure results immediately sent back
+    num_wells = 24
+    payload_bytes = bytes(0)
+    for module_id in range(1, num_wells + 1):
+        payload_bytes += bytes([module_id])
+        payload_bytes += MantarrayMcSimulator.default_impedance_value.to_bytes(2, byteorder="little")
+    stim_check_results = simulator.read(size=get_full_packet_size_from_payload_len(len(payload_bytes)))
+    assert_serial_packet_is_expected(
+        stim_check_results, SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE, additional_bytes=payload_bytes
+    )
 
 
 def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_stimulation_not_running_on_any_wells(

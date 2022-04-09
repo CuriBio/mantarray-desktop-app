@@ -18,6 +18,7 @@ from mantarray_desktop_app import StimulationProtocolUpdateWhileStimulatingError
 from mantarray_desktop_app import StimulationStatusUpdateFailedError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import STIM_WELL_IDX_TO_MODULE_ID
+from mantarray_desktop_app.serial_comm_utils import convert_impedance_to_circuit_status
 import numpy as np
 import pytest
 from stdlib_utils import drain_queue
@@ -197,6 +198,42 @@ def test_handle_data_packets__parses_multiple_stim_data_packet_with_multiple_wel
     )
 
 
+def test_McCommunicationProcess__processes_start_stim_checks_command__and_sends_correct_stim_circuit_statuses_to_main(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    input_queue, output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][:2]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    # set known impedance values in simulator
+    num_wells = 24
+    test_impedance_values = [randint(0, 0xFFFF) for _ in range(num_wells)]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "set_impedance_values", "impendance_values": test_impedance_values}, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # send command
+    start_stim_checks_command = {"communication_type": "stimulation", "command": "start_stim_checks"}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(start_stim_checks_command), input_queue
+    )
+    invoke_process_run_and_check_errors(mc_process)
+    # process command and send response
+    invoke_process_run_and_check_errors(simulator)
+    # make sure that the message sent back to main contains the correct values
+    start_stim_checks_command["stimulator_circuit_statuses"] = [
+        convert_impedance_to_circuit_status(impedance) for impedance in test_impedance_values
+    ]
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(output_queue, 1)
+    msg_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert msg_to_main == start_stim_checks_command
+
+
 @freeze_time(datetime.datetime(year=2021, month=10, day=24, hour=13, minute=7, second=23, microsecond=173814))
 def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__when_commands_are_successful(
     four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
@@ -204,10 +241,10 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     input_queue, output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][:2]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
+
     expected_stim_info = create_random_stim_info()
     set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, expected_stim_info)
     expected_stim_running_statuses = (

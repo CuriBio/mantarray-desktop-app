@@ -23,6 +23,10 @@ from mantarray_desktop_app import validate_checksum
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_PACKET_BASE_LENGTH_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from mantarray_desktop_app.constants import STIM_OPEN_CIRCUIT_THRESHOLD
+from mantarray_desktop_app.constants import STIM_SHORT_CIRCUIT_THRESHOLD
+from mantarray_desktop_app.constants import StimulatorCircuitStatuses
+from mantarray_desktop_app.serial_comm_utils import convert_impedance_to_circuit_status
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
@@ -116,6 +120,21 @@ def test_get_serial_comm_timestamp__returns_microseconds_since_2021_01_01():
     ) // datetime.timedelta(microseconds=1)
     actual = get_serial_comm_timestamp()
     assert actual == expected_usecs
+
+
+@pytest.mark.parametrize(
+    "test_impedance,expected_status",
+    [
+        (STIM_OPEN_CIRCUIT_THRESHOLD + 1, StimulatorCircuitStatuses.OPEN.value),
+        (STIM_OPEN_CIRCUIT_THRESHOLD, StimulatorCircuitStatuses.OPEN.value),
+        (STIM_OPEN_CIRCUIT_THRESHOLD - 1, StimulatorCircuitStatuses.MEDIA.value),
+        (STIM_SHORT_CIRCUIT_THRESHOLD + 1, StimulatorCircuitStatuses.MEDIA.value),
+        (STIM_SHORT_CIRCUIT_THRESHOLD, StimulatorCircuitStatuses.SHORT.value),
+        (STIM_SHORT_CIRCUIT_THRESHOLD - 1, StimulatorCircuitStatuses.SHORT.value),
+    ],
+)
+def test_convert_impedance_to_circuit_status__returns_correct_values(test_impedance, expected_status):
+    assert convert_impedance_to_circuit_status(test_impedance) == expected_status
 
 
 @pytest.mark.parametrize(
