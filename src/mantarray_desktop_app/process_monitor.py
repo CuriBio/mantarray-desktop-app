@@ -29,6 +29,7 @@ from .constants import ADC_CH_TO_24_WELL_INDEX
 from .constants import ADC_CH_TO_IS_REF_SENSOR
 from .constants import ADC_OFFSET_DESCRIPTION_TAG
 from .constants import BARCODE_INVALID_UUID
+from .constants import BARCODE_LEN
 from .constants import BARCODE_POLL_PERIOD
 from .constants import BARCODE_UNREADABLE_UUID
 from .constants import BARCODE_VALID_UUID
@@ -49,6 +50,7 @@ from .constants import RECORDING_STATE
 from .constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from .constants import SERVER_INITIALIZING_STATE
 from .constants import SERVER_READY_STATE
+from .constants import StimulatorCircuitStatuses
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import UPDATE_ERROR_STATE
 from .constants import UPDATES_COMPLETE_STATE
@@ -260,6 +262,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
             elif command == "set_protocols":
                 self._values_to_share_to_server["stimulation_info"] = communication["stim_info"]
                 self._put_communication_into_instrument_comm_queue(communication)
+            elif command == "start_stim_checks":
+                self._values_to_share_to_server["stimulator_circuit_statuses"] = [
+                    StimulatorCircuitStatuses.CALCULATING.value
+                ] * 24
+                self._put_communication_into_instrument_comm_queue(communication)
             else:
                 # Tanner (8/9/21): could make this a custom error if needed
                 raise NotImplementedError(f"Unrecognized stimulation command from Server: {command}")
@@ -470,6 +477,15 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     self._values_to_share_to_server["stimulation_running"][well_idx] = False
                 if not any(self._values_to_share_to_server["stimulation_running"]):
                     self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [None]
+            elif command == "start_stim_checks":
+                stimulator_circuit_statuses = communication["stimulator_circuit_statuses"]
+                self._values_to_share_to_server["stimulator_circuit_statuses"] = stimulator_circuit_statuses
+                self._queue_websocket_message(
+                    {
+                        "data_type": "stimulator_circuit_statuses",
+                        "data_json": json.dumps(stimulator_circuit_statuses),
+                    }
+                )
         elif communication_type == "board_connection_status_change":
             board_idx = communication["board_index"]
             self._values_to_share_to_server["in_simulation_mode"] = not communication["is_connected"]
@@ -506,15 +522,16 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._add_offset_to_shared_dict(adc_index, ch_index, offset_val)
         elif communication_type == "barcode_comm":
             barcode = communication["barcode"]
-            if not self._values_to_share_to_server["beta_2_mode"] and len(barcode) == 12:
+            if not self._values_to_share_to_server["beta_2_mode"] and len(barcode) == BARCODE_LEN:
                 # Tanner (1/27/21): invalid barcodes will be sent untrimmed from ok_comm so the full string is logged, so trimming them here in order to always send trimmed barcodes to frontend.
                 barcode = _trim_barcode(barcode)
             if "barcodes" not in self._values_to_share_to_server:
                 self._values_to_share_to_server["barcodes"] = dict()
             board_idx = communication["board_idx"]
+            barcode_type = "stim_barcode" if barcode.startswith("MS") else "plate_barcode"
             if board_idx not in self._values_to_share_to_server["barcodes"]:
                 self._values_to_share_to_server["barcodes"][board_idx] = dict()
-            elif self._values_to_share_to_server["barcodes"][board_idx]["plate_barcode"] == barcode:
+            elif self._values_to_share_to_server["barcodes"][board_idx][barcode_type] == barcode:
                 return
             # TODO Tanner (2/7/22): consider removing barcode_status after Beta 1 mode phased out
             valid = communication.get("valid", None)
@@ -526,7 +543,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             else:
                 barcode_status = BARCODE_INVALID_UUID
 
-            board_barcode_dict = {"plate_barcode": barcode, "barcode_status": barcode_status}
+            board_barcode_dict = {barcode_type: barcode, "barcode_status": barcode_status}
             self._values_to_share_to_server["barcodes"][board_idx] = board_barcode_dict
             # send message to FE
             barcode_dict_copy = copy.deepcopy(board_barcode_dict)
@@ -740,18 +757,16 @@ class MantarrayProcessesMonitor(InfiniteThread):
         ] = self._process_manager.get_subprocesses_running_status()
 
         # handle barcode polling. This should be removed once the physical instrument is able to detect plate placement/removal on its own. The Beta 2 instrument will be able to do this on its own from the start, so no need to send barcode comm in Beta 2 mode.
-        if self._last_barcode_clear_time is None:
-            self._last_barcode_clear_time = _get_barcode_clear_time()
-        if (
-            _get_dur_since_last_barcode_clear(self._last_barcode_clear_time) >= BARCODE_POLL_PERIOD
-            and not self._values_to_share_to_server["beta_2_mode"]
-        ):
-            to_instrument_comm = process_manager.queue_container().get_communication_to_instrument_comm_queue(
-                board_idx
-            )
-            barcode_poll_comm = {"communication_type": "barcode_comm", "command": "start_scan"}
-            to_instrument_comm.put_nowait(barcode_poll_comm)
-            self._last_barcode_clear_time = _get_barcode_clear_time()
+        if not self._values_to_share_to_server["beta_2_mode"]:
+            if self._last_barcode_clear_time is None:
+                self._last_barcode_clear_time = _get_barcode_clear_time()
+            if _get_dur_since_last_barcode_clear(self._last_barcode_clear_time) >= BARCODE_POLL_PERIOD:
+                to_instrument_comm = (
+                    process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
+                )
+                barcode_poll_comm = {"communication_type": "barcode_comm", "command": "start_scan"}
+                to_instrument_comm.put_nowait(barcode_poll_comm)
+                self._last_barcode_clear_time = _get_barcode_clear_time()
 
     def _check_subprocess_start_up_statuses(self) -> None:
         process_manager = self._process_manager

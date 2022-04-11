@@ -5,6 +5,7 @@ from random import randint
 from mantarray_desktop_app import convert_module_id_to_well_name
 from mantarray_desktop_app import convert_stim_dict_to_bytes
 from mantarray_desktop_app import create_data_packet
+from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_FAILURE_BYTE
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_SUCCESS_BYTE
@@ -15,8 +16,9 @@ from mantarray_desktop_app import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
 from mantarray_desktop_app import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
-from mantarray_desktop_app import StimStatuses
+from mantarray_desktop_app import StimProtocolStatuses
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
 from mantarray_desktop_app.constants import STIM_WELL_IDX_TO_MODULE_ID
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -36,6 +38,28 @@ __fixtures__ = [
     fixture_mantarray_mc_simulator,
     fixture_mantarray_mc_simulator_no_beacon,
 ]
+
+
+def test_MantarrayMcSimulator__processes_start_stimulator_checks_command(mantarray_mc_simulator_no_beacon):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    start_checks_command = create_data_packet(
+        expected_pc_timestamp, SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
+    )
+    simulator.write(start_checks_command)
+
+    invoke_process_run_and_check_errors(simulator)
+    # make sure results immediately sent back
+    num_wells = 24
+    payload_bytes = bytes(0)
+    for module_id in range(1, num_wells + 1):
+        payload_bytes += bytes([module_id])
+        payload_bytes += MantarrayMcSimulator.default_impedance_value.to_bytes(2, byteorder="little")
+    stim_check_results = simulator.read(size=get_full_packet_size_from_payload_len(len(payload_bytes)))
+    assert_serial_packet_is_expected(
+        stim_check_results, SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE, additional_bytes=payload_bytes
+    )
 
 
 def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_stimulation_not_running_on_any_wells(
@@ -352,7 +376,7 @@ def test_MantarrayMcSimulator__processes_stop_stimulation_command(mantarray_mc_s
                 well_idx = GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
                 status_update_bytes += (
                     bytes([STIM_WELL_IDX_TO_MODULE_ID[well_idx]])
-                    + bytes([StimStatuses.FINISHED])
+                    + bytes([StimProtocolStatuses.FINISHED])
                     + (spied_global_timer.spy_return).to_bytes(8, byteorder="little")
                     + bytes([STIM_COMPLETE_SUBPROTOCOL_IDX])
                 )
@@ -427,7 +451,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_packet_for_initial_subproto
     for well_idx in test_well_idxs:
         additional_bytes += (
             bytes([STIM_WELL_IDX_TO_MODULE_ID[well_idx]])
-            + bytes([StimStatuses.ACTIVE])
+            + bytes([StimProtocolStatuses.ACTIVE])
             + (spied_global_timer.spy_return).to_bytes(8, byteorder="little")
             + bytes([0])  # subprotocol idx
         )
@@ -486,7 +510,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_packet_when_a_new_subprotoc
     additional_bytes = (
         bytes([1])  # number of status updates in this packet
         + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
-        + bytes([StimStatuses.ACTIVE])
+        + bytes([StimProtocolStatuses.ACTIVE])
         + (spied_global_timer.spy_return + test_duration_ms * int(1e3)).to_bytes(8, byteorder="little")
         + bytes([1])  # subprotocol idx
     )
@@ -543,7 +567,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_packets_when_multiple_wells
     assert simulator.in_waiting > 0
 
     status_bytes = (
-        bytes([StimStatuses.ACTIVE])
+        bytes([StimProtocolStatuses.ACTIVE])
         + (spied_global_timer.spy_return + test_duration_ms * int(1e3)).to_bytes(8, byteorder="little")
         + bytes([1])  # subprotocol idx
     )
@@ -613,12 +637,12 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_multipl
     assert simulator.in_waiting > 0
 
     status_bytes_1 = (
-        bytes([StimStatuses.ACTIVE])
+        bytes([StimProtocolStatuses.ACTIVE])
         + (spied_global_timer.spy_return + test_duration_ms_1 * int(1e3)).to_bytes(8, byteorder="little")
         + bytes([1])  # subprotocol idx
     )
     status_bytes_2 = (
-        bytes([StimStatuses.ACTIVE])
+        bytes([StimProtocolStatuses.ACTIVE])
         + (spied_global_timer.spy_return + (test_duration_ms_1 + test_duration_ms_2) * int(1e3)).to_bytes(
             8, byteorder="little"
         )
@@ -701,12 +725,12 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_subprot
     assert simulator.in_waiting > 0
 
     status_bytes_1 = (
-        bytes([StimStatuses.ACTIVE])
+        bytes([StimProtocolStatuses.ACTIVE])
         + (spied_global_timer.spy_return + test_duration_ms_1 * int(1e3)).to_bytes(8, byteorder="little")
         + bytes([1])  # subprotocol idx
     )
     status_bytes_2 = (
-        bytes([StimStatuses.ACTIVE])
+        bytes([StimProtocolStatuses.ACTIVE])
         + (spied_global_timer.spy_return + test_duration_ms_2 * int(1e3)).to_bytes(8, byteorder="little")
         + bytes([1])  # subprotocol idx
     )
@@ -772,7 +796,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_null_status_correctly(
     additional_bytes = (
         bytes([1])  # number of status updates in this packet
         + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
-        + bytes([StimStatuses.NULL])
+        + bytes([StimProtocolStatuses.NULL])
         + (spied_global_timer.spy_return + test_duration_ms * int(1e3)).to_bytes(8, byteorder="little")
         + bytes([1])  # subprotocol idx
     )
@@ -830,11 +854,11 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_restarting_status_corr
     additional_bytes = (
         bytes([2])  # number of status updates in this packet
         + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
-        + bytes([StimStatuses.RESTARTING])
+        + bytes([StimProtocolStatuses.RESTARTING])
         + (spied_global_timer.spy_return + test_duration_ms * int(1e3)).to_bytes(8, byteorder="little")
         + bytes([0])  # subprotocol idx
         + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
-        + bytes([StimStatuses.ACTIVE])
+        + bytes([StimProtocolStatuses.ACTIVE])
         + (spied_global_timer.spy_return + test_duration_ms * int(1e3)).to_bytes(8, byteorder="little")
         + bytes([0])  # subprotocol idx
     )
@@ -913,7 +937,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
     additional_bytes = (
         bytes([1])  # number of status updates in this packet
         + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx_to_stop]])
-        + bytes([StimStatuses.FINISHED])
+        + bytes([StimProtocolStatuses.FINISHED])
         + (spied_global_timer.spy_return + test_duration_ms * int(1e3)).to_bytes(8, byteorder="little")
         + bytes([STIM_COMPLETE_SUBPROTOCOL_IDX])
     )

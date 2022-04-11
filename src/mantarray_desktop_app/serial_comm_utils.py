@@ -31,7 +31,10 @@ from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from .constants import STIM_MODULE_ID_TO_WELL_IDX
 from .constants import STIM_NO_PROTOCOL_ASSIGNED
+from .constants import STIM_OPEN_CIRCUIT_THRESHOLD
+from .constants import STIM_SHORT_CIRCUIT_THRESHOLD
 from .constants import STIM_WELL_IDX_TO_MODULE_ID
+from .constants import StimulatorCircuitStatuses
 
 
 # Tanner (3/18/21): If/When additional cython is needed to improve serial communication, this file may be worth investigating
@@ -140,6 +143,14 @@ def get_serial_comm_timestamp() -> int:
     return (
         datetime.datetime.now(tz=datetime.timezone.utc) - SERIAL_COMM_TIMESTAMP_EPOCH
     ) // datetime.timedelta(microseconds=1)
+
+
+def convert_impedance_to_circuit_status(impedance: int) -> str:
+    if impedance <= STIM_SHORT_CIRCUIT_THRESHOLD:
+        return StimulatorCircuitStatuses.SHORT.value
+    if impedance >= STIM_OPEN_CIRCUIT_THRESHOLD:
+        return StimulatorCircuitStatuses.OPEN.value
+    return StimulatorCircuitStatuses.MEDIA.value
 
 
 def is_null_subprotocol(subprotocol_dict: Dict[str, int]) -> bool:

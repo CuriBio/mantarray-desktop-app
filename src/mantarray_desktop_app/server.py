@@ -54,6 +54,7 @@ from immutabledict import immutabledict
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
+from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
 import requests
 from semver import VersionInfo
 from stdlib_utils import drain_queue
@@ -74,6 +75,7 @@ from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from .constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
 from .constants import STIM_MAX_PULSE_DURATION_MICROSECONDS
+from .constants import StimulatorCircuitStatuses
 from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SYSTEM_STATUS_UUIDS
@@ -294,8 +296,11 @@ def start_calibration() -> Response:
     shared_values_dict = _get_values_from_process_monitor()
     if shared_values_dict["system_status"] not in (CALIBRATION_NEEDED_STATE, CALIBRATED_STATE):
         return Response(status="403 Route cannot be called unless in calibration_needed or calibrated state")
-    if shared_values_dict["beta_2_mode"] and _is_stimulating_on_any_well():
-        return Response(status="403 Cannot calibrate while stimulation is running")
+    if shared_values_dict["beta_2_mode"]:
+        if _are_stimulator_checks_running():
+            return Response(status="403 Cannot calibrate while stimulator checks are running")
+        if _is_stimulating_on_any_well():
+            return Response(status="403 Cannot calibrate while stimulation is running")
 
     if shared_values_dict["beta_2_mode"]:
         comm_dict = {"communication_type": "calibration", "command": "run_calibration"}
@@ -306,16 +311,35 @@ def start_calibration() -> Response:
     return response
 
 
+@flask_app.route("/start_stim_checks", methods=["POST"])
+def start_stim_checks() -> Response:
+    """Start the stimulator impedence checks on the Mantarray.
+
+    Not available for Beta 1 instruments.
+
+    Can be invoked by:  curl http://localhost:4567/start_stim_checks
+    """
+    shared_values_dict = _get_values_from_process_monitor()
+    if not shared_values_dict["beta_2_mode"]:
+        return Response(status="403 Route cannot be called in beta 1 mode")
+    if shared_values_dict["system_status"] != CALIBRATED_STATE:
+        return Response(status="403 Route cannot be called unless in calibrated state")
+    if _is_stimulating_on_any_well():
+        return Response(status="403 Cannot perform stimulator checks while stimulation is running")
+    if _are_stimulator_checks_running():
+        return Response(status="304 Stimulator checks already running")
+
+    response = queue_command_to_main({"communication_type": "stimulation", "command": "start_stim_checks"})
+    return response
+
+
 @flask_app.route("/boot_up", methods=["GET"])
 def boot_up() -> Response:
     """Initialize XEM then run start up script.
 
     Can be invoked by: curl http://localhost:4567/boot_up
     """
-    comm_dict = {
-        "communication_type": "to_instrument",
-        "command": "boot_up",
-    }
+    comm_dict = {"communication_type": "to_instrument", "command": "boot_up"}
 
     response = queue_command_to_main(comm_dict)
 
@@ -369,6 +393,23 @@ def _get_stim_info_from_process_monitor() -> Dict[Any, Any]:
 
 def _is_stimulating_on_any_well() -> bool:
     return any(_get_values_from_process_monitor()["stimulation_running"])
+
+
+def _are_stimulator_checks_running() -> bool:
+    stimulator_circuit_statuses = _get_values_from_process_monitor()["stimulator_circuit_statuses"]
+    return any(
+        status == StimulatorCircuitStatuses.CALCULATING.value for status in stimulator_circuit_statuses
+    )
+
+
+def _are_initial_stimulator_checks_complete() -> bool:
+    stimulator_circuit_statuses = _get_values_from_process_monitor()["stimulator_circuit_statuses"]
+    return not any(status is None for status in stimulator_circuit_statuses)
+
+
+def _are_any_stimulator_circuits_short() -> bool:
+    stimulator_circuit_statuses = _get_values_from_process_monitor()["stimulator_circuit_statuses"]
+    return any(status == StimulatorCircuitStatuses.SHORT.value for status in stimulator_circuit_statuses)
 
 
 @flask_app.route("/set_protocols", methods=["POST"])
@@ -504,8 +545,17 @@ def set_stim_status() -> Response:
     if shared_values_dict["stimulation_info"] is None:
         return Response(status="406 Protocols have not been set")
     system_status = shared_values_dict["system_status"]
-    if stim_status and system_status not in (CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE):
-        return Response(status=f"403 Cannot start stimulation while {system_status}")
+    if stim_status:
+        if system_status not in (CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE):
+            return Response(status=f"403 Cannot start stimulation while {system_status}")
+        if not _are_initial_stimulator_checks_complete():
+            return Response(
+                status="403 Cannot start stimulation before initial stimulator circuit checks complete"
+            )
+        if _are_stimulator_checks_running():
+            return Response(status="403 Cannot start stimulation while running stimulator circuit checks")
+        if _are_any_stimulator_circuits_short():
+            return Response(status="403 Cannot start stimulation when a stimulator has a short circuit")
     if stim_status is _is_stimulating_on_any_well():
         return Response(status="304 Status not updated")
 
@@ -520,28 +570,40 @@ def start_recording() -> Response:
     """Tell the FileWriter to begin recording data to disk.
 
     Can be invoked by: curl http://localhost:4567/start_recording
-    curl http://localhost:4567/start_recording?active_well_indices=2,5,9&barcode=ML2022001000&time_index=9600&is_hardware_test_recording=True
+    curl http://localhost:4567/start_recording?active_well_indices=2,5,9&plate_barcode=ML2022001000&stim_barcode=MS2022001000&time_index=9600&is_hardware_test_recording=True
 
     Args:
         active_well_indices: [Optional, default=all 24] CSV of well indices to record from
         time_index: [Optional, int] microseconds since acquisition began to start the recording at. Defaults to when this command is received
     """
-    if "barcode" not in request.args:
-        return Response(status="400 Request missing 'barcode' parameter")
-    barcode = request.args["barcode"]
-    error_message = check_barcode_for_errors(barcode)
-    if error_message:
-        return Response(status=f"400 {error_message}")
+    shared_values_dict = _get_values_from_process_monitor()
+
+    barcodes_to_check = ["plate_barcode"]
+    if shared_values_dict["beta_2_mode"] and _is_stimulating_on_any_well():  # TODO unit test
+        barcodes_to_check.append("stim_barcode")
+    # check that all required params are given before validating
+    for barcode_type in barcodes_to_check:
+        if barcode_type not in request.args:
+            return Response(status=f"400 Request missing '{barcode_type}' parameter")
+    # validate params separately
+    for barcode_type in barcodes_to_check:
+        barcode = request.args[barcode_type]
+        error_message = check_barcode_for_errors(barcode, barcode_type)
+        if error_message:
+            barcode_label = barcode_type.split("_")[0].title()
+            return Response(status=f"400 {barcode_label} {error_message}")
+    barcodes = {
+        "plate_barcode": request.args["plate_barcode"],
+        "stim_barcode": request.args.get("stim_barcode", NOT_APPLICABLE_H5_METADATA),
+    }
 
     if _is_recording():
         return Response(status="304 Already recording")
 
-    shared_values_dict = _get_values_from_process_monitor()
-
+    # TODO remove this arg and don't store it in H5 files once Beta 1 is phased out
     is_hardware_test_recording = request.args.get("is_hardware_test_recording", True)
     if isinstance(is_hardware_test_recording, str):
         is_hardware_test_recording = is_hardware_test_recording.lower() == "true"
-
     if shared_values_dict.get("is_hardware_test_recording", False) and not is_hardware_test_recording:
         return Response(
             status="403 Cannot make standard recordings after previously making hardware test recordings. Server and board must both be restarted before making any more standard recordings"
@@ -558,7 +620,7 @@ def start_recording() -> Response:
         shared_values_dict,
         time_index=time_index_str,
         active_well_indices=active_well_indices,
-        barcode=barcode,
+        barcodes=barcodes,
         is_hardware_test_recording=is_hardware_test_recording,
     )
 
@@ -635,6 +697,8 @@ def start_managed_acquisition() -> Response:
     if not shared_values_dict["mantarray_serial_number"][0]:
         response = Response(status="406 Mantarray has not been assigned a Serial Number")
         return response
+    if _are_stimulator_checks_running():
+        return Response(status="403 Cannot start managed acquisition while stimulator checks are running")
 
     response = queue_command_to_main(START_MANAGED_ACQUISITION_COMMUNICATION)
     return response
