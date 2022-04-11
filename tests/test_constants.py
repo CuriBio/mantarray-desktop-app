@@ -527,8 +527,8 @@ def test_serial_comm():
 
     assert STIM_NO_PROTOCOL_ASSIGNED == 255
 
-    assert STIM_OPEN_CIRCUIT_THRESHOLD == 0xFFFE
-    assert STIM_SHORT_CIRCUIT_THRESHOLD == 1
+    assert STIM_OPEN_CIRCUIT_THRESHOLD == 20000
+    assert STIM_SHORT_CIRCUIT_THRESHOLD == 10
 
     assert issubclass(StimulatorCircuitStatuses, Enum) is True
     assert StimulatorCircuitStatuses.CALCULATING.value == "calculating"
