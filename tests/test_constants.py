@@ -222,7 +222,7 @@ def test_default_UUIDs():
 def test_running_fifo_simulator_constants():
     assert FIFO_READ_PRODUCER_SAWTOOTH_PERIOD == ((100000 // TIMESTEP_CONVERSION_FACTOR) / (2 * np.pi))
     assert FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE == 0xFFFFFFFF
-    assert RAW_TO_SIGNED_CONVERSION_VALUE == 2 ** 23
+    assert RAW_TO_SIGNED_CONVERSION_VALUE == 2**23
     assert (
         FIFO_READ_PRODUCER_DATA_OFFSET == MIDSCALE_CODE + 0xB000 + FIFO_READ_PRODUCER_WELL_AMPLITUDE * 24 // 2
     )
@@ -237,8 +237,8 @@ def test_hardware_time_constants():
     assert CONSTRUCT_SENSOR_SAMPLING_PERIOD == ROUND_ROBIN_PERIOD
     assert TIMESTEP_CONVERSION_FACTOR == 5
     assert MICROSECONDS_PER_CENTIMILLISECOND == 10
-    assert NANOSECONDS_PER_CENTIMILLISECOND == 10 ** 4
-    assert MICROSECONDS_PER_MILLISECOND == 10 ** 3
+    assert NANOSECONDS_PER_CENTIMILLISECOND == 10**4
+    assert MICROSECONDS_PER_MILLISECOND == 10**3
 
 
 def test_adc_reading_constants():

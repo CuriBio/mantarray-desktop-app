@@ -103,7 +103,7 @@ AVERAGE_MC_REBOOT_DURATION_SECONDS = MAX_MC_REBOOT_DURATION_SECONDS / 2
 
 def _perf_counter_us() -> int:
     """Return perf_counter value as microseconds."""
-    return perf_counter_ns() // 10 ** 3
+    return perf_counter_ns() // 10**3
 
 
 def _get_secs_since_last_handshake(last_time: float) -> float:

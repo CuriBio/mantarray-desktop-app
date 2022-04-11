@@ -25,7 +25,7 @@ repos:
       - id: fix-encoding-pragma
 
   - repo: https://github.com/psf/black
-    rev: 20.8b1 # pick a git hash / tag to point to
+    rev: 22.3.0 # pick a git hash / tag to point to
     hooks:
       - id: black
         args: [--line-length=110]

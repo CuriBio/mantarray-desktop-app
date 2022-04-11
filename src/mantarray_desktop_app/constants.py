@@ -93,8 +93,8 @@ ROUND_ROBIN_PERIOD = DATA_FRAME_PERIOD * DATA_FRAMES_PER_ROUND_ROBIN
 TIMESTEP_CONVERSION_FACTOR = 5  # Mantarray firmware represents time indices in units of 5 cms, so we must multiply sample index from hardware by this conversion factor to get value in cms
 
 MICROSECONDS_PER_CENTIMILLISECOND = 10
-NANOSECONDS_PER_CENTIMILLISECOND = 10 ** 4
-MICROSECONDS_PER_MILLISECOND = 10 ** 3
+NANOSECONDS_PER_CENTIMILLISECOND = 10**4
+MICROSECONDS_PER_MILLISECOND = 10**3
 
 MICRO_TO_BASE_CONVERSION = int(1e6)
 
@@ -117,7 +117,7 @@ FIFO_READ_PRODUCER_DATA_OFFSET = (  # 0xB000 chosen through empirical testing
     MIDSCALE_CODE + 0xB000 + FIFO_READ_PRODUCER_WELL_AMPLITUDE * 24 // 2
 )
 
-RAW_TO_SIGNED_CONVERSION_VALUE = 2 ** 23  # subtract this value from raw hardware data
+RAW_TO_SIGNED_CONVERSION_VALUE = 2**23  # subtract this value from raw hardware data
 MILLIVOLTS_PER_VOLT = 1000
 
 MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS = 10
