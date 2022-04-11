@@ -25,11 +25,11 @@
         />
       </div>
       <div
-        class="div__additional_controls-controls-icon-container"
+        class="div__stimulation_controls-controls-icon-container"
         :class="[
           beta_2_mode
-            ? 'div__additional_controls-controls-icon-container--beta-2-mode'
-            : 'div__additional_controls-controls-icon-container--beta-1-mode',
+            ? 'div__stimulation_controls-controls-icon-container--beta-2-mode'
+            : 'div__stimulation_controls-controls-icon-container--beta-1-mode',
         ]"
       >
         <StimulationControls />
@@ -299,15 +299,15 @@ body {
   left: 0px;
 }
 
-.div__additional_controls-controls-icon-container {
+.div__stimulation_controls-controls-icon-container {
   position: absolute;
   top: 505px;
   left: 0px;
 }
-.div__additional_controls-controls-icon-container--beta-1-mode {
+.div__stimulation_controls-controls-icon-container--beta-1-mode {
   visibility: hidden;
 }
-.div__additional_controls-controls-icon-container--beta-2-mode {
+.div__stimulation_controls-controls-icon-container--beta-2-mode {
   visibility: visible;
 }
 .div__stim-studio-screen-view {
