@@ -482,6 +482,7 @@ def test_start_managed_acquisition__returns_error_code_and_message_called_while_
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
 
     board_idx = 0
     shared_values_dict["mantarray_serial_number"] = {

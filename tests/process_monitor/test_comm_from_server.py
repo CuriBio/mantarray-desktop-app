@@ -29,6 +29,8 @@ from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
 from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
+from pulse3D.constants import STIM_BARCODE_IS_FROM_SCANNER_UUID
+from pulse3D.constants import STIM_BARCODE_UUID
 from pulse3D.constants import STIMULATION_PROTOCOL_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
@@ -260,6 +262,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
             START_RECORDING_TIME_INDEX_UUID: 0,
             PLATE_BARCODE_UUID: NOT_APPLICABLE_H5_METADATA,
             PLATE_BARCODE_IS_FROM_SCANNER_UUID: NOT_APPLICABLE_H5_METADATA,
+            STIM_BARCODE_UUID: NOT_APPLICABLE_H5_METADATA,
+            STIM_BARCODE_IS_FROM_SCANNER_UUID: NOT_APPLICABLE_H5_METADATA,
             UTC_BEGINNING_DATA_ACQUISTION_UUID: GENERIC_BETA_2_START_RECORDING_COMMAND[
                 "metadata_to_copy_onto_main_file_attributes"
             ][UTC_BEGINNING_RECORDING_UUID],
