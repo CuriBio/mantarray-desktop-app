@@ -169,8 +169,8 @@ from mantarray_desktop_app.constants import BARCODE_LEN
 from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
-from mantarray_desktop_app.constants import STIM_OPEN_CIRCUIT_THRESHOLD
-from mantarray_desktop_app.constants import STIM_SHORT_CIRCUIT_THRESHOLD
+from mantarray_desktop_app.constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
+from mantarray_desktop_app.constants import STIM_SHORT_CIRCUIT_THRESHOLD_OHMS
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
@@ -222,7 +222,7 @@ def test_default_UUIDs():
 def test_running_fifo_simulator_constants():
     assert FIFO_READ_PRODUCER_SAWTOOTH_PERIOD == ((100000 // TIMESTEP_CONVERSION_FACTOR) / (2 * np.pi))
     assert FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE == 0xFFFFFFFF
-    assert RAW_TO_SIGNED_CONVERSION_VALUE == 2 ** 23
+    assert RAW_TO_SIGNED_CONVERSION_VALUE == 2**23
     assert (
         FIFO_READ_PRODUCER_DATA_OFFSET == MIDSCALE_CODE + 0xB000 + FIFO_READ_PRODUCER_WELL_AMPLITUDE * 24 // 2
     )
@@ -237,8 +237,8 @@ def test_hardware_time_constants():
     assert CONSTRUCT_SENSOR_SAMPLING_PERIOD == ROUND_ROBIN_PERIOD
     assert TIMESTEP_CONVERSION_FACTOR == 5
     assert MICROSECONDS_PER_CENTIMILLISECOND == 10
-    assert NANOSECONDS_PER_CENTIMILLISECOND == 10 ** 4
-    assert MICROSECONDS_PER_MILLISECOND == 10 ** 3
+    assert NANOSECONDS_PER_CENTIMILLISECOND == 10**4
+    assert MICROSECONDS_PER_MILLISECOND == 10**3
 
 
 def test_adc_reading_constants():
@@ -527,8 +527,8 @@ def test_serial_comm():
 
     assert STIM_NO_PROTOCOL_ASSIGNED == 255
 
-    assert STIM_OPEN_CIRCUIT_THRESHOLD == 0xFFFE
-    assert STIM_SHORT_CIRCUIT_THRESHOLD == 1
+    assert STIM_OPEN_CIRCUIT_THRESHOLD_OHMS == 20000
+    assert STIM_SHORT_CIRCUIT_THRESHOLD_OHMS == 10
 
     assert issubclass(StimulatorCircuitStatuses, Enum) is True
     assert StimulatorCircuitStatuses.CALCULATING.value == "calculating"

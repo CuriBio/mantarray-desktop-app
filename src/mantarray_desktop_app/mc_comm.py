@@ -9,6 +9,7 @@ import logging
 from multiprocessing import Queue
 import queue
 from statistics import stdev
+import struct
 from time import perf_counter
 from time import sleep
 from typing import Any
@@ -807,15 +808,10 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._is_stopping_data_stream = False
                 self._is_data_streaming = False
             elif prev_command["command"] == "start_stim_checks":
-                payload_len = len(response_data)
-                bytes_per_module_id = 3
                 stimulator_circuit_statuses: List[Optional[str]] = [None] * self._num_wells
-                for byte_idx in range(0, payload_len, bytes_per_module_id):
-                    # TODO figure out if this is the correct mapping to use
-                    well_idx = STIM_MODULE_ID_TO_WELL_IDX[response_data[byte_idx]]
-                    impedance = int.from_bytes(
-                        response_data[byte_idx + 1 : byte_idx + bytes_per_module_id], byteorder="little"
-                    )
+                impedances = struct.unpack(f"<{self._num_wells}H", response_data)
+                for i, impedance in enumerate(impedances):
+                    well_idx = STIM_MODULE_ID_TO_WELL_IDX[i + 1]
                     stimulator_circuit_statuses[well_idx] = convert_impedance_to_circuit_status(impedance)
                 prev_command["stimulator_circuit_statuses"] = stimulator_circuit_statuses
             elif prev_command["command"] == "set_protocols":

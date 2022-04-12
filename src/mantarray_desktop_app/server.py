@@ -697,7 +697,7 @@ def start_managed_acquisition() -> Response:
     if not shared_values_dict["mantarray_serial_number"][0]:
         response = Response(status="406 Mantarray has not been assigned a Serial Number")
         return response
-    if _are_stimulator_checks_running():
+    if shared_values_dict["beta_2_mode"] and _are_stimulator_checks_running():
         return Response(status="403 Cannot start managed acquisition while stimulator checks are running")
 
     response = queue_command_to_main(START_MANAGED_ACQUISITION_COMMUNICATION)

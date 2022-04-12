@@ -52,10 +52,7 @@ def test_MantarrayMcSimulator__processes_start_stimulator_checks_command(mantarr
     invoke_process_run_and_check_errors(simulator)
     # make sure results immediately sent back
     num_wells = 24
-    payload_bytes = bytes(0)
-    for module_id in range(1, num_wells + 1):
-        payload_bytes += bytes([module_id])
-        payload_bytes += MantarrayMcSimulator.default_impedance_value.to_bytes(2, byteorder="little")
+    payload_bytes = MantarrayMcSimulator.default_impedance_value.to_bytes(2, byteorder="little") * num_wells
     stim_check_results = simulator.read(size=get_full_packet_size_from_payload_len(len(payload_bytes)))
     assert_serial_packet_is_expected(
         stim_check_results, SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE, additional_bytes=payload_bytes

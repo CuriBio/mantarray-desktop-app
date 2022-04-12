@@ -216,8 +216,9 @@ def check_barcode_for_errors(barcode: str, barcode_type: Optional[str] = None) -
     """
     if len(barcode) != BARCODE_LEN:
         return "barcode is incorrect length"
-    if barcode in BARCODE_HEADERS.get(barcode_type, ALL_VALID_BARCODE_HEADERS):
-        return f"barcode contains invalid header: '{barcode[:2]}'"
+    header = barcode[:2]
+    if header not in BARCODE_HEADERS.get(barcode_type, ALL_VALID_BARCODE_HEADERS):
+        return f"barcode contains invalid header: '{header}'"
     for char in barcode[2:]:
         if not char.isnumeric():
             return f"barcode contains invalid character: '{char}'"

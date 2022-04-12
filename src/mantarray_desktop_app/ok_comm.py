@@ -187,7 +187,7 @@ def _comm_delay(
 def parse_gain(value: int) -> int:
     """Return ADC gain from set_wire_in value."""
     gain_bits = value & 0x7
-    gain_value: int = 2 ** gain_bits
+    gain_value: int = 2**gain_bits
     return gain_value
 
 

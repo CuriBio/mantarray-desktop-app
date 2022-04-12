@@ -211,7 +211,8 @@ def test_McCommunicationProcess__processes_start_stim_checks_command__and_sends_
 
     # set known impedance values in simulator
     num_wells = 24
-    test_impedance_values = [randint(0, 0xFFFF) for _ in range(num_wells)]
+    # test_impedance_values = [randint(0, 0xFFFF) for _ in range(num_wells)]
+    test_impedance_values = [i for i in range(num_wells)]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "set_impedance_values", "impendance_values": test_impedance_values}, testing_queue
     )
@@ -231,7 +232,9 @@ def test_McCommunicationProcess__processes_start_stim_checks_command__and_sends_
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(output_queue, 1)
     msg_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert msg_to_main == start_stim_checks_command
+    assert (
+        msg_to_main["stimulator_circuit_statuses"] == start_stim_checks_command["stimulator_circuit_statuses"]
+    )
 
 
 @freeze_time(datetime.datetime(year=2021, month=10, day=24, hour=13, minute=7, second=23, microsecond=173814))

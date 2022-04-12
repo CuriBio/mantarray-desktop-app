@@ -531,7 +531,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             barcode_type = "stim_barcode" if barcode.startswith("MS") else "plate_barcode"
             if board_idx not in self._values_to_share_to_server["barcodes"]:
                 self._values_to_share_to_server["barcodes"][board_idx] = dict()
-            elif self._values_to_share_to_server["barcodes"][board_idx][barcode_type] == barcode:
+            elif self._values_to_share_to_server["barcodes"][board_idx].get(barcode_type, None) == barcode:
                 return
             # TODO Tanner (2/7/22): consider removing barcode_status after Beta 1 mode phased out
             valid = communication.get("valid", None)
@@ -544,7 +544,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 barcode_status = BARCODE_INVALID_UUID
 
             board_barcode_dict = {barcode_type: barcode, "barcode_status": barcode_status}
-            self._values_to_share_to_server["barcodes"][board_idx] = board_barcode_dict
+            self._values_to_share_to_server["barcodes"][board_idx].update(board_barcode_dict)
             # send message to FE
             barcode_dict_copy = copy.deepcopy(board_barcode_dict)
             barcode_dict_copy["barcode_status"] = str(barcode_dict_copy["barcode_status"])

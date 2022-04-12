@@ -103,7 +103,7 @@ AVERAGE_MC_REBOOT_DURATION_SECONDS = MAX_MC_REBOOT_DURATION_SECONDS / 2
 
 def _perf_counter_us() -> int:
     """Return perf_counter value as microseconds."""
-    return perf_counter_ns() // 10 ** 3
+    return perf_counter_ns() // 10**3
 
 
 def _get_secs_since_last_handshake(last_time: float) -> float:
@@ -510,9 +510,8 @@ class MantarrayMcSimulator(InfiniteProcess):
                 self._is_stimulating = False
         elif packet_type == SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE:
             # Tanner (4/8/22): currently assuming that stim checks will take a negligible amount of time
-            for i, impedance in enumerate(self._impedance_values):
-                module_id = i + 1
-                response_body += bytes([module_id])
+            # TODO use struct.pack here
+            for impedance in self._impedance_values:
                 response_body += impedance.to_bytes(2, byteorder="little")
         elif packet_type == SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE:
             response_body += self._update_sampling_period(comm_from_pc)
