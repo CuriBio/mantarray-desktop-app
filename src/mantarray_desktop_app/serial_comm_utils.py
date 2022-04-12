@@ -31,8 +31,8 @@ from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from .constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from .constants import STIM_MODULE_ID_TO_WELL_IDX
 from .constants import STIM_NO_PROTOCOL_ASSIGNED
-from .constants import STIM_OPEN_CIRCUIT_THRESHOLD
-from .constants import STIM_SHORT_CIRCUIT_THRESHOLD
+from .constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
+from .constants import STIM_SHORT_CIRCUIT_THRESHOLD_OHMS
 from .constants import STIM_WELL_IDX_TO_MODULE_ID
 from .constants import StimulatorCircuitStatuses
 
@@ -146,9 +146,9 @@ def get_serial_comm_timestamp() -> int:
 
 
 def convert_impedance_to_circuit_status(impedance: int) -> str:
-    if impedance <= STIM_SHORT_CIRCUIT_THRESHOLD:
+    if impedance <= STIM_SHORT_CIRCUIT_THRESHOLD_OHMS:
         return StimulatorCircuitStatuses.SHORT.value
-    if impedance >= STIM_OPEN_CIRCUIT_THRESHOLD:
+    if impedance >= STIM_OPEN_CIRCUIT_THRESHOLD_OHMS:
         return StimulatorCircuitStatuses.OPEN.value
     return StimulatorCircuitStatuses.MEDIA.value
 

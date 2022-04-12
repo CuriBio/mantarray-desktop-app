@@ -169,8 +169,8 @@ from mantarray_desktop_app.constants import BARCODE_LEN
 from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
-from mantarray_desktop_app.constants import STIM_OPEN_CIRCUIT_THRESHOLD
-from mantarray_desktop_app.constants import STIM_SHORT_CIRCUIT_THRESHOLD
+from mantarray_desktop_app.constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
+from mantarray_desktop_app.constants import STIM_SHORT_CIRCUIT_THRESHOLD_OHMS
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
@@ -527,8 +527,8 @@ def test_serial_comm():
 
     assert STIM_NO_PROTOCOL_ASSIGNED == 255
 
-    assert STIM_OPEN_CIRCUIT_THRESHOLD == 20000
-    assert STIM_SHORT_CIRCUIT_THRESHOLD == 10
+    assert STIM_OPEN_CIRCUIT_THRESHOLD_OHMS == 20000
+    assert STIM_SHORT_CIRCUIT_THRESHOLD_OHMS == 10
 
     assert issubclass(StimulatorCircuitStatuses, Enum) is True
     assert StimulatorCircuitStatuses.CALCULATING.value == "calculating"

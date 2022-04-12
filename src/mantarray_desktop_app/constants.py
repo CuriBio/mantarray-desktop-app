@@ -356,8 +356,7 @@ SERIAL_COMM_NUM_CHANNELS_PER_SENSOR = 3
 SERIAL_COMM_NUM_SENSORS_PER_WELL = 3
 SERIAL_COMM_NUM_DATA_CHANNELS = SERIAL_COMM_NUM_SENSORS_PER_WELL * SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 SERIAL_COMM_DEFAULT_DATA_CHANNEL = SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]
-# default config values as of 3/7/22
-DEFAULT_SAMPLING_PERIOD = 10000
+DEFAULT_SAMPLING_PERIOD = 10000  # valid as of 4/12/22
 
 # Stimulation
 STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS = int(100e3)
@@ -366,10 +365,9 @@ STIM_MAX_PULSE_DURATION_MICROSECONDS = int(50e3)
 STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL = 50
 STIM_COMPLETE_SUBPROTOCOL_IDX = 255
 STIM_NO_PROTOCOL_ASSIGNED = 255
-
-# TODO give these real values once known
-STIM_OPEN_CIRCUIT_THRESHOLD = 20000
-STIM_SHORT_CIRCUIT_THRESHOLD = 10
+# Stimulator Impedance Thresholds
+STIM_OPEN_CIRCUIT_THRESHOLD_OHMS = 20000
+STIM_SHORT_CIRCUIT_THRESHOLD_OHMS = 10
 
 
 class StimulatorCircuitStatuses(Enum):
@@ -402,8 +400,8 @@ SERIAL_COMM_MODULE_ID_TO_WELL_IDX = immutabledict(
 # fmt: off
 STIM_MODULE_ID_TO_WELL_IDX = immutabledict(
     {
-        module_id + 1: well_idx
-        for module_id, well_idx in enumerate(
+        i + 1: well_idx  # (i + 1) is module ID
+        for i, well_idx in enumerate(
             [
                 3, 7, 11, 15, 19, 23,  # D wells
                 2, 6, 10, 14, 18, 22,  # C wells
