@@ -9,6 +9,7 @@ from multiprocessing import queues as mpqueues
 import os
 import queue
 import random
+import struct
 from time import perf_counter
 from time import perf_counter_ns
 from typing import Any
@@ -510,9 +511,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 self._is_stimulating = False
         elif packet_type == SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE:
             # Tanner (4/8/22): currently assuming that stim checks will take a negligible amount of time
-            # TODO use struct.pack here
-            for impedance in self._impedance_values:
-                response_body += impedance.to_bytes(2, byteorder="little")
+            response_body += struct.pack(f"<{self._num_wells}H", *self._impedance_values)
         elif packet_type == SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE:
             response_body += self._update_sampling_period(comm_from_pc)
         elif packet_type == SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE:
@@ -594,8 +593,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             return update_status_byte
         # check and set sampling period
         sampling_period = int.from_bytes(
-            comm_from_pc[SERIAL_COMM_PAYLOAD_INDEX : SERIAL_COMM_PAYLOAD_INDEX + 2],
-            byteorder="little",
+            comm_from_pc[SERIAL_COMM_PAYLOAD_INDEX : SERIAL_COMM_PAYLOAD_INDEX + 2], byteorder="little"
         )
         if sampling_period % MICROSECONDS_PER_MILLISECOND != 0:
             raise SerialCommInvalidSamplingPeriodError(sampling_period)
