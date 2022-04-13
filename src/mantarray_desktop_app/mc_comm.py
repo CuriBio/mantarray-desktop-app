@@ -362,29 +362,29 @@ class McCommunicationProcess(InstrumentCommProcess):
             if self._board_connections[i] is not None:
                 continue
             msg = {"communication_type": "board_connection_status_change", "board_index": i}
+            serial_obj, msg["message"] = self._create_board_connection()
+            self.set_board_connection(i, serial_obj)
+            msg["is_connected"] = not _is_simulator(serial_obj)
+            msg["timestamp"] = _get_formatted_utc_now()
+            to_main_queue.put_nowait(msg)
 
-            for port_info in list_ports.comports():
-                # Tanner (6/14/21): attempt to connect to any device with the STM vendor ID
-                if port_info.vid != STM_VID:
-                    continue
-                msg["message"] = f"Board detected with description: {port_info.description}"
-                serial_obj = serial.Serial(
+    def _create_board_connection(self) -> Tuple[Union[MantarrayMcSimulator, serial.Serial], str]:
+        for port_info in list_ports.comports():
+            # Tanner (6/14/21): attempt to connect to any device with the STM vendor ID
+            if port_info.vid == STM_VID:
+                conn_msg = f"Board detected with description: {port_info.description}"
+                serial_conn = serial.Serial(
                     port=port_info.name,
                     baudrate=SERIAL_COMM_BAUD_RATE,
                     bytesize=8,
                     timeout=0,
                     stopbits=serial.STOPBITS_ONE,
                 )
-                break
-            else:
-                msg["message"] = "No board detected. Creating simulator."
-                serial_obj = MantarrayMcSimulator(
-                    Queue(), Queue(), Queue(), Queue(), num_wells=self._num_wells
-                )
-            self.set_board_connection(i, serial_obj)
-            msg["is_connected"] = not _is_simulator(serial_obj)
-            msg["timestamp"] = _get_formatted_utc_now()
-            to_main_queue.put_nowait(msg)
+                return serial_conn, conn_msg
+        # create simulator as no serial connection could be made
+        creating_sim_msg = "No board detected. Creating simulator."
+        simulator = MantarrayMcSimulator(Queue(), Queue(), Queue(), Queue(), num_wells=self._num_wells)
+        return simulator, creating_sim_msg
 
     def set_board_connection(self, board_idx: int, board: Union[MantarrayMcSimulator, serial.Serial]) -> None:
         super().set_board_connection(board_idx, board)
@@ -810,8 +810,8 @@ class McCommunicationProcess(InstrumentCommProcess):
             elif prev_command["command"] == "start_stim_checks":
                 stimulator_circuit_statuses: List[Optional[str]] = [None] * self._num_wells
                 impedances = struct.unpack(f"<{self._num_wells}H", response_data)
-                for i, impedance in enumerate(impedances):
-                    well_idx = STIM_MODULE_ID_TO_WELL_IDX[i + 1]
+                for module_id, impedance in enumerate(impedances, 1):
+                    well_idx = STIM_MODULE_ID_TO_WELL_IDX[module_id]
                     stimulator_circuit_statuses[well_idx] = convert_impedance_to_circuit_status(impedance)
                 prev_command["stimulator_circuit_statuses"] = stimulator_circuit_statuses
             elif prev_command["command"] == "set_protocols":
@@ -931,40 +931,36 @@ class McCommunicationProcess(InstrumentCommProcess):
         if board is None:
             raise NotImplementedError("board should never be None here")
 
+        # read bytes once every second until enough bytes have been read or timeout occurs
+        # Tanner (3/16/21): issue seen with simulator taking slightly longer than status beacon period to send next data packet
         magic_word_len = len(SERIAL_COMM_MAGIC_WORD_BYTES)
+        seconds_remaining = SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS + 4
         magic_word_test_bytes = board.read(size=magic_word_len)
-        magic_word_test_bytes_len = len(magic_word_test_bytes)
-        # wait for at least 8 bytes to be read
-        if magic_word_test_bytes_len < magic_word_len:
-            # check for more bytes once every second for up to four seconds longer than number of seconds in status beacon period # Tanner (3/16/21): issue seen with simulator taking slightly longer than status beacon period to send next data packet
-            for _ in range(SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS + 4):
-                num_bytes_remaining = magic_word_len - magic_word_test_bytes_len
-                next_bytes = board.read(size=num_bytes_remaining)
-                magic_word_test_bytes += next_bytes
-                magic_word_test_bytes_len = len(magic_word_test_bytes)
-                if magic_word_test_bytes_len == magic_word_len:
-                    break
-                sleep(1)
-            else:
-                # if the entire period has passed and no more bytes are available an error has occurred with the Mantarray that is considered fatal
-                raise SerialCommPacketRegistrationTimeoutError(magic_word_test_bytes)
+        while (num_bytes_remaining := magic_word_len - len(magic_word_test_bytes)) and seconds_remaining:
+            magic_word_test_bytes += board.read(size=num_bytes_remaining)
+            seconds_remaining -= 1
+            sleep(1)
+        if len(magic_word_test_bytes) != magic_word_len:
+            # if the entire period has passed and no more bytes are available an error has occurred with the Mantarray that is considered fatal
+            raise SerialCommPacketRegistrationTimeoutError(magic_word_test_bytes)
+
         # read more bytes until the magic word is registered, the timeout value is reached, or the maximum number of bytes are read
         num_bytes_checked = 0
-        read_dur_secs = 0.0
         start = perf_counter()
         while (
             magic_word_test_bytes != SERIAL_COMM_MAGIC_WORD_BYTES
-            and read_dur_secs < SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
+            and _get_secs_since_read_start(start) < SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
         ):
+            # read 0 or 1 bytes, depending on what is available in serial port
             next_byte = board.read(size=1)
-            if len(next_byte) == 1:
+            num_bytes_checked += len(next_byte)
+            if next_byte:
+                # only want to run this append expression if a byte was read
                 magic_word_test_bytes = magic_word_test_bytes[1:] + next_byte
-                num_bytes_checked += 1
+            if num_bytes_checked > SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES:
                 # A magic word should be encountered if this many bytes are read. If not, we can assume there was a problem with the mantarray
-                if num_bytes_checked > SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES:
-                    raise SerialCommPacketRegistrationSearchExhaustedError()
-            read_dur_secs = _get_secs_since_read_start(start)
-        # if this point is reached and the magic word has not been found, then at some point no additional bytes were being read
+                raise SerialCommPacketRegistrationSearchExhaustedError()
+        # if this point is reached and the magic word has not been found, then at some point no additional bytes were being read, so raise error
         if magic_word_test_bytes != SERIAL_COMM_MAGIC_WORD_BYTES:
             raise SerialCommPacketRegistrationReadEmptyError()
         self._is_registered_with_serial_comm[board_idx] = True

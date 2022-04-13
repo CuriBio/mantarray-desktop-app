@@ -88,9 +88,9 @@ def test_main__redacts_log_file_dir_from_log_message_of_command_line_args(mocker
         for call_args in spied_info_logger.call_args_list:
             if "Command Line Args:" in call_args[0][0]:
                 assert f"'log_file_dir': '{redacted_log_file_dir}'" in call_args[0][0]
-                break
-        else:
-            assert False, "Command Line Args not found in any log message"
+                # return here since if assertion is True as test passed
+                return
+        raise AssertionError("Command Line Args not found in any log message")
 
 
 def test_main__logs_command_line_arguments(mocker):
@@ -514,9 +514,9 @@ def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_e
         try:
             next_call_args = next(expected_info_calls)
         except StopIteration:
+            next_call_args = None
             break
-    else:
-        assert False, f"Message: '{next_call_args}' not found"
+    assert next_call_args is None, f"Message: '{next_call_args}' not found"
 
     # assert socketio was set up correctly
     ws_queue = (

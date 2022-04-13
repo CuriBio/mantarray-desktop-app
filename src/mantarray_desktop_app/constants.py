@@ -400,14 +400,15 @@ SERIAL_COMM_MODULE_ID_TO_WELL_IDX = immutabledict(
 # fmt: off
 STIM_MODULE_ID_TO_WELL_IDX = immutabledict(
     {
-        i + 1: well_idx  # (i + 1) is module ID
-        for i, well_idx in enumerate(
+        module_id: well_idx
+        for module_id, well_idx in enumerate(
             [
                 3, 7, 11, 15, 19, 23,  # D wells
                 2, 6, 10, 14, 18, 22,  # C wells
                 1, 5, 9, 13, 17, 21,   # B wells
                 0, 4, 8, 12, 16, 20    # A wells
-            ]
+            ],
+            1  # module ID numbering starts at 1
         )
     }
 )
