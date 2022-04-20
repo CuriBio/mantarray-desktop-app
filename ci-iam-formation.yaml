@@ -11,9 +11,8 @@ Parameters:
     Description: The stage for deployment
     AllowedValues:
       - test
-      - modl
       - prod
-    ConstraintDescription: Must be a valid stage name (test, modl, or prod).
+    ConstraintDescription: Must be a valid stage name (test or prod).
     Default: test
 
   BuildResourcesBucketName:

@@ -21,7 +21,6 @@ on:
         type: choice
         options:
           - test
-          - modl
           - prod
   push:
     branches:

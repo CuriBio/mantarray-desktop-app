@@ -26,15 +26,9 @@ COMPILED_EXE_BUILD_TIMESTAMP = "REPLACETHISWITHTIMESTAMPDURINGBUILD"
 
 # Cloud API
 CLOUD_API_ENDPOINT_USER_OPTION = "REPLACETHISWITHENDPOINTDURINGBUILD"
-CLOUD_API_ENDPOINT_VALID_OPTIONS = immutabledict(
-    {
-        "test": "curibio-test",
-        "modl": "curibio-modl",
-        "prod": "curibio",
-    }
-)
+CLOUD_API_ENDPOINT_VALID_OPTIONS = immutabledict({"test": "curibio-test", "prod": "curibio"})
 CLOUD_API_ENDPOINT = (
-    f"api.{CLOUD_API_ENDPOINT_VALID_OPTIONS.get(CLOUD_API_ENDPOINT_USER_OPTION, 'curibio-test')}.com"
+    f"apiv2.{CLOUD_API_ENDPOINT_VALID_OPTIONS.get(CLOUD_API_ENDPOINT_USER_OPTION, 'curibio-test')}.com"
 )
 
 CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION = "0.4.2"
