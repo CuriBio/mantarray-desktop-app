@@ -190,15 +190,15 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
         run: pipenv run python .github/workflows/run_s3_download.py
 
-      # - name: Run Python Tests with randomly generated seed
-      #   if: github.event.inputs.randomlyseed == ''
-      #   timeout-minutes: 40
-      #   run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci
+      - name: Run Python Tests with randomly generated seed
+        if: github.event.inputs.randomlyseed == ''
+        timeout-minutes: 40
+        run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci
 
-      # - name: Run Python Tests with supplied pytest-randomly seed
-      #   if: github.event.inputs.randomlyseed != ''
-      #   timeout-minutes: 30
-      #   run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci --randomly-seed=${{ github.event.inputs.randomlyseed }}
+      - name: Run Python Tests with supplied pytest-randomly seed
+        if: github.event.inputs.randomlyseed != ''
+        timeout-minutes: 30
+        run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci --randomly-seed=${{ github.event.inputs.randomlyseed }}
 
       - name: Confirm Sphinx Docs build correctly
         # only check Sphinx docs build on the fastest job
@@ -238,13 +238,13 @@ jobs:
       - name: Compile the Python Executable
         run: pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
 
-      # - name: Run Python Tests on Executable with randomly generated seed
-      #   if: github.event.inputs.randomlyseed == ''
-      #   run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov
+      - name: Run Python Tests on Executable with randomly generated seed
+        if: github.event.inputs.randomlyseed == ''
+        run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov
 
-      # - name: Run Python Tests on Executable with supplied pytest-randomly seed
-      #   if: github.event.inputs.randomlyseed != ''
-      #   run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov --randomly-seed=${{ github.event.inputs.randomlyseed }}
+      - name: Run Python Tests on Executable with supplied pytest-randomly seed
+        if: github.event.inputs.randomlyseed != ''
+        run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov --randomly-seed=${{ github.event.inputs.randomlyseed }}
 
       - name: Build Full Electron App
         run: pipenv run npm run build
@@ -262,17 +262,17 @@ jobs:
           name: codecov-umbrella
           fail_ci_if_error: true
 
-      - name: Run E2E Tests (Windows)
-        timeout-minutes: 3
-        if: runner.os == 'Windows'
-        run: pipenv run npm run test:e2e-ci
+      # - name: Run E2E Tests (Windows)
+      #   timeout-minutes: 3
+      #   if: runner.os == 'Windows'
+      #   run: pipenv run npm run test:e2e-ci
 
-      - name: Archive visual regression
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v2
-        with:
-          name: visual-regression-screenshots--${{ matrix.os }}--${{ matrix.node-version }}--${{ matrix.python-version }}
-          path: "tests/e2e/screenshots/**/*"
+      # - name: Archive visual regression
+      #   if: ${{ failure() }}
+      #   uses: actions/upload-artifact@v2
+      #   with:
+      #     name: visual-regression-screenshots--${{ matrix.os }}--${{ matrix.node-version }}--${{ matrix.python-version }}
+      #     path: "tests/e2e/screenshots/**/*"
 
       - name: Archive Installer File
         if: runner.os == 'Windows'
