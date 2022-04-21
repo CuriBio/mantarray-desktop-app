@@ -12,7 +12,6 @@ Added:
 - Stim Lid barcode.
 - Stim Lid configuration check.
 
-
 Changed:
 ^^^^^^^^
 
@@ -24,6 +23,12 @@ Changed:
   - Misc. other minor changes.
 
 - Instrument error handling procedure.
+- Beta 2 H5 file format version is now 1.0.3. Format Changes:
+
+  - Added 2 metadata fields:
+
+    - Stim Lid barcode.
+    - Whether or not the Stim Lid barcode was scanned by the instrument or manually entered by the user.
 
 
 0.8.1 (2022-03-18)
