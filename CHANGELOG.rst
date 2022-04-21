@@ -8,6 +8,7 @@ Changelog for Mantarray Desktop App
 Changed:
 ^^^^^^^^
 
+- Cloud API calls (now pings k8s endpoints).
 - Serial communication protocol:
 
   - Removed module ID from general packet structure.
