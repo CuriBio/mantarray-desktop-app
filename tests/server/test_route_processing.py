@@ -1021,7 +1021,7 @@ def test_update_settings__errors_when_any_combo_of_invalid_customer_credits_gets
     assert response.status_code == 200
 
 
-def test_update_settings__errors_when_any_combo_of_invalid_customer_credits_gets_checked_against_aws_get_auth(
+def test_update_settings__errors_when_any_combo_of_invalid_customer_credits_gets_checked_against_users_login_route_in_cloud_api(
     test_process_manager_creator, test_client, test_monitor, mocker
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)

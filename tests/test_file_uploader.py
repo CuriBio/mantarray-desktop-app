@@ -51,7 +51,7 @@ def test_get_access_token__requests_and_returns_access_token_correctly(mocker):
 
     actual = get_access_token(TEST_CUSTOMER_ACCOUNT_ID, TEST_PASSWORD)
     mocked_post.assert_called_once_with(
-        f"https://{CLOUD_API_ENDPOINT}/get_auth",
+        f"https://{CLOUD_API_ENDPOINT}/users/login",
         json={"username": TEST_CUSTOMER_ACCOUNT_ID, "password": TEST_PASSWORD},
     )
     assert actual == expected_access_token

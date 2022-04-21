@@ -537,10 +537,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 }
                 self._fw_update_worker_thread = ErrorCatchingThread(
                     target=get_latest_firmware_versions,
-                    args=(
-                        self._fw_update_thread_dict,
-                        comm_from_main["serial_number"],
-                    ),
+                    args=(self._fw_update_thread_dict, comm_from_main["serial_number"]),
                 )
                 self._fw_update_worker_thread.start()
             elif comm_from_main["command"] == "download_firmware_updates":

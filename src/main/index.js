@@ -142,7 +142,7 @@ const boot_up_flask = function () {
 // start the Flask server
 boot_up_flask();
 
-// save customer id after it's verified in the /get_auth aws route
+// save customer id after it's verified by /users/login
 ipcMain.on("save_customer_id", (e, customer_account) => {
   e.reply("save_customer_id", 200);
 

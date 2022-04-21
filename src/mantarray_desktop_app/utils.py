@@ -94,7 +94,7 @@ def validate_customer_credentials(request_args: Dict[str, Any], shared_values_di
                 raise InvalidCustomerAccountIDPasswordError()
         else:
             response = requests.post(
-                f"https://{CLOUD_API_ENDPOINT}/get_auth",
+                f"https://{CLOUD_API_ENDPOINT}/users/login",
                 json={"username": customer_account_id, "password": customer_pass_key},
             )
             if response.status_code != 200:

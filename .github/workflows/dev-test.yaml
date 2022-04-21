@@ -1,8 +1,6 @@
 # Based on https://github.com/prettier/prettier/blob/master/.github/workflows/dev-test.yml
 name: Dev
 
-# TODO (Eli 12/11/20): try and create a separate job for testing the exe that just transfers over the artifacts...somehow...will be hard since exe tests import things from the installed python package...but there were errors where it seemed like it ran in GitHub but then downloading and running locally it couldn't find the Cython imports when opening the EXE
-
 on:
   workflow_dispatch:
     inputs:
@@ -17,7 +15,6 @@ on:
         type: choice
         options:
           - test
-          - modl
           - prod
   schedule:
     - cron: "0 5 * * *"

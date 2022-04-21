@@ -36,13 +36,12 @@ def get_access_token(customer_account_id: str, password: str) -> str:
         customer_account_id: current customer account id.
         password: current customer account password.
     """
-    get_auth_response = requests.post(
-        f"https://{CLOUD_API_ENDPOINT}/get_auth",
+    login_response = requests.post(
+        f"https://{CLOUD_API_ENDPOINT}/users/login",
         json={"username": customer_account_id, "password": password},
     )
 
-    get_auth_response_json = get_auth_response.json()
-    access_token: str = get_auth_response_json["access_token"]
+    access_token: str = login_response.json()["access_token"]
     return access_token
 
 
