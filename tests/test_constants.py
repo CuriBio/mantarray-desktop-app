@@ -26,8 +26,8 @@ from mantarray_desktop_app import CALIBRATION_RECORDING_DUR_SECONDS
 from mantarray_desktop_app import CHECKING_FOR_UPDATES_STATE
 from mantarray_desktop_app import CLEAR_BARCODE_TRIG_BIT
 from mantarray_desktop_app import CLEARED_BARCODE_VALUE
-from mantarray_desktop_app import CLOUD_API_ENDPOINT_USER_OPTION
-from mantarray_desktop_app import CLOUD_API_ENDPOINT_VALID_OPTIONS
+from mantarray_desktop_app import CLOUD_ENDPOINT_USER_OPTION
+from mantarray_desktop_app import CLOUD_ENDPOINT_VALID_OPTIONS
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import CONSTRUCT_SENSORS_PER_REF_SENSOR
@@ -280,12 +280,12 @@ def test_CURRENT_SOFTWARE_VERSION():
     assert CURRENT_SOFTWARE_VERSION == "REPLACETHISWITHVERSIONDURINGBUILD"
 
 
-def test_CLOUD_API_ENDPOINT_USER_OPTION():
-    assert CLOUD_API_ENDPOINT_USER_OPTION == "REPLACETHISWITHENDPOINTDURINGBUILD"
+def test_CLOUD_ENDPOINT_USER_OPTION():
+    assert CLOUD_ENDPOINT_USER_OPTION == "REPLACETHISWITHENDPOINTDURINGBUILD"
 
 
-def test_CLOUD_API_ENDPOINT_VALID_OPTIONS():
-    assert CLOUD_API_ENDPOINT_VALID_OPTIONS == {"test": "curibio-test", "prod": "curibio"}
+def test_CLOUD_ENDPOINT_VALID_OPTIONS():
+    assert CLOUD_ENDPOINT_VALID_OPTIONS == {"test": "curibio-test", "prod": "curibio"}
 
 
 def test_managed_acquisition_commands():
