@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 from random import randint
+import urllib
 
 from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
@@ -21,6 +22,7 @@ from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
+from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 import pytest
 
 from ..fixtures import fixture_generic_queue_container
@@ -30,7 +32,7 @@ from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
 from ..fixtures_server import fixture_server_manager
 from ..fixtures_server import fixture_test_client
-from ..fixtures_server import put_generic_beta_1_start_recording_info_in_dict
+from ..fixtures_server import put_generic_beta_2_start_recording_info_in_dict
 
 __fixtures__ = [
     fixture_client_and_server_manager_and_shared_values,
@@ -277,12 +279,126 @@ def test_start_calibration__returns_error_code_and_message_if_called_in_beta_2_m
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = [False] * 24
+
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulation_running"][0] = True  # arbitrary well
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
 
     response = test_client.get("/start_calibration")
     assert response.status_code == 403
     assert response.status.endswith("Cannot calibrate while stimulation is running") is True
+
+
+def test_start_calibration__returns_error_code_and_message_if_called_in_beta_2_mode_while_stimulator_checks_are_running(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    shared_values_dict["beta_2_mode"] = True
+
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
+    # set random circuit status to calculating
+    shared_values_dict["stimulator_circuit_statuses"][
+        randint(0, test_num_wells - 1)
+    ] = StimulatorCircuitStatuses.CALCULATING.value
+
+    response = test_client.get("/start_calibration")
+    assert response.status_code == 403
+    assert response.status.endswith("Cannot calibrate while stimulator checks are running") is True
+
+
+def test_start_stim_checks__returns_error_code_and_message_if_called_in_beta_1_mode(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = False
+
+    response = test_client.post("/start_stim_checks")
+    assert response.status_code == 403
+    assert response.status.endswith("Route cannot be called in beta 1 mode") is True
+
+
+@pytest.mark.parametrize(
+    "test_system_status",
+    [
+        SERVER_INITIALIZING_STATE,
+        SERVER_READY_STATE,
+        INSTRUMENT_INITIALIZING_STATE,
+        CALIBRATION_NEEDED_STATE,
+        CALIBRATING_STATE,
+        CALIBRATED_STATE,
+        BUFFERING_STATE,
+        LIVE_VIEW_ACTIVE_STATE,
+        RECORDING_STATE,
+    ],
+)
+def test_start_stim_checks__returns_correct_response(
+    test_system_status,
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = test_system_status
+
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
+
+    expected_status_code = 200 if test_system_status in (CALIBRATED_STATE) else 403
+
+    response = test_client.post("/start_stim_checks")
+    assert response.status_code == expected_status_code
+    if expected_status_code == 403:
+        assert response.status.endswith("Route cannot be called unless in calibrated state") is True
+
+
+def test_start_stim_checks__returns_error_code_and_message_if_called_while_stimulating(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    shared_values_dict["beta_2_mode"] = True
+
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
+    shared_values_dict["stimulation_running"][0] = True  # arbitrary well
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
+
+    response = test_client.post("/start_stim_checks")
+    assert response.status_code == 403
+    assert response.status.endswith("Cannot perform stimulator checks while stimulation is running") is True
+
+
+def test_set_start_stim_checks__returns_code_and_message_if_checks_are_already_running(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
+    # set random circuit status to calculating
+    shared_values_dict["stimulator_circuit_statuses"][
+        randint(0, test_num_wells - 1)
+    ] = StimulatorCircuitStatuses.CALCULATING.value
+
+    response = test_client.post("/start_stim_checks")
+    assert response.status_code == 304
+    assert response.status.endswith("Stimulator checks already running") is True
 
 
 def test_dev_begin_hardware_script__returns_correct_response(test_client):
@@ -340,7 +456,6 @@ def test_set_mantarray_serial_number__returns_error_code_and_message_if_serial_n
     expected_error_message,
     test_description,
     client_and_server_manager_and_shared_values,
-    mocker,
 ):
     test_client, _, _ = client_and_server_manager_and_shared_values
 
@@ -361,6 +476,34 @@ def test_start_managed_acquisition__returns_error_code_and_message_if_mantarray_
     response = test_client.get("/start_managed_acquisition")
     assert response.status_code == 406
     assert response.status.endswith("Mantarray has not been assigned a Serial Number") is True
+
+
+def test_start_managed_acquisition__returns_error_code_and_message_called_while_stimulator_checks_are_running(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    board_idx = 0
+    shared_values_dict["mantarray_serial_number"] = {
+        board_idx: MantarrayMcSimulator.default_mantarray_serial_number
+    }
+
+    test_num_wells = 24
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
+    # set random circuit status to calculating
+    shared_values_dict["stimulator_circuit_statuses"][
+        randint(0, test_num_wells - 1)
+    ] = StimulatorCircuitStatuses.CALCULATING.value
+
+    response = test_client.get("/start_managed_acquisition")
+    assert response.status_code == 403
+    assert (
+        response.status.endswith("Cannot start managed acquisition while stimulator checks are running")
+        is True
+    )
 
 
 def test_update_settings__returns_error_message_when_customer_creds_dont_make_stored_pairs(
@@ -412,11 +555,11 @@ def test_update_settings__returns_error_message_when_unexpected_argument_is_give
 
 
 def test_route_error_message_is_logged(mocker, test_client):
-    expected_error_msg = "400 Request missing 'barcode' parameter"
+    expected_error_msg = "400 Invalid argument given: a"
 
     mocked_logger = mocker.spy(server.logger, "info")
 
-    response = test_client.get("/start_recording")
+    response = test_client.get("/update_settings?a=b")
     assert response.status == expected_error_msg
 
     assert expected_error_msg in mocked_logger.call_args[0][0]
@@ -426,61 +569,113 @@ def test_start_recording__returns_no_error_message_with_multiple_hardware_test_r
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
 
-    response = test_client.get(
-        f"/start_recording?barcode={MantarrayMcSimulator.default_barcode}&is_hardware_test_recording=True"
-    )
+    params = {
+        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
+        "is_hardware_test_recording": True,
+    }
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
     assert response.status_code == 200
-    response = test_client.get(
-        f"/start_recording?barcode={MantarrayMcSimulator.default_barcode}&is_hardware_test_recording=True"
-    )
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
     assert response.status_code == 200
 
 
-def test_start_recording__returns_error_code_and_message_if_barcode_is_not_given(
-    test_client,
+def test_start_recording__returns_error_code_and_message_if_plate_barcode_is_not_given(
+    client_and_server_manager_and_shared_values,
 ):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = [True] * 24
+
     response = test_client.get("/start_recording")
     assert response.status_code == 400
-    assert response.status.endswith("Request missing 'barcode' parameter") is True
+    assert response.status.endswith("Request missing 'plate_barcode' parameter") is True
+
+
+def test_start_recording__returns_error_code_and_message_if_stim_barcode_is_not_given_while_stim_is_running(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = [True] * 24
+
+    response = test_client.get(f"/start_recording?plate_barcode={MantarrayMcSimulator.default_plate_barcode}")
+    assert response.status_code == 400
+    assert response.status.endswith("Request missing 'stim_barcode' parameter") is True
+
+
+@pytest.mark.parametrize("test_barcode_type", ["Stim", "Plate"])
+@pytest.mark.parametrize(
+    "test_barcode,expected_error_message",
+    [
+        ("M*12345678901", "barcode is incorrect length"),
+        ("M*123456789", "barcode is incorrect length"),
+        ("MA1234567890", "barcode contains invalid header: 'MA'"),
+        ("MB1234567890", "barcode contains invalid header: 'MB'"),
+        ("ME1234567890", "barcode contains invalid header: 'ME'"),
+        ("M*2021$72144", "barcode contains invalid character: '$'"),
+        ("M*20211721)4", "barcode contains invalid character: ')'"),
+        ("M*2020172144", "barcode contains invalid year: '2020'"),
+        ("M*2021000144", "barcode contains invalid Julian date: '000'"),
+        ("M*2021367144", "barcode contains invalid Julian date: '367'"),
+    ],
+)
+def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
+    test_barcode_type,
+    test_barcode,
+    expected_error_message,
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = [True] * 24
+
+    barcodes = {
+        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
+    }
+    barcode_type_letter = "S" if test_barcode_type == "Stim" else "L"
+    barcodes[f"{test_barcode_type.lower()}_barcode"] = test_barcode.replace("*", barcode_type_letter)
+
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
+    assert response.status_code == 400
+    assert response.status.endswith(f"{test_barcode_type} {expected_error_message}") is True
 
 
 @pytest.mark.parametrize(
     "test_barcode,expected_error_message",
     [
-        ("ML12345678901", "Barcode is incorrect length"),
-        ("ML123456789", "Barcode is incorrect length"),
-        ("MA1234567890", "Barcode contains invalid header: 'MA'"),
-        ("MB1234567890", "Barcode contains invalid header: 'MB'"),
-        ("ME1234567890", "Barcode contains invalid header: 'ME'"),
-        ("ML2021$72144", "Barcode contains invalid character: '$'"),
-        ("ML20211721)4", "Barcode contains invalid character: ')'"),
-        ("ML2020172144", "Barcode contains invalid year: '2020'"),
-        ("ML2021000144", "Barcode contains invalid Julian date: '000'"),
-        ("ML2021367144", "Barcode contains invalid Julian date: '367'"),
+        (MantarrayMcSimulator.default_stim_barcode, "Plate barcode contains invalid header: 'MS'"),
+        (MantarrayMcSimulator.default_plate_barcode, "Stim barcode contains invalid header: 'ML'"),
     ],
 )
-def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
-    test_client,
-    test_barcode,
-    expected_error_message,
+def test_start_recording__returns_error_code_if_barcode_header_and_type_do_not_match(
+    test_barcode, expected_error_message, client_and_server_manager_and_shared_values
 ):
-    response = test_client.get(f"/start_recording?barcode={test_barcode}")
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
+    shared_values_dict["stimulation_running"] = [True] * 24
+
+    barcodes = {"plate_barcode": test_barcode, "stim_barcode": test_barcode}
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
     assert response.status_code == 400
     assert response.status.endswith(expected_error_message) is True
 
 
-@pytest.mark.parametrize(
-    "test_barcode,test_description",
-    [("ML2021172003", "allows header 'ML'"), ("MS2021172002", "allows header 'MS'")],
-)
-def test_start_recording__allows_correct_barcode_headers(
-    test_barcode, test_description, client_and_server_manager_and_shared_values
+def test_start_recording__allows_correct_barcode_headers__for_correct_barcode_type(
+    client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
-    response = test_client.get(f"/start_recording?barcode={test_barcode}")
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
+    shared_values_dict["stimulation_running"] = [True] * 24
+
+    barcodes = {
+        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
+    }
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
     assert response.status_code == 200
 
 
@@ -488,10 +683,14 @@ def test_start_recording__returns_error_code_and_message_if_already_recording(
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
     shared_values_dict["system_status"] = RECORDING_STATE
 
-    response = test_client.get(f"/start_recording?barcode={MantarrayMcSimulator.default_barcode}")
+    params = {
+        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
+    }
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
     assert response.status_code == 304
     assert response.status.endswith("Already recording") is True
 
@@ -555,17 +754,9 @@ def test_set_stim_status__returns_error_code_and_message_if_running_arg_is_not_g
     assert response.status.endswith("Request missing 'running' parameter") is True
 
 
-@pytest.mark.parametrize(
-    "test_status,test_description",
-    [
-        (False, "returns error code when setting status to False"),
-        (True, "returns error code when setting status to True"),
-    ],
-)
+@pytest.mark.parametrize("test_status", [True, False])
 def test_set_stim_status__returns_error_code_and_message_if_called_before_protocols_are_set(
-    test_status,
-    test_description,
-    client_and_server_manager_and_shared_values,
+    test_status, client_and_server_manager_and_shared_values
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
@@ -596,20 +787,95 @@ def test_set_stim_status__returns_error_code_and_message_if_called_with_true_dur
     assert response.status.endswith(f"Cannot start stimulation while {test_system_status}") is True
 
 
+def test_set_stim_status__returns_error_code_and_message_if_called_with_true_before_initial_stim_circuit_checks_complete(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
+    shared_values_dict["stimulation_info"] = create_random_stim_info()
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
+    # set random circuit status to None
+    shared_values_dict["stimulator_circuit_statuses"][randint(0, test_num_wells - 1)] = None
+
+    response = test_client.post("/set_stim_status?running=true")
+    assert response.status_code == 403
+    assert (
+        response.status.endswith("Cannot start stimulation before initial stimulator circuit checks complete")
+        is True
+    )
+
+
+def test_set_stim_status__returns_error_code_and_message_if_called_with_true_if_any_circuits_are_short(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
+    shared_values_dict["stimulation_info"] = create_random_stim_info()
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
+    # set random circuit status to short
+    shared_values_dict["stimulator_circuit_statuses"][
+        randint(0, test_num_wells - 1)
+    ] = StimulatorCircuitStatuses.SHORT.value
+
+    response = test_client.post("/set_stim_status?running=true")
+    assert response.status_code == 403
+    assert response.status.endswith("Cannot start stimulation when a stimulator has a short circuit") is True
+
+
+def test_set_stim_status__returns_error_code_and_message_if_called_with_true_while_stim_circuit_checks_are_running(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
+    shared_values_dict["stimulation_info"] = create_random_stim_info()
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
+    # set random circuit status to calculating
+    shared_values_dict["stimulator_circuit_statuses"][
+        randint(0, test_num_wells - 1)
+    ] = StimulatorCircuitStatuses.CALCULATING.value
+
+    response = test_client.post("/set_stim_status?running=true")
+    assert response.status_code == 403
+    assert (
+        response.status.endswith("Cannot start stimulation while running stimulator circuit checks") is True
+    )
+
+
 def test_set_stim_status__returns_code_and_message_if_new_status_is_the_same_as_the_current_status(
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = CALIBRATED_STATE
-    shared_values_dict["stimulation_running"] = [False] * 24
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulation_info"] = {}
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
 
     response = test_client.post("/set_stim_status?running=false")
     assert response.status_code == 304
     assert response.status.endswith("Status not updated") is True
 
-    shared_values_dict["stimulation_running"] = [False] * 24
     shared_values_dict["stimulation_running"][0] = True  # arbitrary well
     response = test_client.post("/set_stim_status?running=true")
     assert response.status_code == 304

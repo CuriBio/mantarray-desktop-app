@@ -22,12 +22,15 @@ from mantarray_desktop_app import UnrecognizedCommandFromServerToMainError
 from mantarray_desktop_app import UnrecognizedMantarrayNamingCommandError
 from mantarray_desktop_app import UnrecognizedRecordingCommandError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.constants import UPDATES_NEEDED_STATE
-from pulse3D.constants import BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
+from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
+from pulse3D.constants import STIM_BARCODE_IS_FROM_SCANNER_UUID
+from pulse3D.constants import STIM_BARCODE_UUID
 from pulse3D.constants import STIMULATION_PROTOCOL_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
@@ -258,7 +261,9 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         {
             START_RECORDING_TIME_INDEX_UUID: 0,
             PLATE_BARCODE_UUID: NOT_APPLICABLE_H5_METADATA,
-            BARCODE_IS_FROM_SCANNER_UUID: NOT_APPLICABLE_H5_METADATA,
+            PLATE_BARCODE_IS_FROM_SCANNER_UUID: NOT_APPLICABLE_H5_METADATA,
+            STIM_BARCODE_UUID: NOT_APPLICABLE_H5_METADATA,
+            STIM_BARCODE_IS_FROM_SCANNER_UUID: NOT_APPLICABLE_H5_METADATA,
             UTC_BEGINNING_DATA_ACQUISTION_UUID: GENERIC_BETA_2_START_RECORDING_COMMAND[
                 "metadata_to_copy_onto_main_file_attributes"
             ][UTC_BEGINNING_RECORDING_UUID],
@@ -277,6 +282,35 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         "is_calibration_recording": True,
     }
     assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_stop_recording_command
+
+
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__passes_start_stim_checks_command_to_mc_comm__and_resets_results(
+    test_process_manager_creator, test_monitor
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, svd, *_ = test_monitor(test_process_manager)
+
+    test_num_wells = 24
+    svd["stimulator_circuit_statuses"] = ["any"] * test_num_wells
+
+    start_stim_checks_command = {"communication_type": "stimulation", "command": "start_stim_checks"}
+
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        start_stim_checks_command, server_to_main_queue
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_empty(server_to_main_queue)
+
+    assert (
+        svd["stimulator_circuit_statuses"] == [StimulatorCircuitStatuses.CALCULATING.value] * test_num_wells
+    )
+
+    main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+    confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
+    assert main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == start_stim_checks_command
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_boot_up_by_calling_process_manager_bootup(

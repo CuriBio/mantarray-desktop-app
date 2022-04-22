@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import datetime
+from enum import Enum
 from enum import IntEnum
 import uuid
 
@@ -148,7 +149,7 @@ from mantarray_desktop_app import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from mantarray_desktop_app import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
 from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from mantarray_desktop_app import STIM_NO_PROTOCOL_ASSIGNED
-from mantarray_desktop_app import StimStatuses
+from mantarray_desktop_app import StimProtocolStatuses
 from mantarray_desktop_app import STM_VID
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import SUBPROCESS_JOIN_TIMEOUT_SECONDS
@@ -162,8 +163,15 @@ from mantarray_desktop_app import UPDATES_NEEDED_STATE
 from mantarray_desktop_app import VALID_CONFIG_SETTINGS
 from mantarray_desktop_app import VALID_SCRIPTING_COMMANDS
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
+from mantarray_desktop_app.constants import ALL_VALID_BARCODE_HEADERS
+from mantarray_desktop_app.constants import BARCODE_HEADERS
+from mantarray_desktop_app.constants import BARCODE_LEN
 from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH
+from mantarray_desktop_app.constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
+from mantarray_desktop_app.constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
+from mantarray_desktop_app.constants import STIM_SHORT_CIRCUIT_THRESHOLD_OHMS
+from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 
@@ -191,8 +199,12 @@ def test_barcode_constants():
     assert BARCODE_POLL_PERIOD == 15
     assert BARCODE_CONFIRM_CLEAR_WAIT_SECONDS == 0.5
     assert BARCODE_GET_SCAN_WAIT_SECONDS == 6
-    assert CLEARED_BARCODE_VALUE == chr(0) * 12
-    assert NO_PLATE_DETECTED_BARCODE_VALUE == chr(21) * 12
+
+    assert BARCODE_LEN == 12
+    assert CLEARED_BARCODE_VALUE == chr(0) * BARCODE_LEN
+    assert NO_PLATE_DETECTED_BARCODE_VALUE == chr(21) * BARCODE_LEN
+    assert BARCODE_HEADERS == {"plate_barcode": "ML", "stim_barcode": "MS"}
+    assert ALL_VALID_BARCODE_HEADERS == frozenset(BARCODE_HEADERS.values())
 
 
 def test_barcode_UUIDs():
@@ -210,7 +222,7 @@ def test_default_UUIDs():
 def test_running_fifo_simulator_constants():
     assert FIFO_READ_PRODUCER_SAWTOOTH_PERIOD == ((100000 // TIMESTEP_CONVERSION_FACTOR) / (2 * np.pi))
     assert FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE == 0xFFFFFFFF
-    assert RAW_TO_SIGNED_CONVERSION_VALUE == 2 ** 23
+    assert RAW_TO_SIGNED_CONVERSION_VALUE == 2**23
     assert (
         FIFO_READ_PRODUCER_DATA_OFFSET == MIDSCALE_CODE + 0xB000 + FIFO_READ_PRODUCER_WELL_AMPLITUDE * 24 // 2
     )
@@ -225,8 +237,8 @@ def test_hardware_time_constants():
     assert CONSTRUCT_SENSOR_SAMPLING_PERIOD == ROUND_ROBIN_PERIOD
     assert TIMESTEP_CONVERSION_FACTOR == 5
     assert MICROSECONDS_PER_CENTIMILLISECOND == 10
-    assert NANOSECONDS_PER_CENTIMILLISECOND == 10 ** 4
-    assert MICROSECONDS_PER_MILLISECOND == 10 ** 3
+    assert NANOSECONDS_PER_CENTIMILLISECOND == 10**4
+    assert MICROSECONDS_PER_MILLISECOND == 10**3
 
 
 def test_adc_reading_constants():
@@ -269,7 +281,7 @@ def test_sensors_and_mappings():
 
 def test_current_file_versions():
     assert CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION == "0.4.2"
-    assert CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION == "1.0.2"
+    assert CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION == "1.0.3"
 
 
 def test_COMPILED_EXE_BUILD_TIMESTAMP():
@@ -472,6 +484,7 @@ def test_serial_comm():
     assert SERIAL_COMM_START_STIM_PACKET_TYPE == 21
     assert SERIAL_COMM_STOP_STIM_PACKET_TYPE == 22
     assert SERIAL_COMM_STIM_STATUS_PACKET_TYPE == 23
+    assert SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE == 27
     assert SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE == 50
     assert SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE == 52
     assert SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE == 53
@@ -514,12 +527,21 @@ def test_serial_comm():
 
     assert STIM_NO_PROTOCOL_ASSIGNED == 255
 
-    assert issubclass(StimStatuses, IntEnum) is True
-    assert StimStatuses.ACTIVE == 0
-    assert StimStatuses.NULL == 1
-    assert StimStatuses.RESTARTING == 2
-    assert StimStatuses.FINISHED == 3
-    assert StimStatuses.ERROR == 4
+    assert STIM_OPEN_CIRCUIT_THRESHOLD_OHMS == 20000
+    assert STIM_SHORT_CIRCUIT_THRESHOLD_OHMS == 10
+
+    assert issubclass(StimulatorCircuitStatuses, Enum) is True
+    assert StimulatorCircuitStatuses.CALCULATING.value == "calculating"
+    assert StimulatorCircuitStatuses.OPEN.value == "open"
+    assert StimulatorCircuitStatuses.SHORT.value == "short"
+    assert StimulatorCircuitStatuses.MEDIA.value == "media"
+
+    assert issubclass(StimProtocolStatuses, IntEnum) is True
+    assert StimProtocolStatuses.ACTIVE == 0
+    assert StimProtocolStatuses.NULL == 1
+    assert StimProtocolStatuses.RESTARTING == 2
+    assert StimProtocolStatuses.FINISHED == 3
+    assert StimProtocolStatuses.ERROR == 4
 
 
 def test_cython_constants():

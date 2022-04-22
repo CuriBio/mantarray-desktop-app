@@ -3,7 +3,7 @@
     <div class="div__sidebar">
       <div class="div__sidebar-page-divider" />
       <div class="div__plate-barcode-container">
-        <PlateBarcode />
+        <BarcodeViewer />
       </div>
       <div class="div__plate-navigator-container">
         <PlateNavigator />
@@ -14,15 +14,25 @@
       <div class="div__player-controls-container">
         <DesktopPlayerControls @save_customer_id="save_customer_id" />
       </div>
+      <div class="div__stim-barcode-container">
+        <BarcodeViewer :barcode_type="'stim_barcode'" />
+      </div>
+      <div class="div__status-bar-container" :style="'top: 455px;'">
+        <StatusBar
+          :confirmation_request="confirmation_request"
+          :stim_specific="true"
+          @send_confirmation="send_confirmation"
+        />
+      </div>
       <div
-        class="div__additional_controls-controls-icon-container"
+        class="div__stimulation_controls-controls-icon-container"
         :class="[
           beta_2_mode
-            ? 'div__additional_controls-controls-icon-container--beta-2-mode'
-            : 'div__additional_controls-controls-icon-container--beta-1-mode',
+            ? 'div__stimulation_controls-controls-icon-container--beta-2-mode'
+            : 'div__stimulation_controls-controls-icon-container--beta-1-mode',
         ]"
       >
-        <AdditionalControls />
+        <StimulationControls />
         <NuxtLink to="/stimulationstudio">
           <div
             v-b-popover.hover.bottom="'Click to view Stimulation Studio'"
@@ -90,12 +100,12 @@
 <script>
 import {
   PlateNavigator,
-  PlateBarcode,
+  BarcodeViewer,
   DesktopPlayerControls,
   StatusBar,
   SimulationMode,
   RecordingTime,
-  AdditionalControls,
+  StimulationControls,
   UploadFilesWidget,
 } from "@curi-bio/mantarray-frontend-components";
 import { ipcRenderer } from "electron";
@@ -119,12 +129,12 @@ const electron_app = process.env.NODE_ENV === "test" ? dummy_electron_app : requ
 export default {
   components: {
     PlateNavigator,
-    PlateBarcode,
+    BarcodeViewer,
     DesktopPlayerControls,
     StatusBar,
     SimulationMode,
     RecordingTime,
-    AdditionalControls,
+    StimulationControls,
     UploadFilesWidget,
   },
   data: function () {
@@ -168,8 +178,8 @@ export default {
 
     // init store values needed in pages here since this side bar is only created once
     this.$store.commit("data/set_heatmap_values", {
-      "Twitch Force": { data: [...Array(24)].map((e) => Array(0)) },
-      "Twitch Frequency": { data: [...Array(24)].map((e) => Array(0)) },
+      "Twitch Force": { data: [...Array(24)].map((_) => Array(0)) },
+      "Twitch Frequency": { data: [...Array(24)].map((_) => Array(0)) },
     });
 
     this.$store.commit("waveform/set_x_axis_zoom_idx", 2);
@@ -186,7 +196,7 @@ export default {
       this.confirmation_request = true;
     });
 
-    ipcRenderer.on("beta_2_mode_response", (e, beta_2_mode) => {
+    ipcRenderer.on("beta_2_mode_response", (_, beta_2_mode) => {
       this.beta_2_mode = beta_2_mode;
       this.$store.commit("settings/set_beta_2_mode", beta_2_mode);
     });
@@ -236,7 +246,7 @@ body {
   left: 289px;
   background-color: #111111;
   height: 45px;
-  width: calc(100vw - 289px);
+  width: 1629px;
 }
 .div__recording-status-container {
   float: right;
@@ -268,6 +278,11 @@ body {
   top: 45px;
   left: 0px;
 }
+.div__stim-barcode-container {
+  position: absolute;
+  top: 420px;
+  left: 0px;
+}
 .div__plate-navigator-container {
   position: absolute;
   top: 79px;
@@ -280,33 +295,28 @@ body {
 }
 .div__player-controls-container {
   position: absolute;
-  top: 291px;
+  top: 300px;
   left: 0px;
 }
 
-.div__additional_controls-controls-icon-container {
+.div__stimulation_controls-controls-icon-container {
   position: absolute;
-  top: 371px;
+  top: 505px;
   left: 0px;
 }
-.div__additional_controls-controls-icon-container--beta-1-mode {
+.div__stimulation_controls-controls-icon-container--beta-1-mode {
   visibility: hidden;
 }
-.div__additional_controls-controls-icon-container--beta-2-mode {
+.div__stimulation_controls-controls-icon-container--beta-2-mode {
   visibility: visible;
 }
 .div__stim-studio-screen-view {
   position: absolute;
   top: 32px;
-  left: 67px;
+  left: 7px;
   width: 44px;
   height: 44px;
   opacity: 0;
-}
-.div__temp-controls-container {
-  position: absolute;
-  top: 33px;
-  left: 17px;
 }
 
 .div__screen-view-container {
@@ -317,7 +327,7 @@ body {
   justify-items: center;
 }
 .div__screen-view-container--beta-2-mode {
-  top: 495px;
+  top: 635px;
 }
 .div__screen-view-container--beta-1-mode {
   top: 410px;
@@ -335,7 +345,7 @@ body {
   text-align: left;
 }
 .span__screen-view-options-text--beta-2-mode {
-  top: 461px;
+  top: 605px;
 }
 .span__screen-view-options-text--beta-1-mode {
   top: 376px;

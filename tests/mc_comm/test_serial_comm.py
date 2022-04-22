@@ -447,9 +447,14 @@ def test_McCommunicationProcess__raises_error_if_status_beacon_not_received_in_a
     [
         ("", None, "sends correct message to main when plate is removed"),
         (
-            MantarrayMcSimulator.default_barcode,
+            MantarrayMcSimulator.default_plate_barcode,
             True,
-            "sends correct message to main when plate with valid barcode is placed",
+            "sends correct message to main when plate with valid plate barcode is placed",
+        ),
+        (
+            MantarrayMcSimulator.default_stim_barcode,
+            True,
+            "sends correct message to main when plate with valid stim barcode is placed",
         ),
         (
             "M$190190001",
@@ -498,7 +503,11 @@ def test_McCommunicationProcess__handles_plate_event(
 
 @pytest.mark.parametrize(
     "test_barcode,expected_valid_flag",
-    [(MantarrayMcSimulator.default_barcode, True), ("M$190190001", False)],
+    [
+        (MantarrayMcSimulator.default_plate_barcode, True),
+        (MantarrayMcSimulator.default_stim_barcode, True),
+        ("M$190190001", False),
+    ],
 )
 def test_McCommunicationProcess__handles_barcode_found(
     test_barcode,

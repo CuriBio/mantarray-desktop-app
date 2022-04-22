@@ -31,7 +31,6 @@ from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import numpy as np
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import BACKEND_LOG_UUID
-from pulse3D.constants import BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
@@ -41,12 +40,15 @@ from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
+from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import REFERENCE_VOLTAGE_UUID
 from pulse3D.constants import SLEEP_FIRMWARE_VERSION_UUID
 from pulse3D.constants import SOFTWARE_BUILD_NUMBER_UUID
 from pulse3D.constants import SOFTWARE_RELEASE_VERSION_UUID
 from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
+from pulse3D.constants import STIM_BARCODE_IS_FROM_SCANNER_UUID
+from pulse3D.constants import STIM_BARCODE_UUID
 from pulse3D.constants import STIMULATION_PROTOCOL_UUID
 from pulse3D.constants import TISSUE_SAMPLING_PERIOD_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
@@ -117,10 +119,10 @@ GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
         USER_ACCOUNT_ID_UUID: CURI_BIO_USER_ACCOUNT_ID,
         SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
         SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
-        PLATE_BARCODE_UUID: MantarrayMcSimulator.default_barcode,  # this will work for beta 1 as well
+        PLATE_BARCODE_UUID: MantarrayMcSimulator.default_plate_barcode,  # this will work for beta 1 as well
         BACKEND_LOG_UUID: uuid.UUID("9a3d03f2-1f5a-4ecd-b843-0dc9ecde5f67"),
         COMPUTER_NAME_HASH_UUID: hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest(),
-        BARCODE_IS_FROM_SCANNER_UUID: True,
+        PLATE_BARCODE_IS_FROM_SCANNER_UUID: True,
     },
     "active_well_indices": set(range(24)),
 }
@@ -165,6 +167,8 @@ GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
             "metadata_to_copy_onto_main_file_attributes"
         ][UTC_BEGINNING_DATA_ACQUISTION_UUID]
         + datetime.timedelta(seconds=5),
+        STIM_BARCODE_UUID: MantarrayMcSimulator.default_stim_barcode,
+        STIM_BARCODE_IS_FROM_SCANNER_UUID: True,
     }
 )
 
@@ -211,15 +215,15 @@ def open_the_generic_h5_file(
 ) -> h5py._hl.files.File:  # pylint: disable=protected-access # this is the only type definition Eli (2/24/20) could find for a File
     if timestamp_str is None:
         timestamp_str = "2020_02_09_190935" if beta_version == 1 else "2020_02_09_190359"
-    barcode = GENERIC_BASE_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+    plate_barcode = GENERIC_BASE_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
 
     actual_file = h5py.File(
         os.path.join(
             file_dir,
-            f"{barcode}__{timestamp_str}",
-            f"{barcode}__{timestamp_str}__{well_name}.h5",
+            f"{plate_barcode}__{timestamp_str}",
+            f"{plate_barcode}__{timestamp_str}__{well_name}.h5",
         ),
         "r",
     )
@@ -230,15 +234,15 @@ def open_the_generic_h5_file_as_WellFile(
     file_dir: str, well_name: str = "A2", beta_version: int = 1
 ) -> WellFile:
     timestamp_str = "2020_02_09_190935" if beta_version == 1 else "2020_02_09_190359"
-    barcode = GENERIC_BASE_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+    plate_barcode = GENERIC_BASE_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
 
     actual_file = WellFile(
         os.path.join(
             file_dir,
-            f"{barcode}__{timestamp_str}",
-            f"{barcode}__{timestamp_str}__{well_name}.h5",
+            f"{plate_barcode}__{timestamp_str}",
+            f"{plate_barcode}__{timestamp_str}__{well_name}.h5",
         ),
     )
     return actual_file

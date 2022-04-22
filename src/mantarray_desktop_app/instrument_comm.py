@@ -88,8 +88,8 @@ class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
         return return_value
 
     def determine_how_many_boards_are_connected(self) -> int:
-        # pylint: disable=no-self-use # currently a place holder just being mocked
-        return 1  # place holder for linting
+        # currently a place holder just being mocked
+        return 1
 
     @abc.abstractmethod
     def create_connections_to_all_available_boards(self) -> None:

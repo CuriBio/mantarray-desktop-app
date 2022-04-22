@@ -269,7 +269,7 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
     file_writer_process = four_board_file_writer_process["fw_process"]
     to_main_queue = four_board_file_writer_process["to_main_queue"]
 
-    expected_iteration_dur = 0.001 * 10 ** 9
+    expected_iteration_dur = 0.001 * 10**9
     expected_idle_time = expected_iteration_dur * FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
     expected_start_timepoint = 0
     expected_stop_timepoint = 2 * expected_iteration_dur * FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
@@ -292,7 +292,7 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
 
     file_writer_process._idle_iteration_time_ns = expected_iteration_dur  # pylint: disable=protected-access
     file_writer_process._minimum_iteration_duration_seconds = (  # pylint: disable=protected-access
-        2 * expected_iteration_dur / (10 ** 9)
+        2 * expected_iteration_dur / (10**9)
     )
     file_writer_process._start_timepoint_of_last_performance_measurement = (  # pylint: disable=protected-access
         expected_start_timepoint
@@ -577,9 +577,9 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_1_files_after_stop_recordi
     four_board_file_writer_process, mocker
 ):
     expected_timestamp = "2020_02_09_190935"
-    expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        PLATE_BARCODE_UUID
-    ]
+    expected_plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
 
     fw_process = four_board_file_writer_process["fw_process"]
     board_queues = four_board_file_writer_process["board_queues"]
@@ -632,8 +632,8 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_1_files_after_stop_recordi
             with h5py.File(
                 os.path.join(
                     tmp_dir,
-                    f"{expected_barcode}__{expected_timestamp}",
-                    f"{expected_barcode}__{expected_timestamp}__{well_name}.h5",
+                    f"{expected_plate_barcode}__{expected_timestamp}",
+                    f"{expected_plate_barcode}__{expected_timestamp}__{well_name}.h5",
                 ),
                 "r",
             ) as this_file:
@@ -649,9 +649,9 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
     four_board_file_writer_process, mocker
 ):
     expected_timestamp = "2020_02_09_190359"
-    expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        PLATE_BARCODE_UUID
-    ]
+    expected_plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
 
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
@@ -706,8 +706,8 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
             with h5py.File(
                 os.path.join(
                     tmp_dir,
-                    f"{expected_barcode}__{expected_timestamp}",
-                    f"{expected_barcode}__{expected_timestamp}__{well_name}.h5",
+                    f"{expected_plate_barcode}__{expected_timestamp}",
+                    f"{expected_plate_barcode}__{expected_timestamp}__{well_name}.h5",
                 ),
                 "r",
             ) as this_file:

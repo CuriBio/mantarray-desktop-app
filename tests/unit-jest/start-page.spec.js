@@ -1,7 +1,12 @@
 import { mount, shallowMount, createLocalVue, RouterLinkStub } from "@vue/test-utils";
 import WaveformScreenView from "@/renderer/pages/index.vue";
 import SideBar from "@/renderer/layouts/default.vue";
-import { Waveform, FLASK_STATUS_ENUMS, system_status_regexp } from "@curi-bio/mantarray-frontend-components";
+import {
+  XAxisControls,
+  YAxisControls,
+  FLASK_STATUS_ENUMS,
+  system_status_regexp,
+} from "@curi-bio/mantarray-frontend-components";
 
 // from https://dev.to/bawa_geek/how-to-setup-jest-testing-in-nuxt-js-project-5c84
 import { config } from "@vue/test-utils";
@@ -85,13 +90,26 @@ describe("StartPage", () => {
       afterEach(async () => {
         sidebar_wrapper.destroy();
       });
-      test("When WaveformScreenView is mounted, Then Waveform components should exist", async () => {
+      test("When WaveformScreenView is mounted, Then Y- and X-Axix control components should exist", async () => {
         waveform_wrapper = mount(WaveformScreenView, {
           propsData,
           store,
           localVue,
         });
-        expect(waveform_wrapper.findComponent(Waveform).exists()).toBe(true);
+        expect(waveform_wrapper.findComponent(XAxisControls).exists()).toBe(true);
+        expect(waveform_wrapper.findComponent(YAxisControls).exists()).toBe(true);
+
+        waveform_wrapper.destroy();
+      });
+      test("When WaveformScreenView is mounted and app is in simulation mode, Then simulation mode overlay of waveform components should exist", async () => {
+        waveform_wrapper = mount(WaveformScreenView, {
+          propsData,
+          store,
+          localVue,
+        });
+
+        const sim_mode_overlay = waveform_wrapper.find(".div__simulation_mode_overlay");
+        expect(sim_mode_overlay.exists()).toBe(true);
         waveform_wrapper.destroy();
       });
     });

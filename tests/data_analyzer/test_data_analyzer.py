@@ -173,7 +173,7 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_1_dat
     mocker.patch.object(data_analyzer, "get_force_signal", autospec=True, return_value=np.zeros((2, 2)))
 
     expected_num_iterations = 10
-    expected_iteration_dur = 0.001 * 10 ** 9
+    expected_iteration_dur = 0.001 * 10**9
     expected_idle_time = expected_iteration_dur * expected_num_iterations
     expected_start_timepoint = 0
     expected_stop_timepoint = 2 * expected_iteration_dur * expected_num_iterations
@@ -186,7 +186,7 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_1_dat
 
     da_process._idle_iteration_time_ns = expected_iteration_dur  # pylint: disable=protected-access
     da_process._minimum_iteration_duration_seconds = (  # pylint: disable=protected-access
-        2 * expected_iteration_dur / (10 ** 9)
+        2 * expected_iteration_dur / (10**9)
     )
     da_process._start_timepoint_of_last_performance_measurement = (  # pylint: disable=protected-access
         expected_start_timepoint
