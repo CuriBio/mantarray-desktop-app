@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import datetime
 import json
+import urllib
 
 from freezegun import freeze_time
 from mantarray_desktop_app import CALIBRATED_STATE
@@ -15,10 +16,10 @@ from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import utils
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.mc_simulator import MantarrayMcSimulator
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import BACKEND_LOG_UUID
-from pulse3D.constants import BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
@@ -28,12 +29,15 @@ from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
+from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import REFERENCE_VOLTAGE_UUID
 from pulse3D.constants import SLEEP_FIRMWARE_VERSION_UUID
 from pulse3D.constants import SOFTWARE_BUILD_NUMBER_UUID
 from pulse3D.constants import SOFTWARE_RELEASE_VERSION_UUID
 from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
+from pulse3D.constants import STIM_BARCODE_IS_FROM_SCANNER_UUID
+from pulse3D.constants import STIM_BARCODE_UUID
 from pulse3D.constants import STIMULATION_PROTOCOL_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
@@ -663,6 +667,7 @@ def test_send_single_start_managed_acquisition_command__populates_queues(
 
     board_idx = 0
     shared_values_dict["mantarray_serial_number"] = {board_idx: "M02001801"}
+    shared_values_dict["stimulator_circuit_statuses"] = [None] * 24
 
     response = test_client.get("/start_managed_acquisition")
     assert response.status_code == 200
@@ -729,7 +734,7 @@ def test_start_recording_command__populates_queue__with_correct_adc_offset_value
     barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
-    response = test_client.get(f"/start_recording?barcode={barcode}")
+    response = test_client.get(f"/start_recording?plate_barcode={barcode}")
     assert response.status_code == 200
 
     comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -751,7 +756,7 @@ def test_start_recording_command__populates_queue__with_given_time_index_paramet
         PLATE_BARCODE_UUID
     ]
     response = test_client.get(
-        f"/start_recording?barcode={barcode}&time_index={expected_time_index}&is_hardware_test_recording=false"
+        f"/start_recording?plate_barcode={barcode}&time_index={expected_time_index}&is_hardware_test_recording=false"
     )
     assert response.status_code == 200
 
@@ -774,11 +779,11 @@ def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     put_generic_beta_1_start_recording_info_in_dict(test_process_manager.get_values_to_share_to_server())
 
-    expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        PLATE_BARCODE_UUID
-    ]
+    expected_plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
     response = test_client.get(
-        f"/start_recording?barcode={expected_barcode}&active_well_indices=0,5,8&is_hardware_test_recording=false"
+        f"/start_recording?plate_barcode={expected_plate_barcode}&active_well_indices=0,5,8&is_hardware_test_recording=false"
     )
     assert response.status_code == 200
 
@@ -797,11 +802,11 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_correct_wel
     put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
 
     total_num_wells = 24
-    expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        PLATE_BARCODE_UUID
-    ]
+    expected_plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
     response = test_client.get(
-        f"/start_recording?barcode={expected_barcode}&is_hardware_test_recording=False"
+        f"/start_recording?plate_barcode={expected_plate_barcode}&is_hardware_test_recording=False"
     )
     assert response.status_code == 200
 
@@ -816,32 +821,32 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_correct_wel
     "scanned_barcode,user_entered_barcode,expected_result,test_description",
     [
         (
-            MantarrayMcSimulator.default_barcode,
-            MantarrayMcSimulator.default_barcode[:-1] + "2",
+            MantarrayMcSimulator.default_plate_barcode,
+            MantarrayMcSimulator.default_plate_barcode[:-1] + "2",
             False,
             "correctly sets value to False with scanned barcode present",
         ),
         (
             "",
-            MantarrayMcSimulator.default_barcode[:-1] + "2",
+            MantarrayMcSimulator.default_plate_barcode[:-1] + "2",
             False,
             "correctly sets value to False after barcode scan fails",
         ),
         (
             None,
-            MantarrayMcSimulator.default_barcode[:-1] + "2",
+            MantarrayMcSimulator.default_plate_barcode[:-1] + "2",
             False,
             "correctly sets value to False without scanned barcode present",
         ),
         (
-            MantarrayMcSimulator.default_barcode,
-            MantarrayMcSimulator.default_barcode,
+            MantarrayMcSimulator.default_plate_barcode,
+            MantarrayMcSimulator.default_plate_barcode,
             True,
             "correctly sets value to True",
         ),
     ],
 )
-def test_start_recording_command__correctly_sets_barcode_from_scanner_value(
+def test_start_recording_command__correctly_sets_plate_barcode_from_scanner_value(
     scanned_barcode,
     user_entered_barcode,
     expected_result,
@@ -851,7 +856,8 @@ def test_start_recording_command__correctly_sets_barcode_from_scanner_value(
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     shared_values_dict = test_process_manager.get_values_to_share_to_server()
-    put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
+    shared_values_dict["stimulation_running"] = [False] * 24
 
     board_idx = 0
     if scanned_barcode is None:
@@ -860,7 +866,7 @@ def test_start_recording_command__correctly_sets_barcode_from_scanner_value(
         shared_values_dict["barcodes"][board_idx]["plate_barcode"] = scanned_barcode
 
     response = test_client.get(
-        f"/start_recording?barcode={user_entered_barcode}&is_hardware_test_recording=False"
+        f"/start_recording?plate_barcode={user_entered_barcode}&is_hardware_test_recording=False"
     )
     assert response.status_code == 200
 
@@ -868,6 +874,76 @@ def test_start_recording_command__correctly_sets_barcode_from_scanner_value(
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_IS_FROM_SCANNER_UUID]
+        is expected_result
+    )
+
+
+@pytest.mark.parametrize(
+    "scanned_barcode,user_entered_barcode,expected_result,test_description",
+    [
+        (
+            MantarrayMcSimulator.default_stim_barcode,
+            MantarrayMcSimulator.default_stim_barcode[:-1] + "2",
+            False,
+            "correctly sets value to False with scanned barcode present",
+        ),
+        (
+            "",
+            MantarrayMcSimulator.default_stim_barcode[:-1] + "2",
+            False,
+            "correctly sets value to False after barcode scan fails",
+        ),
+        (
+            None,
+            MantarrayMcSimulator.default_stim_barcode[:-1] + "2",
+            False,
+            "correctly sets value to False without scanned barcode present",
+        ),
+        (
+            MantarrayMcSimulator.default_stim_barcode,
+            MantarrayMcSimulator.default_stim_barcode,
+            True,
+            "correctly sets value to True",
+        ),
+    ],
+)
+def test_start_recording_command__correctly_sets_stim_barcode_from_scanner_value(
+    scanned_barcode,
+    user_entered_barcode,
+    expected_result,
+    test_description,
+    test_process_manager_creator,
+    test_client,
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
+    shared_values_dict["stimulation_running"] = [True] * 24
+
+    board_idx = 0
+    if scanned_barcode is None:
+        del shared_values_dict["barcodes"]
+    else:
+        shared_values_dict["barcodes"][board_idx]["stim_barcode"] = scanned_barcode
+
+    params = {
+        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
+        "stim_barcode": user_entered_barcode,
+        "is_hardware_test_recording": False,
+    }
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
+    assert response.status_code == 200
+
+    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["command"] == "start_recording"
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][STIM_BARCODE_IS_FROM_SCANNER_UUID]
+        is expected_result
+    )
 
 
 @freeze_time(
@@ -894,11 +970,11 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
 
     shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [expected_acquisition_timestamp]
 
-    expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        PLATE_BARCODE_UUID
-    ]
+    expected_plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
     response = test_client.get(
-        f"/start_recording?barcode={expected_barcode}&is_hardware_test_recording=false"
+        f"/start_recording?plate_barcode={expected_plate_barcode}&is_hardware_test_recording=false"
     )
     assert response.status_code == 200
 
@@ -967,7 +1043,10 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
         communication["metadata_to_copy_onto_main_file_attributes"]["adc_offsets"]
         == shared_values_dict["adc_offsets"]
     )
-    assert communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID] == expected_barcode
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID]
+        == expected_plate_barcode
+    )
     assert communication["metadata_to_copy_onto_main_file_attributes"][HARDWARE_TEST_RECORDING_UUID] is False
 
     assert (
@@ -976,7 +1055,10 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
             BACKEND_LOG_UUID
         ]
     )
-    assert communication["metadata_to_copy_onto_main_file_attributes"][BARCODE_IS_FROM_SCANNER_UUID] is True
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_IS_FROM_SCANNER_UUID]
+        is True
+    )
     assert (  # pylint: disable=duplicate-code
         communication["metadata_to_copy_onto_main_file_attributes"][COMPUTER_NAME_HASH_UUID]
         == GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
@@ -1016,11 +1098,11 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
 
     shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [expected_acquisition_timestamp]
 
-    expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        PLATE_BARCODE_UUID
-    ]
+    expected_plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
     response = test_client.get(
-        f"/start_recording?barcode={expected_barcode}&is_hardware_test_recording=false"
+        f"/start_recording?plate_barcode={expected_plate_barcode}&is_hardware_test_recording=false"
     )
     assert response.status_code == 200
 
@@ -1069,7 +1151,10 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
         communication["metadata_to_copy_onto_main_file_attributes"][MANTARRAY_NICKNAME_UUID]
         == shared_values_dict["mantarray_nickname"][0]
     )
-    assert communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID] == expected_barcode
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID]
+        == expected_plate_barcode
+    )
     assert communication["metadata_to_copy_onto_main_file_attributes"][HARDWARE_TEST_RECORDING_UUID] is False
     # metadata values from instrument
     instrument_metadata = shared_values_dict["instrument_metadata"][0]
@@ -1094,7 +1179,10 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
             BACKEND_LOG_UUID
         ]
     )
-    assert communication["metadata_to_copy_onto_main_file_attributes"][BARCODE_IS_FROM_SCANNER_UUID] is True
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_IS_FROM_SCANNER_UUID]
+        is True
+    )
     assert (  # pylint: disable=duplicate-code
         communication["metadata_to_copy_onto_main_file_attributes"][COMPUTER_NAME_HASH_UUID]
         == GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
@@ -1145,10 +1233,18 @@ def test_start_recording_command__beta_2_mode__populates_queue_with_stim_metadat
     shared_values_dict["stimulation_info"] = test_stim_info
     shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [test_stim_start_timestamp]
 
-    test_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+    test_plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
-    response = test_client.get(f"/start_recording?barcode={test_barcode}&is_hardware_test_recording=false")
+    test_stim_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+        STIM_BARCODE_UUID
+    ]
+    params = {
+        "plate_barcode": test_plate_barcode,
+        "stim_barcode": test_stim_barcode,
+        "is_hardware_test_recording": False,
+    }
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
     assert response.status_code == 200
 
     comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -1223,7 +1319,11 @@ def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_statu
     shared_values_dict["stimulation_info"] = {"protocols": [None] * 4, "protocol_assignments": {}}
 
     expected_status_bool = test_status in ("true", "True")
-    shared_values_dict["stimulation_running"] = [not expected_status_bool] * 24
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [not expected_status_bool] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = [
+        StimulatorCircuitStatuses.MEDIA.value
+    ] * test_num_wells
 
     response = test_client.post(f"/set_stim_status?running={test_status}")
     assert response.status_code == 200
@@ -1294,7 +1394,9 @@ def test_start_calibration__populates_queue_to_process_monitor_with_correct_comm
     shared_values_dict["system_status"] = CALIBRATION_NEEDED_STATE
     shared_values_dict["beta_2_mode"] = test_beta_2_mode
     if test_beta_2_mode:
-        shared_values_dict["stimulation_running"] = [False] * 24
+        test_num_wells = 24
+        shared_values_dict["stimulation_running"] = [False] * test_num_wells
+        shared_values_dict["stimulator_circuit_statuses"] = [None] * test_num_wells
 
     response = test_client.get("/start_calibration")
     assert response.status_code == 200
@@ -1303,6 +1405,32 @@ def test_start_calibration__populates_queue_to_process_monitor_with_correct_comm
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication == test_comm_dict
+
+
+def test_start_stim_checks__populates_queue_to_process_monitor_with_correct_comm(
+    client_and_server_manager_and_shared_values,
+):
+    (
+        test_client,
+        (server_manager, _),
+        shared_values_dict,
+    ) = client_and_server_manager_and_shared_values
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    shared_values_dict["beta_2_mode"] = True
+
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = [None] * test_num_wells
+
+    expected_comm_dict = {"communication_type": "stimulation", "command": "start_stim_checks"}
+
+    response = test_client.post("/start_stim_checks")
+    assert response.status_code == 200
+
+    comm_queue = server_manager.get_queue_to_main()
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication == expected_comm_dict
 
 
 def test_latest_software_version__returns_ok_when_version_string_is_a_valid_semantic_version(

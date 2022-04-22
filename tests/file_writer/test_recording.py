@@ -37,7 +37,6 @@ import numpy as np
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import ADC_REF_OFFSET_UUID
 from pulse3D.constants import ADC_TISSUE_OFFSET_UUID
-from pulse3D.constants import BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import COMPUTER_NAME_HASH_UUID
@@ -52,6 +51,7 @@ from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
 from pulse3D.constants import ORIGINAL_FILE_VERSION_UUID
+from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import REF_SAMPLING_PERIOD_UUID
 from pulse3D.constants import REFERENCE_VOLTAGE_UUID
@@ -59,6 +59,8 @@ from pulse3D.constants import SLEEP_FIRMWARE_VERSION_UUID
 from pulse3D.constants import SOFTWARE_BUILD_NUMBER_UUID
 from pulse3D.constants import SOFTWARE_RELEASE_VERSION_UUID
 from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
+from pulse3D.constants import STIM_BARCODE_IS_FROM_SCANNER_UUID
+from pulse3D.constants import STIM_BARCODE_UUID
 from pulse3D.constants import STIMULATION_PROTOCOL_UUID
 from pulse3D.constants import TISSUE_SAMPLING_PERIOD_UUID
 from pulse3D.constants import TOTAL_WELL_COUNT_UUID
@@ -146,21 +148,25 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
     )
 
     timestamp_str = "2020_02_09_190935" if test_beta_version == 1 else "2020_02_09_190359"
-    expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+    expected_plate_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
 
-    actual_set_of_files = set(os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}")))
-    actual_set_of_files = {file_path for file_path in actual_set_of_files if expected_barcode in file_path}
+    actual_set_of_files = set(
+        os.listdir(os.path.join(file_dir, f"{expected_plate_barcode}__{timestamp_str}"))
+    )
+    actual_set_of_files = {
+        file_path for file_path in actual_set_of_files if expected_plate_barcode in file_path
+    }
     assert len(actual_set_of_files) == 24
 
     expected_set_of_files = set()
     for row_idx in range(4):
         for col_idx in range(6):
             expected_set_of_files.add(
-                f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5"
+                f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5"
             )
     assert actual_set_of_files == expected_set_of_files
 
@@ -176,8 +182,8 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         this_file = h5py.File(
             os.path.join(
                 file_dir,
-                f"{expected_barcode}__{timestamp_str}",
-                f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+                f"{expected_plate_barcode}__{timestamp_str}",
+                f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
             ),
             "r",
         )
@@ -223,10 +229,11 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
             this_file.attrs[str(COMPUTER_NAME_HASH_UUID)]
             == start_recording_command["metadata_to_copy_onto_main_file_attributes"][COMPUTER_NAME_HASH_UUID]
         )
+        assert this_file.attrs[str(PLATE_BARCODE_UUID)] == expected_plate_barcode
         assert (
-            bool(this_file.attrs[str(BARCODE_IS_FROM_SCANNER_UUID)])
+            bool(this_file.attrs[str(PLATE_BARCODE_IS_FROM_SCANNER_UUID)])
             is start_recording_command["metadata_to_copy_onto_main_file_attributes"][
-                BARCODE_IS_FROM_SCANNER_UUID
+                PLATE_BARCODE_IS_FROM_SCANNER_UUID
             ]
         )
         # test metadata values and datasets not present in both beta versions
@@ -289,6 +296,16 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
                 this_file.attrs[str(BOOT_FLAGS_UUID)]
                 == MantarrayMcSimulator.default_metadata_values[BOOT_FLAGS_UUID]
             )
+            assert (
+                this_file.attrs[str(STIM_BARCODE_UUID)]
+                == start_recording_command["metadata_to_copy_onto_main_file_attributes"][STIM_BARCODE_UUID]
+            )
+            assert (
+                bool(this_file.attrs[str(STIM_BARCODE_IS_FROM_SCANNER_UUID)])
+                is start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+                    STIM_BARCODE_IS_FROM_SCANNER_UUID
+                ]
+            )
             assert get_time_index_dataset_from_file(this_file).shape == (0,)
             assert get_time_index_dataset_from_file(this_file).dtype == "uint64"
             assert get_time_offset_dataset_from_file(this_file).shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, 0)
@@ -312,20 +329,22 @@ def test_FileWriterProcess__beta_1_mode__only_creates_file_indices_specified__wh
     spied_abspath = mocker.spy(os.path, "abspath")
 
     timestamp_str = "2020_02_09_190935"
-    expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        PLATE_BARCODE_UUID
-    ]
+    expected_plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
     this_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [3, 18]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
-    actual_set_of_files = set(os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}")))
+    actual_set_of_files = set(
+        os.listdir(os.path.join(file_dir, f"{expected_plate_barcode}__{timestamp_str}"))
+    )
     assert len(actual_set_of_files) == 2
 
     expected_set_of_files = set(
         [
-            f"{expected_barcode}__{timestamp_str}__D1.h5",
-            f"{expected_barcode}__{timestamp_str}__C5.h5",
+            f"{expected_plate_barcode}__{timestamp_str}__D1.h5",
+            f"{expected_plate_barcode}__{timestamp_str}__C5.h5",
         ]
     )
     assert actual_set_of_files == expected_set_of_files
@@ -334,7 +353,7 @@ def test_FileWriterProcess__beta_1_mode__only_creates_file_indices_specified__wh
     assert comm_to_main["communication_type"] == "command_receipt"
     assert comm_to_main["command"] == "start_recording"
     assert file_dir in comm_to_main["file_folder"]
-    assert expected_barcode in comm_to_main["file_folder"]
+    assert expected_plate_barcode in comm_to_main["file_folder"]
     spied_abspath.assert_any_call(
         file_writer_process.get_file_directory()
     )  # Eli (3/16/20): apparently numpy calls this quite frequently, so can only assert_any_call, not assert_called_once_with
@@ -355,9 +374,9 @@ def test_FileWriterProcess__beta_2_mode__creates_files_for_all_active_wells__whe
     spied_abspath = mocker.spy(os.path, "abspath")
 
     timestamp_str = "2020_02_09_190359"
-    expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        PLATE_BARCODE_UUID
-    ]
+    expected_plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
     this_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
 
     # remove stim info
@@ -368,10 +387,14 @@ def test_FileWriterProcess__beta_2_mode__creates_files_for_all_active_wells__whe
     invoke_process_run_and_check_errors(file_writer_process)
 
     # test created files
-    actual_set_of_files = set(os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}")))
-    actual_set_of_files = {file_path for file_path in actual_set_of_files if expected_barcode in file_path}
+    actual_set_of_files = set(
+        os.listdir(os.path.join(file_dir, f"{expected_plate_barcode}__{timestamp_str}"))
+    )
+    actual_set_of_files = {
+        file_path for file_path in actual_set_of_files if expected_plate_barcode in file_path
+    }
     expected_set_of_files = {
-        f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5"
+        f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5"
         for well_idx in range(24)
     }
     assert actual_set_of_files == expected_set_of_files
@@ -379,8 +402,8 @@ def test_FileWriterProcess__beta_2_mode__creates_files_for_all_active_wells__whe
         this_file = h5py.File(
             os.path.join(
                 file_dir,
-                f"{expected_barcode}__{timestamp_str}",
-                f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+                f"{expected_plate_barcode}__{timestamp_str}",
+                f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
             ),
             "r",
         )
@@ -399,7 +422,7 @@ def test_FileWriterProcess__beta_2_mode__creates_files_for_all_active_wells__whe
     assert comm_to_main["communication_type"] == "command_receipt"
     assert comm_to_main["command"] == "start_recording"
     assert file_dir in comm_to_main["file_folder"]
-    assert expected_barcode in comm_to_main["file_folder"]
+    assert expected_plate_barcode in comm_to_main["file_folder"]
     spied_abspath.assert_any_call(
         file_writer_process.get_file_directory()
     )  # Eli (3/16/20): apparently numpy calls this quite frequently, so can only assert_any_call, not assert_called_once_with
@@ -417,9 +440,9 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
     file_dir = four_board_file_writer_process["file_dir"]
 
     file_timestamp_str = "2020_02_09_190359"
-    expected_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        PLATE_BARCODE_UUID
-    ]
+    expected_plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
     this_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
     this_command["stim_running_statuses"][0] = False
 
@@ -446,10 +469,14 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
     ].strftime("%Y-%m-%d %H:%M:%S.%f")
 
     # test created files
-    actual_set_of_files = set(os.listdir(os.path.join(file_dir, f"{expected_barcode}__{file_timestamp_str}")))
-    actual_set_of_files = {file_path for file_path in actual_set_of_files if expected_barcode in file_path}
+    actual_set_of_files = set(
+        os.listdir(os.path.join(file_dir, f"{expected_plate_barcode}__{file_timestamp_str}"))
+    )
+    actual_set_of_files = {
+        file_path for file_path in actual_set_of_files if expected_plate_barcode in file_path
+    }
     expected_set_of_files = {
-        f"{expected_barcode}__{file_timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5"
+        f"{expected_plate_barcode}__{file_timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5"
         for well_idx in range(24)
     }
     assert actual_set_of_files == expected_set_of_files
@@ -458,8 +485,8 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
         this_file = h5py.File(
             os.path.join(
                 file_dir,
-                f"{expected_barcode}__{file_timestamp_str}",
-                f"{expected_barcode}__{file_timestamp_str}__{well_name}.h5",
+                f"{expected_plate_barcode}__{file_timestamp_str}",
+                f"{expected_plate_barcode}__{file_timestamp_str}__{well_name}.h5",
             ),
             "r",
         )
@@ -529,7 +556,7 @@ def test_FileWriterProcess__beta_2_mode__copies_calibration_files_to_new_recordi
 
     start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
     timestamp_str = "2020_02_09_190359"
-    expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+    expected_plate_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
 
@@ -546,13 +573,15 @@ def test_FileWriterProcess__beta_2_mode__copies_calibration_files_to_new_recordi
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
 
-    actual_set_of_files = set(os.listdir(os.path.join(file_dir, f"{expected_barcode}__{timestamp_str}")))
+    actual_set_of_files = set(
+        os.listdir(os.path.join(file_dir, f"{expected_plate_barcode}__{timestamp_str}"))
+    )
     assert len(actual_set_of_files) == 24 * 2
 
     expected_set_of_files = set()
     for well_idx in range(24):
         well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
-        expected_set_of_files.add(f"{expected_barcode}__{timestamp_str}__{well_name}.h5")
+        expected_set_of_files.add(f"{expected_plate_barcode}__{timestamp_str}__{well_name}.h5")
         expected_set_of_files.add(f"Calibration__{timestamp_str}__{well_name}.h5")
     assert actual_set_of_files == expected_set_of_files
 
@@ -924,7 +953,7 @@ def test_FileWriterProcess__records_all_requested_beta_1_magnetometer_data_in_bu
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
 
-    expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+    expected_plate_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
     timestamp_str = "2020_02_09_190322"
@@ -932,8 +961,8 @@ def test_FileWriterProcess__records_all_requested_beta_1_magnetometer_data_in_bu
     this_file = h5py.File(
         os.path.join(
             file_dir,
-            f"{expected_barcode}__{timestamp_str}",
-            f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(expected_well_idx)}.h5",
+            f"{expected_plate_barcode}__{timestamp_str}",
+            f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(expected_well_idx)}.h5",
         ),
         "r",
     )
@@ -990,7 +1019,7 @@ def test_FileWriterProcess__records_all_requested_beta_2_magnetometer_data_in_bu
 
     expected_time_offsets_shape = (SERIAL_COMM_NUM_SENSORS_PER_WELL, expected_total_num_data_points)
     expected_data_shape = (SERIAL_COMM_NUM_DATA_CHANNELS, expected_total_num_data_points)
-    expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+    expected_plate_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
     timestamp_str = "2020_02_09_190322"
@@ -998,8 +1027,8 @@ def test_FileWriterProcess__records_all_requested_beta_2_magnetometer_data_in_bu
         this_file = h5py.File(
             os.path.join(
                 four_board_file_writer_process["file_dir"],
-                f"{expected_barcode}__{timestamp_str}",
-                f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+                f"{expected_plate_barcode}__{timestamp_str}",
+                f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
             ),
             "r",
         )
@@ -1261,7 +1290,7 @@ def test_FileWriterProcess__records_all_relevant_stim_statuses_in_buffer_when_st
         [expected_time_indices, np.ones(expected_total_num_data_points, dtype=np.int64)], dtype=np.int64
     )
 
-    expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+    expected_plate_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
     timestamp_str = "2020_02_09_190322"
@@ -1269,8 +1298,8 @@ def test_FileWriterProcess__records_all_relevant_stim_statuses_in_buffer_when_st
         this_file = h5py.File(
             os.path.join(
                 four_board_file_writer_process["file_dir"],
-                f"{expected_barcode}__{timestamp_str}",
-                f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+                f"{expected_plate_barcode}__{timestamp_str}",
+                f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
             ),
             "r",
         )
@@ -1350,7 +1379,7 @@ def test_FileWriterProcess__deletes_recorded_beta_1_well_data_after_stop_time(
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
-    expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+    expected_plate_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
     timestamp_str = "2020_02_09_190322"
@@ -1359,8 +1388,8 @@ def test_FileWriterProcess__deletes_recorded_beta_1_well_data_after_stop_time(
         this_file = h5py.File(
             os.path.join(
                 file_dir,
-                f"{expected_barcode}__{timestamp_str}",
-                f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+                f"{expected_plate_barcode}__{timestamp_str}",
+                f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
             ),
             "r",
         )
@@ -1449,7 +1478,7 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
-    expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+    expected_plate_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
     timestamp_str = "2020_02_09_190322"
@@ -1460,8 +1489,8 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
         this_file = h5py.File(
             os.path.join(
                 four_board_file_writer_process["file_dir"],
-                f"{expected_barcode}__{timestamp_str}",
-                f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+                f"{expected_plate_barcode}__{timestamp_str}",
+                f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
             ),
             "r",
         )
@@ -1558,7 +1587,7 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
-    expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+    expected_plate_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
     timestamp_str = "2020_02_09_190322"
@@ -1566,8 +1595,8 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
     this_file = h5py.File(
         os.path.join(
             file_dir,
-            f"{expected_barcode}__{timestamp_str}",
-            f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(expected_well_idx)}.h5",
+            f"{expected_plate_barcode}__{timestamp_str}",
+            f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(expected_well_idx)}.h5",
         ),
         "r",
     )
@@ -1711,7 +1740,7 @@ def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
         [expected_time_indices, np.ones(expected_total_num_data_points, dtype=np.int64)], dtype=np.int64
     )
 
-    expected_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+    expected_plate_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
     timestamp_str = "2020_02_09_190322"
@@ -1719,8 +1748,8 @@ def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
         this_file = h5py.File(
             os.path.join(
                 four_board_file_writer_process["file_dir"],
-                f"{expected_barcode}__{timestamp_str}",
-                f"{expected_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+                f"{expected_plate_barcode}__{timestamp_str}",
+                f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
             ),
             "r",
         )

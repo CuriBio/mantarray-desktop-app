@@ -5,8 +5,23 @@ Changelog for Mantarray Desktop App
 0.9.0 (unreleased)
 ------------------
 
+
+Added:
+^^^^^^
+
+- Stim Lid barcode.
+- Stim Lid configuration check.
+
 Changed:
 ^^^^^^^^
+
+- Additional Controls panel is now Stimulation Controls panel.
+- Beta 2 H5 file format version is now 1.0.3. Format Changes:
+
+  - Added 2 metadata fields:
+
+    - Stim Lid barcode.
+    - Whether or not the Stim Lid barcode was scanned by the instrument or manually entered by the user.
 
 - Cloud API calls (now pings k8s endpoints).
 - Serial communication protocol:
@@ -25,7 +40,7 @@ Changed:
 ^^^^^^^^
 
 - Accepted barcode headers are now ML and MS only.
-- Beta 2 H5 file format version to 1.0.2. Format Changes:
+- Beta 2 H5 file format version is now 1.0.2. Format Changes:
 
   - Removed magnetometer configuration from metadata
 

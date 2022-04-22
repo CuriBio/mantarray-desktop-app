@@ -4,6 +4,7 @@ import datetime
 import json
 import os
 import queue
+from random import choice
 import threading
 import time
 
@@ -38,6 +39,7 @@ from mantarray_desktop_app import UPDATE_ERROR_STATE
 from mantarray_desktop_app import UPDATES_COMPLETE_STATE
 from mantarray_desktop_app import UPDATES_NEEDED_STATE
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.server import queue_command_to_instrument_comm
 from mantarray_desktop_app.utils import redact_sensitive_info_from_path
 import numpy as np
@@ -1419,10 +1421,7 @@ def test_MantarrayProcessesMonitor__sends_two_barcode_poll_commands_to_OKComm_at
         ],
     )
 
-    expected_comm = {
-        "communication_type": "barcode_comm",
-        "command": "start_scan",
-    }
+    expected_comm = {"communication_type": "barcode_comm", "command": "start_scan"}
 
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(to_instrument_comm_queue)
@@ -1445,15 +1444,26 @@ def test_MantarrayProcessesMonitor__sends_two_barcode_poll_commands_to_OKComm_at
 
 
 @pytest.mark.parametrize(
-    "expected_barcode,test_valid,expected_status,test_description",
+    "expected_plate_barcode,test_valid,expected_status,test_description",
     [
-        (RunningFIFOSimulator.default_barcode, True, BARCODE_VALID_UUID, "stores new valid barcode"),
+        (
+            MantarrayMcSimulator.default_plate_barcode,
+            True,
+            BARCODE_VALID_UUID,
+            "stores new valid plate barcode",
+        ),
+        (
+            MantarrayMcSimulator.default_stim_barcode,
+            True,
+            BARCODE_VALID_UUID,
+            "stores new valid stim barcode",
+        ),
         ("M$200190000", False, BARCODE_INVALID_UUID, "stores new invalid barcode"),
         ("", None, BARCODE_UNREADABLE_UUID, "stores no barcode"),
     ],
 )
 def test_MantarrayProcessesMonitor__stores_barcode_sent_from_instrument_comm__and_sends_barcode_update_message_to_frontend__when_no_previously_stored_barcode(
-    expected_barcode,
+    expected_plate_barcode,
     test_valid,
     expected_status,
     test_description,
@@ -1472,7 +1482,7 @@ def test_MantarrayProcessesMonitor__stores_barcode_sent_from_instrument_comm__an
 
     barcode_comm = {
         "communication_type": "barcode_comm",
-        "barcode": expected_barcode,
+        "barcode": expected_plate_barcode,
         "board_idx": expected_board_idx,
     }
     if test_valid is not None:
@@ -1484,10 +1494,12 @@ def test_MantarrayProcessesMonitor__stores_barcode_sent_from_instrument_comm__an
     invoke_process_run_and_check_errors(monitor_thread)
 
     # check shared values dict was updated
-    expected_barcode_dict = {
-        "plate_barcode": expected_barcode,
-        "barcode_status": expected_status,
-    }
+    barcode_type = (
+        "stim_barcode"
+        if expected_plate_barcode == MantarrayMcSimulator.default_stim_barcode
+        else "plate_barcode"
+    )
+    expected_barcode_dict = {barcode_type: expected_plate_barcode, "barcode_status": expected_status}
     assert shared_values_dict["barcodes"][expected_board_idx] == expected_barcode_dict
     # check message was put into queue
     expected_barcode_dict["barcode_status"] = str(expected_barcode_dict["barcode_status"])
@@ -1498,15 +1510,26 @@ def test_MantarrayProcessesMonitor__stores_barcode_sent_from_instrument_comm__an
 
 
 @pytest.mark.parametrize(
-    "expected_barcode,test_valid,expected_status,test_description",
+    "expected_plate_barcode,test_valid,expected_status,test_description",
     [
-        (RunningFIFOSimulator.default_barcode, True, BARCODE_VALID_UUID, "updates to new valid barcode"),
+        (
+            MantarrayMcSimulator.default_plate_barcode,
+            True,
+            BARCODE_VALID_UUID,
+            "updates to new valid plate barcode",
+        ),
+        (
+            MantarrayMcSimulator.default_stim_barcode,
+            True,
+            BARCODE_VALID_UUID,
+            "updates to new valid stim barcode",
+        ),
         ("M$200190000", False, BARCODE_INVALID_UUID, "updates to new invalid barcode"),
         ("", None, BARCODE_UNREADABLE_UUID, "updates to no barcode"),
     ],
 )
 def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_instrument_comm__and_sends_barcode_update_message_to_frontend(
-    expected_barcode,
+    expected_plate_barcode,
     test_valid,
     expected_status,
     test_description,
@@ -1517,11 +1540,13 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_instrument_
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     expected_board_idx = 0
+    barcode_type = (
+        "stim_barcode"
+        if expected_plate_barcode == MantarrayMcSimulator.default_stim_barcode
+        else "plate_barcode"
+    )
     shared_values_dict["barcodes"] = {
-        expected_board_idx: {
-            "plate_barcode": "old barcode",
-            "barcode_status": None,
-        }
+        expected_board_idx: {barcode_type: "old barcode", "barcode_status": None}
     }
 
     from_instrument_comm_queue = (
@@ -1533,7 +1558,7 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_instrument_
 
     barcode_comm = {
         "communication_type": "barcode_comm",
-        "barcode": expected_barcode,
+        "barcode": expected_plate_barcode,
         "board_idx": expected_board_idx,
     }
     if test_valid is not None:
@@ -1544,10 +1569,7 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_instrument_
     put_object_into_queue_and_raise_error_if_eventually_still_empty(barcode_comm, from_instrument_comm_queue)
     invoke_process_run_and_check_errors(monitor_thread)
 
-    expected_barcode_dict = {
-        "plate_barcode": expected_barcode,
-        "barcode_status": expected_status,
-    }
+    expected_barcode_dict = {barcode_type: expected_plate_barcode, "barcode_status": expected_status}
     assert shared_values_dict["barcodes"][expected_board_idx] == expected_barcode_dict
     # check message was put into queue
     expected_barcode_dict["barcode_status"] = str(expected_barcode_dict["barcode_status"])
@@ -1558,17 +1580,25 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_instrument_
 
 
 @pytest.mark.parametrize(
-    "expected_barcode,test_valid,test_update,test_description",
+    "expected_plate_barcode,test_valid,test_description",
     [
-        (RunningFIFOSimulator.default_barcode, True, False, "does not update to current valid barcode"),
-        ("M$200190000", False, True, "does not update to current invalid barcode"),
-        ("", None, False, "does not update to current empty barcode"),
+        (
+            MantarrayMcSimulator.default_plate_barcode,
+            True,
+            "does not update to current valid plate barcode",
+        ),
+        (
+            MantarrayMcSimulator.default_stim_barcode,
+            True,
+            "does not update to current valid stim barcode",
+        ),
+        ("M$200190000", False, "does not update to current invalid barcode"),
+        ("", None, "does not update to current empty barcode"),
     ],
 )
 def test_MantarrayProcessesMonitor__does_not_update_any_values_or_send_barcode_update_to_frontend__if_new_barcode_matches_current_barcode(
-    expected_barcode,
+    expected_plate_barcode,
     test_valid,
-    test_update,
     test_description,
     test_monitor,
     test_process_manager_creator,
@@ -1577,10 +1607,12 @@ def test_MantarrayProcessesMonitor__does_not_update_any_values_or_send_barcode_u
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     expected_board_idx = 0
-    expected_dict = {
-        "plate_barcode": expected_barcode,
-        "barcode_status": None,
-    }
+    barcode_type = (
+        "stim_barcode"
+        if expected_plate_barcode == MantarrayMcSimulator.default_stim_barcode
+        else "plate_barcode"
+    )
+    expected_dict = {barcode_type: expected_plate_barcode, "barcode_status": None}
     shared_values_dict["barcodes"] = {expected_board_idx: expected_dict}
 
     from_instrument_comm_queue = (
@@ -1592,7 +1624,7 @@ def test_MantarrayProcessesMonitor__does_not_update_any_values_or_send_barcode_u
 
     barcode_comm = {
         "communication_type": "barcode_comm",
-        "barcode": expected_barcode,
+        "barcode": expected_plate_barcode,
         "board_idx": expected_board_idx,
     }
     if test_valid is not None:
@@ -1607,7 +1639,7 @@ def test_MantarrayProcessesMonitor__does_not_update_any_values_or_send_barcode_u
     confirm_queue_is_eventually_empty(queue_to_server_ws)
 
 
-def test_MantarrayProcessesMonitor__trims_barcode_string_before_storing_in_shared_values_dict(
+def test_MantarrayProcessesMonitor__trims_beta_1_plate_barcode_string_before_storing_in_shared_values_dict(
     test_monitor, test_process_manager_creator
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -1620,16 +1652,16 @@ def test_MantarrayProcessesMonitor__trims_barcode_string_before_storing_in_share
         )
     )
 
-    expected_barcode = "M020090048"
+    expected_plate_barcode = "M020090048"
     barcode_comm = {
         "communication_type": "barcode_comm",
-        "barcode": expected_barcode + chr(0) * 2,
+        "barcode": expected_plate_barcode + chr(0) * 2,
         "board_idx": expected_board_idx,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(barcode_comm, from_instrument_comm_queue)
     invoke_process_run_and_check_errors(monitor_thread)
 
-    assert shared_values_dict["barcodes"][expected_board_idx]["plate_barcode"] == expected_barcode
+    assert shared_values_dict["barcodes"][expected_board_idx]["plate_barcode"] == expected_plate_barcode
 
 
 def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_mantarray_naming_ok_comm_messages(
@@ -1824,3 +1856,37 @@ def test_MantarrayProcessesMonitor__updates_stimulation_running_list_and_stimula
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["stimulation_running"] == [False] * 24
     assert shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] == [None]
+
+
+def test_MantarrayProcessesMonitor__passes_stim_status_check_results_from_mc_comm_to_websocket_queue__and_stores_them_in_shared_values_dictionary(
+    test_monitor, test_process_manager_creator
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+
+    instrument_comm_to_main = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
+    )
+    queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
+
+    test_num_wells = 24
+    possible_stim_statuses = [member.value for member in StimulatorCircuitStatuses.__members__.values()]
+    stim_check_results = [choice(possible_stim_statuses) for _ in range(test_num_wells)]
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "communication_type": "stimulation",
+            "command": "start_stim_checks",
+            "stimulator_circuit_statuses": stim_check_results,
+        },
+        instrument_comm_to_main,
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["stimulator_circuit_statuses"] == stim_check_results
+
+    confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
+    ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert ws_message == {
+        "data_type": "stimulator_circuit_statuses",
+        "data_json": json.dumps(stim_check_results),
+    }

@@ -20,7 +20,6 @@ from flatten_dict import unflatten
 import psutil
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import BACKEND_LOG_UUID
-from pulse3D.constants import BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import COMPUTER_NAME_HASH_UUID
@@ -30,12 +29,15 @@ from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
+from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import REFERENCE_VOLTAGE_UUID
 from pulse3D.constants import SLEEP_FIRMWARE_VERSION_UUID
 from pulse3D.constants import SOFTWARE_BUILD_NUMBER_UUID
 from pulse3D.constants import SOFTWARE_RELEASE_VERSION_UUID
 from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
+from pulse3D.constants import STIM_BARCODE_IS_FROM_SCANNER_UUID
+from pulse3D.constants import STIM_BARCODE_UUID
 from pulse3D.constants import STIMULATION_PROTOCOL_UUID
 from pulse3D.constants import TISSUE_SAMPLING_PERIOD_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
@@ -48,6 +50,9 @@ from semver import VersionInfo
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_frozen_as_exe
 
+from .constants import ALL_VALID_BARCODE_HEADERS
+from .constants import BARCODE_HEADERS
+from .constants import BARCODE_LEN
 from .constants import CENTIMILLISECONDS_PER_SECOND
 from .constants import CLOUD_API_ENDPOINT
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
@@ -203,20 +208,24 @@ def get_current_software_version() -> str:
         return version
 
 
-# Tanner (12/30/20): Need to support this function until barcodes are no longer accepted in /start_recording route. Creating a wrapper function `check_barcode_is_valid` to make the transition easier once this function is removed
-def check_barcode_for_errors(barcode: str) -> str:
-    """Return error message if barcode contains an error."""
-    if len(barcode) != 12:
-        return "Barcode is incorrect length"
-    if barcode[:2] not in ("ML", "MS"):
-        return f"Barcode contains invalid header: '{barcode[:2]}'"
+def check_barcode_for_errors(barcode: str, barcode_type: Optional[str] = None) -> str:
+    """Return error message if barcode contains an error.
+
+    barcode_type kwarg should always be given unless checking a scanned
+    barcode value.
+    """
+    if len(barcode) != BARCODE_LEN:
+        return "barcode is incorrect length"
+    header = barcode[:2]
+    if header not in BARCODE_HEADERS.get(barcode_type, ALL_VALID_BARCODE_HEADERS):
+        return f"barcode contains invalid header: '{header}'"
     for char in barcode[2:]:
         if not char.isnumeric():
-            return f"Barcode contains invalid character: '{char}'"
+            return f"barcode contains invalid character: '{char}'"
     if int(barcode[2:6]) < 2021:
-        return f"Barcode contains invalid year: '{barcode[2:6]}'"
+        return f"barcode contains invalid year: '{barcode[2:6]}'"
     if int(barcode[6:9]) < 1 or int(barcode[6:9]) > 366:
-        return f"Barcode contains invalid Julian date: '{barcode[6:9]}'"
+        return f"barcode contains invalid Julian date: '{barcode[6:9]}'"
     return ""
 
 
@@ -238,7 +247,10 @@ def _create_start_recording_command(
     shared_values_dict: Dict[str, Any],
     time_index: Optional[Union[str, int]] = 0,
     active_well_indices: Optional[List[int]] = None,
-    barcode: Union[str, UUID] = NOT_APPLICABLE_H5_METADATA,
+    barcodes: Dict[str, Union[str, UUID]] = {
+        "plate_barcode": NOT_APPLICABLE_H5_METADATA,
+        "stim_barcode": NOT_APPLICABLE_H5_METADATA,
+    },
     is_calibration_recording: bool = False,
     is_hardware_test_recording: bool = False,
 ) -> Dict[str, Any]:
@@ -261,9 +273,14 @@ def _create_start_recording_command(
     if active_well_indices is None:
         active_well_indices = list(range(24))
 
-    are_barcodes_matching: Union[bool, UUID] = NOT_APPLICABLE_H5_METADATA
-    if isinstance(barcode, str):
-        are_barcodes_matching = _check_scanned_barcode_vs_user_value(barcode, shared_values_dict)
+    barcode_match_dict: Dict[str, Union[bool, UUID]] = {}
+    for barcode_type, barcode in barcodes.items():
+        if isinstance(barcode, str):
+            barcode_match_dict[barcode_type] = _check_scanned_barcode_vs_user_value(
+                barcode, barcode_type, shared_values_dict
+            )
+        else:
+            barcode_match_dict[barcode_type] = NOT_APPLICABLE_H5_METADATA
 
     customer_account_id = shared_values_dict["config_settings"].get(
         "customer_account_id", NOT_APPLICABLE_H5_METADATA
@@ -290,8 +307,10 @@ def _create_start_recording_command(
             MAIN_FIRMWARE_VERSION_UUID: shared_values_dict["main_firmware_version"][board_idx],
             MANTARRAY_SERIAL_NUMBER_UUID: shared_values_dict["mantarray_serial_number"][board_idx],
             MANTARRAY_NICKNAME_UUID: shared_values_dict["mantarray_nickname"][board_idx],
-            PLATE_BARCODE_UUID: barcode,
-            BARCODE_IS_FROM_SCANNER_UUID: are_barcodes_matching,
+            PLATE_BARCODE_UUID: barcodes["plate_barcode"],
+            PLATE_BARCODE_IS_FROM_SCANNER_UUID: barcode_match_dict["plate_barcode"],
+            STIM_BARCODE_UUID: barcodes["stim_barcode"],
+            STIM_BARCODE_IS_FROM_SCANNER_UUID: barcode_match_dict["stim_barcode"],
         },
         "timepoint_to_begin_recording_at": begin_time_index,
     }
@@ -337,12 +356,14 @@ def _create_start_recording_command(
     return comm_dict
 
 
-def _check_scanned_barcode_vs_user_value(barcode: str, shared_values_dict: Dict[str, Any]) -> bool:
+def _check_scanned_barcode_vs_user_value(
+    barcode: str, barcode_type: str, shared_values_dict: Dict[str, Any]
+) -> bool:
     board_idx = 0  # board index 0 hardcoded for now
     if "barcodes" not in shared_values_dict:
         # Tanner (1/11/21): Guard against edge case where start_recording route is called before a scanned barcode is stored since this can take up to 15 seconds
         return False
-    result: bool = shared_values_dict["barcodes"][board_idx]["plate_barcode"] == barcode
+    result: bool = shared_values_dict["barcodes"][board_idx].get(barcode_type) == barcode
     return result
 
 

@@ -46,7 +46,7 @@ from .constants import TIMESTEP_CONVERSION_FACTOR
 
 def _perf_counter_cms() -> int:
     """Return perf_counter value as centimilliseconds."""
-    return perf_counter_ns() // 10 ** 4
+    return perf_counter_ns() // 10**4
 
 
 def _get_cms_since_last_data_packet(last_time_cms: int) -> int:

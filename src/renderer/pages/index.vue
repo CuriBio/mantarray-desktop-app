@@ -23,6 +23,12 @@
         />
       </div>
     </div>
+    <div v-show="simulation_mode" class="div__simulation_mode_overlay">
+      <div class="div__simulation_mode_text">
+        Simulation <br />
+        Mode
+      </div>
+    </div>
     <div class="div__x-axis-controls-container">
       <XAxisControls />
     </div>
@@ -30,40 +36,8 @@
 </template>
 
 <script>
-// Eli (3/29/21): adapted from https://stackoverflow.com/questions/31759367/using-console-log-in-electron-app
-const log = require("electron-log");
-const path = require("path");
-const now = new Date();
-const utc_month = (now.getUTCMonth() + 1).toString().padStart(2, "0"); // Eli (3/29/21) for some reason getUTCMonth returns a zero-based number, while everything else is a month, so adjusting here
-
-const filename_prefix = `mantarray_log__${now.getUTCFullYear()}_${utc_month}_${now
-  .getUTCDate()
-  .toString()
-  .padStart(2, "0")}_${now
-  .getUTCHours()
-  .toString()
-  .padStart(2, "0")}${now
-  .getUTCMinutes()
-  .toString()
-  .padStart(2, "0")}${now.getUTCSeconds().toString().padStart(2, "0")}_`;
-log.transports.file.resolvePath = (variables) => {
-  let filename;
-  switch (process.type) {
-    case "renderer":
-      filename = filename_prefix + "renderer";
-      break;
-    case "worker":
-      filename = filename_prefix + "worker";
-      break;
-    default:
-      filename = filename_prefix + "main";
-  }
-  filename = filename + ".txt";
-  return path.join(variables.libraryDefaultDir, "..", "logs_flask", filename);
-};
-
-console.log = log.log;
 import { ContinuousWaveform, XAxisControls, YAxisControls } from "@curi-bio/mantarray-frontend-components";
+import { mapState } from "vuex";
 export default {
   components: {
     ContinuousWaveform,
@@ -71,6 +45,9 @@ export default {
     YAxisControls,
   },
   layout: "default",
+  computed: {
+    ...mapState("flask", ["simulation_mode"]),
+  },
 };
 </script>
 
@@ -83,13 +60,34 @@ export default {
   position: absolute;
   left: 45px;
   top: 885px;
+  width: 1584px;
 }
-.div__grid-of-waveforms {
+.div__grid-of-waveforms,
+.div__simulation_mode_overlay {
   position: absolute;
   top: 45px;
   left: 45px;
   height: 840px;
-  width: calc(100vw - 353px);
+  width: 1584px;
+  background-color: black;
+}
+.div__simulation_mode_text {
+  font-family: Muli;
+  font-size: 250px;
+  color: #ffffff;
+  position: relative;
+  z-index: 1;
+  font-style: italic;
+  margin-left: 85px;
+  text-align: center;
+  font-weight: 600;
+  opacity: 0.8;
+}
+.div__simulation_mode_overlay {
+  opacity: 0.3;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   background-color: #4c4c4c;
 }
 </style>

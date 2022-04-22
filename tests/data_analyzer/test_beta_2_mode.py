@@ -84,7 +84,7 @@ def test_DataAnalyzerProcess_beta_2_performance__fill_data_analysis_buffer(
     fill_da_input_data_queue(board_queues[0][0], num_seconds)
     start = time.perf_counter_ns()
     invoke_process_run_and_check_errors(p, num_iterations=num_seconds)
-    dur_seconds = (time.perf_counter_ns() - start) / 10 ** 9
+    dur_seconds = (time.perf_counter_ns() - start) / 10**9
 
     # prevent BrokenPipeErrors
     drain_queue(board_queues[0][1])
@@ -122,7 +122,7 @@ def test_DataAnalyzerProcess_beta_2_performance__first_second_of_data_with_analy
     # send additional data and time analysis
     start = time.perf_counter_ns()
     invoke_process_run_and_check_errors(p)
-    dur_seconds = (time.perf_counter_ns() - start) / 10 ** 9
+    dur_seconds = (time.perf_counter_ns() - start) / 10**9
 
     # prevent BrokenPipeErrors
     drain_queue(board_queues[0][1])
@@ -155,7 +155,7 @@ def test_DataAnalyzerProcess_beta_2_performance__single_data_packet_per_well_wit
     fill_da_input_data_queue(board_queues[0][0], num_seconds)
     start = time.perf_counter_ns()
     invoke_process_run_and_check_errors(p, num_iterations=num_seconds)
-    dur_seconds = (time.perf_counter_ns() - start) / 10 ** 9
+    dur_seconds = (time.perf_counter_ns() - start) / 10**9
 
     # prevent BrokenPipeErrors
     drain_queue(board_queues[0][1])

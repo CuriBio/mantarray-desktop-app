@@ -57,13 +57,13 @@ from mantarray_desktop_app import utils
 from mantarray_desktop_app import wait_for_subprocesses_to_start
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.data_analyzer import get_force_signal
 import numpy as np
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import ADC_REF_OFFSET_UUID
 from pulse3D.constants import ADC_TISSUE_OFFSET_UUID
 from pulse3D.constants import BACKEND_LOG_UUID
-from pulse3D.constants import BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
@@ -79,6 +79,7 @@ from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
 from pulse3D.constants import ORIGINAL_FILE_VERSION_UUID
+from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import REF_SAMPLING_PERIOD_UUID
 from pulse3D.constants import REFERENCE_VOLTAGE_UUID
@@ -86,6 +87,8 @@ from pulse3D.constants import SLEEP_FIRMWARE_VERSION_UUID
 from pulse3D.constants import SOFTWARE_BUILD_NUMBER_UUID
 from pulse3D.constants import SOFTWARE_RELEASE_VERSION_UUID
 from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
+from pulse3D.constants import STIM_BARCODE_IS_FROM_SCANNER_UUID
+from pulse3D.constants import STIM_BARCODE_UUID
 from pulse3D.constants import STIMULATION_PROTOCOL_UUID
 from pulse3D.constants import TISSUE_SAMPLING_PERIOD_UUID
 from pulse3D.constants import TOTAL_WELL_COUNT_UUID
@@ -154,7 +157,6 @@ def test_send_xem_scripts_command__gets_processed_in_fully_running_app(
     fully_running_app_from_main_entrypoint,
     patched_xem_scripts_folder,
 ):
-
     # Tanner (12/29/20): start up the app but skip automatic instrument boot-up process so we can manually test that xem_scripts are run
     app_info = fully_running_app_from_main_entrypoint(["--skip-mantarray-boot-up"])
     wait_for_subprocesses_to_start()
@@ -215,10 +217,7 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
         }
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
-        command_line_args = [
-            "--skip-mantarray-boot-up",
-            f"--initial-base64-settings={b64_encoded}",
-        ]
+        command_line_args = ["--skip-mantarray-boot-up", f"--initial-base64-settings={b64_encoded}"]
         app_info = fully_running_app_from_main_entrypoint(command_line_args)
         wait_for_subprocesses_to_start()
         test_process_manager = app_info["object_access_inside_main"]["process_manager"]
@@ -236,9 +235,15 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
         assert system_state_eventually_equals(INSTRUMENT_INITIALIZING_STATE, 3) is True
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 3) is True
 
-        response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=test_id&customer_pass_key=test_password&user_account_id=test_user&recording_directory={expected_recordings_dir}&auto_upload=false&auto_delete=false"
-        )
+        settings_dict = {
+            "customer_account_uuid": "test_id",
+            "customer_pass_key": "test_password",
+            "user_account_id": "test_user",
+            "recording_directory": expected_recordings_dir,
+            "auto_upload": False,
+            "auto_delete": False,
+        }
+        response = requests.get(f"{get_api_endpoint()}update_settings", params=settings_dict)
         assert response.status_code == 200
 
         # Tanner (12/30/20): Calibrate instrument in order to start managed_acquisition
@@ -254,12 +259,14 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
         # Tanner (12/30/20): Need to start recording in order to test that recorded files are in the correct directory
-        expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
+        expected_plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
         ][PLATE_BARCODE_UUID]
-        response = requests.get(
-            f"{get_api_endpoint()}start_recording?barcode={expected_barcode}&is_hardware_test_recording=False"
-        )
+        start_recording_params = {
+            "plate_barcode": expected_plate_barcode,
+            "is_hardware_test_recording": False,
+        }
+        response = requests.get(f"{get_api_endpoint()}start_recording", params=start_recording_params)
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
 
@@ -279,7 +286,9 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
         test_process_manager.hard_stop_and_join_processes()
 
         actual_set_of_files = set(
-            os.listdir(os.path.join(expected_recordings_dir, f"{expected_barcode}__{expected_timestamp}"))
+            os.listdir(
+                os.path.join(expected_recordings_dir, f"{expected_plate_barcode}__{expected_timestamp}")
+            )
         )
         # Tanner (12/29/20): Only assert that files for all 24 wells are present
         assert len(actual_set_of_files) == 24
@@ -369,6 +378,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
             BACKEND_LOG_UUID
         ],
     )
+    # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         test_dict = {
             "stored_customer_id": GENERIC_STORED_CUSTOMER_ID,
@@ -388,11 +398,16 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
 
         assert system_state_eventually_equals(SERVER_READY_STATE, 5) is True
 
-        # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
         # Tanner (12/29/20): Manually set recording directory through update_settings route
-        response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=test_id&customer_pass_key=test_password&user_account_id=test_user&recording_directory={expected_recordings_dir}&auto_upload=false&auto_delete=false"
-        )
+        settings_dict = {
+            "customer_account_uuid": "test_id",
+            "customer_pass_key": "test_password",
+            "user_account_id": "test_user",
+            "recording_directory": expected_recordings_dir,
+            "auto_upload": False,
+            "auto_delete": False,
+        }
+        response = requests.get(f"{get_api_endpoint()}update_settings", params=settings_dict)
         assert response.status_code == 200
 
         # Tanner (12/29/20): Manually boot up in order to start managed_acquisition later
@@ -415,15 +430,18 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
 
         # Tanner (12/30/20): Run managed_acquisition until in live_view state. This will confirm that data passed through the system completely
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
-        expected_barcode_1 = GENERIC_BETA_1_START_RECORDING_COMMAND[
+        expected_plate_barcode_1 = GENERIC_BETA_1_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
         ][PLATE_BARCODE_UUID]
         start_recording_time_index_1 = 9600
         converted_start_recording_time_index_1 = 9600 / MICROSECONDS_PER_CENTIMILLISECOND
         # Tanner (12/30/20): Start recording with barcode1 to create first set of files. Don't start recording at time index 0 since that data frame is discarded due to bit file issues
-        response = requests.get(
-            f"{get_api_endpoint()}start_recording?barcode={expected_barcode_1}&time_index={start_recording_time_index_1}&is_hardware_test_recording=False"
-        )
+        start_recording_params_1 = {
+            "plate_barcode": expected_plate_barcode_1,
+            "time_index": start_recording_time_index_1,
+            "is_hardware_test_recording": False,
+        }
+        response = requests.get(f"{get_api_endpoint()}start_recording", params=start_recording_params_1)
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
         time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
@@ -434,14 +452,17 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
 
         # Tanner (12/29/20): Use new barcode for second set of recordings
-        expected_barcode_2 = (
-            expected_barcode_1[:-1] + "2"
+        expected_plate_barcode_2 = (
+            expected_plate_barcode_1[:-1] + "2"
         )  # change last char of default barcode from '1' to '2'
         # Tanner (12/30/20): Start recording with barcode2 to create second set of files. Use known timepoint a just after end of first set of data
         expected_start_index_2 = expected_stop_index_1 + 1
-        response = requests.get(
-            f"{get_api_endpoint()}start_recording?barcode={expected_barcode_2}&time_index={expected_start_index_2}&is_hardware_test_recording=False"
-        )
+        start_recording_params_2 = {
+            "plate_barcode": expected_plate_barcode_2,
+            "time_index": expected_start_index_2,
+            "is_hardware_test_recording": False,
+        }
+        response = requests.get(f"{get_api_endpoint()}start_recording", params=start_recording_params_2)
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
         time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
@@ -461,7 +482,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
             os.listdir(
                 os.path.join(
                     expected_recordings_dir,
-                    f"{expected_barcode_1}__{expected_timestamp}",
+                    f"{expected_plate_barcode_1}__{expected_timestamp}",
                 )
             )
         )
@@ -474,33 +495,32 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                 with h5py.File(
                     os.path.join(
                         expected_recordings_dir,
-                        f"{expected_barcode_1}__{expected_timestamp}",
-                        f"{expected_barcode_1}__{expected_timestamp}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
+                        f"{expected_plate_barcode_1}__{expected_timestamp}",
+                        f"{expected_plate_barcode_1}__{expected_timestamp}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
                     ),
                     "r",
                 ) as this_file:
-                    this_file_attrs = this_file.attrs
-                    assert bool(this_file_attrs[str(HARDWARE_TEST_RECORDING_UUID)]) is False
-                    assert this_file_attrs[str(SOFTWARE_BUILD_NUMBER_UUID)] == COMPILED_EXE_BUILD_TIMESTAMP
+                    assert bool(this_file.attrs[str(HARDWARE_TEST_RECORDING_UUID)]) is False
+                    assert this_file.attrs[str(SOFTWARE_BUILD_NUMBER_UUID)] == COMPILED_EXE_BUILD_TIMESTAMP
                     assert (
-                        this_file_attrs[str(ORIGINAL_FILE_VERSION_UUID)]
+                        this_file.attrs[str(ORIGINAL_FILE_VERSION_UUID)]
                         == CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
                     )
                     assert (
-                        this_file_attrs[FILE_FORMAT_VERSION_METADATA_KEY]
+                        this_file.attrs[FILE_FORMAT_VERSION_METADATA_KEY]
                         == CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
                     )
-                    assert this_file_attrs[str(UTC_BEGINNING_DATA_ACQUISTION_UUID)] == expected_time.strftime(
+                    assert this_file.attrs[str(UTC_BEGINNING_DATA_ACQUISTION_UUID)] == expected_time.strftime(
                         "%Y-%m-%d %H:%M:%S.%f"
                     )
                     assert (
-                        this_file_attrs[str(START_RECORDING_TIME_INDEX_UUID)]
+                        this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)]
                         == converted_start_recording_time_index_1
                     )
                     assert this_file.attrs[str(UTC_BEGINNING_RECORDING_UUID)] == expected_time.strftime(
                         "%Y-%m-%d %H:%M:%S.%f"
                     )
-                    assert this_file_attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == (
+                    assert this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == (
                         expected_time
                         + datetime.timedelta(
                             seconds=(
@@ -510,87 +530,87 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                             / CENTIMILLISECONDS_PER_SECOND
                         )
                     ).strftime("%Y-%m-%d %H:%M:%S.%f")
-                    assert this_file_attrs[str(UTC_FIRST_REF_DATA_POINT_UUID)] == (
+                    assert this_file.attrs[str(UTC_FIRST_REF_DATA_POINT_UUID)] == (
                         expected_time
                         + datetime.timedelta(
                             seconds=(converted_start_recording_time_index_1 + DATA_FRAME_PERIOD)
                             / CENTIMILLISECONDS_PER_SECOND
                         )
                     ).strftime("%Y-%m-%d %H:%M:%S.%f")
-                    assert this_file_attrs[str(USER_ACCOUNT_ID_UUID)] == "test_user"
-                    assert this_file_attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == "test_id"
-                    assert this_file_attrs[str(ADC_GAIN_SETTING_UUID)] == 16
+                    assert this_file.attrs[str(USER_ACCOUNT_ID_UUID)] == "test_user"
+                    assert this_file.attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == "test_id"
+                    assert this_file.attrs[str(ADC_GAIN_SETTING_UUID)] == 16
                     assert (
-                        this_file_attrs[str(ADC_TISSUE_OFFSET_UUID)] == FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
+                        this_file.attrs[str(ADC_TISSUE_OFFSET_UUID)] == FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
                     )
-                    assert this_file_attrs[str(ADC_REF_OFFSET_UUID)] == FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
-                    assert this_file_attrs[str(REFERENCE_VOLTAGE_UUID)] == REFERENCE_VOLTAGE
-                    assert this_file_attrs[str(SLEEP_FIRMWARE_VERSION_UUID)] == "0.0.0"
+                    assert this_file.attrs[str(ADC_REF_OFFSET_UUID)] == FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
+                    assert this_file.attrs[str(REFERENCE_VOLTAGE_UUID)] == REFERENCE_VOLTAGE
+                    assert this_file.attrs[str(SLEEP_FIRMWARE_VERSION_UUID)] == "0.0.0"
                     assert (
-                        this_file_attrs[str(MAIN_FIRMWARE_VERSION_UUID)]
+                        this_file.attrs[str(MAIN_FIRMWARE_VERSION_UUID)]
                         == RunningFIFOSimulator.default_firmware_version
                     )
                     assert (
-                        this_file_attrs[str(MANTARRAY_SERIAL_NUMBER_UUID)]
+                        this_file.attrs[str(MANTARRAY_SERIAL_NUMBER_UUID)]
                         == RunningFIFOSimulator.default_mantarray_serial_number
                     )
                     assert (
-                        this_file_attrs[str(MANTARRAY_NICKNAME_UUID)]
+                        this_file.attrs[str(MANTARRAY_NICKNAME_UUID)]
                         == RunningFIFOSimulator.default_mantarray_nickname
                     )
                     assert (
-                        this_file_attrs[str(XEM_SERIAL_NUMBER_UUID)]
+                        this_file.attrs[str(XEM_SERIAL_NUMBER_UUID)]
                         == RunningFIFOSimulator.default_xem_serial_number
                     )
-                    assert this_file_attrs[str(SOFTWARE_RELEASE_VERSION_UUID)] == CURRENT_SOFTWARE_VERSION
+                    assert this_file.attrs[str(SOFTWARE_RELEASE_VERSION_UUID)] == CURRENT_SOFTWARE_VERSION
 
                     assert (
-                        this_file_attrs[str(WELL_NAME_UUID)]
+                        this_file.attrs[str(WELL_NAME_UUID)]
                         == f"{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}"
                     )
-                    assert this_file_attrs["Metadata UUID Descriptions"] == json.dumps(
+                    assert this_file.attrs["Metadata UUID Descriptions"] == json.dumps(
                         str(METADATA_UUID_DESCRIPTIONS)
                     )
-                    assert bool(this_file_attrs[str(IS_FILE_ORIGINAL_UNTRIMMED_UUID)]) is True
-                    assert this_file_attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] == 0
-                    assert this_file_attrs[str(TRIMMED_TIME_FROM_ORIGINAL_END_UUID)] == 0
-                    assert this_file_attrs[str(TOTAL_WELL_COUNT_UUID)] == 24
-                    assert this_file_attrs[str(WELL_ROW_UUID)] == row_idx
-                    assert this_file_attrs[str(WELL_COLUMN_UUID)] == col_idx
-                    assert this_file_attrs[
+                    assert bool(this_file.attrs[str(IS_FILE_ORIGINAL_UNTRIMMED_UUID)]) is True
+                    assert this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] == 0
+                    assert this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_END_UUID)] == 0
+                    assert this_file.attrs[str(TOTAL_WELL_COUNT_UUID)] == 24
+                    assert this_file.attrs[str(WELL_ROW_UUID)] == row_idx
+                    assert this_file.attrs[str(WELL_COLUMN_UUID)] == col_idx
+                    assert this_file.attrs[
                         str(WELL_INDEX_UUID)
                     ] == WELL_DEF_24.get_well_index_from_row_and_column(row_idx, col_idx)
                     assert (
-                        this_file_attrs[str(TISSUE_SAMPLING_PERIOD_UUID)]
+                        this_file.attrs[str(TISSUE_SAMPLING_PERIOD_UUID)]
                         == CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
                     )
                     assert (
-                        this_file_attrs[str(REF_SAMPLING_PERIOD_UUID)]
+                        this_file.attrs[str(REF_SAMPLING_PERIOD_UUID)]
                         == REFERENCE_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
                     )
-                    assert this_file_attrs[str(BACKEND_LOG_UUID)] == str(
+                    assert this_file.attrs[str(BACKEND_LOG_UUID)] == str(
                         GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
                             BACKEND_LOG_UUID
                         ]
                     )
                     assert (
-                        this_file_attrs[str(COMPUTER_NAME_HASH_UUID)]
+                        this_file.attrs[str(COMPUTER_NAME_HASH_UUID)]
                         == GENERIC_BETA_1_START_RECORDING_COMMAND[
                             "metadata_to_copy_onto_main_file_attributes"
                         ][COMPUTER_NAME_HASH_UUID]
                     )
+                    assert this_file.attrs[str(PLATE_BARCODE_UUID)] == expected_plate_barcode_1
                     # Tanner (1/12/21): The barcode used for testing (which is passed to start_recording route) is different than the simulator's barcode (the one that is 'scanned' in this test), so this should result to False
-                    assert bool(this_file_attrs[str(BARCODE_IS_FROM_SCANNER_UUID)]) is False
+                    assert bool(this_file.attrs[str(PLATE_BARCODE_IS_FROM_SCANNER_UUID)]) is False
 
-        # expected_timestamp = expected_timestamp[:-1] + "7"
         # Tanner (12/30/20): test second recording (only make sure it contains waveform data)
         for row_idx in range(4):
             for col_idx in range(6):
                 with h5py.File(
                     os.path.join(
                         expected_recordings_dir,
-                        f"{expected_barcode_2}__{expected_timestamp}",
-                        f"{expected_barcode_2}__{expected_timestamp}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
+                        f"{expected_plate_barcode_2}__{expected_timestamp}",
+                        f"{expected_plate_barcode_2}__{expected_timestamp}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
                     ),
                     "r",
                 ) as this_file:
@@ -714,7 +734,6 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
     spied_logger = mocker.spy(main.logger, "info")
     # Tanner (12/29/20): Not making assertions on files, but still need a TemporaryDirectory to hold them
     with tempfile.TemporaryDirectory() as tmp_dir:
-
         test_dict = {
             "stored_customer_id": GENERIC_STORED_CUSTOMER_ID,
             "zipped_recordings_dir": f"{tmp_dir}/zipped_recordings",
@@ -737,12 +756,15 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         fw_process = test_process_manager.get_file_writer_process()
         da_process = test_process_manager.get_data_analyzer_process()
 
-        # Tanner (12/29/20): Not making assertions on files, but still need a TemporaryDirectory to hold them
         # Tanner (12/29/20): use updated settings to set the recording directory to the TemporaryDirectory
-
-        response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=test_id&customer_pass_key=test_password&user_account_id=test_user&auto_upload=false&auto_delete=false"
-        )
+        settings_dict = {
+            "customer_account_uuid": "test_id",
+            "customer_pass_key": "test_password",
+            "user_account_id": "test_user",
+            "auto_upload": False,
+            "auto_delete": False,
+        }
+        response = requests.get(f"{get_api_endpoint()}update_settings", params=settings_dict)
         assert response.status_code == 200
 
         # Tanner (12/30/20): Start calibration in order to run managed_acquisition
@@ -760,12 +782,14 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
-        expected_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
+        expected_plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
         ][PLATE_BARCODE_UUID]
-        response = requests.get(
-            f"{get_api_endpoint()}start_recording?barcode={expected_barcode}&is_hardware_test_recording=False"
-        )
+        start_recording_params = {
+            "plate_barcode": expected_plate_barcode,
+            "is_hardware_test_recording": False,
+        }
+        response = requests.get(f"{get_api_endpoint()}start_recording", params=start_recording_params)
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 5) is True
 
@@ -868,14 +892,12 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         }
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
-        command_line_args = [
-            "--beta-2-mode",
-            f"--initial-base64-settings={b64_encoded}",
-        ]
+        command_line_args = ["--beta-2-mode", f"--initial-base64-settings={b64_encoded}"]
 
         app_info = fully_running_app_from_main_entrypoint(command_line_args)
         wait_for_subprocesses_to_start()
         test_process_manager = app_info["object_access_inside_main"]["process_manager"]
+        shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
 
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 10) is True
 
@@ -887,10 +909,24 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
 
-        response = requests.get(
-            f"{get_api_endpoint()}update_settings?customer_account_uuid=test_id&customer_pass_key=test_password&user_account_id=test_user&auto_upload=false&auto_delete=false"
-        )
+        settings_dict = {
+            "customer_account_uuid": "test_id",
+            "customer_pass_key": "test_password",
+            "user_account_id": "test_user",
+            "auto_upload": False,
+            "auto_delete": False,
+        }
+        response = requests.get(f"{get_api_endpoint()}update_settings", params=settings_dict)
         assert response.status_code == 200
+
+        # run stimulator checks
+        response = requests.post(f"{get_api_endpoint()}start_stim_checks")
+        assert response.status_code == 200
+        # wait for checks to complete
+        while (
+            shared_values_dict["stimulator_circuit_statuses"] != [StimulatorCircuitStatuses.MEDIA.value] * 24
+        ):
+            time.sleep(0.5)
 
         # Tanner (10/22/21): Set stimulation protocols and start stimulation
         response = requests.post(
@@ -909,13 +945,17 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
-        expected_barcode_1 = GENERIC_BETA_2_START_RECORDING_COMMAND[
+        expected_plate_barcode_1 = GENERIC_BETA_2_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
         ][PLATE_BARCODE_UUID]
         expected_start_index_1 = NUM_INITIAL_PACKETS_TO_DROP * DEFAULT_SAMPLING_PERIOD
-        response = requests.get(
-            f"{get_api_endpoint()}start_recording?barcode={expected_barcode_1}&time_index={expected_start_index_1}&is_hardware_test_recording=False"
-        )
+        start_recording_params_1 = {
+            "plate_barcode": expected_plate_barcode_1,
+            "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
+            "time_index": expected_start_index_1,
+            "is_hardware_test_recording": False,
+        }
+        response = requests.get(f"{get_api_endpoint()}start_recording", params=start_recording_params_1)
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
 
@@ -962,16 +1002,19 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert stimulation_running_status_eventually_equals(True, 4) is True
 
         # Tanner (6/1/21): Use new barcode for second set of recordings, change last char of default barcode from '1' to '2'
-        expected_barcode_2 = expected_barcode_1[:-1] + "2"
+        expected_plate_barcode_2 = expected_plate_barcode_1[:-1] + "2"
         # Tanner (5/25/21): Start at a different timepoint to create a different timestamp in the names of the second set of files
         expected_start_index_2 = (
             MICRO_TO_BASE_CONVERSION + NUM_INITIAL_PACKETS_TO_DROP * DEFAULT_SAMPLING_PERIOD
         )
-
         # Tanner (6/1/21): Start recording with second barcode to create second set of files
-        response = requests.get(
-            f"{get_api_endpoint()}start_recording?barcode={expected_barcode_2}&time_index={expected_start_index_2}&is_hardware_test_recording=False"
-        )
+        start_recording_params_2 = {
+            "plate_barcode": expected_plate_barcode_2,
+            "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
+            "time_index": expected_start_index_2,
+            "is_hardware_test_recording": False,
+        }
+        response = requests.get(f"{get_api_endpoint()}start_recording", params=start_recording_params_2)
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
 
@@ -1004,7 +1047,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
             os.listdir(
                 os.path.join(
                     expected_recordings_dir,
-                    f"{expected_barcode_1}__{expected_timestamp_1}",
+                    f"{expected_plate_barcode_1}__{expected_timestamp_1}",
                 )
             )
         )
@@ -1021,93 +1064,110 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
             with h5py.File(
                 os.path.join(
                     expected_recordings_dir,
-                    f"{expected_barcode_1}__{expected_timestamp_1}",
-                    f"{expected_barcode_1}__{expected_timestamp_1}__{well_name}.h5",
+                    f"{expected_plate_barcode_1}__{expected_timestamp_1}",
+                    f"{expected_plate_barcode_1}__{expected_timestamp_1}__{well_name}.h5",
                 ),
                 "r",
             ) as this_file:
                 # test metadata values
-                this_file_attrs = this_file.attrs
-                assert bool(this_file_attrs[str(HARDWARE_TEST_RECORDING_UUID)]) is False
-                assert this_file_attrs[str(SOFTWARE_BUILD_NUMBER_UUID)] == COMPILED_EXE_BUILD_TIMESTAMP
+                assert bool(this_file.attrs[str(HARDWARE_TEST_RECORDING_UUID)]) is False
+                assert this_file.attrs[str(SOFTWARE_BUILD_NUMBER_UUID)] == COMPILED_EXE_BUILD_TIMESTAMP
                 assert (
-                    this_file_attrs[str(ORIGINAL_FILE_VERSION_UUID)] == CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
+                    this_file.attrs[str(ORIGINAL_FILE_VERSION_UUID)] == CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
                 )
                 assert (
-                    this_file_attrs[FILE_FORMAT_VERSION_METADATA_KEY]
+                    this_file.attrs[FILE_FORMAT_VERSION_METADATA_KEY]
                     == CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
                 )
-                assert this_file_attrs[str(UTC_BEGINNING_DATA_ACQUISTION_UUID)] == expected_time.strftime(
+                assert this_file.attrs[str(UTC_BEGINNING_DATA_ACQUISTION_UUID)] == expected_time.strftime(
                     "%Y-%m-%d %H:%M:%S.%f"
                 )
-                assert this_file_attrs[str(START_RECORDING_TIME_INDEX_UUID)] == expected_start_index_1
+                assert this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)] == expected_start_index_1
                 assert this_file.attrs[str(UTC_BEGINNING_RECORDING_UUID)] == expected_time.strftime(
                     "%Y-%m-%d %H:%M:%S.%f"
                 )
-                assert this_file_attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == (
+                assert this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == (
                     expected_time + datetime.timedelta(microseconds=expected_start_index_1)
                 ).strftime("%Y-%m-%d %H:%M:%S.%f")
-                assert this_file_attrs[str(USER_ACCOUNT_ID_UUID)] == "test_user"
-                assert this_file_attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == "test_id"
+                assert this_file.attrs[str(USER_ACCOUNT_ID_UUID)] == "test_user"
+                assert this_file.attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == "test_id"
                 assert (
-                    this_file_attrs[str(MAIN_FIRMWARE_VERSION_UUID)]
+                    this_file.attrs[str(MAIN_FIRMWARE_VERSION_UUID)]
                     == MantarrayMcSimulator.default_main_firmware_version
                 )
                 assert (
-                    this_file_attrs[str(CHANNEL_FIRMWARE_VERSION_UUID)]
+                    this_file.attrs[str(CHANNEL_FIRMWARE_VERSION_UUID)]
                     == MantarrayMcSimulator.default_channel_firmware_version
                 )
                 assert (
-                    this_file_attrs[str(MANTARRAY_SERIAL_NUMBER_UUID)]
+                    this_file.attrs[str(MANTARRAY_SERIAL_NUMBER_UUID)]
                     == MantarrayMcSimulator.default_mantarray_serial_number
                 )
                 assert (
-                    this_file_attrs[str(MANTARRAY_NICKNAME_UUID)]
+                    this_file.attrs[str(MANTARRAY_NICKNAME_UUID)]
                     == MantarrayMcSimulator.default_mantarray_nickname
                 )
-                assert this_file_attrs[str(SOFTWARE_RELEASE_VERSION_UUID)] == CURRENT_SOFTWARE_VERSION
+                assert this_file.attrs[str(SOFTWARE_RELEASE_VERSION_UUID)] == CURRENT_SOFTWARE_VERSION
                 assert (
-                    this_file_attrs[str(BOOT_FLAGS_UUID)]
+                    this_file.attrs[str(BOOT_FLAGS_UUID)]
                     == MantarrayMcSimulator.default_metadata_values[BOOT_FLAGS_UUID]
                 )
 
-                assert this_file_attrs[str(WELL_NAME_UUID)] == well_name
-                assert this_file_attrs["Metadata UUID Descriptions"] == json.dumps(
+                assert this_file.attrs[str(WELL_NAME_UUID)] == well_name
+                assert this_file.attrs["Metadata UUID Descriptions"] == json.dumps(
                     str(METADATA_UUID_DESCRIPTIONS)
                 )
-                assert bool(this_file_attrs[str(IS_FILE_ORIGINAL_UNTRIMMED_UUID)]) is True
-                assert this_file_attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] == 0
-                assert this_file_attrs[str(TRIMMED_TIME_FROM_ORIGINAL_END_UUID)] == 0
-                assert this_file_attrs[str(TOTAL_WELL_COUNT_UUID)] == 24
+                assert bool(this_file.attrs[str(IS_FILE_ORIGINAL_UNTRIMMED_UUID)]) is True
+                assert this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] == 0
+                assert this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_END_UUID)] == 0
+                assert this_file.attrs[str(TOTAL_WELL_COUNT_UUID)] == 24
                 row_idx, col_idx = WELL_DEF_24.get_row_and_column_from_well_index(well_idx)
-                assert this_file_attrs[str(WELL_ROW_UUID)] == row_idx
-                assert this_file_attrs[str(WELL_COLUMN_UUID)] == col_idx
-                assert this_file_attrs[str(WELL_INDEX_UUID)] == well_idx
-                assert this_file_attrs[str(TISSUE_SAMPLING_PERIOD_UUID)] == DEFAULT_SAMPLING_PERIOD
-                assert this_file_attrs[str(BACKEND_LOG_UUID)] == str(
+                assert this_file.attrs[str(WELL_ROW_UUID)] == row_idx
+                assert this_file.attrs[str(WELL_COLUMN_UUID)] == col_idx
+                assert this_file.attrs[str(WELL_INDEX_UUID)] == well_idx
+                assert this_file.attrs[str(TISSUE_SAMPLING_PERIOD_UUID)] == DEFAULT_SAMPLING_PERIOD
+                assert this_file.attrs[str(BACKEND_LOG_UUID)] == str(
                     GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
                         BACKEND_LOG_UUID
                     ]
                 )
                 assert (
-                    this_file_attrs[str(COMPUTER_NAME_HASH_UUID)]
+                    this_file.attrs[str(COMPUTER_NAME_HASH_UUID)]
                     == GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
                         COMPUTER_NAME_HASH_UUID
                     ]
                 )
                 if well_idx % 2 == 0:
-                    assert this_file_attrs[str(STIMULATION_PROTOCOL_UUID)] == json.dumps(
+                    assert this_file.attrs[str(STIMULATION_PROTOCOL_UUID)] == json.dumps(
                         test_stim_info["protocols"][0]
                     ), well_idx
-                    assert this_file_attrs[str(UTC_BEGINNING_STIMULATION_UUID)] != str(
+                    assert this_file.attrs[str(UTC_BEGINNING_STIMULATION_UUID)] != str(
                         NOT_APPLICABLE_H5_METADATA
                     ), well_idx
                 else:
-                    assert this_file_attrs[str(STIMULATION_PROTOCOL_UUID)] == json.dumps(None), well_idx
-                    assert this_file_attrs[str(UTC_BEGINNING_STIMULATION_UUID)] == str(
+                    assert this_file.attrs[str(STIMULATION_PROTOCOL_UUID)] == json.dumps(None), well_idx
+                    assert this_file.attrs[str(UTC_BEGINNING_STIMULATION_UUID)] == str(
                         NOT_APPLICABLE_H5_METADATA
                     ), well_idx
-                assert bool(this_file_attrs[str(BARCODE_IS_FROM_SCANNER_UUID)]) is True
+                assert this_file.attrs[str(PLATE_BARCODE_UUID)] == expected_plate_barcode_1
+                assert (
+                    bool(this_file.attrs[str(PLATE_BARCODE_IS_FROM_SCANNER_UUID)])
+                    is GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+                        PLATE_BARCODE_IS_FROM_SCANNER_UUID
+                    ]
+                )
+                assert (
+                    this_file.attrs[str(STIM_BARCODE_UUID)]
+                    == GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+                        STIM_BARCODE_UUID
+                    ]
+                )
+                assert (
+                    bool(this_file.attrs[str(STIM_BARCODE_IS_FROM_SCANNER_UUID)])
+                    is GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+                        STIM_BARCODE_IS_FROM_SCANNER_UUID
+                    ]
+                )
                 # test recorded magnetometer data
                 actual_time_index_data = get_time_index_dataset_from_file(this_file)
                 assert actual_time_index_data.shape == (num_recorded_data_points_1,)
@@ -1133,7 +1193,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
             os.listdir(
                 os.path.join(
                     expected_recordings_dir,
-                    f"{expected_barcode_2}__{expected_timestamp_2}",
+                    f"{expected_plate_barcode_2}__{expected_timestamp_2}",
                 )
             )
         )
@@ -1149,8 +1209,8 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
             with h5py.File(
                 os.path.join(
                     expected_recordings_dir,
-                    f"{expected_barcode_2}__{expected_timestamp_2}",
-                    f"{expected_barcode_2}__{expected_timestamp_2}__{well_name}.h5",
+                    f"{expected_plate_barcode_2}__{expected_timestamp_2}",
+                    f"{expected_plate_barcode_2}__{expected_timestamp_2}__{well_name}.h5",
                 ),
                 "r",
             ) as this_file:

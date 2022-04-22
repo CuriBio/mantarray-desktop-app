@@ -19,6 +19,7 @@ from mantarray_desktop_app import SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommInvalidSamplingPeriodError
 from mantarray_desktop_app import UnrecognizedSimulatorTestCommandError
+from mantarray_desktop_app.constants import BARCODE_LEN
 from mantarray_desktop_app.constants import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from pulse3D.constants import BOOT_FLAGS_UUID
@@ -58,7 +59,8 @@ def test_MantarrayMcSimulator__class_attributes():
     assert MantarrayMcSimulator.default_mantarray_serial_number == "MA2022001000"
     assert MantarrayMcSimulator.default_main_firmware_version == "0.0.0"
     assert MantarrayMcSimulator.default_channel_firmware_version == "0.0.0"
-    assert MantarrayMcSimulator.default_barcode == "ML2022001000"
+    assert MantarrayMcSimulator.default_plate_barcode == "ML2022001000"
+    assert MantarrayMcSimulator.default_stim_barcode == "MS2022001000"
     assert MantarrayMcSimulator.default_metadata_values == {
         BOOT_FLAGS_UUID: 0b00000000,
         MANTARRAY_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_mantarray_serial_number,
@@ -489,7 +491,7 @@ def test_MantarrayMcSimulator__raises_error_when_set_sampling_period_command_rec
         invoke_process_run_and_check_errors(simulator)
 
 
-def test_MantarrayMcSimulator__automatically_sends_plate_barcode_after_first_data_stream_completes(
+def test_MantarrayMcSimulator__automatically_sends_plate_then_stim_barcode_after_first_data_stream_completes(
     mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
@@ -514,10 +516,17 @@ def test_MantarrayMcSimulator__automatically_sends_plate_barcode_after_first_dat
     expected_response_size = get_full_packet_size_from_payload_len(1)
     assert len(simulator.read(size=expected_response_size)) == expected_response_size
 
-    # get barcode packet
-    barcode_packet = simulator.read_all()
+    # test barcode packets
+    expected_barcode_packet_size = get_full_packet_size_from_payload_len(BARCODE_LEN)
+    plate_barcode_packet = simulator.read(size=expected_barcode_packet_size)
     assert_serial_packet_is_expected(
-        barcode_packet,
+        plate_barcode_packet,
         SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE,
-        additional_bytes=bytes(MantarrayMcSimulator.default_barcode, encoding="ascii"),
+        additional_bytes=bytes(MantarrayMcSimulator.default_plate_barcode, encoding="ascii"),
+    )
+    stim_barcode_packet = simulator.read(size=expected_barcode_packet_size)
+    assert_serial_packet_is_expected(
+        stim_barcode_packet,
+        SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE,
+        additional_bytes=bytes(MantarrayMcSimulator.default_stim_barcode, encoding="ascii"),
     )
