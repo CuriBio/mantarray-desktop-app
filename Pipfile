@@ -13,12 +13,10 @@ pefile = "==2019.4.18" # Eli (3/1/21): this must be explicitly specified when us
 pre-commit = "==2.11.1"
 pyenchant = "==3.2.0"
 pyinstaller = "==4.5.1"
-pylint = "==2.8.3"
 pytest = "==6.2.2"
 pytest-cov = "==2.11.1"
 pytest-mock = "==3.5.1"
 pytest-profiling = "==1.7.0"
-pytest-pylint = "==0.18.0"
 pytest-randomly = "==3.5.0"
 pytest-timeout = "==1.4.2"
 pywin32-ctypes = "==0.2.0" # Eli (3/1/21): this must be explicitly specified when using a Linux dev environment so that it will be included in a Windows build environment
