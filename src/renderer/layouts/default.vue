@@ -5,42 +5,62 @@
       <div class="div__plate-barcode-container">
         <BarcodeViewer />
       </div>
-      <div class="div__plate-navigator-container">
-        <PlateNavigator />
-      </div>
-      <div class="div__status-bar-container">
-        <StatusBar :confirmation_request="confirmation_request" @send_confirmation="send_confirmation" />
-      </div>
-      <div class="div__player-controls-container">
-        <DesktopPlayerControls @save_customer_id="save_customer_id" />
-      </div>
-      <div class="div__stim-barcode-container">
-        <BarcodeViewer :barcode_type="'stim_barcode'" />
-      </div>
-      <div class="div__status-bar-container" :style="'top: 455px;'">
-        <StatusBar
-          :confirmation_request="confirmation_request"
-          :stim_specific="true"
-          @send_confirmation="send_confirmation"
-        />
-      </div>
-      <div
-        class="div__stimulation_controls-controls-icon-container"
-        :class="[
-          beta_2_mode
-            ? 'div__stimulation_controls-controls-icon-container--beta-2-mode'
-            : 'div__stimulation_controls-controls-icon-container--beta-1-mode',
-        ]"
-      >
-        <StimulationControls />
-        <NuxtLink to="/stimulationstudio">
+
+      <div class="div__accordian-container" role="tablist">
+        <div role="tab">
+          <button v-b-toggle.data-acquisition-card class="button__accordian-tabs">Data Acquisition</button>
+        </div>
+        <b-collapse id="data-acquisition-card" visible accordion="controls-accordion" role="tabpanel">
+          <div class="div__status-bar-container">
+            <StatusBar :confirmation_request="confirmation_request" @send_confirmation="send_confirmation" />
+          </div>
+          <div class="div__plate-navigator-container">
+            <PlateNavigator />
+          </div>
+          <div class="div__player-controls-container">
+            <DesktopPlayerControls @save_customer_id="save_customer_id" />
+          </div>
+        </b-collapse>
+        <div role="tab">
+          <button v-b-toggle.stim-studio-card class="button__accordian-tabs">Stimulation Studio</button>
+        </div>
+        <b-collapse id="stim-studio-card" accordion="controls-accordion" role="tabpanel">
+          <div class="div__stim-barcode-container">
+            <BarcodeViewer :barcode_type="'stim_barcode'" />
+          </div>
+          <div class="div__stim-status-container">
+            <StatusBar
+              :confirmation_request="confirmation_request"
+              :stim_specific="true"
+              @send_confirmation="send_confirmation"
+            />
+          </div>
           <div
-            v-b-popover.hover.bottom="'Click to view Stimulation Studio'"
-            :title="'Stimulation Studio'"
-            class="div__stim-studio-screen-view"
-          />
-        </NuxtLink>
+            class="div__stimulation_controls-controls-icon-container"
+            :class="[
+              beta_2_mode
+                ? 'div__stimulation_controls-controls-icon-container--beta-2-mode'
+                : 'div__stimulation_controls-controls-icon-container--beta-1-mode',
+            ]"
+          >
+            <StimulationControls />
+            <NuxtLink to="/stimulationstudio">
+              <div
+                v-b-popover.hover.bottom="'Click to view Stimulation Studio'"
+                :title="'Stimulation Studio'"
+                class="div__stim-studio-screen-view"
+              />
+            </NuxtLink>
+          </div>
+        </b-collapse>
+        <div role="tab">
+          <button v-b-toggle.data-analysis-card class="button__accordian-tabs">Data Analysis</button>
+        </div>
+        <b-collapse id="data-analysis-card" accordion="controls-accordion" role="tabpanel">
+          <MagFindAnalysisControl />
+        </b-collapse>
       </div>
+
       <span
         class="span__screen-view-options-text"
         :class="[
@@ -63,7 +83,7 @@
             <img
               v-b-popover.hover.bottom="'Click to view Live View'"
               :title="'Live View'"
-              src="../assets/img/waveform-screen-view.png"
+              src="'../assets/img/waveform-screen-view.png'"
             />
           </NuxtLink>
         </div>
@@ -72,7 +92,7 @@
             <img
               v-b-popover.hover.bottom="'Click to view Heat Map'"
               :title="'Heat Map'"
-              src="../assets/img/heatmap-screen-view.png"
+              src="'../assets/img/heatmap-screen-view.png'"
             />
           </NuxtLink>
         </div>
@@ -86,7 +106,7 @@
       </span>
     </div>
     <div class="div__top-bar-above-waveforms">
-      <div class="div__recording-status-container">
+      <div class="div__recording-top-bar-container">
         <UploadFilesWidget />
         <RecordingTime />
       </div>
@@ -107,17 +127,18 @@ import {
   RecordingTime,
   StimulationControls,
   UploadFilesWidget,
+  MagFindAnalysisControl,
 } from "@curi-bio/mantarray-frontend-components";
 import { ipcRenderer } from "electron";
 import { mapState } from "vuex";
 const log = require("electron-log");
 import path from "path";
 import Vue from "vue";
-import BootstrapVue from "bootstrap-vue";
-import { VBPopover } from "bootstrap-vue";
+import { VBPopover, VBToggle, BCollapse } from "bootstrap-vue";
+
 // Note: Vue automatically prefixes the directive name with 'v-'
 Vue.directive("b-popover", VBPopover);
-Vue.use(BootstrapVue);
+Vue.directive("b-toggle", VBToggle);
 // const pkginfo = require('pkginfo')(module, 'version');
 const dummy_electron_app = {
   getVersion() {
@@ -136,6 +157,8 @@ export default {
     RecordingTime,
     StimulationControls,
     UploadFilesWidget,
+    MagFindAnalysisControl,
+    BCollapse,
   },
   data: function () {
     return {
@@ -148,7 +171,14 @@ export default {
     };
   },
   computed: {
-    ...mapState("settings", ["customer_account_ids", "customer_index", "allow_sw_update_install"]),
+    ...mapState("settings", [
+      "customer_account_ids",
+      "customer_index",
+      "allow_sw_update_install",
+      "recordings_list",
+      "root_recording_path",
+    ]),
+    ...mapState("playback", ["mag_find_analysis_state"]),
   },
   watch: {
     allow_sw_update_install: function () {
@@ -241,6 +271,31 @@ body {
   left: 289px;
 }
 
+/* ACCORDIAN*/
+#stim-studio-card {
+  padding-bottom: 10px;
+}
+#data-acquisition-card {
+  padding: 5px 0px 10px 0px;
+}
+.div__accordian-container {
+  top: 88px;
+  position: absolute;
+  width: 287px;
+}
+.button__accordian-tabs {
+  background-color: #000;
+  color: #b7b7b7;
+  font-family: Muli;
+  width: 287px;
+  height: 40px;
+  border-top: 2px solid #1c1c1c;
+  border-bottom: 2px solid #1c1c1c;
+  border-left: 1px solid #000;
+  border-right: 1px solid #000;
+}
+
+/* NON-SPECIFIC */
 .div__top-bar-above-waveforms {
   position: absolute;
   left: 289px;
@@ -248,15 +303,15 @@ body {
   height: 45px;
   width: 1629px;
 }
-.div__recording-status-container {
+.div__recording-top-bar-container {
   float: right;
   position: relative;
   height: 45px;
   width: 650px;
   display: flex;
   justify-content: space-between;
+  text-align: left;
 }
-
 .div__sidebar {
   background-color: #1c1c1c;
   position: absolute;
@@ -278,30 +333,36 @@ body {
   top: 45px;
   left: 0px;
 }
-.div__stim-barcode-container {
-  position: absolute;
-  top: 420px;
-  left: 0px;
-}
+
+/* DATA-ACQUISITION */
 .div__plate-navigator-container {
-  position: absolute;
-  top: 79px;
+  position: relative;
+  top: 0px;
   left: 0px;
 }
 .div__status-bar-container {
-  position: absolute;
-  top: 256px;
+  position: relative;
   left: 0px;
 }
 .div__player-controls-container {
-  position: absolute;
-  top: 300px;
+  position: relative;
   left: 0px;
+  /* top: 185px; */
 }
 
+/* STIM STUDIO */
+.div__stim-status-container {
+  position: relative;
+  margin-top: 8px;
+}
+.div__stim-barcode-container {
+  position: relative;
+  left: 0px;
+  margin-top: 10px;
+}
 .div__stimulation_controls-controls-icon-container {
-  position: absolute;
-  top: 505px;
+  position: relative;
+  margin-top: 3px;
   left: 0px;
 }
 .div__stimulation_controls-controls-icon-container--beta-1-mode {
@@ -319,6 +380,7 @@ body {
   opacity: 0;
 }
 
+/* SCREEN VIEW */
 .div__screen-view-container {
   position: absolute;
   width: 287px;
@@ -327,7 +389,7 @@ body {
   justify-items: center;
 }
 .div__screen-view-container--beta-2-mode {
-  top: 635px;
+  top: 680px;
 }
 .div__screen-view-container--beta-1-mode {
   top: 410px;
@@ -345,7 +407,7 @@ body {
   text-align: left;
 }
 .span__screen-view-options-text--beta-2-mode {
-  top: 605px;
+  top: 645px;
 }
 .span__screen-view-options-text--beta-1-mode {
   top: 376px;
@@ -358,6 +420,7 @@ body {
   grid-column: 2;
 }
 
+/* STIMULATION/COPYRIGHT */
 .div__simulation-mode-container {
   position: absolute;
   top: 875px;

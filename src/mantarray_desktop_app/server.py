@@ -346,6 +346,50 @@ def boot_up() -> Response:
     return response
 
 
+@flask_app.route("/get_recordings_list", methods=["GET"])
+def get_recordings() -> Response:
+    """Get list of recordings from root recordings directory.
+
+    Can be invoked by: curl http://localhost:4567/get_recordings_list
+    """
+    try:
+        recording_dir = _get_values_from_process_monitor()["config_settings"]["recording_directory"]
+    except KeyError:
+        return Response(status="400 No root recording directory was found")
+
+    recordings_list = [
+        dir
+        for dir in os.listdir(recording_dir)
+        if "failed_uploads" not in dir and "zipped_recordings" not in dir
+    ]
+    response_dict = {"recordings_list": recordings_list, "root_recording_path": recording_dir}
+
+    return Response(json.dumps(response_dict), mimetype="application/json")
+
+
+@flask_app.route("/start_mag_analysis", methods=["POST"])
+def run_mag_finding_analysis() -> Response:
+    """Route recieves list of recording paths to run analysis on locally.
+
+    Can be invoked by: curl http://localhost:4567/start_mag_analysis
+    """
+    try:
+        recording_rootdir = _get_values_from_process_monitor()["config_settings"]["recording_directory"]
+    except KeyError:
+        return Response(status="400 No root recording directory was found")
+
+    recording_paths = [
+        os.path.join(recording_rootdir, dirname) for dirname in request.get_json()["selected_recordings"]
+    ]
+
+    # TODO PERFORM WHATEVER ANALYSIS
+    sleep(3)  # for testing
+    return Response(
+        json.dumps({"paths": recording_paths, "req": request.get_json()["selected_recordings"]}),
+        mimetype="application/json",
+    )
+
+
 @flask_app.route("/update_settings", methods=["GET"])
 def update_settings() -> Response:
     """Update the customer/user settings.
