@@ -5,20 +5,57 @@
       <div class="div__plate-barcode-container">
         <BarcodeViewer />
       </div>
-
+      <div class="div__status-bar-container">
+        <StatusBar :confirmation_request="confirmation_request" @send_confirmation="send_confirmation" />
+      </div>
+      <div class="div__plate-navigator-container">
+        <PlateNavigator />
+      </div>
       <div class="div__accordian-container" role="tablist">
         <div role="tab">
           <button v-b-toggle.data-acquisition-card class="button__accordian-tabs">Data Acquisition</button>
         </div>
         <b-collapse id="data-acquisition-card" visible accordion="controls-accordion" role="tabpanel">
-          <div class="div__status-bar-container">
-            <StatusBar :confirmation_request="confirmation_request" @send_confirmation="send_confirmation" />
-          </div>
-          <div class="div__plate-navigator-container">
-            <PlateNavigator />
-          </div>
           <div class="div__player-controls-container">
             <DesktopPlayerControls @save_customer_id="save_customer_id" />
+          </div>
+          <div
+            class="div__screen-view-options-text"
+            :class="[
+              beta_2_mode
+                ? 'span__screen-view-options-text--beta-2-mode'
+                : 'span__screen-view-options-text--beta-1-mode',
+            ]"
+          >
+            Screen View Options
+          </div>
+          <div
+            class="div__screen-view-container"
+            :class="[
+              beta_2_mode
+                ? 'div__screen-view-container--beta-2-mode'
+                : 'div__screen-view-container--beta-1-mode',
+            ]"
+          >
+            <div class="div__waveform-screen-view">
+              <!-- Default view is waveform screen -->
+              <NuxtLink to="/">
+                <img
+                  v-b-popover.hover.bottom="'Click to view Live View'"
+                  :title="'Live View'"
+                  src="../assets/img/waveform-screen-view.png"
+                />
+              </NuxtLink>
+            </div>
+            <div class="div__heatmap-screen-view">
+              <NuxtLink to="/heatmap">
+                <img
+                  v-b-popover.hover.bottom="'Click to view Heat Map'"
+                  :title="'Heat Map'"
+                  src="../assets/img/heatmap-screen-view.png"
+                />
+              </NuxtLink>
+            </div>
           </div>
         </b-collapse>
         <div role="tab">
@@ -60,43 +97,6 @@
           <MagFindAnalysisControl />
         </b-collapse>
       </div>
-
-      <span
-        class="span__screen-view-options-text"
-        :class="[
-          beta_2_mode
-            ? 'span__screen-view-options-text--beta-2-mode'
-            : 'span__screen-view-options-text--beta-1-mode',
-        ]"
-      >
-        Screen View Options
-      </span>
-      <div
-        class="div__screen-view-container"
-        :class="[
-          beta_2_mode ? 'div__screen-view-container--beta-2-mode' : 'div__screen-view-container--beta-1-mode',
-        ]"
-      >
-        <div class="div__waveform-screen-view">
-          <!-- Default view is waveform screen -->
-          <NuxtLink to="/">
-            <img
-              v-b-popover.hover.bottom="'Click to view Live View'"
-              :title="'Live View'"
-              src="'../assets/img/waveform-screen-view.png'"
-            />
-          </NuxtLink>
-        </div>
-        <div class="div__heatmap-screen-view">
-          <NuxtLink to="/heatmap">
-            <img
-              v-b-popover.hover.bottom="'Click to view Heat Map'"
-              :title="'Heat Map'"
-              src="'../assets/img/heatmap-screen-view.png'"
-            />
-          </NuxtLink>
-        </div>
-      </div>
       <div class="div__simulation-mode-container">
         <SimulationMode />
       </div>
@@ -111,7 +111,6 @@
         <RecordingTime />
       </div>
     </div>
-
     <div class="div__nuxt-page">
       <nuxt />
     </div>
@@ -276,10 +275,10 @@ body {
   padding-bottom: 10px;
 }
 #data-acquisition-card {
-  padding: 5px 0px 10px 0px;
+  padding-top: 5px;
 }
 .div__accordian-container {
-  top: 88px;
+  top: 315px;
   position: absolute;
   width: 287px;
 }
@@ -333,21 +332,50 @@ body {
   top: 45px;
   left: 0px;
 }
-
-/* DATA-ACQUISITION */
+.div__status-bar-container {
+  position: absolute;
+  left: 0px;
+  top: 267px;
+}
 .div__plate-navigator-container {
-  position: relative;
-  top: 0px;
+  position: absolute;
+  top: 83px;
   left: 0px;
 }
-.div__status-bar-container {
+
+/* DATA-ACQUISITION */
+.div__screen-view-container {
   position: relative;
-  left: 0px;
+  width: 287px;
+  display: grid;
+  grid-template-columns: 50% 50%;
+  justify-items: center;
+}
+
+.div__screen-view-options-text {
+  line-height: 100%;
+  position: relative;
+  width: 207px;
+  height: 23px;
+  left: 11px;
+  padding: 5px;
+  user-select: none;
+  font-size: 16px;
+  color: #ffffff;
+  text-align: left;
+  margin: 10px;
+}
+
+.div__waveform-screen-view- {
+  grid-column: 1 / 2;
+}
+.div__heatmap-screen-view- {
+  grid-column: 2;
 }
 .div__player-controls-container {
   position: relative;
   left: 0px;
-  /* top: 185px; */
+  margin: 5px 0;
 }
 
 /* STIM STUDIO */
@@ -365,12 +393,7 @@ body {
   margin-top: 3px;
   left: 0px;
 }
-.div__stimulation_controls-controls-icon-container--beta-1-mode {
-  visibility: hidden;
-}
-.div__stimulation_controls-controls-icon-container--beta-2-mode {
-  visibility: visible;
-}
+
 .div__stim-studio-screen-view {
   position: absolute;
   top: 32px;
@@ -378,46 +401,6 @@ body {
   width: 44px;
   height: 44px;
   opacity: 0;
-}
-
-/* SCREEN VIEW */
-.div__screen-view-container {
-  position: absolute;
-  width: 287px;
-  display: grid;
-  grid-template-columns: 50% 50%;
-  justify-items: center;
-}
-.div__screen-view-container--beta-2-mode {
-  top: 680px;
-}
-.div__screen-view-container--beta-1-mode {
-  top: 410px;
-}
-.span__screen-view-options-text {
-  line-height: 100%;
-  position: absolute;
-  width: 207px;
-  height: 23px;
-  left: 11px;
-  padding: 5px;
-  user-select: none;
-  font-size: 16px;
-  color: #ffffff;
-  text-align: left;
-}
-.span__screen-view-options-text--beta-2-mode {
-  top: 645px;
-}
-.span__screen-view-options-text--beta-1-mode {
-  top: 376px;
-}
-
-.div__waveform-screen-view- {
-  grid-column: 1 / 2;
-}
-.div__heatmap-screen-view- {
-  grid-column: 2;
 }
 
 /* STIMULATION/COPYRIGHT */
