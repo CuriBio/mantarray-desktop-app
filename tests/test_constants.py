@@ -380,14 +380,14 @@ def test_system_status_uuids():
 
 def test_user_config():
     assert DEFAULT_USER_CONFIG == {
-        "customer_account_id": "",
-        "user_account_id": "",
+        "customer_id": "",
+        "user_id": "",
     }
     assert VALID_CONFIG_SETTINGS == frozenset(
         [
             "customer_account_uuid",
             "customer_pass_key",
-            "user_account_id",
+            "user_id",
             "recording_directory",
             "auto_upload",
             "auto_delete",

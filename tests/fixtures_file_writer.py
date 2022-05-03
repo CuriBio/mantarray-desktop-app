@@ -62,7 +62,6 @@ from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import TestingQueue
 
-from .fixtures import GENERIC_STORED_CUSTOMER_ID
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .fixtures_mc_simulator import get_null_subprotocol
 from .fixtures_mc_simulator import get_random_subprotocol
@@ -181,9 +180,9 @@ GENERIC_STOP_RECORDING_COMMAND: Dict[str, Any] = {
 GENERIC_UPDATE_CUSTOMER_SETTINGS: Dict[str, Any] = {
     "command": "update_customer_settings",
     "config_settings": {
-        "customer_account_id": "test_customer_id",
+        "customer_id": "test_customer_id",
         "customer_pass_key": "test_password",
-        "user_account_id": "test_user",
+        "user_id": "test_user",
         "auto_upload_on_completion": True,
         "auto_delete_local_files": False,
     },
@@ -271,11 +270,6 @@ def fixture_four_board_file_writer_process():
             to_main,
             error_queue,
             file_directory=tmp_dir,
-            stored_customer_settings={
-                "stored_customer_id": GENERIC_STORED_CUSTOMER_ID,
-                "zipped_recordings_dir": os.path.join(tmp_dir, "zipped_recordings"),
-                "failed_uploads_dir": os.path.join(tmp_dir, "failed_uploads"),
-            },
         )
         fw_items_dict = {
             "fw_process": fw_process,
@@ -307,11 +301,6 @@ def fixture_runnable_four_board_file_writer_process():
             to_main,
             error_queue,
             file_directory=tmp_dir,
-            stored_customer_settings={
-                "stored_customer_id": GENERIC_STORED_CUSTOMER_ID,
-                "zipped_recordings_dir": os.path.join(tmp_dir, "zipped_recordings"),
-                "failed_uploads_dir": os.path.join(tmp_dir, "failed_uploads"),
-            },
         )
         fw_items_dict = {
             "fw_process": fw_process,

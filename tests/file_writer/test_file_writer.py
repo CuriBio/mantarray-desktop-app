@@ -142,14 +142,16 @@ def test_FileWriterProcess__setup_before_loop__calls_super(four_board_file_write
 
 @pytest.mark.timeout(4)
 def test_FileWriterProcess__raises_error_if_unrecognized_command_from_main(
-    four_board_file_writer_process, mocker, patch_print
+    four_board_file_writer_process, patch_print
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     error_queue = four_board_file_writer_process["error_queue"]
+
+    test_command = "bad"
+
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "do the hokey pokey"},
-        from_main_queue,
+        {"command": test_command}, from_main_queue
     )
     file_writer_process.run(num_iterations=1)
     confirm_queue_is_eventually_of_size(error_queue, 1)
@@ -157,7 +159,7 @@ def test_FileWriterProcess__raises_error_if_unrecognized_command_from_main(
     raised_error, _ = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert isinstance(raised_error, UnrecognizedCommandFromMainToFileWriterError) is True
     err_str = str(raised_error)
-    assert "do the hokey pokey" in err_str
+    assert test_command in err_str
 
 
 def test_FileWriterProcess_soft_stop_not_allowed_if_command_from_main_still_in_queue(
@@ -728,7 +730,7 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
 
 
 def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_1_files_after_stop_recording(
-    four_board_file_writer_process, mocker
+    four_board_file_writer_process,
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     board_queues = four_board_file_writer_process["board_queues"]
@@ -769,10 +771,7 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_1_f
 
     # check that command is ignored # Tanner (1/12/21): no particular reason this command needs to be update_directory, but it's easy to test if this gets processed
     expected_new_dir = "dummy_dir"
-    update_dir_command = {
-        "command": "update_directory",
-        "new_directory": expected_new_dir,
-    }
+    update_dir_command = {"command": "update_directory", "new_directory": expected_new_dir}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(update_dir_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
     confirm_queue_is_eventually_of_size(from_main_queue, 1)
