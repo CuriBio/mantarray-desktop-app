@@ -248,3 +248,7 @@ class InstrumentFirmwareError(Exception):
 
 class FirmwareGoingDormantError(Exception):
     pass
+
+
+class CloudAnalysisJobFailedError(Exception):
+    pass
