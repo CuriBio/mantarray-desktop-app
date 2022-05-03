@@ -1007,8 +1007,8 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = UPDATES_NEEDED_STATE
 
-    test_customer_account_id = "id"
-    test_customer_pass_key = "pw"
+    test_customer_id = "id"
+    test_user_password = "pw"
 
     new_main_fw_version = "1.1.0"
     new_channel_fw_version = None
@@ -1017,7 +1017,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
         "channel": new_channel_fw_version,
     }
     if customer_creds_already_stored:
-        shared_values_dict["customer_creds"] = {"customer_account_id": "id", "customer_pass_key": "pw"}
+        shared_values_dict["customer_creds"] = {"customer_id": "id", "user_password": "pw"}
 
     board_idx = 0
     to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
@@ -1050,7 +1050,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
         # run another iteration to make sure system_status is not updated
         invoke_process_run_and_check_errors(monitor_thread)
         assert shared_values_dict["system_status"] == UPDATES_NEEDED_STATE
-        shared_values_dict["customer_creds"] = {"customer_account_id": "id", "customer_pass_key": "pw"}
+        shared_values_dict["customer_creds"] = {"customer_id": "id", "user_password": "pw"}
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == DOWNLOADING_UPDATES_STATE
     confirm_queue_is_eventually_of_size(to_ic_queue, 1)
@@ -1060,8 +1060,8 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
         "command": "download_firmware_updates",
         "main": new_main_fw_version,
         "channel": new_channel_fw_version,
-        "username": test_customer_account_id,
-        "password": test_customer_pass_key,
+        "username": test_customer_id,
+        "password": test_user_password,
     }
 
 

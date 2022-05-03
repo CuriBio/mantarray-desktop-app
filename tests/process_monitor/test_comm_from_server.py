@@ -224,8 +224,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     put_generic_beta_2_start_recording_info_in_dict(svd)
     # Tanner (12/10/21): deleting since these may not actually be set by the time this route is called
     del svd["utc_timestamps_of_beginning_of_data_acquisition"]
-    del svd["config_settings"]["customer_account_id"]
-    del svd["config_settings"]["user_account_id"]
+    del svd["config_settings"]["customer_id"]
+    del svd["config_settings"]["user_id"]
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -445,16 +445,16 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     new_account_id = "new_ai"
     new_pass_key = "new_pw"
 
-    shared_values_dict["config_settings"] = {"user_account_id": UUID("e623b13c-05a5-41f2-8526-c2eba8e78e7f")}
-    shared_values_dict["customer_creds"] = {"customer_account_id": "old_ai", "customer_pass_key": "old_pw"}
+    shared_values_dict["config_settings"] = {"user_id": UUID("e623b13c-05a5-41f2-8526-c2eba8e78e7f")}
+    shared_values_dict["customer_creds"] = {"customer_id": "old_ai", "user_password": "old_pw"}
 
     communication = {
         "communication_type": "update_customer_settings",
         "content": {
             "config_settings": {
-                "user_account_id": new_id,
-                "customer_account_id": new_account_id,
-                "customer_pass_key": new_pass_key,
+                "user_id": new_id,
+                "customer_id": new_account_id,
+                "user_password": new_pass_key,
             }
         },
     }
@@ -462,10 +462,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert shared_values_dict["config_settings"]["user_account_id"] == new_id
+    assert shared_values_dict["config_settings"]["user_id"] == new_id
     assert shared_values_dict["customer_creds"] == {
-        "customer_account_id": new_account_id,
-        "customer_pass_key": new_pass_key,
+        "customer_id": new_account_id,
+        "user_password": new_pass_key,
     }
 
 

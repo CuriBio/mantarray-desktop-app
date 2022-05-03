@@ -9,7 +9,6 @@ import hashlib
 import json
 import logging
 import multiprocessing
-import os
 from os import getpid
 import platform
 import queue
@@ -22,14 +21,11 @@ from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
-import uuid
 
 from eventlet.queue import Empty
 from eventlet.queue import LightQueue
 from stdlib_utils import configure_logging
-from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_port_in_use
-from stdlib_utils import resource_path
 
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
@@ -48,6 +44,7 @@ from .server import get_the_server_manager
 from .server import ServerManagerNotInitializedError
 from .server import socketio
 from .utils import redact_sensitive_info_from_path
+from .utils import upload_log_files_to_s3
 
 
 logger = logging.getLogger(__name__)
@@ -103,15 +100,9 @@ def _set_up_socketio_handlers(ws_queue: LightQueue) -> Callable[[], None]:
     return data_sender
 
 
-def _create_process_manager(shared_values_dict: Dict[str, Any]) -> MantarrayProcessesManager:
-    base_path = os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir)
-    relative_path = "recordings"
-    try:
-        file_dir = shared_values_dict["config_settings"]["recording_directory"]
-    except KeyError:
-        file_dir = resource_path(relative_path, base_path=base_path)
+def _create_process_manager(log_level: int, shared_values_dict: Dict[str, Any]) -> MantarrayProcessesManager:
 
-    return MantarrayProcessesManager(file_directory=file_dir, values_to_share_to_server=shared_values_dict)
+    return MantarrayProcessesManager(logging_level=log_level, values_to_share_to_server=shared_values_dict)
 
 
 def _log_system_info() -> None:
@@ -255,26 +246,24 @@ def main(
     shared_values_dict: Dict[str, Any] = dict()
     settings_dict: Dict[str, Any] = dict()
 
-    if parsed_args.initial_base64_settings:
-        # Eli (7/15/20): Moved this ahead of the exit for debug_test_post_build so that it could be easily unit tested. The equals signs are adding padding..apparently a quirk in python https://stackoverflow.com/questions/2941995/python-ignore-incorrect-padding-error-when-base64-decoding
-        decoded_settings: bytes = base64.urlsafe_b64decode(str(parsed_args.initial_base64_settings) + "===")
-        settings_dict = json.loads(decoded_settings)
-        shared_values_dict["config_settings"] = {
-            "recording_directory": settings_dict["recording_directory"],
-            "log_directory": path_to_log_folder,
-        }
-        shared_values_dict["stored_customer_settings"] = {
-            "stored_customer_id": settings_dict["stored_customer_id"],
-            "zipped_recordings_dir": settings_dict["zipped_recordings_dir"],
-            "failed_uploads_dir": settings_dict["failed_uploads_dir"],
-        }
+    # TODO remove base64 args and just add log_file_id and recording_directory as normal args
+    if not parsed_args.initial_base64_settings:
+        raise NotImplementedError("recording_directory must be specified in base64 cmd line args")
+
+    # Eli (7/15/20): Moved this ahead of the exit for debug_test_post_build so that it could be easily unit tested. The equals signs are adding padding..apparently a quirk in python https://stackoverflow.com/questions/2941995/python-ignore-incorrect-padding-error-when-base64-decoding
+    decoded_settings: bytes = base64.urlsafe_b64decode(str(parsed_args.initial_base64_settings) + "===")
+    settings_dict = json.loads(decoded_settings)
+    shared_values_dict["config_settings"] = {
+        "recording_directory": settings_dict["recording_directory"],
+        "log_directory": path_to_log_folder,
+    }
 
     if parsed_args.expected_software_version:
         if not parsed_args.skip_software_version_verification:
             shared_values_dict["expected_software_version"] = parsed_args.expected_software_version
 
-    log_file_uuid = settings_dict.get("log_file_uuid", uuid.uuid4())
-    shared_values_dict["log_file_uuid"] = log_file_uuid
+    log_file_id = settings_dict["log_file_id"]
+    shared_values_dict["log_file_id"] = log_file_id
 
     computer_name_hash = hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest()
     shared_values_dict["computer_name_hash"] = computer_name_hash
@@ -288,7 +277,7 @@ def main(
         shared_values_dict["stimulation_info"] = None
         shared_values_dict["stimulator_circuit_statuses"] = [None] * num_wells
 
-    msg = f"Log File UUID: {log_file_uuid}"
+    msg = f"Log File UUID: {log_file_id}"
     logger.info(msg)
     msg = f"SHA512 digest of Computer Name {computer_name_hash}"
     logger.info(msg)
@@ -311,8 +300,7 @@ def main(
     _log_system_info()
     logger.info("Spawning subprocesses")
 
-    process_manager = _create_process_manager(shared_values_dict)
-    process_manager.set_logging_level(log_level)
+    process_manager = _create_process_manager(log_level, shared_values_dict)
     object_access_for_testing["process_manager"] = process_manager
     object_access_for_testing["values_to_share_to_server"] = shared_values_dict
 
@@ -332,7 +320,7 @@ def main(
     process_monitor_error_queue: Queue[str] = queue.Queue()  # pylint: disable=unsubscriptable-object
 
     process_monitor_thread = MantarrayProcessesMonitor(
-        shared_values_dict,  # TODO Tanner (8/23/21): should eventually refactor so that process_monitor gets this from process_manager
+        shared_values_dict,
         process_manager,
         process_monitor_error_queue,
         the_lock,
@@ -364,7 +352,5 @@ def main(
     process_monitor_thread.soft_stop()
     process_monitor_thread.join()
     logger.info("Process monitor shut down")
+    upload_log_files_to_s3(shared_values_dict)  # TODO unit test
     logger.info("Program exiting")
-
-    # Tanner (8/23/21): unsure what this line was trying to achieve, so commenting it out for now until if/when problems arise
-    # process_manager.set_logging_level(logging.INFO)  # Eli (3/12/20) - this is really hacky...better solution is to allow setting the process manager back to its normal state

@@ -48,7 +48,6 @@ from ..fixtures import fixture_patched_test_xem_scripts_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import fixture_test_process_manager_creator
 from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
-from ..fixtures import GENERIC_STORED_CUSTOMER_ID
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
@@ -939,17 +938,16 @@ def test_update_settings__stores_values_in_shared_values_dict__and_recordings_fo
     spied_utils_logger = mocker.spy(utils.logger, "info")
 
     expected_customer_uuid = "test_id"
-    expected_customer_pass_key = "test_password"
+    expected_user_password = "test_password"
 
-    shared_values_dict["stored_customer_settings"] = {"stored_customer_id": GENERIC_STORED_CUSTOMER_ID}
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         response = test_client.get(
-            f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key={expected_customer_pass_key}&user_account_id=test_user&recording_directory={expected_recordings_dir}"
+            f"/update_settings?customer_id={expected_customer_uuid}&user_password={expected_user_password}&user_id=test_user&recording_directory={expected_recordings_dir}"
         )
         assert response.status_code == 200
         invoke_process_run_and_check_errors(monitor_thread)
 
-        assert shared_values_dict["config_settings"]["customer_account_id"] == expected_customer_uuid
+        assert shared_values_dict["config_settings"]["customer_id"] == expected_customer_uuid
         assert shared_values_dict["config_settings"]["recording_directory"] == expected_recordings_dir
         assert test_process_manager.get_file_directory() == expected_recordings_dir
 
@@ -973,23 +971,22 @@ def test_update_settings__replaces_only_new_values_in_shared_values_dict(
     mocker.patch.object(utils, "validate_customer_credentials", autospec=True)
 
     expected_customer_uuid = "test_id"
-    expected_customer_pass_key = "test_password"
+    expected_user_password = "test_password"
 
-    shared_values_dict["stored_customer_settings"] = {"stored_customer_id": GENERIC_STORED_CUSTOMER_ID}
     shared_values_dict["config_settings"] = {
-        "customer_account_id": "2dc06596-9cea-46a2-9ddd-a0d8a0f13584",
-        "customer_pass_key": "other_password",
-        "user_account_id": "other_user",
+        "customer_id": "2dc06596-9cea-46a2-9ddd-a0d8a0f13584",
+        "user_password": "other_password",
+        "user_id": "other_user",
     }
 
     response = test_client.get(
-        f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key={expected_customer_pass_key}&user_account_id=test_user"
+        f"/update_settings?customer_id={expected_customer_uuid}&user_password={expected_user_password}&user_id=test_user"
     )
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
 
-    assert shared_values_dict["config_settings"]["customer_account_id"] == expected_customer_uuid
-    assert shared_values_dict["config_settings"]["customer_pass_key"] == expected_customer_pass_key
+    assert shared_values_dict["config_settings"]["customer_id"] == expected_customer_uuid
+    assert shared_values_dict["config_settings"]["user_password"] == expected_user_password
 
 
 def test_update_settings__errors_when_any_combo_of_invalid_customer_credits_gets_checked_against_stored_pairs(
@@ -999,24 +996,22 @@ def test_update_settings__errors_when_any_combo_of_invalid_customer_credits_gets
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     expected_customer_uuid = "test_id"
-    expected_customer_pass_key = "test_password"
-
-    shared_values_dict["stored_customer_settings"] = {"stored_customer_id": GENERIC_STORED_CUSTOMER_ID}
+    expected_user_password = "test_password"
 
     response = test_client.get(
-        f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key=wrong_password&user_account_id=test_user"
+        f"/update_settings?customer_id={expected_customer_uuid}&user_password=wrong_password&user_id=test_user"
     )
     invoke_process_run_and_check_errors(monitor_thread)
     assert response.status_code == 401
 
     response = test_client.get(
-        f"/update_settings?customer_account_uuid=wrong_customer_id&customer_pass_key={expected_customer_pass_key}&user_account_id=test_user"
+        f"/update_settings?customer_id=wrong_customer_id&user_password={expected_user_password}&user_id=test_user"
     )
     invoke_process_run_and_check_errors(monitor_thread)
     assert response.status_code == 401
 
     response = test_client.get(
-        f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key={expected_customer_pass_key}&user_account_id=wrong_user"
+        f"/update_settings?customer_id={expected_customer_uuid}&user_password={expected_user_password}&user_id=wrong_user"
     )
     invoke_process_run_and_check_errors(monitor_thread)
     assert response.status_code == 200
@@ -1029,10 +1024,9 @@ def test_update_settings__errors_when_any_combo_of_invalid_customer_credits_gets
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     expected_customer_uuid = "new_id"
-    expected_customer_pass_key = "test_password"
-    shared_values_dict["stored_customer_settings"] = {"stored_customer_id": GENERIC_STORED_CUSTOMER_ID}
+    expected_user_password = "test_password"
     response = test_client.get(
-        f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key={expected_customer_pass_key}"
+        f"/update_settings?customer_id={expected_customer_uuid}&user_password={expected_user_password}"
     )
     invoke_process_run_and_check_errors(monitor_thread)
     assert response.status_code == 401
@@ -1040,7 +1034,7 @@ def test_update_settings__errors_when_any_combo_of_invalid_customer_credits_gets
     mocked_post = mocker.patch.object(requests, "post", autospec=True)
     mocked_post.return_value.status_code = 200
     response = test_client.get(
-        f"/update_settings?customer_account_uuid={expected_customer_uuid}&customer_pass_key={expected_customer_pass_key}"
+        f"/update_settings?customer_id={expected_customer_uuid}&user_password={expected_user_password}"
     )
     invoke_process_run_and_check_errors(monitor_thread)
     assert response.status_code == 200
@@ -1052,7 +1046,6 @@ def test_update_settings__returns_boolean_values_for_auto_upload_delete_values(
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
-    shared_values_dict["stored_customer_settings"] = {"stored_customer_id": GENERIC_STORED_CUSTOMER_ID}
     shared_values_dict["config_settings"] = {
         "auto_upload_on_completion": True,
         "auto_delete_local_files": False,
@@ -1066,23 +1059,7 @@ def test_update_settings__returns_boolean_values_for_auto_upload_delete_values(
     assert shared_values_dict["config_settings"]["auto_delete_local_files"] is True
 
 
-def test_shutdown__logs_will_only_be_uploaded_when_called_from_electron(
-    test_process_manager_creator, test_client, test_monitor, mocker
-):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, _, *_ = test_monitor(test_process_manager)
-
-    mocked_upload_util = mocker.patch.object(server, "upload_log_files_to_s3", autospec=True)
-
-    mocker.patch.object(server, "wait_for_subprocesses_to_stop", autospec=True)
-    mocker.patch.object(monitor_thread, "_hard_stop_and_join_processes_and_log_leftovers", autospec=True)
-
-    response = test_client.get("/shutdown?called_through_app_will_quit=true")
-    assert response.status_code == 200
-    invoke_process_run_and_check_errors(monitor_thread)
-    assert len(mocked_upload_util.call_args_list) == 1
-
-
+# TODO move the following 3 tests to another file
 def test_shutdown__log_files_will_not_be_uploaded_unless_customer_creds_have_been_entered(
     test_process_manager_creator, test_client, test_monitor, mocker
 ):
@@ -1107,8 +1084,8 @@ def test_shutdown__upload_of_log_files_will_log_if_error_in_upload_thread(
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     shared_values_dict["config_settings"] = {
-        "customer_account_id": "test_id",
-        "customer_pass_key": "test_pass",
+        "customer_id": "test_id",
+        "user_password": "test_pass",
         "log_directory": "/Users/fake/directory",
     }
     spied_utils_logger = mocker.spy(utils.logger, "error")
@@ -1129,8 +1106,8 @@ def test_shutdown__upload_of_log_files_will_log_success(
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     shared_values_dict["config_settings"] = {
-        "customer_account_id": "test_id",
-        "customer_pass_key": "test_pass",
+        "customer_id": "test_id",
+        "user_password": "test_pass",
         "log_directory": "/Users/fake/directory",
     }
     spied_utils_logger = mocker.spy(utils.logger, "info")
@@ -1154,7 +1131,6 @@ def test_single_update_settings_command_with_recording_dir__gets_processed_by_Fi
     to_fw_queue = test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
     from_fw_queue = test_process_manager.queue_container().get_communication_queue_from_file_writer_to_main()
 
-    shared_values_dict["stored_customer_settings"] = {"stored_customer_id": GENERIC_STORED_CUSTOMER_ID}
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         response = test_client.get(f"/update_settings?recording_directory={expected_recordings_dir}")
         assert response.status_code == 200

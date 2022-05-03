@@ -43,7 +43,6 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
 
     def __init__(
         self,
-        file_directory: str = "",
         logging_level: int = logging.INFO,
         values_to_share_to_server: Optional[Dict[str, Any]] = None,
     ) -> None:
@@ -62,8 +61,6 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self._data_analyzer_process: DataAnalyzerProcess
         self._all_processes: Optional[Dict[str, InfiniteProcess]] = None
         self._subprocesses_started: bool = False
-
-        self._file_directory: str = file_directory
         self.set_logging_level(logging_level)
 
     def set_logging_level(self, logging_level: int) -> None:
@@ -74,12 +71,6 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
 
     def queue_container(self) -> MantarrayQueueContainer:
         return self._queue_container
-
-    def get_file_directory(self) -> str:
-        return self._file_directory
-
-    def set_file_directory(self, file_dir: str) -> None:
-        self._file_directory = file_dir
 
     def get_logging_level(self) -> int:
         return self._logging_level
@@ -101,7 +92,6 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         queue_container = MantarrayQueueContainer()
         self._queue_container = queue_container
         beta_2_mode = self._values_to_share_to_server["beta_2_mode"]
-        stored_customer_settings = self._values_to_share_to_server.get("stored_customer_settings", None)
 
         self._server_manager = ServerManager(
             queue_container.get_communication_queue_from_server_to_main(),
@@ -123,10 +113,9 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             queue_container.get_communication_queue_from_main_to_file_writer(),
             queue_container.get_communication_queue_from_file_writer_to_main(),
             queue_container.get_file_writer_error_queue(),
-            file_directory=self._file_directory,
+            file_directory=self._values_to_share_to_server["config_settings"]["recording_directory"],
             logging_level=self._logging_level,
             beta_2_mode=beta_2_mode,
-            stored_customer_settings=stored_customer_settings,
         )
 
         self._data_analyzer_process = DataAnalyzerProcess(

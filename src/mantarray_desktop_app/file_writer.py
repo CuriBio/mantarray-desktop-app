@@ -244,7 +244,7 @@ class FileWriterProcess(InfiniteProcess):
         self._beta_2_mode = beta_2_mode
         self._num_wells = 24
         # upload values
-        self._customer_settings: Dict[str, Any] = {
+        self._config_settings: Dict[str, Any] = {
             "auto_upload_on_completion": False,
             "auto_delete_local_files": False,
         }
@@ -363,7 +363,7 @@ class FileWriterProcess(InfiniteProcess):
         This will not return the correct value after updating the
         customer settings of a running process.
         """
-        return self._customer_settings
+        return self._config_settings
 
     def is_recording(self) -> bool:
         """Mainly for use in unit tests.
@@ -485,7 +485,7 @@ class FileWriterProcess(InfiniteProcess):
                 }
             )
         elif command == "update_customer_settings":
-            self._customer_settings.update(communication["config_settings"])
+            self._config_settings.update(communication["config_settings"])
             to_main.put_nowait(
                 {"communication_type": "command_receipt", "command": "update_customer_settings"}
             )
@@ -797,9 +797,9 @@ class FileWriterProcess(InfiniteProcess):
             )
             # after all files are finalized, upload them if necessary
             if not self._is_recording_calibration:
-                if self._customer_settings["auto_upload_on_completion"]:
+                if self._config_settings["auto_upload_on_completion"]:
                     self._start_new_file_upload()
-                elif self._customer_settings["auto_delete_local_files"]:
+                elif self._config_settings["auto_delete_local_files"]:
                     self._delete_local_files(sub_dir=self._current_recording_dir)
 
     def _process_next_incoming_packet(self) -> None:
@@ -1128,10 +1128,10 @@ class FileWriterProcess(InfiniteProcess):
         unsuccessful, the file will get placed in failed_uploads
         directory to process later.
         """
-        auto_delete = self._customer_settings["auto_delete_local_files"]
-        customer_id = self._customer_settings["customer_id"]
-        user_id = self._customer_settings["user_id"]
-        customer_password = self._customer_settings["customer_pass_key"]
+        auto_delete = self._config_settings["auto_delete_local_files"]
+        customer_id = self._config_settings["customer_id"]
+        user_id = self._config_settings["user_id"]
+        customer_password = self._config_settings["user_password"]
 
         upload_thread = ErrorCatchingThread(
             target=uploader,
@@ -1176,7 +1176,7 @@ class FileWriterProcess(InfiniteProcess):
         If none exists, creates user directory in failed_uploads to
         place failed .zip files to process next start.
         """
-        user_id = self._customer_settings["user_id"]
+        user_id = self._config_settings["user_id"]
 
         user_failed_uploads_dir = os.path.join(self._failed_uploads_dir, user_id)
         if not os.path.exists(user_failed_uploads_dir):

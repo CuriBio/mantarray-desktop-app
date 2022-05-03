@@ -26,7 +26,6 @@ from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 import pytest
 
 from ..fixtures import fixture_generic_queue_container
-from ..fixtures import GENERIC_STORED_CUSTOMER_ID
 from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
@@ -513,9 +512,8 @@ def test_update_settings__returns_error_message_when_customer_creds_dont_make_st
     invalid_password = "invalid_pass"
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
 
-    shared_values_dict["stored_customer_settings"] = {"stored_customer_id": GENERIC_STORED_CUSTOMER_ID}
     response = test_client.get(
-        f"/update_settings?customer_account_uuid={valid_customer_id}&customer_pass_key={invalid_password}"
+        f"/update_settings?customer_id={valid_customer_id}&user_password={invalid_password}"
     )
     assert response.status_code == 401
     assert response.status.endswith(f"{repr(InvalidCustomerAccountIDPasswordError())}") is True
@@ -528,9 +526,8 @@ def test_update_settings__returns_200_code_when_customer_creds_matched_stored_pa
     valid_password = "test_password"
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
 
-    shared_values_dict["stored_customer_settings"] = {"stored_customer_id": GENERIC_STORED_CUSTOMER_ID}
     response = test_client.get(
-        f"/update_settings?customer_account_uuid={valid_customer_id}&customer_pass_key={valid_password}"
+        f"/update_settings?customer_id={valid_customer_id}&user_password={valid_password}"
     )
     assert response.status_code == 200
     assert response.status.endswith(f"{repr(InvalidCustomerAccountIDPasswordError())}") is False

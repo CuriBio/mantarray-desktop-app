@@ -23,7 +23,7 @@ Custom HTTP Error Codes:
 * 404 - Route not implemented
 * 406 - Call to /set_stim_status before protocol is set or while recording
 * 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
-* 406 - Call to /start_recording before customer_account_uuid and user_account_uuid are set
+* 406 - Call to /start_recording before customer_id and user_account_uuid are set
 * 520 - Call to /system_status when Electron and Flask EXE versions don't match
 """
 from __future__ import annotations
@@ -93,7 +93,6 @@ from .utils import check_barcode_for_errors
 from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
 from .utils import get_redacted_string
-from .utils import upload_log_files_to_s3
 from .utils import validate_customer_credentials
 from .utils import validate_settings
 
@@ -350,26 +349,22 @@ def boot_up() -> Response:
 def update_settings() -> Response:
     """Update the customer/user settings.
 
-    Can be invoked by: curl http://localhost:4567/update_settings?customer_account_uuid=<UUID>&user_account_id=<UUID>&recording_directory=<recording_dir>
-                       curl http://localhost:4567/update_settings?customer_account_uuid=<string>&customer_pass_key=<string>&user_account_id=<string>&auto_upload=<bool>&auto_delete=<bool>
+    Can be invoked by: curl http://localhost:4567/update_settings?customer_id=<UUID>&user_id=<UUID>&recording_directory=<recording_dir>
+                       curl http://localhost:4567/update_settings?customer_id=<string>&user_password=<string>&user_id=<string>&auto_upload=<bool>&auto_delete=<bool>
     """
     for arg in request.args:
         if arg not in VALID_CONFIG_SETTINGS:
-            response = Response(status=f"400 Invalid argument given: {arg}")
-            return response
+            return Response(status=f"400 Invalid argument given: {arg}")
 
     try:
         validate_settings(request.args)
-    except (RecordingFolderDoesNotExistError,) as e:
-        response = Response(status=f"400 {repr(e)}")
-        return response
+    except RecordingFolderDoesNotExistError as e:
+        return Response(status=f"400 {repr(e)}")
 
     try:
-        shared_values_dict = _get_values_from_process_monitor()
-        validate_customer_credentials(request.args, shared_values_dict)
-    except (InvalidCustomerAccountIDPasswordError,) as e:
-        response = Response(status=f"401 {repr(e)}")
-        return response
+        validate_customer_credentials(request.args)
+    except InvalidCustomerAccountIDPasswordError as e:
+        return Response(status=f"401 {repr(e)}")
 
     queue_command_to_main(
         {
@@ -1074,10 +1069,6 @@ def shutdown() -> Response:
     queue_command_to_main({"communication_type": "shutdown", "command": "hard_stop"})
     wait_for_subprocesses_to_stop()
 
-    if request.args.get("called_through_app_will_quit", None) is not None:
-        shared_values_dict = _get_values_from_process_monitor()
-        upload_log_files_to_s3(shared_values_dict)
-
     response = queue_command_to_main({"communication_type": "shutdown", "command": "shutdown_server"})
     return response
 
@@ -1123,7 +1114,7 @@ def after_request(response: Response) -> Response:
                 str(MANTARRAY_NICKNAME_UUID)
             ] = get_redacted_string(len(mantarray_nickname))
         if "update_settings" in rule.rule:
-            response_json["customer_pass_key"] = get_redacted_string(4)
+            response_json["user_password"] = get_redacted_string(4)
     msg = "Response to HTTP Request in next log entry: "
     if response.status_code == 200:
         # Tanner (1/19/21): using json.dumps instead of an f-string here allows us to perform better testing of our log messages by loading the json string to a python dict

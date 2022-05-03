@@ -14,7 +14,6 @@ from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import server
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
-from mantarray_desktop_app import utils
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.mc_simulator import MantarrayMcSimulator
@@ -993,11 +992,11 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][CUSTOMER_ACCOUNT_ID_UUID]
-        == shared_values_dict["config_settings"]["customer_account_id"]
+        == shared_values_dict["config_settings"]["customer_id"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][USER_ACCOUNT_ID_UUID]
-        == shared_values_dict["config_settings"]["user_account_id"]
+        == shared_values_dict["config_settings"]["user_id"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID]
@@ -1121,11 +1120,11 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][CUSTOMER_ACCOUNT_ID_UUID]
-        == shared_values_dict["config_settings"]["customer_account_id"]
+        == shared_values_dict["config_settings"]["customer_id"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][USER_ACCOUNT_ID_UUID]
-        == shared_values_dict["config_settings"]["user_account_id"]
+        == shared_values_dict["config_settings"]["user_id"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID]
@@ -1271,7 +1270,6 @@ def test_shutdown__sends_hard_stop_command__waits_for_subprocesses_to_stop__then
         mocked_queue_command.assert_called_once()
 
     mocked_wait = mocker.patch.object(server, "wait_for_subprocesses_to_stop", autospec=True, side_effect=se)
-    mocked_upload = mocker.patch.object(utils, "upload_log_files_to_s3", autospec=True)
     mocker.patch.object(server, "_get_values_from_process_monitor", autospec=True)
     test_client, test_server_info, _ = client_and_server_manager_and_shared_values
     test_server, _ = test_server_info

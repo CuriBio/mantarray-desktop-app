@@ -385,8 +385,8 @@ def test_user_config():
     }
     assert VALID_CONFIG_SETTINGS == frozenset(
         [
-            "customer_account_uuid",
-            "customer_pass_key",
+            "customer_id",
+            "user_password",
             "user_id",
             "recording_directory",
             "auto_upload",

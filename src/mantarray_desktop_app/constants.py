@@ -49,9 +49,9 @@ CURI_BIO_USER_ACCOUNT_ID = uuid.UUID("455b93eb-c78f-4494-9f73-d3291130f126")
 DEFAULT_USER_CONFIG = immutabledict({"customer_id": "", "user_id": ""})
 VALID_CONFIG_SETTINGS = frozenset(
     [
-        "customer_account_uuid",
+        "customer_id",
         "user_id",
-        "customer_pass_key",
+        "user_password",
         "recording_directory",
         "auto_upload",
         "auto_delete",

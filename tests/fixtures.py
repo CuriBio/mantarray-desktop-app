@@ -138,7 +138,6 @@ def fixture_test_process_manager_creator(mocker):
                 file_directory=tmp_dir,
                 values_to_share_to_server={
                     "beta_2_mode": beta_2_mode,
-                    "stored_customer_id": GENERIC_STORED_CUSTOMER_ID,
                     "config_settings": dict(),
                 },
             )

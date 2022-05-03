@@ -181,7 +181,7 @@ GENERIC_UPDATE_CUSTOMER_SETTINGS: Dict[str, Any] = {
     "command": "update_customer_settings",
     "config_settings": {
         "customer_id": "test_customer_id",
-        "customer_pass_key": "test_password",
+        "user_password": "test_password",
         "user_id": "test_user",
         "auto_upload_on_completion": True,
         "auto_delete_local_files": False,

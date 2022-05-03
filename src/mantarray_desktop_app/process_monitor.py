@@ -63,10 +63,8 @@ from .server import ServerManager
 from .utils import _compare_semver
 from .utils import _create_start_recording_command
 from .utils import _trim_barcode
-from .utils import attempt_to_get_recording_directory_from_new_dict
 from .utils import get_redacted_string
 from .utils import redact_sensitive_info_from_path
-from .utils import update_shared_dict
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +173,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             msg = f"Communication from the Server: {comm_copy}"
         elif "update_customer_settings" == communication["communication_type"]:
             comm_copy = copy.deepcopy(communication)
-            comm_copy["content"]["config_settings"]["customer_pass_key"] = get_redacted_string(4)
+            comm_copy["content"]["user_password"] = get_redacted_string(4)
             msg = f"Communication from the Server: {comm_copy}"
         else:
             msg = f"Communication from the Server: {communication}"
@@ -208,31 +206,28 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 raise NotImplementedError(f"Unrecognized shutdown command from Server: {command}")
         elif communication_type == "update_customer_settings":
             new_values = communication["content"]
-            new_recording_directory: Optional[str] = attempt_to_get_recording_directory_from_new_dict(
-                new_values
-            )
-            if new_recording_directory is not None:
+            if new_recording_directory := new_values.get("recording_directory"):
                 to_file_writer_queue = (
                     process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
                 )
                 to_file_writer_queue.put_nowait(
                     {"command": "update_directory", "new_directory": new_recording_directory}
                 )
-                process_manager.set_file_directory(new_recording_directory)
-            if "customer_account_id" in new_values["config_settings"]:
-                # Tanner (1/5/22): might make more sense to store these values under "stored_customer_settings"
+
+                scrubbed_recordings_dir = redact_sensitive_info_from_path(new_recording_directory)
+                logger.info(f"Using directory for recording files: {scrubbed_recordings_dir}")
+            if "customer_id" in new_values:
                 shared_values_dict["customer_creds"] = {
-                    "customer_account_id": new_values["config_settings"]["customer_account_id"],
-                    "customer_pass_key": new_values["config_settings"]["customer_pass_key"],
+                    "customer_id": new_values["customer_id"],
+                    "user_password": new_values["user_password"],
                 }
                 to_file_writer_queue = (
                     process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
                 )
                 to_file_writer_queue.put_nowait(
-                    {"command": "update_customer_settings", "config_settings": new_values["config_settings"]}
+                    {"command": "update_customer_settings", "config_settings": new_values}
                 )
-
-            update_shared_dict(shared_values_dict, new_values)
+            shared_values_dict["config_settings"].update(new_values)
         elif communication_type == "set_latest_software_version":
             shared_values_dict["latest_software_version"] = communication["version"]
             # send message to FE if an update is available
@@ -654,8 +649,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 "command": "download_firmware_updates",
                 "main": self._values_to_share_to_server["firmware_updates_needed"]["main"],
                 "channel": self._values_to_share_to_server["firmware_updates_needed"]["channel"],
-                "username": self._values_to_share_to_server["customer_creds"]["customer_account_id"],
-                "password": self._values_to_share_to_server["customer_creds"]["customer_pass_key"],
+                "username": self._values_to_share_to_server["customer_creds"]["customer_id"],
+                "password": self._values_to_share_to_server["customer_creds"]["user_password"],
             }
         )
 
@@ -728,7 +723,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 pass  # need to wait for this value
             elif self._values_to_share_to_server["firmware_update_accepted"]:
                 if "customer_creds" in self._values_to_share_to_server:
-                    if "customer_account_id" in self._values_to_share_to_server["customer_creds"]:
+                    if "customer_id" in self._values_to_share_to_server["customer_creds"]:
                         self._start_firmware_update()
                 else:
                     # Tanner (1/25/22): setting this value to empty dict to indicate that user input prompt has been sent
