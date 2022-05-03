@@ -55,11 +55,31 @@ def test_FileWriterProcess__does_not_start_upload_thread_after_all_calibration_f
     # mock so the functions don't actually run
     mocked_start_upload = mocker.patch.object(file_writer_process, "_start_new_file_upload", autospec=True)
 
-    file_writer_process._open_files[0][0] = mocker.MagicMock()  # pylint: disable=protected-access
-    file_writer_process._customer_settings = {"key": "val"}
-    file_writer_process._is_recording_calibration = True  # pylint: disable=protected-access
+    file_writer_process._open_files[0][0] = mocker.MagicMock()
+    file_writer_process._config_settings = {"auto_upload_on_completion": True}
+    file_writer_process._is_recording_calibration = True
 
-    file_writer_process._finalize_completed_files()  # pylint: disable=protected-access
+    file_writer_process._finalize_completed_files()
+    mocked_start_upload.assert_not_called()
+
+
+def test_FileWriterProcess__prevent_any_uploads_before_customer_settings_are_stored(
+    four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+
+    mocker.patch.object(
+        file_writer_process,
+        "get_recording_finalization_statuses",
+        autospec=True,
+        return_value=(({0: True},), ({0: True},)),
+    )
+    # mock so the functions don't actually run
+    mocked_start_upload = mocker.patch.object(file_writer_process, "_start_new_file_upload", autospec=True)
+
+    file_writer_process._open_files[0][0] = mocker.MagicMock()
+
+    file_writer_process._finalize_completed_files()
     mocked_start_upload.assert_not_called()
 
 
@@ -161,53 +181,6 @@ def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_fi
 
     assert mocked_rmdir.call_count == int(auto_delete)
     assert len(file_writer_process.get_upload_threads_container()) == 0
-
-
-def test_FileWriterProcess__correctly_kicks_off_upload_thread_on_setup_and_appends_to_container_with_specified_dict_values(
-    four_board_file_writer_process, mocker
-):
-    assert not "TODO"
-    # file_writer_process = four_board_file_writer_process["fw_process"]
-    # from_main_queue = four_board_file_writer_process["from_main_queue"]
-
-    # this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-    # put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
-
-    # mocker.patch.object(os, "listdir", return_value=["test_id"])
-    # mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
-    # mocker.patch.object(file_writer, "ErrorCatchingThread", autospec=True)
-
-    # file_writer_process._process_failed_upload_files_on_setup()  # pylint: disable=protected-access
-    # upload_threads_container = file_writer_process.get_upload_threads_container()
-    # assert upload_threads_container[0]["customer_id"] == "test_id"
-    # assert upload_threads_container[0]["failed_upload"] is True
-    # assert upload_threads_container[0]["auto_delete"] is False
-    # assert upload_threads_container[0]["file_name"] == "test_id"
-
-
-def test_FileWriterProcess__correctly_kicks_off_upload_thread_on_setup_and_will_only_upload_for_customer_account_in_store_with_password(
-    four_board_file_writer_process, mocker
-):
-    assert not "TODO"
-    # file_writer_process = four_board_file_writer_process["fw_process"]
-    # from_main_queue = four_board_file_writer_process["from_main_queue"]
-
-    # this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-    # put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
-
-    # mocker.patch.object(os, "listdir", return_value=["wrong_id"])
-    # mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
-    # mocker.patch.object(file_writer, "ErrorCatchingThread", autospec=True)
-
-    # file_writer_process._process_failed_upload_files_on_setup()  # pylint: disable=protected-access
-    # upload_threads_container = file_writer_process.get_upload_threads_container()
-    # assert len(upload_threads_container) == 0
-
-
-def test_FileWriterProcess__prevent_any_uploads_before_customer_settings_are_stored(
-    mocker, four_board_file_writer_process
-):
-    assert not "TODO"
 
 
 def test_FileWriterProcess__does_not_join_upload_thread_if_alive(four_board_file_writer_process, mocker):

@@ -112,13 +112,7 @@ __fixtures__ = [
 
 
 @pytest.mark.timeout(6)
-@pytest.mark.parametrize(
-    "test_beta_version,test_description",
-    [
-        (1, "beta 1 mode"),
-        (2, "beta 2 mode"),
-    ],
-)
+@pytest.mark.parametrize("test_beta_version,test_description", [(1, "beta 1 mode"), (2, "beta 2 mode")])
 def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_index__and_supplied_metadata__set_to_swmr_mode__when_receiving_communication_to_start_recording(
     test_beta_version,
     test_description,

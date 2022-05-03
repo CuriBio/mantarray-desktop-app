@@ -127,19 +127,12 @@ def fixture_test_process_manager_creator(mocker):
 
     def _foo(beta_2_mode=False, create_processes=True, use_testing_queues=False):
         if use_testing_queues:
-
-            def get_testing_queue():
-                return TestingQueue()
-
-            mocker.patch.object(queue_container, "Queue", autospec=True, side_effect=get_testing_queue)
+            mocker.patch.object(queue_container, "Queue", autospec=True, side_effect=lambda: TestingQueue())
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             manager = MantarrayProcessesManager(
                 file_directory=tmp_dir,
-                values_to_share_to_server={
-                    "beta_2_mode": beta_2_mode,
-                    "config_settings": dict(),
-                },
+                values_to_share_to_server={"beta_2_mode": beta_2_mode, "config_settings": dict()},
             )
             if use_testing_queues:
                 mocker.patch.object(

@@ -233,7 +233,8 @@ class FileWriterProcess(InfiniteProcess):
         fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
         ],
-        file_directory: str = "",
+        *,
+        file_directory: str,
         logging_level: int = logging.INFO,
         beta_2_mode: bool = False,
     ):
@@ -248,7 +249,7 @@ class FileWriterProcess(InfiniteProcess):
             "auto_upload_on_completion": False,
             "auto_delete_local_files": False,
         }
-        self._current_recording_dir: str = ""
+        self._current_recording_dir: Optional[str] = None
         self._upload_threads_container: List[Dict[str, Any]] = list()
         # general recording values
         self._file_directory = file_directory
@@ -296,6 +297,17 @@ class FileWriterProcess(InfiniteProcess):
         self._iterations_since_last_logging = 0
         self._num_recorded_points: List[int] = list()
         self._recording_durations: List[float] = list()
+
+    @property
+    def _file_directory(self):
+        return self.__file_directory
+
+    @_file_directory.setter
+    def _file_directory(self, value):
+        self.__file_directory = value
+        for new_dir in (self.__file_directory, self._zipped_files_dir, self._failed_uploads_dir):
+            if not os.path.isdir(new_dir):
+                os.makedirs(new_dir)
 
     @property
     def _zipped_files_dir(self) -> str:
@@ -392,8 +404,6 @@ class FileWriterProcess(InfiniteProcess):
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
-        # TODO make recording dirs if they don't exist already
-        # self._process_failed_upload_files()
 
     def _teardown_after_loop(self) -> None:
         to_main_queue = self._to_main_queue
@@ -1128,6 +1138,9 @@ class FileWriterProcess(InfiniteProcess):
         unsuccessful, the file will get placed in failed_uploads
         directory to process later.
         """
+        if self._current_recording_dir is None:
+            raise NotImplementedError("_current_recording_dir should never be None here")
+
         auto_delete = self._config_settings["auto_delete_local_files"]
         customer_id = self._config_settings["customer_id"]
         user_id = self._config_settings["user_id"]
@@ -1156,11 +1169,14 @@ class FileWriterProcess(InfiniteProcess):
         }
         self._upload_threads_container.append(thread_dict)
 
-    def _delete_local_files(self, sub_dir: str) -> None:
+    def _delete_local_files(self, sub_dir: Optional[str]) -> None:
         """Call after upload if true.
 
         Deletes entire recording directory containing h5 files.
         """
+        if sub_dir is None:
+            raise NotImplementedError("sub_dir should never be None here")
+
         file_folder_dir = os.path.join(os.path.abspath(self._file_directory), sub_dir)
 
         # Remove recording directory and all .h5 files

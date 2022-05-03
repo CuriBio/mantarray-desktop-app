@@ -85,20 +85,26 @@ def test_get_data_slice_within_timepoints__raises_not_implemented_error_if_no_la
 def test_FileWriterProcess_super_is_called_during_init(mocker):
     error_queue = Queue()
     mocked_init = mocker.patch.object(InfiniteProcess, "__init__")
-    FileWriterProcess((), Queue(), Queue(), error_queue, {})
+    with tempfile.TemporaryDirectory() as tmpdir:
+        FileWriterProcess((), Queue(), Queue(), error_queue, file_directory=tmpdir)
     mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
 
 
 def test_FileWriterProcess__creates_temp_dir_for_calibration_files_in_beta_2_mode_and_stores_dir_name(mocker):
-    spied_temp_dir = mocker.spy(file_writer.tempfile, "TemporaryDirectory")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        spied_temp_dir = mocker.spy(file_writer.tempfile, "TemporaryDirectory")
 
-    fw_process_beta_1 = FileWriterProcess((), Queue(), Queue(), Queue(), {}, beta_2_mode=False)
-    assert "calibration_file_directory" not in vars(fw_process_beta_1)
-    spied_temp_dir.assert_not_called()
+        fw_process_beta_1 = FileWriterProcess(
+            (), Queue(), Queue(), Queue(), file_directory=tmpdir, beta_2_mode=False
+        )
+        assert "calibration_file_directory" not in vars(fw_process_beta_1)
+        spied_temp_dir.assert_not_called()
 
-    fw_process_beta_2 = FileWriterProcess((), Queue(), Queue(), Queue(), {}, beta_2_mode=True)
-    spied_temp_dir.assert_called_once()
-    assert fw_process_beta_2.calibration_file_directory == spied_temp_dir.spy_return.name
+        fw_process_beta_2 = FileWriterProcess(
+            (), Queue(), Queue(), Queue(), file_directory=tmpdir, beta_2_mode=True
+        )
+        spied_temp_dir.assert_called_once()
+        assert fw_process_beta_2.calibration_file_directory == spied_temp_dir.spy_return.name
 
 
 def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue_for_board_0(
@@ -126,18 +132,10 @@ def test_FileWriterProcess_soft_stop_not_allowed_if_incoming_data_still_in_queue
 
 def test_FileWriterProcess__setup_before_loop__calls_super(four_board_file_writer_process, mocker):
     spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
-    spied_uploader = mocker.spy(file_uploader, "uploader")
     file_writer_process = four_board_file_writer_process["fw_process"]
-    mocked_file_upload = mocker.patch.object(
-        file_writer_process, "_process_failed_upload_files_on_setup", autospec=True
-    )
 
     invoke_process_run_and_check_errors(file_writer_process, perform_setup_before_loop=True)
     spied_setup.assert_called_once()
-    spied_uploader.assert_not_called()
-
-    invoke_process_run_and_check_errors(file_writer_process, perform_setup_before_loop=True)
-    assert len(mocked_file_upload.call_args_list) == 2
 
 
 @pytest.mark.timeout(4)
@@ -162,7 +160,61 @@ def test_FileWriterProcess__raises_error_if_unrecognized_command_from_main(
     assert test_command in err_str
 
 
-def test_FileWriterProcess_soft_stop_not_allowed_if_command_from_main_still_in_queue(
+@pytest.mark.parametrize("new_dir_exists", [True, False])
+@pytest.mark.parametrize("failed_exists", [True, False])
+@pytest.mark.parametrize("zipped_exists", [True, False])
+def test_FileWriterProcess__creates_new_subfolders_correctly_when_updating_file_dir(
+    new_dir_exists, failed_exists, zipped_exists, four_board_file_writer_process, mocker
+):
+    fw_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    def isdir_se(dir_name):
+        if "zipped" in dir_name:
+            return zipped_exists
+        if "failed" in dir_name:
+            return failed_exists
+        return new_dir_exists
+
+    mocked_isdir = mocker.patch.object(os.path, "isdir", autospec=True, side_effect=isdir_se)
+    mocked_makedirs = mocker.patch.object(os, "makedirs", autospec=True)
+
+    expected_new_dir = "dummy_dir"
+    update_dir_command = {"command": "update_directory", "new_directory": expected_new_dir}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(update_dir_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+
+    assert mocked_isdir.call_count == 3
+    assert mocked_makedirs.call_count == sum([not new_dir_exists, not zipped_exists, not failed_exists])
+    for dir_name, exists in (
+        (expected_new_dir, new_dir_exists),
+        (os.path.join(expected_new_dir, "zipped"), zipped_exists),
+        (os.path.join(expected_new_dir, "failed_uploads"), failed_exists),
+    ):
+        if exists:
+            assert mocker.call(dir_name) not in mocked_makedirs.call_args_list
+        else:
+            mocked_makedirs.assert_any_call(dir_name)
+
+
+def test_FileWriterProcess__recording_dirs_update_correctly(four_board_file_writer_process, mocker):
+    fw_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    # mock so no dirs are created
+    mocker.patch.object(os.path, "isdir", autospec=True, return_value=True)
+
+    expected_new_dir = "dummy_dir"
+    update_dir_command = {"command": "update_directory", "new_directory": expected_new_dir}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(update_dir_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+
+    assert fw_process._file_directory == expected_new_dir
+    assert fw_process._zipped_files_dir == os.path.join(expected_new_dir, "zipped")
+    assert fw_process._failed_uploads_dir == os.path.join(expected_new_dir, "failed_uploads")
+
+
+def test_FileWriterProcess__soft_stop_not_allowed_if_command_from_main_still_in_queue(
     four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -271,7 +323,7 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
     file_writer_process = four_board_file_writer_process["fw_process"]
     to_main_queue = four_board_file_writer_process["to_main_queue"]
 
-    expected_iteration_dur = 0.001 * 10**9
+    expected_iteration_dur = 0.001 * 10 ** 9
     expected_idle_time = expected_iteration_dur * FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
     expected_start_timepoint = 0
     expected_stop_timepoint = 2 * expected_iteration_dur * FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
@@ -294,7 +346,7 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
 
     file_writer_process._idle_iteration_time_ns = expected_iteration_dur  # pylint: disable=protected-access
     file_writer_process._minimum_iteration_duration_seconds = (  # pylint: disable=protected-access
-        2 * expected_iteration_dur / (10**9)
+        2 * expected_iteration_dur / (10 ** 9)
     )
     file_writer_process._start_timepoint_of_last_performance_measurement = (  # pylint: disable=protected-access
         expected_start_timepoint
@@ -391,10 +443,7 @@ def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cy
 @pytest.mark.slow
 @pytest.mark.parametrize(
     "test_beta_version,test_description",
-    [
-        (1, "logs correctly with beta 1 data"),
-        (2, "logs correctly with beta 2 data"),
-    ],
+    [(1, "logs correctly with beta 1 data"), (2, "logs correctly with beta 2 data")],
 )
 def test_FileWriterProcess__logs_metrics_of_data_recording_correctly(
     test_beta_version, test_description, four_board_file_writer_process, mocker
@@ -850,10 +899,7 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_f
 
     # check that command is ignored # Tanner (1/12/21): no particular reason this command needs to be update_directory, but it's easy to test if this gets processed
     expected_new_dir = "dummy_dir"
-    update_dir_command = {
-        "command": "update_directory",
-        "new_directory": expected_new_dir,
-    }
+    update_dir_command = {"command": "update_directory", "new_directory": expected_new_dir}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(update_dir_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
     confirm_queue_is_eventually_of_size(from_main_queue, 1)
