@@ -535,11 +535,12 @@ def test_update_settings__returns_correct_error_code_when_user_auth_fails(test_c
 
 
 def test_route_error_message_is_logged(mocker, test_client):
-    expected_error_msg = "400 Invalid argument given: a"
-
     mocked_logger = mocker.spy(server.logger, "info")
 
-    response = test_client.get("/update_settings?a=b")
+    bad_arg = "a"
+    expected_error_msg = f"400 Invalid argument given: {bad_arg}"
+
+    response = test_client.get(f"/update_settings?{bad_arg}=")
     assert response.status == expected_error_msg
 
     assert expected_error_msg in mocked_logger.call_args[0][0]

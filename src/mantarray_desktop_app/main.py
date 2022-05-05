@@ -348,5 +348,5 @@ def main(
     process_monitor_thread.soft_stop()
     process_monitor_thread.join()
     logger.info("Process monitor shut down")
-    upload_log_files_to_s3(shared_values_dict)  # TODO unit test
+    upload_log_files_to_s3(shared_values_dict["config_settings"])  # TODO unit test the call to this function
     logger.info("Program exiting")

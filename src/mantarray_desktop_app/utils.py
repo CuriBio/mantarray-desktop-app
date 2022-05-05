@@ -336,29 +336,30 @@ def set_this_process_high_priority() -> None:  # pragma: no cover
     p.nice(nice_value)
 
 
-def upload_log_files_to_s3(shared_values_dict: Dict[str, Any]) -> None:
-    # TODO fix this func
-    if "customer_id" not in shared_values_dict["config_settings"]:
-        logger.info("Log upload to s3 has been prevented because no customer account was found")
+def upload_log_files_to_s3(config_settings: Dict[str, str]) -> None:
+    if "customer_id" not in config_settings:
+        logger.info("Skipping upload of log files to s3 because no user creds were found")
         return
 
     logger.info("Attempting upload of log files to s3")
 
-    log_file_dir = shared_values_dict["config_settings"]["log_directory"]
-    sub_dir_name = os.path.basename(log_file_dir)
+    log_file_dir = config_settings["log_directory"]
     file_directory = os.path.dirname(log_file_dir)
-    with tempfile.TemporaryDirectory() as zipped_dir:
-        customer_id = shared_values_dict["config_settings"]["customer_id"]
-        user_password = shared_values_dict["config_settings"]["user_password"]
+    sub_dir_name = os.path.basename(log_file_dir)
 
+    customer_id = config_settings["customer_id"]
+    user_name = config_settings["user_name"]
+    user_password = config_settings["user_password"]
+
+    with tempfile.TemporaryDirectory() as zipped_dir:
         try:
-            uploader(file_directory, sub_dir_name, zipped_dir.name, customer_id, user_password),
+            uploader(file_directory, sub_dir_name, zipped_dir, customer_id, user_name, user_password),
         except Exception as e:
             logger.error(f"Failed to upload log files to s3: {repr(e)}")
         else:
             logger.info("Successfully uploaded session logs to s3 at shutdown")
 
 
-def _compare_semver(version_1: str, version_2: str) -> bool:
-    """Determine if Version 1 is greater than Version 2."""
-    return VersionInfo.parse(version_1) > VersionInfo.parse(version_2)  # type: ignore
+def _compare_semver(version_a: str, version_b: str) -> bool:
+    """Determine if Version A is greater than Version B."""
+    return VersionInfo.parse(version_a) > VersionInfo.parse(version_b)  # type: ignore
