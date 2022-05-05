@@ -14,33 +14,33 @@
       <div class="div__player-controls-container">
         <DesktopPlayerControls @save_customer_id="save_customer_id" />
       </div>
-      <div class="div__stim-barcode-container">
-        <BarcodeViewer :barcode_type="'stim_barcode'" />
-      </div>
-      <div class="div__status-bar-container" :style="'top: 455px;'">
-        <StatusBar
-          :confirmation_request="confirmation_request"
-          :stim_specific="true"
-          @send_confirmation="send_confirmation"
-        />
-      </div>
-      <div
-        class="div__stimulation_controls-controls-icon-container"
-        :class="[
-          beta_2_mode
-            ? 'div__stimulation_controls-controls-icon-container--beta-2-mode'
-            : 'div__stimulation_controls-controls-icon-container--beta-1-mode',
-        ]"
-      >
-        <StimulationControls />
-        <NuxtLink to="/stimulationstudio">
-          <div
-            v-b-popover.hover.bottom="'Click to view Stimulation Studio'"
-            :title="'Stimulation Studio'"
-            class="div__stim-studio-screen-view"
+
+      <!-- Beta 2 specific components -->
+      <div v-if="beta_2_mode">
+        <div class="div__stim-barcode-container">
+          <BarcodeViewer :barcode_type="'stim_barcode'" />
+        </div>
+        <div class="div__status-bar-container" :style="'top: 455px;'">
+          <StatusBar
+            :confirmation_request="confirmation_request"
+            :stim_specific="true"
+            @send_confirmation="send_confirmation"
           />
-        </NuxtLink>
+        </div>
+        <div
+          class="div__stimulation_controls-controls-icon-container"
+        >
+          <StimulationControls />
+          <NuxtLink to="/stimulationstudio">
+            <div
+              v-b-popover.hover.bottom="'Click to view Stimulation Studio'"
+              :title="'Stimulation Studio'"
+              class="div__stim-studio-screen-view"
+            />
+          </NuxtLink>
+        </div>
       </div>
+
       <span
         class="span__screen-view-options-text"
         :class="[
@@ -299,12 +299,6 @@ body {
   position: absolute;
   top: 505px;
   left: 0px;
-}
-.div__stimulation_controls-controls-icon-container--beta-1-mode {
-  visibility: hidden;
-}
-.div__stimulation_controls-controls-icon-container--beta-2-mode {
-  visibility: visible;
 }
 .div__stim-studio-screen-view {
   position: absolute;
