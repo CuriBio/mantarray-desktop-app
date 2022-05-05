@@ -527,11 +527,22 @@ def test_update_settings__returns_correct_error_code_when_user_auth_fails(test_c
     test_error = InvalidUserCredsError("msg")
 
     # mock so test doesn't hit cloud API
-    mocker.patch.object(server, "validate_user_credentials", autospec=True, side_effect=test_error)
+    mocked_validate = mocker.patch.object(
+        server, "validate_user_credentials", autospec=True, side_effect=test_error
+    )
 
-    response = test_client.get("/update_settings")
+    test_user_creds = {
+        "customer_id": "cid",
+        "user_name": "user",
+        "user_password": "pw",
+    }
+
+    response = test_client.get(f"/update_settings?{urllib.parse.urlencode(test_user_creds)}")
     assert response.status_code == 401
     assert repr(test_error) in response.status
+
+    mocked_validate.assert_called_once()
+    assert dict(mocked_validate.call_args[0][0]) == test_user_creds
 
 
 def test_route_error_message_is_logged(mocker, test_client):

@@ -7,8 +7,39 @@ from mantarray_desktop_app import get_current_software_version
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import redact_sensitive_info_from_path
 from mantarray_desktop_app import utils
+from mantarray_desktop_app.constants import CLOUD_API_ENDPOINT
+from mantarray_desktop_app.exceptions import InvalidUserCredsError
+from mantarray_desktop_app.utils import validate_user_credentials
 import pytest
 from stdlib_utils import get_current_file_abs_directory
+
+
+def test_validate_user_credentials__pings_cloud_api_to_validate_user_creds(mocker):
+    mocked_post = mocker.patch.object(utils.requests, "post", autospec=True)
+    mocked_post.return_value.status_code = 200
+
+    test_user_creds = {"customer_id": "cid", "user_name": "user", "user_password": "pw"}
+    validate_user_credentials(test_user_creds)
+
+    # rename keys before assertion
+    test_user_creds["username"] = test_user_creds.pop("user_name")
+    test_user_creds["password"] = test_user_creds.pop("user_password")
+
+    mocked_post.assert_called_with(f"https://{CLOUD_API_ENDPOINT}/users/login", json=test_user_creds)
+
+
+def test_validate_user_credentials__does_not_ping_cloud_api_if_customer_id_not_given(mocker):
+    mocked_post = mocker.patch.object(utils.requests, "post", autospec=True)
+    validate_user_credentials({})
+    mocked_post.assert_not_called()
+
+
+def test_validate_user_credentials__raises_error_if_creds_are_invalid(mocker):
+    mocked_post = mocker.patch.object(utils.requests, "post", autospec=True)
+    mocked_post.return_value.status_code = 401
+
+    with pytest.raises(InvalidUserCredsError):
+        validate_user_credentials({"customer_id": "cid", "user_name": "user", "user_password": "pw"})
 
 
 def test_get_current_software_version__Given_code_is_not_bundled__When_the_function_is_called__Then_it_returns_version_from_package_json():

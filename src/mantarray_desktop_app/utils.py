@@ -72,9 +72,7 @@ def validate_settings(settings_dict: Dict[str, Any]) -> None:
     Args:
         settings_dict: dictionary containing the new user configuration settings.
     """
-    recording_directory = settings_dict.get("recording_directory", None)
-
-    if recording_directory is not None:
+    if recording_directory := settings_dict.get("recording_directory"):
         if not os.path.isdir(recording_directory):
             raise RecordingFolderDoesNotExistError(recording_directory)
 
