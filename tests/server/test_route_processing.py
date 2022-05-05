@@ -6,7 +6,7 @@ import struct
 import tempfile
 
 from freezegun import freeze_time
-from mantarray_desktop_app import BUFFERING_STATE, process_monitor
+from mantarray_desktop_app import BUFFERING_STATE
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import get_redacted_string
@@ -15,14 +15,13 @@ from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import ok_comm
 from mantarray_desktop_app import process_manager
+from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import redact_sensitive_info_from_path
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import server
-from mantarray_desktop_app import utils
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
-from mantarray_desktop_app.exceptions import InvalidUserCredsError
 from mantarray_desktop_app.mc_simulator import MantarrayMcSimulator
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
@@ -30,7 +29,6 @@ from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
 import pytest
-import requests
 from stdlib_utils import confirm_parallelism_is_stopped
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors

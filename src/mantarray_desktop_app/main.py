@@ -295,7 +295,7 @@ def main(
     logger.info("Spawning subprocesses")
 
     process_manager = MantarrayProcessesManager(
-        logging_level=log_level, values_to_share_to_server=shared_values_dict
+        values_to_share_to_server=shared_values_dict, logging_level=log_level
     )
     object_access_for_testing["process_manager"] = process_manager
     object_access_for_testing["values_to_share_to_server"] = shared_values_dict

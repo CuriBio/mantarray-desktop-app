@@ -33,8 +33,9 @@ from stdlib_utils import confirm_port_available
 
 from ..fixtures import fixture_fully_running_app_from_main_entrypoint
 from ..fixtures import fixture_patched_firmware_folder
-from ..fixtures import fixture_patched_xem_scripts_folder, get_generic_base64_args
+from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
+from ..fixtures import get_generic_base64_args
 
 
 __fixtures__ = [
@@ -108,7 +109,6 @@ def test_main__logs_command_line_arguments(mocker):
         "beta_2_mode": False,
         "startup_test_options": None,
     }
-    print(spied_info_logger.call_args_list)
     spied_info_logger.assert_any_call(f"Command Line Args: {expected_cmd_line_args_dict}")
 
     for call_args in spied_info_logger.call_args_list:

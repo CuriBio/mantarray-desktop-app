@@ -299,11 +299,11 @@ class FileWriterProcess(InfiniteProcess):
         self._recording_durations: List[float] = list()
 
     @property
-    def _file_directory(self):
+    def _file_directory(self) -> str:
         return self.__file_directory
 
     @_file_directory.setter
-    def _file_directory(self, value):
+    def _file_directory(self, value: str) -> None:
         self.__file_directory = value
         if self.is_start_up_complete():  # TODO unit test
             self._check_dirs()
@@ -394,7 +394,7 @@ class FileWriterProcess(InfiniteProcess):
         """For use in unit tests."""
         return self._stim_data_buffers[board_idx]
 
-    def get_sub_dir_name(self) -> str:
+    def get_sub_dir_name(self) -> Optional[str]:
         """For use in unit tests."""
         return self._current_recording_dir
 

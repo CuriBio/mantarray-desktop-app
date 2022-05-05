@@ -59,7 +59,7 @@ const isRunningInBundle = () => {
   console.log(
     // allow-log
     "To determine if running in bundle, checking the path " +
-      main_utils.redact_username_from_logs(path_to_py_dist_folder),
+      main_utils.redact_username_from_logs(path_to_py_dist_folder)
   );
   return fs.existsSync(path_to_py_dist_folder);
 };
@@ -88,7 +88,7 @@ const start_python_subprocess = () => {
   }
 
   const redacted_args = command_line_args.map((a, i) =>
-    i == 0 ? main_utils.redact_username_from_logs(a) : a,
+    i == 0 ? main_utils.redact_username_from_logs(a) : a
   );
 
   console.log("sending command line args: " + redacted_args); // allow-log
@@ -96,13 +96,13 @@ const start_python_subprocess = () => {
     const script = getPythonScriptPath();
     console.log(
       // allow-log
-      "Launching compiled Python EXE at path: " + main_utils.redact_username_from_logs(script),
+      "Launching compiled Python EXE at path: " + main_utils.redact_username_from_logs(script)
     );
     const python_subprocess = require("child_process").execFile(script, command_line_args);
 
     wait_for_subprocess_to_complete = new Promise((resolve) => {
       python_subprocess.on("close", (code, signal) =>
-        resolve(`Subprocess exit code: ${code}: termination signal ${signal}`),
+        resolve(`Subprocess exit code: ${code}: termination signal ${signal}`)
       );
     });
   } else {
@@ -124,7 +124,7 @@ const start_python_subprocess = () => {
       "Launching Python interpreter to run script '" +
         py_file_name +
         "' with options: " +
-        JSON.stringify(redacted_options),
+        JSON.stringify(redacted_options)
     );
     const python_shell = new PythonShell(py_file_name, options);
 
@@ -238,7 +238,7 @@ app.on("will-quit", function (e) {
   const auto_install_str = autoUpdater.autoInstallOnAppQuit ? "enabled" : "disabled";
   console.log(
     // allow-log
-    "Automatic installation of SW updates after shutdown is " + auto_install_str,
+    "Automatic installation of SW updates after shutdown is " + auto_install_str
   );
 
   // Tanner (9/1/21): Need to prevent (default) app termination, wait for /shutdown response which confirms
@@ -256,7 +256,7 @@ app.on("will-quit", function (e) {
     .catch((response) => {
       console.log(
         // allow-log
-        `Error calling Flask shutdown from Electron main process: ${response.status} ${response.statusText}`,
+        `Error calling Flask shutdown from Electron main process: ${response.status} ${response.statusText}`
       );
       exit_app_clean();
     });

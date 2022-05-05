@@ -9,7 +9,6 @@ import time
 
 from freezegun import freeze_time
 import h5py
-from mantarray_desktop_app import file_uploader
 from mantarray_desktop_app import file_writer
 from mantarray_desktop_app import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import FileWriterProcess
@@ -323,7 +322,7 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
     file_writer_process = four_board_file_writer_process["fw_process"]
     to_main_queue = four_board_file_writer_process["to_main_queue"]
 
-    expected_iteration_dur = 0.001 * 10 ** 9
+    expected_iteration_dur = 0.001 * 10**9
     expected_idle_time = expected_iteration_dur * FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
     expected_start_timepoint = 0
     expected_stop_timepoint = 2 * expected_iteration_dur * FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
@@ -346,7 +345,7 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
 
     file_writer_process._idle_iteration_time_ns = expected_iteration_dur  # pylint: disable=protected-access
     file_writer_process._minimum_iteration_duration_seconds = (  # pylint: disable=protected-access
-        2 * expected_iteration_dur / (10 ** 9)
+        2 * expected_iteration_dur / (10**9)
     )
     file_writer_process._start_timepoint_of_last_performance_measurement = (  # pylint: disable=protected-access
         expected_start_timepoint

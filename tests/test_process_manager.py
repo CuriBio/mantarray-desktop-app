@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import logging
-import tempfile
 
 from mantarray_desktop_app import clear_the_server_manager
 from mantarray_desktop_app import DataAnalyzerProcess

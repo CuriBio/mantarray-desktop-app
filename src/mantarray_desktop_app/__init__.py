@@ -201,10 +201,10 @@ from .exceptions import InstrumentFirmwareError
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InvalidBeta2FlagOptionError
 from .exceptions import InvalidCommandFromMainError
-from .exceptions import InvalidUserCredsError
 from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidScriptCommandError
 from .exceptions import InvalidStopRecordingTimepointError
+from .exceptions import InvalidUserCredsError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import MismatchedScriptTypeError
 from .exceptions import MultiprocessingNotSetToSpawnError

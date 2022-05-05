@@ -27,9 +27,7 @@
             @send_confirmation="send_confirmation"
           />
         </div>
-        <div
-          class="div__stimulation_controls-controls-icon-container"
-        >
+        <div class="div__stimulation_controls-controls-icon-container">
           <StimulationControls />
           <NuxtLink to="/stimulationstudio">
             <div

@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
+import base64
+import json
 from multiprocessing import Queue as MPQueue
 import os
 from shutil import copy
-import tempfile, json, base64
+import tempfile
 import threading
 import time
 from time import perf_counter
@@ -79,7 +81,7 @@ def fixture_fully_running_app_from_main_entrypoint(mocker):
         if command_line_args is None:
             command_line_args = []
         if not any("--initial-base64-settings=" in arg for arg in command_line_args):
-            command_line_args.append(get_generic_base64_args())
+            command_line_args.append(get_generic_base64_args())  # type: ignore
 
         thread_access_inside_main: Dict[str, Any] = dict()
         main_thread = threading.Thread(

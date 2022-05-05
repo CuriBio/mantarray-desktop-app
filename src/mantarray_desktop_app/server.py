@@ -92,8 +92,8 @@ from .utils import check_barcode_for_errors
 from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
 from .utils import get_redacted_string
-from .utils import validate_user_credentials
 from .utils import validate_settings
+from .utils import validate_user_credentials
 
 
 logger = logging.getLogger(__name__)

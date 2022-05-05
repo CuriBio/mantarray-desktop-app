@@ -353,7 +353,7 @@ def upload_log_files_to_s3(config_settings: Dict[str, str]) -> None:
 
     with tempfile.TemporaryDirectory() as zipped_dir:
         try:
-            uploader(file_directory, sub_dir_name, zipped_dir, customer_id, user_name, user_password),
+            uploader(file_directory, sub_dir_name, zipped_dir, customer_id, user_name, user_password)
         except Exception as e:
             logger.error(f"Failed to upload log files to s3: {repr(e)}")
         else:

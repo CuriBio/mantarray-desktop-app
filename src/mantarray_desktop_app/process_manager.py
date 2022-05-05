@@ -43,8 +43,8 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
 
     def __init__(
         self,
+        values_to_share_to_server: Dict[str, Any],
         logging_level: int = logging.INFO,
-        values_to_share_to_server: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._queue_container: MantarrayQueueContainer
 
