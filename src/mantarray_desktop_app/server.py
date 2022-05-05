@@ -573,7 +573,7 @@ def start_recording() -> Response:
     shared_values_dict = _get_values_from_process_monitor()
 
     barcodes_to_check = ["plate_barcode"]
-    if shared_values_dict["beta_2_mode"] and _is_stimulating_on_any_well():  # TODO unit test
+    if shared_values_dict["beta_2_mode"] and _is_stimulating_on_any_well():
         barcodes_to_check.append("stim_barcode")
     # check that all required params are given before validating
     for barcode_type in barcodes_to_check:

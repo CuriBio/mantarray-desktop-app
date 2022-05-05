@@ -119,6 +119,7 @@ def test_get_latest_firmware_versions__calls_api_endpoint_correctly_and_returns_
 def test_download_firmware_updates__get_access_token_then_downloads_specified_firmware_files_and_returns_values_correctly(
     main_fw_update, channel_fw_update, mocker
 ):
+    test_customer_id = "id"
     test_username = "user"
     test_password = "pw"
     test_access_token = "access_token"
@@ -173,13 +174,14 @@ def test_download_firmware_updates__get_access_token_then_downloads_specified_fi
         test_result_dict,
         test_main_fw_to_download,
         test_channel_fw_to_download,
+        test_customer_id,
         test_username,
         test_password,
     )
 
     mocked_post.assert_called_once_with(
         f"https://{CLOUD_API_ENDPOINT}/users/login",
-        json={"username": test_username, "password": test_password},
+        json={"customer_id": test_customer_id, "username": test_username, "password": test_password},
     )
 
     assert mocked_call.call_count == 2 * (int(main_fw_update) + int(channel_fw_update))
@@ -206,13 +208,7 @@ def test_download_firmware_updates__get_access_token_then_downloads_specified_fi
 
 def test_download_firmware_updates__raises_error_if_no_updates_needed():
     with pytest.raises(FirmwareDownloadError, match="No firmware types specified"):
-        download_firmware_updates(
-            {},
-            None,
-            None,
-            "any user",
-            "any pw",
-        )
+        download_firmware_updates({}, None, None, "any customer id", "any user", "any pw")
 
 
 def test_McCommunicationProcess__handles_error_in_firmware_update_worker_thread(
@@ -222,12 +218,12 @@ def test_McCommunicationProcess__handles_error_in_firmware_update_worker_thread(
     from_main_queue, to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][:2]
 
     expected_error_msg = "error in thread"
-    mocker.patch.object(
-        mc_comm.ErrorCatchingThread, "get_error", autospec=True, return_value=expected_error_msg
-    )
 
+    def init_se(obj, target, args):
+        obj.error = expected_error_msg
+
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "__init__", autospec=True, side_effect=init_se)
     mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
-    mocker.patch.object(mc_comm.ErrorCatchingThread, "errors", autospec=True, return_value=True)
     # mock so thread will appear complete on the second iteration of mc_process
     mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, side_effect=[True, False])
 
@@ -272,11 +268,11 @@ def test_McCommunicationProcess__handles_successful_completion_of_get_latest_fir
 
     def init_se(obj, target, args):
         args[0].update({"latest_versions": expected_latest_versions})
+        obj.error = None
 
     # mock init so it populates output dict immediately
     mocker.patch.object(mc_comm.ErrorCatchingThread, "__init__", autospec=True, side_effect=init_se)
     mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
-    mocker.patch.object(mc_comm.ErrorCatchingThread, "errors", autospec=True, return_value=False)
     # mock so thread will appear complete on the second iteration of mc_process
     mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, side_effect=[True, False])
 
@@ -315,11 +311,11 @@ def test_McCommunicationProcess__handles_successful_completion_of_download_firmw
 
     def init_se(obj, target, args):
         args[0].update({"main": expected_main_fw_bytes, "channel": expected_channel_fw_bytes})
+        obj.error = None
 
     # mock init so it populates output dict immediately
     mocker.patch.object(mc_comm.ErrorCatchingThread, "__init__", autospec=True, side_effect=init_se)
     mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
-    mocker.patch.object(mc_comm.ErrorCatchingThread, "errors", autospec=True, return_value=False)
     # mock so thread will appear complete on the second iteration of mc_process
     mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, side_effect=[True, False])
 
@@ -329,6 +325,7 @@ def test_McCommunicationProcess__handles_successful_completion_of_download_firmw
         "command": "download_firmware_updates",
         "main": "1.0.0",
         "channel": "1.0.1",
+        "customer_id": "id",
         "username": "user",
         "password": "pw",
     }

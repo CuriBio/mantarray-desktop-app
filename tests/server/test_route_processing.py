@@ -1017,69 +1017,6 @@ def test_update_settings__returns_boolean_values_for_auto_upload_delete_values(
     assert shared_values_dict["config_settings"]["auto_delete_local_files"] is True
 
 
-# TODO move the following 3 tests to another file
-# def test_shutdown__log_files_will_not_be_uploaded_unless_customer_creds_have_been_entered(
-#     test_process_manager_creator, test_client, test_monitor, mocker
-# ):
-#     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-#     monitor_thread, _, *_ = test_monitor(test_process_manager)
-#     spied_utils_logger = mocker.spy(utils.logger, "info")
-
-#     mocker.patch.object(server, "wait_for_subprocesses_to_stop", autospec=True)
-#     mocker.patch.object(monitor_thread, "_hard_stop_and_join_processes_and_log_leftovers", autospec=True)
-
-#     response = test_client.get("/shutdown?called_through_app_will_quit=true")
-#     assert response.status_code == 200
-#     invoke_process_run_and_check_errors(monitor_thread)
-#     spied_utils_logger.assert_any_call(
-#         "Log upload to s3 has been prevented because no customer account was found"
-#     )
-
-
-# def test_shutdown__upload_of_log_files_will_log_if_error_in_upload_thread(
-#     test_process_manager_creator, test_client, test_monitor, mocker
-# ):
-#     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-#     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-#     shared_values_dict["config_settings"] = {
-#         "customer_id": "test_id",
-#         "user_password": "test_pass",
-#         "log_directory": "/Users/fake/directory",
-#     }
-#     spied_utils_logger = mocker.spy(utils.logger, "error")
-#     mocker.patch.object(utils, "uploader", autospec=True, side_effect=Exception("mocked_error"))
-
-#     mocker.patch.object(server, "wait_for_subprocesses_to_stop", autospec=True)
-#     mocker.patch.object(monitor_thread, "_hard_stop_and_join_processes_and_log_leftovers", autospec=True)
-
-#     response = test_client.get("/shutdown?called_through_app_will_quit=true")
-#     assert response.status_code == 200
-#     invoke_process_run_and_check_errors(monitor_thread)
-#     spied_utils_logger.assert_any_call("Failed to upload log files to s3: mocked_error")
-
-
-# def test_shutdown__upload_of_log_files_will_log_success(
-#     test_process_manager_creator, test_client, test_monitor, mocker
-# ):
-#     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-#     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-#     shared_values_dict["config_settings"] = {
-#         "customer_id": "test_id",
-#         "user_password": "test_pass",
-#         "log_directory": "/Users/fake/directory",
-#     }
-#     spied_utils_logger = mocker.spy(utils.logger, "info")
-#     mocker.patch.object(utils, "uploader", autospec=True, return_value=None)
-
-#     mocker.patch.object(server, "wait_for_subprocesses_to_stop", autospec=True)
-#     mocker.patch.object(monitor_thread, "_hard_stop_and_join_processes_and_log_leftovers", autospec=True)
-
-#     response = test_client.get("/shutdown?called_through_app_will_quit=true")
-#     assert response.status_code == 200
-#     invoke_process_run_and_check_errors(monitor_thread)
-#     spied_utils_logger.assert_any_call("Successfully uploaded session logs to s3 at shutdown")
-
-
 def test_single_update_settings_command_with_recording_dir__gets_processed_by_FileWriter(
     test_process_manager_creator, test_client, test_monitor, mocker
 ):

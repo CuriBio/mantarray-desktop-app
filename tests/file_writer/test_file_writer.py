@@ -83,10 +83,10 @@ def test_get_data_slice_within_timepoints__raises_not_implemented_error_if_no_la
 
 def test_FileWriterProcess_super_is_called_during_init(mocker):
     error_queue = Queue()
-    mocked_init = mocker.patch.object(InfiniteProcess, "__init__")
+    spied_init = mocker.spy(InfiniteProcess, "__init__")
     with tempfile.TemporaryDirectory() as tmpdir:
         FileWriterProcess((), Queue(), Queue(), error_queue, file_directory=tmpdir)
-    mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
+    spied_init.assert_called_once_with(mocker.ANY, error_queue, logging_level=logging.INFO)
 
 
 def test_FileWriterProcess__creates_temp_dir_for_calibration_files_in_beta_2_mode_and_stores_dir_name(mocker):
@@ -135,6 +135,16 @@ def test_FileWriterProcess__setup_before_loop__calls_super(four_board_file_write
 
     invoke_process_run_and_check_errors(file_writer_process, perform_setup_before_loop=True)
     spied_setup.assert_called_once()
+
+
+def test_FileWriterProcess__setup_before_loop__creates_recording_dirs_if_they_dont_exist(
+    four_board_file_writer_process, mocker
+):
+    spied_check_dirs = mocker.spy(FileWriterProcess, "_check_dirs")
+    file_writer_process = four_board_file_writer_process["fw_process"]
+
+    invoke_process_run_and_check_errors(file_writer_process, perform_setup_before_loop=True)
+    spied_check_dirs.assert_called_once()
 
 
 @pytest.mark.timeout(4)

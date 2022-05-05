@@ -997,10 +997,10 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
         }
 
 
-@pytest.mark.parametrize("customer_creds_already_stored", [True, False])
+@pytest.mark.parametrize("user_creds_already_stored", [True, False])
 @pytest.mark.parametrize("update_accepted", [True, False])
 def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_beta_2_mode_correctly(
-    update_accepted, customer_creds_already_stored, test_monitor, test_process_manager_creator
+    update_accepted, user_creds_already_stored, test_monitor, test_process_manager_creator
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
@@ -1008,7 +1008,14 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
     shared_values_dict["system_status"] = UPDATES_NEEDED_STATE
 
     test_customer_id = "id"
+    test_user_name = "un"
     test_user_password = "pw"
+
+    user_creds = {
+        "customer_id": test_customer_id,
+        "user_name": test_user_name,
+        "user_password": test_user_password,
+    }
 
     new_main_fw_version = "1.1.0"
     new_channel_fw_version = None
@@ -1016,9 +1023,8 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
         "main": new_main_fw_version,
         "channel": new_channel_fw_version,
     }
-    if customer_creds_already_stored:
-        # TODO
-        shared_values_dict["user_creds"] = {"customer_id": "id", "user_password": "pw"}
+    if user_creds_already_stored:
+        shared_values_dict["user_creds"] = user_creds
 
     board_idx = 0
     to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
@@ -1037,7 +1043,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
 
     assert shared_values_dict["system_status"] == UPDATES_NEEDED_STATE
     # store customer creds and run one more iteration
-    if not customer_creds_already_stored:  # TODO rename
+    if not user_creds_already_stored:
         # confirm precondition
         assert "user_creds" not in shared_values_dict
         # make sure user input prompt message is sent only once
@@ -1051,8 +1057,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
         # run another iteration to make sure system_status is not updated
         invoke_process_run_and_check_errors(monitor_thread)
         assert shared_values_dict["system_status"] == UPDATES_NEEDED_STATE
-        # TODO
-        shared_values_dict["user_creds"] = {"customer_id": "id", "user_password": "pw"}
+        shared_values_dict["user_creds"] = user_creds
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == DOWNLOADING_UPDATES_STATE
     confirm_queue_is_eventually_of_size(to_ic_queue, 1)
@@ -1062,7 +1067,8 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
         "command": "download_firmware_updates",
         "main": new_main_fw_version,
         "channel": new_channel_fw_version,
-        "username": test_customer_id,
+        "customer_id": test_customer_id,
+        "username": test_user_name,
         "password": test_user_password,
     }
 

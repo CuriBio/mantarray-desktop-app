@@ -217,9 +217,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 scrubbed_recordings_dir = redact_sensitive_info_from_path(new_recording_directory)
                 logger.info(f"Using directory for recording files: {scrubbed_recordings_dir}")
             if "customer_id" in new_values:
+                # TODO Tanner (5/5/22): should probably combine this with config_settings
                 shared_values_dict["user_creds"] = {
                     "customer_id": new_values["customer_id"],
-                    "user_name": new_values["user_name"],  # TODO test
+                    "user_name": new_values["user_name"],
                     "user_password": new_values["user_password"],
                 }
                 to_file_writer_queue = (
@@ -650,7 +651,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 "command": "download_firmware_updates",
                 "main": self._values_to_share_to_server["firmware_updates_needed"]["main"],
                 "channel": self._values_to_share_to_server["firmware_updates_needed"]["channel"],
-                # TODO test
                 "customer_id": self._values_to_share_to_server["user_creds"]["customer_id"],
                 "username": self._values_to_share_to_server["user_creds"]["user_name"],
                 "password": self._values_to_share_to_server["user_creds"]["user_password"],

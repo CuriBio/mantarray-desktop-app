@@ -305,7 +305,7 @@ class FileWriterProcess(InfiniteProcess):
     @_file_directory.setter
     def _file_directory(self, value: str) -> None:
         self.__file_directory = value
-        if self.is_start_up_complete():  # TODO unit test
+        if self.is_start_up_complete():
             self._check_dirs()
 
     @property
@@ -1200,47 +1200,6 @@ class FileWriterProcess(InfiniteProcess):
         # store failed zip file in failed uploads directory to check at next startup
         if os.path.exists(zipped_file):
             shutil.move(zipped_file, updated_zipped_file)
-
-    # def _process_failed_upload_files(self) -> None:
-    #     """Re-upload any failed files.
-
-    #     Intended to be called only once from setup_before_loop.
-
-    #     Will try to process all uploads in failed_uploads directory.
-    #     Will redirect processed .zip file after successful upload to
-    #     zipped_recordings directory, but will not move on error.
-    #     """
-    #     # TODO should probably only do this after a user logs in and only upload the files for that user
-    #     if not os.path.exists(self._failed_uploads_dir):
-    #         # TODO Tanner (11/9/21): should log if folder for failed uploads not found
-    #         return
-
-    #     for user_dir in os.listdir(self._failed_uploads_dir):
-    #         user_failed_uploads_dir = os.path.join(self._failed_uploads_dir, user_dir)
-
-    #         for file_name in os.listdir(user_failed_uploads_dir):
-    #             upload_thread = ErrorCatchingThread(
-    #                 target=uploader,
-    #                 args=(
-    #                     user_failed_uploads_dir,
-    #                     file_name,
-    #                     self._zipped_files_dir,
-    #                     stored_customer_id,
-    #                     user_dir,
-    #                     customer_passkey,
-    #                 ),
-    #             )
-    #             upload_thread.start()
-    #             thread_dict = {
-    #                 "failed_upload": True,
-    #                 "customer_id": stored_customer_id,
-    #                 "user_name": user_dir,
-    #                 "thread": upload_thread,
-    #                 "auto_delete": False,
-    #                 "file_name": file_name,
-    #             }
-    #             self._upload_threads_container.append(thread_dict)
-    #             # Lucy (10/22/2021): figure out how to handle if delete local files had been selected on original customer settings and how to handle the zip file
 
     def _check_upload_statuses(self) -> None:
         """Loops through active upload threads.
