@@ -1017,7 +1017,8 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
         "channel": new_channel_fw_version,
     }
     if customer_creds_already_stored:
-        shared_values_dict["customer_creds"] = {"customer_id": "id", "user_password": "pw"}
+        # TODO
+        shared_values_dict["user_creds"] = {"customer_id": "id", "user_password": "pw"}
 
     board_idx = 0
     to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
@@ -1036,21 +1037,22 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
 
     assert shared_values_dict["system_status"] == UPDATES_NEEDED_STATE
     # store customer creds and run one more iteration
-    if not customer_creds_already_stored:
+    if not customer_creds_already_stored:  # TODO rename
         # confirm precondition
-        assert "customer_creds" not in shared_values_dict
+        assert "user_creds" not in shared_values_dict
         # make sure user input prompt message is sent only once
         invoke_process_run_and_check_errors(monitor_thread, num_iterations=2)
         queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
         confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
         assert queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == {
             "data_type": "prompt_user_input",
-            "data_json": json.dumps({"input_type": "customer_creds"}),
+            "data_json": json.dumps({"input_type": "user_creds"}),
         }
         # run another iteration to make sure system_status is not updated
         invoke_process_run_and_check_errors(monitor_thread)
         assert shared_values_dict["system_status"] == UPDATES_NEEDED_STATE
-        shared_values_dict["customer_creds"] = {"customer_id": "id", "user_password": "pw"}
+        # TODO
+        shared_values_dict["user_creds"] = {"customer_id": "id", "user_password": "pw"}
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == DOWNLOADING_UPDATES_STATE
     confirm_queue_is_eventually_of_size(to_ic_queue, 1)

@@ -6,7 +6,7 @@ import struct
 import tempfile
 
 from freezegun import freeze_time
-from mantarray_desktop_app import BUFFERING_STATE
+from mantarray_desktop_app import BUFFERING_STATE, process_monitor
 from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import get_redacted_string
@@ -22,6 +22,7 @@ from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import server
 from mantarray_desktop_app import utils
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.exceptions import InvalidUserCredsError
 from mantarray_desktop_app.mc_simulator import MantarrayMcSimulator
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
@@ -935,24 +936,29 @@ def test_update_settings__stores_values_in_shared_values_dict__and_recordings_fo
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    spied_utils_logger = mocker.spy(utils.logger, "info")
+
+    spied_monitor_logger = mocker.spy(process_monitor.logger, "info")
+
+    # mock so test doesn't hit cloud API
+    mocker.patch.object(server, "validate_user_credentials", autospec=True)
 
     expected_customer_uuid = "test_id"
     expected_user_password = "test_password"
 
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         response = test_client.get(
-            f"/update_settings?customer_id={expected_customer_uuid}&user_password={expected_user_password}&user_id=test_user&recording_directory={expected_recordings_dir}"
+            f"/update_settings?customer_id={expected_customer_uuid}&user_password={expected_user_password}&user_name=test_user&recording_directory={expected_recordings_dir}"
         )
         assert response.status_code == 200
         invoke_process_run_and_check_errors(monitor_thread)
 
         assert shared_values_dict["config_settings"]["customer_id"] == expected_customer_uuid
         assert shared_values_dict["config_settings"]["recording_directory"] == expected_recordings_dir
-        assert test_process_manager.get_file_directory() == expected_recordings_dir
 
         scrubbed_recordings_dir = redact_sensitive_info_from_path(expected_recordings_dir)
-        spied_utils_logger.assert_any_call(f"Using directory for recording files: {scrubbed_recordings_dir}")
+        spied_monitor_logger.assert_any_call(
+            f"Using directory for recording files: {scrubbed_recordings_dir}"
+        )
 
     queue_from_main_to_file_writer = (
         test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
@@ -968,7 +974,9 @@ def test_update_settings__replaces_only_new_values_in_shared_values_dict(
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    mocker.patch.object(utils, "validate_customer_credentials", autospec=True)
+
+    # mock so test doesn't hit cloud API
+    mocker.patch.object(server, "validate_user_credentials", autospec=True)
 
     expected_customer_uuid = "test_id"
     expected_user_password = "test_password"
@@ -976,11 +984,11 @@ def test_update_settings__replaces_only_new_values_in_shared_values_dict(
     shared_values_dict["config_settings"] = {
         "customer_id": "2dc06596-9cea-46a2-9ddd-a0d8a0f13584",
         "user_password": "other_password",
-        "user_id": "other_user",
+        "user_name": "other_user",
     }
 
     response = test_client.get(
-        f"/update_settings?customer_id={expected_customer_uuid}&user_password={expected_user_password}&user_id=test_user"
+        f"/update_settings?customer_id={expected_customer_uuid}&user_password={expected_user_password}&user_name=test_user"
     )
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
@@ -989,62 +997,14 @@ def test_update_settings__replaces_only_new_values_in_shared_values_dict(
     assert shared_values_dict["config_settings"]["user_password"] == expected_user_password
 
 
-def test_update_settings__errors_when_any_combo_of_invalid_customer_credits_gets_checked_against_stored_pairs(
-    test_process_manager_creator, test_client, test_monitor, mocker
-):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-
-    expected_customer_uuid = "test_id"
-    expected_user_password = "test_password"
-
-    response = test_client.get(
-        f"/update_settings?customer_id={expected_customer_uuid}&user_password=wrong_password&user_id=test_user"
-    )
-    invoke_process_run_and_check_errors(monitor_thread)
-    assert response.status_code == 401
-
-    response = test_client.get(
-        f"/update_settings?customer_id=wrong_customer_id&user_password={expected_user_password}&user_id=test_user"
-    )
-    invoke_process_run_and_check_errors(monitor_thread)
-    assert response.status_code == 401
-
-    response = test_client.get(
-        f"/update_settings?customer_id={expected_customer_uuid}&user_password={expected_user_password}&user_id=wrong_user"
-    )
-    invoke_process_run_and_check_errors(monitor_thread)
-    assert response.status_code == 200
-
-
-def test_update_settings__errors_when_any_combo_of_invalid_customer_credits_gets_checked_against_users_login_route_in_cloud_api(
-    test_process_manager_creator, test_client, test_monitor, mocker
-):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-
-    expected_customer_uuid = "new_id"
-    expected_user_password = "test_password"
-    response = test_client.get(
-        f"/update_settings?customer_id={expected_customer_uuid}&user_password={expected_user_password}"
-    )
-    invoke_process_run_and_check_errors(monitor_thread)
-    assert response.status_code == 401
-
-    mocked_post = mocker.patch.object(requests, "post", autospec=True)
-    mocked_post.return_value.status_code = 200
-    response = test_client.get(
-        f"/update_settings?customer_id={expected_customer_uuid}&user_password={expected_user_password}"
-    )
-    invoke_process_run_and_check_errors(monitor_thread)
-    assert response.status_code == 200
-
-
 def test_update_settings__returns_boolean_values_for_auto_upload_delete_values(
     test_process_manager_creator, test_client, test_monitor, mocker
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+
+    # mock so test doesn't hit cloud API
+    mocker.patch.object(server, "validate_user_credentials", autospec=True)
 
     shared_values_dict["config_settings"] = {
         "auto_upload_on_completion": True,
@@ -1060,66 +1020,66 @@ def test_update_settings__returns_boolean_values_for_auto_upload_delete_values(
 
 
 # TODO move the following 3 tests to another file
-def test_shutdown__log_files_will_not_be_uploaded_unless_customer_creds_have_been_entered(
-    test_process_manager_creator, test_client, test_monitor, mocker
-):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, _, *_ = test_monitor(test_process_manager)
-    spied_utils_logger = mocker.spy(utils.logger, "info")
+# def test_shutdown__log_files_will_not_be_uploaded_unless_customer_creds_have_been_entered(
+#     test_process_manager_creator, test_client, test_monitor, mocker
+# ):
+#     test_process_manager = test_process_manager_creator(use_testing_queues=True)
+#     monitor_thread, _, *_ = test_monitor(test_process_manager)
+#     spied_utils_logger = mocker.spy(utils.logger, "info")
 
-    mocker.patch.object(server, "wait_for_subprocesses_to_stop", autospec=True)
-    mocker.patch.object(monitor_thread, "_hard_stop_and_join_processes_and_log_leftovers", autospec=True)
+#     mocker.patch.object(server, "wait_for_subprocesses_to_stop", autospec=True)
+#     mocker.patch.object(monitor_thread, "_hard_stop_and_join_processes_and_log_leftovers", autospec=True)
 
-    response = test_client.get("/shutdown?called_through_app_will_quit=true")
-    assert response.status_code == 200
-    invoke_process_run_and_check_errors(monitor_thread)
-    spied_utils_logger.assert_any_call(
-        "Log upload to s3 has been prevented because no customer account was found"
-    )
-
-
-def test_shutdown__upload_of_log_files_will_log_if_error_in_upload_thread(
-    test_process_manager_creator, test_client, test_monitor, mocker
-):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    shared_values_dict["config_settings"] = {
-        "customer_id": "test_id",
-        "user_password": "test_pass",
-        "log_directory": "/Users/fake/directory",
-    }
-    spied_utils_logger = mocker.spy(utils.logger, "error")
-    mocker.patch.object(utils, "uploader", autospec=True, side_effect=Exception("mocked_error"))
-
-    mocker.patch.object(server, "wait_for_subprocesses_to_stop", autospec=True)
-    mocker.patch.object(monitor_thread, "_hard_stop_and_join_processes_and_log_leftovers", autospec=True)
-
-    response = test_client.get("/shutdown?called_through_app_will_quit=true")
-    assert response.status_code == 200
-    invoke_process_run_and_check_errors(monitor_thread)
-    spied_utils_logger.assert_any_call("Failed to upload log files to s3: mocked_error")
+#     response = test_client.get("/shutdown?called_through_app_will_quit=true")
+#     assert response.status_code == 200
+#     invoke_process_run_and_check_errors(monitor_thread)
+#     spied_utils_logger.assert_any_call(
+#         "Log upload to s3 has been prevented because no customer account was found"
+#     )
 
 
-def test_shutdown__upload_of_log_files_will_log_success(
-    test_process_manager_creator, test_client, test_monitor, mocker
-):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    shared_values_dict["config_settings"] = {
-        "customer_id": "test_id",
-        "user_password": "test_pass",
-        "log_directory": "/Users/fake/directory",
-    }
-    spied_utils_logger = mocker.spy(utils.logger, "info")
-    mocker.patch.object(utils, "uploader", autospec=True, return_value=None)
+# def test_shutdown__upload_of_log_files_will_log_if_error_in_upload_thread(
+#     test_process_manager_creator, test_client, test_monitor, mocker
+# ):
+#     test_process_manager = test_process_manager_creator(use_testing_queues=True)
+#     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+#     shared_values_dict["config_settings"] = {
+#         "customer_id": "test_id",
+#         "user_password": "test_pass",
+#         "log_directory": "/Users/fake/directory",
+#     }
+#     spied_utils_logger = mocker.spy(utils.logger, "error")
+#     mocker.patch.object(utils, "uploader", autospec=True, side_effect=Exception("mocked_error"))
 
-    mocker.patch.object(server, "wait_for_subprocesses_to_stop", autospec=True)
-    mocker.patch.object(monitor_thread, "_hard_stop_and_join_processes_and_log_leftovers", autospec=True)
+#     mocker.patch.object(server, "wait_for_subprocesses_to_stop", autospec=True)
+#     mocker.patch.object(monitor_thread, "_hard_stop_and_join_processes_and_log_leftovers", autospec=True)
 
-    response = test_client.get("/shutdown?called_through_app_will_quit=true")
-    assert response.status_code == 200
-    invoke_process_run_and_check_errors(monitor_thread)
-    spied_utils_logger.assert_any_call("Successfully uploaded session logs to s3 at shutdown")
+#     response = test_client.get("/shutdown?called_through_app_will_quit=true")
+#     assert response.status_code == 200
+#     invoke_process_run_and_check_errors(monitor_thread)
+#     spied_utils_logger.assert_any_call("Failed to upload log files to s3: mocked_error")
+
+
+# def test_shutdown__upload_of_log_files_will_log_success(
+#     test_process_manager_creator, test_client, test_monitor, mocker
+# ):
+#     test_process_manager = test_process_manager_creator(use_testing_queues=True)
+#     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+#     shared_values_dict["config_settings"] = {
+#         "customer_id": "test_id",
+#         "user_password": "test_pass",
+#         "log_directory": "/Users/fake/directory",
+#     }
+#     spied_utils_logger = mocker.spy(utils.logger, "info")
+#     mocker.patch.object(utils, "uploader", autospec=True, return_value=None)
+
+#     mocker.patch.object(server, "wait_for_subprocesses_to_stop", autospec=True)
+#     mocker.patch.object(monitor_thread, "_hard_stop_and_join_processes_and_log_leftovers", autospec=True)
+
+#     response = test_client.get("/shutdown?called_through_app_will_quit=true")
+#     assert response.status_code == 200
+#     invoke_process_run_and_check_errors(monitor_thread)
+#     spied_utils_logger.assert_any_call("Successfully uploaded session logs to s3 at shutdown")
 
 
 def test_single_update_settings_command_with_recording_dir__gets_processed_by_FileWriter(

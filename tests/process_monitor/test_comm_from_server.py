@@ -225,7 +225,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     # Tanner (12/10/21): deleting since these may not actually be set by the time this route is called
     del svd["utc_timestamps_of_beginning_of_data_acquisition"]
     del svd["config_settings"]["customer_id"]
-    del svd["config_settings"]["user_id"]
+    del svd["config_settings"]["user_name"]
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -445,14 +445,15 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     new_account_id = "new_ai"
     new_pass_key = "new_pw"
 
-    shared_values_dict["config_settings"] = {"user_id": UUID("e623b13c-05a5-41f2-8526-c2eba8e78e7f")}
-    shared_values_dict["customer_creds"] = {"customer_id": "old_ai", "user_password": "old_pw"}
+    shared_values_dict["config_settings"] = {"user_name": UUID("e623b13c-05a5-41f2-8526-c2eba8e78e7f")}
+    # TODO
+    shared_values_dict["user_creds"] = {"customer_id": "old_ai", "user_password": "old_pw"}
 
     communication = {
-        "communication_type": "update_customer_settings",
+        "communication_type": "update_user_settings",
         "content": {
             "config_settings": {
-                "user_id": new_id,
+                "user_name": new_id,
                 "customer_id": new_account_id,
                 "user_password": new_pass_key,
             }
@@ -462,8 +463,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert shared_values_dict["config_settings"]["user_id"] == new_id
-    assert shared_values_dict["customer_creds"] == {
+    assert shared_values_dict["config_settings"]["user_name"] == new_id
+    assert shared_values_dict["user_creds"] == {  # TODO
         "customer_id": new_account_id,
         "user_password": new_pass_key,
     }
@@ -481,7 +482,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         communication = {
-            "communication_type": "update_customer_settings",
+            "communication_type": "update_user_settings",
             "content": {"config_settings": {"recording_directory": expected_recordings_dir}},
         }
 

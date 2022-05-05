@@ -59,7 +59,7 @@ from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_VOLTAGE
-from .exceptions import InvalidCustomerAccountIDPasswordError
+from .exceptions import InvalidUserCredsError
 from .exceptions import RecordingFolderDoesNotExistError
 from .file_uploader import uploader
 
@@ -79,7 +79,7 @@ def validate_settings(settings_dict: Dict[str, Any]) -> None:
             raise RecordingFolderDoesNotExistError(recording_directory)
 
 
-def validate_customer_credentials(request_args: Dict[str, Any]) -> None:
+def validate_user_credentials(request_args: Dict[str, Any]) -> None:
     """Validate users creds using cloud login.
 
     Args:
@@ -87,14 +87,14 @@ def validate_customer_credentials(request_args: Dict[str, Any]) -> None:
         shared_values_dict: dictionary containing stored customer settings.
     """
     if customer_id := request_args.get("customer_id"):
-        user_id = request_args["user_id"]
+        user_name = request_args["user_name"]
         user_password = request_args["user_password"]
         response = requests.post(
             f"https://{CLOUD_API_ENDPOINT}/users/login",
-            json={"customer_id": customer_id, "username": user_id, "password": user_password},
+            json={"customer_id": customer_id, "username": user_name, "password": user_password},
         )
         if response.status_code != 200:
-            raise InvalidCustomerAccountIDPasswordError()
+            raise InvalidUserCredsError()
 
 
 def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[str, Any]:
@@ -109,8 +109,8 @@ def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[st
         config_dict["customer_id"] = customer_id
     if user_password := request_args.get("user_password"):
         config_dict["user_password"] = user_password
-    if user_id := request_args.get("user_id"):
-        config_dict["user_id"] = user_id
+    if user_name := request_args.get("user_name"):
+        config_dict["user_name"] = user_name
     if recording_directory := request_args.get("recording_directory"):
         config_dict["recording_directory"] = recording_directory
     if auto_upload_on_completion := request_args.get("auto_upload"):
@@ -235,7 +235,7 @@ def _create_start_recording_command(
             barcode_match_dict[barcode_type] = NOT_APPLICABLE_H5_METADATA
 
     customer_id = shared_values_dict["config_settings"].get("customer_id", NOT_APPLICABLE_H5_METADATA)
-    user_id = shared_values_dict["config_settings"].get("user_id", NOT_APPLICABLE_H5_METADATA)
+    user_name = shared_values_dict["config_settings"].get("user_name", NOT_APPLICABLE_H5_METADATA)
 
     comm_dict: Dict[str, Any] = {
         "communication_type": "recording",
@@ -251,7 +251,7 @@ def _create_start_recording_command(
             START_RECORDING_TIME_INDEX_UUID: begin_time_index,
             UTC_BEGINNING_RECORDING_UUID: timestamp_of_begin_recording,
             CUSTOMER_ACCOUNT_ID_UUID: customer_id,
-            USER_ACCOUNT_ID_UUID: user_id,
+            USER_ACCOUNT_ID_UUID: user_name,
             SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
             SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
             MAIN_FIRMWARE_VERSION_UUID: shared_values_dict["main_firmware_version"][board_idx],

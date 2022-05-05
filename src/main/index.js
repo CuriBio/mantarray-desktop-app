@@ -26,9 +26,9 @@ const get_current_app_version = main_utils.get_current_app_version;
 const store = create_store();
 
 log.transports.file.resolvePath = () => {
-  const filename = main_utils.filename_prefix + "_main.txt";
+  const filename = main_utils.FILENAME_PREFIX + "_main.txt";
 
-  return path.join(path.dirname(store.path), "logs_flask", main_utils.filename_prefix, filename);
+  return path.join(path.dirname(store.path), "logs_flask", main_utils.FILENAME_PREFIX, filename);
 };
 console.log = log.log;
 console.error = log.error;
@@ -59,7 +59,7 @@ const isRunningInBundle = () => {
   console.log(
     // allow-log
     "To determine if running in bundle, checking the path " +
-      main_utils.redact_username_from_logs(path_to_py_dist_folder)
+      main_utils.redact_username_from_logs(path_to_py_dist_folder),
   );
   return fs.existsSync(path_to_py_dist_folder);
 };
@@ -88,7 +88,7 @@ const start_python_subprocess = () => {
   }
 
   const redacted_args = command_line_args.map((a, i) =>
-    i == 0 ? main_utils.redact_username_from_logs(a) : a
+    i == 0 ? main_utils.redact_username_from_logs(a) : a,
   );
 
   console.log("sending command line args: " + redacted_args); // allow-log
@@ -96,13 +96,13 @@ const start_python_subprocess = () => {
     const script = getPythonScriptPath();
     console.log(
       // allow-log
-      "Launching compiled Python EXE at path: " + main_utils.redact_username_from_logs(script)
+      "Launching compiled Python EXE at path: " + main_utils.redact_username_from_logs(script),
     );
     const python_subprocess = require("child_process").execFile(script, command_line_args);
 
     wait_for_subprocess_to_complete = new Promise((resolve) => {
       python_subprocess.on("close", (code, signal) =>
-        resolve(`Subprocess exit code: ${code}: termination signal ${signal}`)
+        resolve(`Subprocess exit code: ${code}: termination signal ${signal}`),
       );
     });
   } else {
@@ -124,7 +124,7 @@ const start_python_subprocess = () => {
       "Launching Python interpreter to run script '" +
         py_file_name +
         "' with options: " +
-        JSON.stringify(redacted_options)
+        JSON.stringify(redacted_options),
     );
     const python_shell = new PythonShell(py_file_name, options);
 
@@ -143,18 +143,13 @@ const boot_up_flask = function () {
 boot_up_flask();
 
 // save customer id after it's verified by /users/login
-ipcMain.on("save_customer_id", (e, customer_account) => {
+ipcMain.on("save_customer_id", (e, customer_id) => {
   e.reply("save_customer_id", 200);
-
-  const { cust_id, pass_key } = customer_account;
-  store.set("customer_account_id", {
-    id: cust_id,
-    password: pass_key,
-  });
+  store.set("customer_id", customer_id);
 });
 
 ipcMain.on("set_sw_update_auto_install", (e, enable_auto_install) => {
-  e.reply("save_customer_id", 200);
+  e.reply("set_sw_update_auto_install", 200);
 
   const action = enable_auto_install ? "Enabling" : "Disabling";
   console.log(action + " automatic installation of SW updates after shutdown"); // allow-log
@@ -243,7 +238,7 @@ app.on("will-quit", function (e) {
   const auto_install_str = autoUpdater.autoInstallOnAppQuit ? "enabled" : "disabled";
   console.log(
     // allow-log
-    "Automatic installation of SW updates after shutdown is " + auto_install_str
+    "Automatic installation of SW updates after shutdown is " + auto_install_str,
   );
 
   // Tanner (9/1/21): Need to prevent (default) app termination, wait for /shutdown response which confirms
@@ -261,7 +256,7 @@ app.on("will-quit", function (e) {
     .catch((response) => {
       console.log(
         // allow-log
-        `Error calling Flask shutdown from Electron main process: ${response.status} ${response.statusText}`
+        `Error calling Flask shutdown from Electron main process: ${response.status} ${response.statusText}`,
       );
       exit_app_clean();
     });
@@ -274,7 +269,7 @@ const exit_app_clean = () => {
 
   const wait_for_subprocess_to_complete_with_timeout = new Promise((resolve) => {
     wait_for_subprocess_to_complete.then((msg) => resolve(msg));
-    setTimeout(() => resolve("Backend not closed after timeout"), 5000);
+    setTimeout(() => resolve("Backend not closed after timeout"), 8000);
   });
   wait_for_subprocess_to_complete_with_timeout.then((msg) => {
     console.log(msg); // allow-log

@@ -33,7 +33,7 @@ from stdlib_utils import confirm_port_available
 
 from ..fixtures import fixture_fully_running_app_from_main_entrypoint
 from ..fixtures import fixture_patched_firmware_folder
-from ..fixtures import fixture_patched_xem_scripts_folder
+from ..fixtures import fixture_patched_xem_scripts_folder, get_generic_base64_args
 from ..fixtures import GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS
 
 
@@ -76,10 +76,7 @@ def test_main__redacts_log_file_dir_from_log_message_of_command_line_args(mocker
     with tempfile.TemporaryDirectory() as expected_log_file_dir:
         spied_info_logger = mocker.spy(main.logger, "info")
         main.main(
-            [
-                "--debug-test-post-build",
-                f"--log-file-dir={expected_log_file_dir}",
-            ]
+            ["--debug-test-post-build", f"--log-file-dir={expected_log_file_dir}", get_generic_base64_args()]
         )
 
         redacted_log_file_dir = redact_sensitive_info_from_path(expected_log_file_dir)
@@ -92,10 +89,11 @@ def test_main__redacts_log_file_dir_from_log_message_of_command_line_args(mocker
 
 
 def test_main__logs_command_line_arguments(mocker):
-
     spied_info_logger = mocker.spy(main.logger, "info")
 
-    main.main(["--debug-test-post-build", "--log-level-debug"])
+    base64_args = get_generic_base64_args()
+
+    main.main(["--debug-test-post-build", "--log-level-debug", base64_args])
 
     expected_cmd_line_args_dict = {
         "debug_test_post_build": True,
@@ -103,13 +101,14 @@ def test_main__logs_command_line_arguments(mocker):
         "skip_mantarray_boot_up": False,
         "port_number": None,
         "log_file_dir": None,
-        "initial_base64_settings": None,
+        "initial_base64_settings": base64_args.split("--initial-base64-settings=")[1],
         "expected_software_version": None,
         "no_load_firmware": False,
         "skip_software_version_verification": False,
         "beta_2_mode": False,
         "startup_test_options": None,
     }
+    print(spied_info_logger.call_args_list)
     spied_info_logger.assert_any_call(f"Command Line Args: {expected_cmd_line_args_dict}")
 
     for call_args in spied_info_logger.call_args_list:
@@ -120,14 +119,14 @@ def test_main__logs_command_line_arguments(mocker):
 def test_main_argparse_debug_test_post_build(mocker):
     # fails by hanging because Server would be started opened if not handled
     mocker.patch.object(main, "configure_logging", autospec=True)
-    main.main(["--debug-test-post-build"])
+    main.main(["--debug-test-post-build", get_generic_base64_args()])
 
 
 @pytest.mark.timeout(2)
 def test_main_configures_logging(mocker):
     spied_sf_init = mocker.spy(SensitiveFormatter, "__init__")
     mocked_configure_logging = mocker.patch.object(main, "configure_logging", autospec=True)
-    main.main(["--debug-test-post-build"])
+    main.main(["--debug-test-post-build", get_generic_base64_args()])
     mocked_configure_logging.assert_called_once_with(
         path_to_log_folder=None,
         log_file_prefix="mantarray_log",
@@ -148,11 +147,7 @@ def test_main__logs_system_info__and_software_version_at_very_start(
     with tempfile.TemporaryDirectory() as tmp:
         spied_info_logger = mocker.spy(main.logger, "info")
         expected_uuid = "c7d3e956-cfc3-42df-94d9-b3a19cf1529c"
-        test_dict = {
-            "log_file_id": expected_uuid,
-            "user_id": "455b93eb-c78f-4494-9f73-d3291130f126",
-            "recording_directory": f"/{tmp}",
-        }
+        test_dict = {"log_file_id": expected_uuid, "recording_directory": f"/{tmp}"}
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
         main.main(
@@ -310,7 +305,7 @@ def test_main__correctly_indicates_to_process_monitor_if_subprocesses_should_aut
 ):
     spied_init = mocker.spy(MantarrayProcessesMonitor, "__init__")
 
-    cmd_line_args = ["--startup-test-options", "no_subprocesses", "no_flask"]
+    cmd_line_args = ["--startup-test-options", "no_subprocesses", "no_flask", get_generic_base64_args()]
     if send_command_line_arg:
         cmd_line_args.append("--skip-mantarray-boot-up")
     main.main(cmd_line_args)
@@ -329,7 +324,7 @@ def test_main__correctly_indicates_to_process_monitor_that_ok_comm_automatically
 ):
     spied_init = mocker.spy(MantarrayProcessesMonitor, "__init__")
 
-    cmd_line_args = ["--startup-test-options", "no_subprocesses", "no_flask"]
+    cmd_line_args = ["--startup-test-options", "no_subprocesses", "no_flask", get_generic_base64_args()]
     if send_command_line_arg:
         cmd_line_args.append("--no-load-firmware")
     main.main(cmd_line_args)
@@ -387,7 +382,7 @@ def test_main__stores_and_logs_directory_for_log_files_from_command_line_argumen
 def test_main__stores_values_from_command_line_arguments(mocker, fully_running_app_from_main_entrypoint):
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         test_dict = {
-            "user_id": "455b93eb-c78f-4494-9f73-d3291130f126",
+            "user_name": "455b93eb-c78f-4494-9f73-d3291130f126",
             "recording_directory": expected_recordings_dir,
             "log_file_id": "91dbb151-0867-44da-a595-bd303f91927d",
         }
@@ -417,7 +412,13 @@ def test_main__stores_values_from_command_line_arguments(mocker, fully_running_a
 def test_main__puts_server_into_error_mode_if_expected_software_version_is_incorrect(mocker):
     access_dict = {}
     main.main(
-        ["--expected-software-version=0.0.0", "--startup-test-options", "no_flask", "no_subprocesses"],
+        [
+            "--expected-software-version=0.0.0",
+            "--startup-test-options",
+            "no_flask",
+            "no_subprocesses",
+            get_generic_base64_args(),
+        ],
         object_access_for_testing=access_dict,
     )
     shared_values_dict = access_dict["values_to_share_to_server"]
@@ -433,6 +434,7 @@ def test_main__when_launched_with_an_expected_software_version_but_also_the_flag
             "--startup-test-options",
             "no_flask",
             "no_subprocesses",
+            get_generic_base64_args(),
         ],
         object_access_for_testing=access_dict,
     )
@@ -504,7 +506,7 @@ def test_main__raises_error_if_port_in_use_before_starting_socketio(mocker):
 
     port = get_server_port_number()
     with pytest.raises(LocalServerPortAlreadyInUseError, match=str(port)):
-        main.main(["--startup-test-options", "no_subprocesses", "--beta-2-mode"])
+        main.main(["--startup-test-options", "no_subprocesses", "--beta-2-mode", get_generic_base64_args()])
     mocked_socketio_run.assert_not_called()
 
 

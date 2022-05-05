@@ -100,11 +100,6 @@ def _set_up_socketio_handlers(ws_queue: LightQueue) -> Callable[[], None]:
     return data_sender
 
 
-def _create_process_manager(log_level: int, shared_values_dict: Dict[str, Any]) -> MantarrayProcessesManager:
-
-    return MantarrayProcessesManager(logging_level=log_level, values_to_share_to_server=shared_values_dict)
-
-
 def _log_system_info() -> None:
     system_messages = list()
     uname = platform.uname()
@@ -165,7 +160,7 @@ def main(
     parser.add_argument(
         "--initial-base64-settings",
         type=str,
-        help="allow initial configuration of customer settings",
+        help="allow initial configuration of user settings",
     )
     parser.add_argument(
         "--expected-software-version",
@@ -246,9 +241,8 @@ def main(
     shared_values_dict: Dict[str, Any] = dict()
     settings_dict: Dict[str, Any] = dict()
 
-    # TODO remove base64 args and just add log_file_id and recording_directory as normal args
     if not parsed_args.initial_base64_settings:
-        raise NotImplementedError("recording_directory must be specified in base64 cmd line args")
+        raise NotImplementedError("initial_base64_settings must be specified in cmd line args")
 
     # Eli (7/15/20): Moved this ahead of the exit for debug_test_post_build so that it could be easily unit tested. The equals signs are adding padding..apparently a quirk in python https://stackoverflow.com/questions/2941995/python-ignore-incorrect-padding-error-when-base64-decoding
     decoded_settings: bytes = base64.urlsafe_b64decode(str(parsed_args.initial_base64_settings) + "===")
@@ -300,7 +294,9 @@ def main(
     _log_system_info()
     logger.info("Spawning subprocesses")
 
-    process_manager = _create_process_manager(log_level, shared_values_dict)
+    process_manager = MantarrayProcessesManager(
+        logging_level=log_level, values_to_share_to_server=shared_values_dict
+    )
     object_access_for_testing["process_manager"] = process_manager
     object_access_for_testing["values_to_share_to_server"] = shared_values_dict
 

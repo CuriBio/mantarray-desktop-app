@@ -565,6 +565,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                         self._fw_update_thread_dict,
                         comm_from_main["main"],
                         comm_from_main["channel"],
+                        comm_from_main["customer_id"],
                         comm_from_main["username"],
                         comm_from_main["password"],
                     ),

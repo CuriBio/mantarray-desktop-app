@@ -12,7 +12,7 @@ from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import create_and_close_beta_1_h5_files
 from ..fixtures_file_writer import fixture_four_board_file_writer_process
-from ..fixtures_file_writer import GENERIC_UPDATE_CUSTOMER_SETTINGS
+from ..fixtures_file_writer import GENERIC_UPDATE_USER_SETTINGS
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
@@ -27,17 +27,17 @@ def test_FileWriterProcess__updates_customer_settings_and_responds_to_main_queue
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     to_main_queue = four_board_file_writer_process["to_main_queue"]
 
-    this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    this_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     confirm_queue_is_eventually_of_size(from_main_queue, 1)
 
     invoke_process_run_and_check_errors(file_writer_process)
-    assert file_writer_process.get_customer_settings() == GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]
+    assert file_writer_process._user_settings == GENERIC_UPDATE_USER_SETTINGS["config_settings"]
 
     command_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert command_response == {
         "communication_type": "command_receipt",
-        "command": "update_customer_settings",
+        "command": "update_user_settings",
     }
 
 
@@ -56,7 +56,7 @@ def test_FileWriterProcess__does_not_start_upload_thread_after_all_calibration_f
     mocked_start_upload = mocker.patch.object(file_writer_process, "_start_new_file_upload", autospec=True)
 
     file_writer_process._open_files[0][0] = mocker.MagicMock()
-    file_writer_process._config_settings = {"auto_upload_on_completion": True}
+    file_writer_process._user_settings = {"auto_upload_on_completion": True}
     file_writer_process._is_recording_calibration = True
 
     file_writer_process._finalize_completed_files()
@@ -98,7 +98,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_previously_fail
     thread_dict = {
         "failed_upload": True,
         "customer_id": "test_customer_id",
-        "user_id": "test_user",
+        "user_name": "test_user",
         "thread": mocked_ect.return_value,
         "auto_delete": False,
         "file_name": "test_filename",
@@ -118,7 +118,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_fi
     file_writer_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    this_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
 
     invoke_process_run_and_check_errors(file_writer_process)
@@ -134,7 +134,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_fi
     thread_dict = {
         "failed_upload": False,
         "customer_id": "test_customer_id",
-        "user_id": "test_user",
+        "user_name": "test_user",
         "thread": mocked_ect.return_value,
         "auto_delete": False,
         "file_name": "test_filename",
@@ -155,7 +155,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_fi
     file_writer_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    this_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
 
     invoke_process_run_and_check_errors(file_writer_process)
@@ -170,7 +170,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_fi
     thread_dict = {
         "failed_upload": False,
         "customer_id": "test_customer_id",
-        "user_id": "test_user",
+        "user_name": "test_user",
         "thread": mocked_ect.return_value,
         "auto_delete": auto_delete,
         "file_name": "test/file/name",
@@ -192,9 +192,9 @@ def test_FileWriterProcess__does_not_join_upload_thread_if_alive(four_board_file
 
     mocker.patch.object(file_writer.ErrorCatchingThread, "is_alive", autospec=True, return_value=True)
 
-    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_upload_on_completion"] = True
-    GENERIC_UPDATE_CUSTOMER_SETTINGS["config_settings"]["auto_delete_local_files"] = False
-    this_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
+    GENERIC_UPDATE_USER_SETTINGS["config_settings"]["auto_upload_on_completion"] = True
+    GENERIC_UPDATE_USER_SETTINGS["config_settings"]["auto_delete_local_files"] = False
+    this_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -209,10 +209,10 @@ def test_FileWriterProcess__upload_thread_gets_added_to_container_after_all_file
     mocker.patch.object(file_writer.ErrorCatchingThread, "start", autospec=True)
     mocker.patch.object(file_writer.ErrorCatchingThread, "is_alive", autospec=True, return_value=True)
 
-    update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-    update_customer_settings_command["config_settings"]["auto_delete_local_files"] = False
-    update_customer_settings_command["config_settings"]["auto_upload_on_completion"] = True
-    create_and_close_beta_1_h5_files(four_board_file_writer_process, update_customer_settings_command)
+    update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+    update_user_settings_command["config_settings"]["auto_delete_local_files"] = False
+    update_user_settings_command["config_settings"]["auto_upload_on_completion"] = True
+    create_and_close_beta_1_h5_files(four_board_file_writer_process, update_user_settings_command)
 
     board_idx = 0
     assert file_writer_process.get_stop_recording_timestamps()[board_idx] is not None
@@ -232,8 +232,8 @@ def test_FileWriterProcess__upload_thread_errors_sent_to_main_correctly(
     mocked_ect = mocker.patch.object(file_writer, "ErrorCatchingThread", autospec=True)
     mocked_ect.return_value.error = "error"
 
-    update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-    create_and_close_beta_1_h5_files(four_board_file_writer_process, update_customer_settings_command)
+    update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+    create_and_close_beta_1_h5_files(four_board_file_writer_process, update_user_settings_command)
     sub_dir_name = file_writer_process.get_sub_dir_name()
 
     board_idx = 0
@@ -262,12 +262,12 @@ def test_FileWriterProcess__no_upload_threads_are_started_when_auto_upload_is_fa
 
     test_well_indices = [4, 5]
 
-    update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-    update_customer_settings_command["config_settings"]["auto_delete_local_files"] = auto_delete
-    update_customer_settings_command["config_settings"]["auto_upload_on_completion"] = False
+    update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+    update_user_settings_command["config_settings"]["auto_delete_local_files"] = auto_delete
+    update_user_settings_command["config_settings"]["auto_upload_on_completion"] = False
     list_to_main_queue = create_and_close_beta_1_h5_files(
         four_board_file_writer_process,
-        update_customer_settings_command,
+        update_user_settings_command,
         active_well_indices=test_well_indices,
     )
 
@@ -290,12 +290,12 @@ def test_FileWriterProcess__status_successfully_gets_added_to_main_queue_when_au
     mocked_ect.return_value.error = None
     mocked_ect.return_value.is_alive.return_value = True
 
-    update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-    update_customer_settings_command["config_settings"]["auto_delete_local_files"] = True
-    update_customer_settings_command["config_settings"]["auto_upload_on_completion"] = True
+    update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+    update_user_settings_command["config_settings"]["auto_delete_local_files"] = True
+    update_user_settings_command["config_settings"]["auto_upload_on_completion"] = True
     create_and_close_beta_1_h5_files(
         four_board_file_writer_process,
-        update_customer_settings_command,
+        update_user_settings_command,
         active_well_indices=test_well_indices,
     )
 

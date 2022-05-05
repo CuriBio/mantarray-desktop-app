@@ -30,7 +30,7 @@ class UnrecognizedCommandFromMainToOkCommError(Exception):
     pass
 
 
-class InvalidCustomerAccountIDPasswordError(Exception):
+class InvalidUserCredsError(Exception):
     pass
 
 

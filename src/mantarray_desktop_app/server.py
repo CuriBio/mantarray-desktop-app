@@ -11,7 +11,7 @@ Custom HTTP Error Codes:
 * 400 - Call to /insert_xem_command_into_queue/set_mantarray_serial_number with invalid serial_number parameter
 * 400 - Call to /set_protocols with an invalid protocol or protocol assignments
 * 400 - Call to /set_stim_status with missing 'running' status
-* 401 - Call to /update_settings with invalid customer credentials
+* 401 - Call to /update_settings with invalid user credentials
 * 403 - Call to /start_recording with is_hardware_test_recording=False after calling route with is_hardware_test_recording=True (default value)
 * 403 - Call to any /insert_xem_command_into_queue/* route when in Beta 2 mode
 * 403 - Call to /boot_up when in Beta 2 mode
@@ -23,7 +23,6 @@ Custom HTTP Error Codes:
 * 404 - Route not implemented
 * 406 - Call to /set_stim_status before protocol is set or while recording
 * 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
-* 406 - Call to /start_recording before customer_id and user_account_uuid are set
 * 520 - Call to /system_status when Electron and Flask EXE versions don't match
 """
 from __future__ import annotations
@@ -80,7 +79,7 @@ from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SYSTEM_STATUS_UUIDS
 from .constants import VALID_CONFIG_SETTINGS
-from .exceptions import InvalidCustomerAccountIDPasswordError
+from .exceptions import InvalidUserCredsError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ServerManagerNotInitializedError
@@ -93,7 +92,7 @@ from .utils import check_barcode_for_errors
 from .utils import convert_request_args_to_config_dict
 from .utils import get_current_software_version
 from .utils import get_redacted_string
-from .utils import validate_customer_credentials
+from .utils import validate_user_credentials
 from .utils import validate_settings
 
 
@@ -349,8 +348,8 @@ def boot_up() -> Response:
 def update_settings() -> Response:
     """Update the customer/user settings.
 
-    Can be invoked by: curl http://localhost:4567/update_settings?customer_id=<UUID>&user_id=<UUID>&recording_directory=<recording_dir>
-                       curl http://localhost:4567/update_settings?customer_id=<string>&user_password=<string>&user_id=<string>&auto_upload=<bool>&auto_delete=<bool>
+    Can be invoked by: curl http://localhost:4567/update_settings?customer_id=<UUID>&user_name=<UUID>&recording_directory=<recording_dir>
+                       curl http://localhost:4567/update_settings?customer_id=<string>&user_password=<string>&user_name=<string>&auto_upload=<bool>&auto_delete=<bool>
     """
     for arg in request.args:
         if arg not in VALID_CONFIG_SETTINGS:
@@ -362,13 +361,13 @@ def update_settings() -> Response:
         return Response(status=f"400 {repr(e)}")
 
     try:
-        validate_customer_credentials(request.args)
-    except InvalidCustomerAccountIDPasswordError as e:
+        validate_user_credentials(request.args)
+    except InvalidUserCredsError as e:
         return Response(status=f"401 {repr(e)}")
 
     queue_command_to_main(
         {
-            "communication_type": "update_customer_settings",
+            "communication_type": "update_user_settings",
             "content": convert_request_args_to_config_dict(request.args),
         }
     )

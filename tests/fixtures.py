@@ -2,7 +2,7 @@
 from multiprocessing import Queue as MPQueue
 import os
 from shutil import copy
-import tempfile
+import tempfile, json, base64
 import threading
 import time
 from time import perf_counter
@@ -44,17 +44,15 @@ GENERIC_STORED_CUSTOMER_ID = {"id": "test_id", "password": "test_password"}
 def generate_board_and_error_queues(num_boards: int = 4, queue_type=MPQueue):
     error_queue = queue_type()
 
-    board_queues = tuple(
-        (
-            (
-                queue_type(),
-                queue_type(),
-                queue_type(),
-            )
-            for _ in range(num_boards)
-        )
-    )
+    board_queues = tuple(((queue_type(), queue_type(), queue_type()) for _ in range(num_boards)))
     return board_queues, error_queue
+
+
+def get_generic_base64_args():
+    test_dict = {"log_file_id": "any", "recording_directory": get_current_file_abs_directory()}
+    json_str = json.dumps(test_dict)
+    b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
+    return f"--initial-base64-settings={b64_encoded}"
 
 
 @pytest.fixture(scope="function", name="generic_queue_container")
@@ -80,6 +78,9 @@ def fixture_fully_running_app_from_main_entrypoint(mocker):
     def _foo(command_line_args: Optional[List[str]] = None):
         if command_line_args is None:
             command_line_args = []
+        if not any("--initial-base64-settings=" in arg for arg in command_line_args):
+            command_line_args.append(get_generic_base64_args())
+
         thread_access_inside_main: Dict[str, Any] = dict()
         main_thread = threading.Thread(
             target=main.main,
@@ -131,8 +132,10 @@ def fixture_test_process_manager_creator(mocker):
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             manager = MantarrayProcessesManager(
-                file_directory=tmp_dir,
-                values_to_share_to_server={"beta_2_mode": beta_2_mode, "config_settings": dict()},
+                values_to_share_to_server={
+                    "beta_2_mode": beta_2_mode,
+                    "config_settings": {"recording_directory": tmp_dir},
+                },
             )
             if use_testing_queues:
                 mocker.patch.object(

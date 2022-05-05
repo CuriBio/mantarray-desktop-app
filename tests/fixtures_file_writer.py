@@ -177,12 +177,12 @@ GENERIC_STOP_RECORDING_COMMAND: Dict[str, Any] = {
     "timepoint_to_stop_recording_at": 302412 * 125,
 }
 
-GENERIC_UPDATE_CUSTOMER_SETTINGS: Dict[str, Any] = {
-    "command": "update_customer_settings",
+GENERIC_UPDATE_USER_SETTINGS: Dict[str, Any] = {
+    "command": "update_user_settings",
     "config_settings": {
         "customer_id": "test_customer_id",
         "user_password": "test_password",
-        "user_id": "test_user",
+        "user_name": "test_user",
         "auto_upload_on_completion": True,
         "auto_delete_local_files": False,
     },
@@ -329,7 +329,7 @@ def fixture_running_four_board_file_writer_process(runnable_four_board_file_writ
 
 def create_and_close_beta_1_h5_files(
     four_board_file_writer_process,
-    update_customer_settings_command,
+    update_user_settings_command,
     num_data_points=10,
     active_well_indices=None,
 ):
@@ -341,7 +341,7 @@ def create_and_close_beta_1_h5_files(
     to_main_queue = four_board_file_writer_process["to_main_queue"]
 
     # store new customer settings
-    this_command = copy.deepcopy(update_customer_settings_command)
+    this_command = copy.deepcopy(update_user_settings_command)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # remove update settings command receipt

@@ -46,11 +46,11 @@ GENERIC_24_WELL_DEFINITION = LabwareDefinition(row_count=4, column_count=6)
 CURI_BIO_ACCOUNT_UUID = uuid.UUID("73f52be0-368c-42d8-a1fd-660d49ba5604")
 CURI_BIO_USER_ACCOUNT_ID = uuid.UUID("455b93eb-c78f-4494-9f73-d3291130f126")
 
-DEFAULT_USER_CONFIG = immutabledict({"customer_id": "", "user_id": ""})
+DEFAULT_USER_CONFIG = immutabledict({"customer_id": "", "user_name": ""})
 VALID_CONFIG_SETTINGS = frozenset(
     [
         "customer_id",
-        "user_id",
+        "user_name",
         "user_password",
         "recording_directory",
         "auto_upload",
@@ -62,8 +62,8 @@ BARCODE_HEADERS = immutabledict({"plate_barcode": "ML", "stim_barcode": "MS"})
 ALL_VALID_BARCODE_HEADERS = frozenset(BARCODE_HEADERS.values())
 
 MICROSECONDS_PER_CENTIMILLISECOND = 10
-NANOSECONDS_PER_CENTIMILLISECOND = 10**4
-MICROSECONDS_PER_MILLISECOND = 10**3
+NANOSECONDS_PER_CENTIMILLISECOND = 10 ** 4
+MICROSECONDS_PER_MILLISECOND = 10 ** 3
 
 MICRO_TO_BASE_CONVERSION = int(1e6)
 
@@ -114,7 +114,7 @@ FIFO_READ_PRODUCER_DATA_OFFSET = (  # 0xB000 chosen through empirical testing
     MIDSCALE_CODE + 0xB000 + FIFO_READ_PRODUCER_WELL_AMPLITUDE * 24 // 2
 )
 
-RAW_TO_SIGNED_CONVERSION_VALUE = 2**23  # subtract this value from raw hardware data
+RAW_TO_SIGNED_CONVERSION_VALUE = 2 ** 23  # subtract this value from raw hardware data
 MILLIVOLTS_PER_VOLT = 1000
 
 MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS = 10

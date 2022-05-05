@@ -89,7 +89,7 @@ from ..fixtures_file_writer import fixture_running_four_board_file_writer_proces
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
-from ..fixtures_file_writer import GENERIC_UPDATE_CUSTOMER_SETTINGS
+from ..fixtures_file_writer import GENERIC_UPDATE_USER_SETTINGS
 from ..fixtures_file_writer import open_the_generic_h5_file
 from ..fixtures_file_writer import populate_calibration_folder
 from ..fixtures_file_writer import WELL_DEF_24
@@ -734,12 +734,12 @@ def test_FileWriterProcess__closes_the_files_and_sends_communication_to_main_whe
         "close",
     )
 
-    update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-    update_customer_settings_command["config_settings"]["auto_delete_local_files"] = False
-    update_customer_settings_command["config_settings"]["auto_upload_on_completion"] = False
+    update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+    update_user_settings_command["config_settings"]["auto_delete_local_files"] = False
+    update_user_settings_command["config_settings"]["auto_upload_on_completion"] = False
     msgs_to_main = create_and_close_beta_1_h5_files(
         four_board_file_writer_process,
-        update_customer_settings_command,
+        update_user_settings_command,
         num_data_points=test_num_data_points,
         active_well_indices=[0],
     )
@@ -1772,13 +1772,13 @@ def test_FileWriterProcess__stop_recording__immediately_finalizes_any_beta_1_fil
     # mock to make sure uploads don't actually start
     mocked_upload = mocker.patch.object(file_writer_process, "_start_new_file_upload", autospec=True)
 
-    update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-    update_customer_settings_command["config_settings"].update(
+    update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+    update_user_settings_command["config_settings"].update(
         {"auto_delete_local_files": False, "auto_upload_on_completion": True}
     )
     create_and_close_beta_1_h5_files(
         four_board_file_writer_process,
-        update_customer_settings_command,
+        update_user_settings_command,
         active_well_indices=test_well_indices,
     )
 
@@ -1798,11 +1798,11 @@ def test_FileWriterProcess__stop_recording__immediately_finalizes_all_beta_2_fil
     mocked_upload = mocker.patch.object(fw_process, "_start_new_file_upload", autospec=True)
 
     # store new customer settings
-    update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-    update_customer_settings_command["config_settings"].update(
+    update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+    update_user_settings_command["config_settings"].update(
         {"auto_delete_local_files": False, "auto_upload_on_completion": True}
     )
-    this_command = copy.deepcopy(update_customer_settings_command)
+    this_command = copy.deepcopy(update_user_settings_command)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # remove update settings command receipt
@@ -1854,11 +1854,11 @@ def test_FileWriterProcess__stop_managed_acquisition__finalizes_all_files_if_any
     mocked_upload = mocker.patch.object(fw_process, "_start_new_file_upload", autospec=True)
 
     # store new customer settings
-    update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-    update_customer_settings_command["config_settings"].update(
+    update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+    update_user_settings_command["config_settings"].update(
         {"auto_delete_local_files": False, "auto_upload_on_completion": True}
     )
-    this_command = copy.deepcopy(update_customer_settings_command)
+    this_command = copy.deepcopy(update_user_settings_command)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # remove update settings command receipt

@@ -1,11 +1,11 @@
 const path = require("path");
-const mkdirp = require("mkdirp");
 const url_safe_base64 = require("urlsafe-base64");
 import ElectronStore from "./electron_store.js";
 const yaml = require("js-yaml");
 const now = new Date();
 const utc_month = (now.getUTCMonth() + 1).toString().padStart(2, "0"); // Eli (3/29/21) for some reason getUTCMonth returns a zero-based number, while everything else is a month, so adjusting here
-const filename_prefix = `mantarray_log__${now.getUTCFullYear()}_${utc_month}_${now
+
+const FILENAME_PREFIX = `mantarray_log__${now.getUTCFullYear()}_${utc_month}_${now
   .getUTCDate()
   .toString()
   .padStart(2, "0")}_${now
@@ -15,6 +15,7 @@ const filename_prefix = `mantarray_log__${now.getUTCFullYear()}_${utc_month}_${n
   .getUTCMinutes()
   .toString()
   .padStart(2, "0")}${now.getUTCSeconds().toString().padStart(2, "0")}`;
+
 /**
  * Depending on whether Electron is running, get the application version from package.json or from the Electron process itself
  *
@@ -45,10 +46,7 @@ const create_store = function ({ file_path = undefined, file_name = "mantarray_c
     serialize: yaml.dump,
     deserialize: yaml.load,
     defaults: {
-      customer_account_id: {
-        id: "",
-        password: "",
-      },
+      customer_id: null,
       beta_2_mode: true,
     },
   });
@@ -62,8 +60,9 @@ const redact_username_from_logs = (dir_path) => {
 
 const get_flask_logs_full_path = function (electron_store) {
   const electron_store_dir = path.dirname(electron_store.path);
-  return path.join(electron_store_dir, "logs_flask", filename_prefix);
+  return path.join(electron_store_dir, "logs_flask", FILENAME_PREFIX);
 };
+
 /**
  * Generate the command line arguments to pass to the local server as it is initialized. This also creates the necessary directories if they don't exist to hold the log files and recordings...although (Eli 1/15/21) unclear why the server doesn't do that itself...
  *
@@ -72,29 +71,20 @@ const get_flask_logs_full_path = function (electron_store) {
  * @return {Array} a list of command line arguments
  */
 const generate_flask_command_line_args = function (electron_store) {
+  console.log("node env: " + process.env.NODE_ENV); // allow-log
+
   const electron_store_dir = path.dirname(electron_store.path);
   const flask_logs_full_path = get_flask_logs_full_path(electron_store);
-  console.log("node env: " + process.env.NODE_ENV); // allow-log
-  // Eli (7/15/20): Having quotation marks around the path does not appear to be necessary even with spaces in the path, since it's being passed programatically and not directly through the shell
-  const args = [];
-  args.push("--log-file-dir=" + flask_logs_full_path + "");
-  args.push("--expected-software-version=" + export_functions.get_current_app_version());
-  const recording_directory_path = path.join(electron_store_dir, "recordings");
-  const zipped_recordings_dir_path = path.join(recording_directory_path, "zipped_recordings");
-  const failed_uploads_dir_path = path.join(recording_directory_path, "failed_uploads");
-  mkdirp.sync(flask_logs_full_path);
-  mkdirp.sync(recording_directory_path);
-  mkdirp.sync(zipped_recordings_dir_path);
-  mkdirp.sync(failed_uploads_dir_path);
 
-  const stored_customer_id = electron_store.get("customer_account_id");
-  // storing upload dir paths so that they can be found on start up to try re-uploading even if file_directory path changes while FW is running
+  const args = [];
+  args.push("--log-file-dir=" + flask_logs_full_path);
+  args.push("--expected-software-version=" + export_functions.get_current_app_version());
+
+  const recording_directory_path = path.join(electron_store_dir, "recordings");
+
   const settings_to_supply = {
-    log_file_uuid: filename_prefix,
+    log_file_id: FILENAME_PREFIX,
     recording_directory: recording_directory_path,
-    stored_customer_id,
-    zipped_recordings_dir: zipped_recordings_dir_path,
-    failed_uploads_dir: failed_uploads_dir_path,
   };
 
   const settings_to_supply_json_str = JSON.stringify(settings_to_supply);
@@ -116,7 +106,7 @@ const export_functions = {
   generate_flask_command_line_args,
   create_store,
   get_current_app_version,
-  filename_prefix,
+  FILENAME_PREFIX,
   redact_username_from_logs,
 };
 

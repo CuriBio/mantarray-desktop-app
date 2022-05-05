@@ -39,6 +39,7 @@ def download_firmware_updates(
     result_dict: Dict[str, Any],
     main_fw_version: Optional[str],
     channel_fw_version: Optional[str],
+    customer_id: str,
     username: str,
     password: str,
 ) -> None:
@@ -46,7 +47,8 @@ def download_firmware_updates(
         raise FirmwareDownloadError("No firmware types specified")
     # get access token
     login_response = requests.post(
-        f"https://{CLOUD_API_ENDPOINT}/users/login", json={"username": username, "password": password}
+        f"https://{CLOUD_API_ENDPOINT}/users/login",
+        json={"customer_id": customer_id, "username": username, "password": password},
     )
     access_token = login_response.json()["access_token"]
     # get presigned download URL(s)

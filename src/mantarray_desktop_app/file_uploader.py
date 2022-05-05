@@ -58,17 +58,17 @@ def get_file_md5(file_path: str) -> str:
     return md5s
 
 
-def get_access_token(customer_id: str, user_id: str, password: str) -> str:
+def get_access_token(customer_id: str, user_name: str, password: str) -> str:
     """Generate user specific token.
 
     Args:
         customer_id: current user's customer account id.
-        user_id: current user.
+        user_name: current user.
         password: current user's password.
     """
     login_response = requests.post(
         f"https://{CLOUD_API_ENDPOINT}/users/login",
-        json={"customer_id": customer_id, "username": user_id, "password": password},
+        json={"customer_id": customer_id, "username": user_name, "password": password},
     )
     access_token: str = login_response.json()["access_token"]
     return access_token
@@ -164,7 +164,7 @@ def uploader(
     file_name: str,
     zipped_recordings_dir: str,
     customer_id: str,
-    user_id: str,
+    user_name: str,
     password: str,
 ) -> None:
     """Initiate and handle file upload process.
@@ -174,7 +174,7 @@ def uploader(
         file_name: sub directory for h5 files to create zip file name.
         zipped_recordings_dir: static zipped recording directory to store zip files.
         customer_id: current customer's account id.
-        user_id: current user's account id.
+        user_name: current user's account id.
         password: current user's account password.
     """
     upload_type = "recording" if "/recordings" in file_directory else "logs"
@@ -184,7 +184,7 @@ def uploader(
     if os.path.isdir(file_path):
         if upload_type == "recording":
             # store zipped files under user specific sub dir of static zipped dir
-            user_recordings_dir = os.path.join(zipped_recordings_dir, user_id)
+            user_recordings_dir = os.path.join(zipped_recordings_dir, user_name)
             if not os.path.exists(user_recordings_dir):
                 os.makedirs(user_recordings_dir)
             dir_to_store_zips = user_recordings_dir
@@ -197,7 +197,7 @@ def uploader(
     else:
         zipped_file_path = file_path
 
-    access_token = get_access_token(customer_id, user_id, password)
+    access_token = get_access_token(customer_id, user_name, password)
     file_md5 = get_file_md5(zipped_file_path)
     upload_details = get_upload_details(access_token, file_name, customer_id, file_md5, upload_type)
     upload_file_to_s3(zipped_file_path, file_name, upload_details)

@@ -144,11 +144,12 @@ export default {
       current_year: "2022",
       confirmation_request: false,
       beta_2_mode: process.env.SPECTRON || undefined,
+      request_stored_customer_id: true,
       log_dir_name: undefined,
     };
   },
   computed: {
-    ...mapState("settings", ["customer_account_ids", "customer_index", "allow_sw_update_install"]),
+    ...mapState("settings", ["user_accounts", "active_user_index", "allow_sw_update_install"]),
   },
   watch: {
     allow_sw_update_install: function () {
@@ -200,8 +201,16 @@ export default {
       this.beta_2_mode = beta_2_mode;
       this.$store.commit("settings/set_beta_2_mode", beta_2_mode);
     });
+    ipcRenderer.on("stored_customer_id_response", (_, stored_customer_id) => {
+      this.request_stored_customer_id = false;
+      this.$store.commit("settings/set_stored_customer_id", stored_customer_id);
+    });
+
     if (this.beta_2_mode === undefined) {
       ipcRenderer.send("beta_2_mode_request");
+    }
+    if (this.request_stored_customer_id) {
+      ipcRenderer.send("stored_customer_id_request");
     }
   },
   methods: {
@@ -210,8 +219,9 @@ export default {
       this.confirmation_request = false;
     },
     save_customer_id: function () {
-      const customer_account = this.customer_account_ids[this.customer_index];
-      ipcRenderer.send("save_customer_id", customer_account);
+      const customer_id = this.user_accounts[this.active_user_index].customer_id;
+      ipcRenderer.send("save_customer_id", customer_id);
+      this.$store.commit("settings/set_stored_customer_id", customer_id);
     },
   },
 };

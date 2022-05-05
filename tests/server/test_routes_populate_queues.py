@@ -10,7 +10,7 @@ from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
-from mantarray_desktop_app import REFERENCE_VOLTAGE
+from mantarray_desktop_app import REFERENCE_VOLTAGE, InvalidUserCredsError
 from mantarray_desktop_app import server
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
@@ -996,7 +996,7 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][USER_ACCOUNT_ID_UUID]
-        == shared_values_dict["config_settings"]["user_id"]
+        == shared_values_dict["config_settings"]["user_name"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID]
@@ -1124,7 +1124,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][USER_ACCOUNT_ID_UUID]
-        == shared_values_dict["config_settings"]["user_id"]
+        == shared_values_dict["config_settings"]["user_name"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID]
@@ -1289,8 +1289,6 @@ def test_shutdown__sends_hard_stop_command__waits_for_subprocesses_to_stop__then
     assert shutdown_server_command["communication_type"] == "shutdown"
     assert shutdown_server_command["command"] == "shutdown_server"
     assert response_json == shutdown_server_command
-
-    mocked_upload.assert_not_called()
 
 
 @pytest.mark.parametrize(

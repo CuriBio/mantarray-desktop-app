@@ -221,7 +221,7 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
     expected_timestamp = "2020_07_16_141955"
 
     # mock this so test doesn't actually try to hit cloud API
-    mocker.patch.object(server, "validate_customer_credentials", autospec=True)
+    mocker.patch.object(server, "validate_user_credentials", autospec=True)
     mocker.patch.object(main, "upload_log_files_to_s3", autospec=True)
 
     # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
@@ -258,7 +258,7 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
         settings_dict = {
             "customer_id": "test_id",
             "user_password": "test_password",
-            "user_id": "test_user",
+            "user_name": "test_user",
             "recording_directory": expected_recordings_dir,
             "auto_upload": False,
             "auto_delete": False,
@@ -415,7 +415,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
     )
 
     # mock this so test doesn't actually try to hit cloud API
-    mocker.patch.object(server, "validate_customer_credentials", autospec=True)
+    mocker.patch.object(server, "validate_user_credentials", autospec=True)
     mocker.patch.object(main, "upload_log_files_to_s3", autospec=True)
 
     # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
@@ -444,7 +444,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         settings_dict = {
             "customer_id": "test_id",
             "user_password": "test_password",
-            "user_id": "test_user",
+            "user_name": "test_user",
             "recording_directory": expected_recordings_dir,
             "auto_upload": False,
             "auto_delete": False,
@@ -677,7 +677,7 @@ def test_full_datapath_in_beta_1_mode(
     mocker,
 ):
     # mock this so test doesn't actually try to hit cloud API
-    mocker.patch.object(server, "validate_customer_credentials", autospec=True)
+    mocker.patch.object(server, "validate_user_credentials", autospec=True)
     mocker.patch.object(main, "upload_log_files_to_s3", autospec=True)
 
     test_dict = {
@@ -790,7 +790,7 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
     patched_xem_scripts_folder, patched_firmware_folder, fully_running_app_from_main_entrypoint, mocker
 ):
     # mock this so test doesn't actually try to hit cloud API
-    mocker.patch.object(server, "validate_customer_credentials", autospec=True)
+    mocker.patch.object(server, "validate_user_credentials", autospec=True)
     mocker.patch.object(main, "upload_log_files_to_s3", autospec=True)
 
     spied_logger = mocker.spy(main.logger, "info")
@@ -824,7 +824,7 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         settings_dict = {
             "customer_id": "test_id",
             "user_password": "test_password",
-            "user_id": "test_user",
+            "user_name": "test_user",
             "auto_upload": False,
             "auto_delete": False,
         }
@@ -904,7 +904,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
     )
 
     # mock this so test doesn't actually try to hit cloud API
-    mocker.patch.object(server, "validate_customer_credentials", autospec=True)
+    mocker.patch.object(server, "validate_user_credentials", autospec=True)
     mocker.patch.object(main, "upload_log_files_to_s3", autospec=True)
 
     test_protocol_assignments = {
@@ -971,7 +971,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         settings_dict = {
             "customer_id": "test_id",
             "user_password": "test_password",
-            "user_id": "test_user",
+            "user_name": "test_user",
             "auto_upload": False,
             "auto_delete": False,
         }

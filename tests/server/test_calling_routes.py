@@ -8,7 +8,7 @@ from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
-from mantarray_desktop_app import InvalidCustomerAccountIDPasswordError
+from mantarray_desktop_app import InvalidUserCredsError
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import RECORDING_STATE
@@ -505,34 +505,6 @@ def test_start_managed_acquisition__returns_error_code_and_message_called_while_
     )
 
 
-def test_update_settings__returns_error_message_when_customer_creds_dont_make_stored_pairs(
-    client_and_server_manager_and_shared_values,
-):
-    valid_customer_id = "test_id"
-    invalid_password = "invalid_pass"
-    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-
-    response = test_client.get(
-        f"/update_settings?customer_id={valid_customer_id}&user_password={invalid_password}"
-    )
-    assert response.status_code == 401
-    assert response.status.endswith(f"{repr(InvalidCustomerAccountIDPasswordError())}") is True
-
-
-def test_update_settings__returns_200_code_when_customer_creds_matched_stored_pairs(
-    client_and_server_manager_and_shared_values,
-):
-    valid_customer_id = "test_id"
-    valid_password = "test_password"
-    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-
-    response = test_client.get(
-        f"/update_settings?customer_id={valid_customer_id}&user_password={valid_password}"
-    )
-    assert response.status_code == 200
-    assert response.status.endswith(f"{repr(InvalidCustomerAccountIDPasswordError())}") is False
-
-
 def test_update_settings__returns_error_message_when_recording_directory_does_not_exist(
     test_client,
 ):
@@ -549,6 +521,17 @@ def test_update_settings__returns_error_message_when_unexpected_argument_is_give
     response = test_client.get(f"/update_settings?{test_arg}=True")
     assert response.status_code == 400
     assert response.status.endswith(f"Invalid argument given: {test_arg}") is True
+
+
+def test_update_settings__returns_correct_error_code_when_user_auth_fails(test_client, mocker):
+    test_error = InvalidUserCredsError("msg")
+
+    # mock so test doesn't hit cloud API
+    mocker.patch.object(server, "validate_user_credentials", autospec=True, side_effect=test_error)
+
+    response = test_client.get("/update_settings")
+    assert response.status_code == 401
+    assert repr(test_error) in response.status
 
 
 def test_route_error_message_is_logged(mocker, test_client):

@@ -214,7 +214,7 @@ class FileWriterProcess(InfiniteProcess):
         _tissue_data_finalized_for_recording: Each index for each board. A dict where they key is the well index. When start recording begins, dict is cleared, and all active well indices for recording are inserted as False. They become True after a stop_recording has been initiated and all data up to the stop point has successfully been written to file.
         _reference_data_finalized_for_recording: Each index for each board. A dict where they key is the well index. When start recording begins, dict is cleared, and all active well indices for recording are inserted as False. They become True after a stop_recording has been initiated and all data up to the stop point has successfully been written to file.
         _end_of_data_stream_reached: A Boolean for each board board queue on whether data is still getting streamed or not, set to False.
-        _customer_settings: A dictionary of the current customer credentials, auto upload and auto delete settings that get stored from the update customer settings command from the main queue.
+        _user_settings: A dictionary of the current user credentials, auto upload and auto delete settings that get stored from the update user settings command from the main queue.
         _sub_dir_name: The directory where the H5 files are written to inside the recording directory.
         _upload_threads_container: A list that contains active upload threads that get looped through every iteration.
     """
@@ -245,7 +245,7 @@ class FileWriterProcess(InfiniteProcess):
         self._beta_2_mode = beta_2_mode
         self._num_wells = 24
         # upload values
-        self._config_settings: Dict[str, Any] = {
+        self._user_settings: Dict[str, Any] = {
             "auto_upload_on_completion": False,
             "auto_delete_local_files": False,
         }
@@ -305,9 +305,8 @@ class FileWriterProcess(InfiniteProcess):
     @_file_directory.setter
     def _file_directory(self, value):
         self.__file_directory = value
-        for new_dir in (self.__file_directory, self._zipped_files_dir, self._failed_uploads_dir):
-            if not os.path.isdir(new_dir):
-                os.makedirs(new_dir)
+        if self.is_start_up_complete():  # TODO unit test
+            self._check_dirs()
 
     @property
     def _zipped_files_dir(self) -> str:
@@ -316,6 +315,11 @@ class FileWriterProcess(InfiniteProcess):
     @property
     def _failed_uploads_dir(self) -> str:
         return os.path.join(self._file_directory, "failed_uploads")
+
+    def _check_dirs(self) -> None:
+        for new_dir in (self.__file_directory, self._zipped_files_dir, self._failed_uploads_dir):
+            if not os.path.isdir(new_dir):
+                os.makedirs(new_dir)
 
     def start(self) -> None:
         for board_queue_tuple in self._board_queues:
@@ -369,14 +373,6 @@ class FileWriterProcess(InfiniteProcess):
         """
         return self._file_directory
 
-    def get_customer_settings(self) -> Dict[str, Any]:
-        """Mainly for use in unit tests.
-
-        This will not return the correct value after updating the
-        customer settings of a running process.
-        """
-        return self._config_settings
-
     def is_recording(self) -> bool:
         """Mainly for use in unit tests.
 
@@ -404,6 +400,7 @@ class FileWriterProcess(InfiniteProcess):
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
+        self._check_dirs()  # TODO unit test
 
     def _teardown_after_loop(self) -> None:
         to_main_queue = self._to_main_queue
@@ -494,11 +491,9 @@ class FileWriterProcess(InfiniteProcess):
                     "new_directory": communication["new_directory"],
                 }
             )
-        elif command == "update_customer_settings":
-            self._config_settings.update(communication["config_settings"])
-            to_main.put_nowait(
-                {"communication_type": "command_receipt", "command": "update_customer_settings"}
-            )
+        elif command == "update_user_settings":
+            self._user_settings.update(communication["config_settings"])
+            to_main.put_nowait({"communication_type": "command_receipt", "command": "update_user_settings"})
         else:
             raise UnrecognizedCommandFromMainToFileWriterError(command)
         if not input_queue.empty():
@@ -807,9 +802,9 @@ class FileWriterProcess(InfiniteProcess):
             )
             # after all files are finalized, upload them if necessary
             if not self._is_recording_calibration:
-                if self._config_settings["auto_upload_on_completion"]:
+                if self._user_settings["auto_upload_on_completion"]:
                     self._start_new_file_upload()
-                elif self._config_settings["auto_delete_local_files"]:
+                elif self._user_settings["auto_delete_local_files"]:
                     self._delete_local_files(sub_dir=self._current_recording_dir)
 
     def _process_next_incoming_packet(self) -> None:
@@ -1141,10 +1136,10 @@ class FileWriterProcess(InfiniteProcess):
         if self._current_recording_dir is None:
             raise NotImplementedError("_current_recording_dir should never be None here")
 
-        auto_delete = self._config_settings["auto_delete_local_files"]
-        customer_id = self._config_settings["customer_id"]
-        user_id = self._config_settings["user_id"]
-        customer_password = self._config_settings["user_password"]
+        auto_delete = self._user_settings["auto_delete_local_files"]
+        customer_id = self._user_settings["customer_id"]
+        user_name = self._user_settings["user_name"]
+        user_password = self._user_settings["user_password"]
 
         upload_thread = ErrorCatchingThread(
             target=uploader,
@@ -1153,8 +1148,8 @@ class FileWriterProcess(InfiniteProcess):
                 self._current_recording_dir,
                 self._zipped_files_dir,
                 customer_id,
-                user_id,
-                customer_password,
+                user_name,
+                user_password,
             ),
         )
         upload_thread.start()
@@ -1162,7 +1157,7 @@ class FileWriterProcess(InfiniteProcess):
         thread_dict = {
             "failed_upload": False,
             "customer_id": customer_id,
-            "user_id": user_id,
+            "user_name": user_name,
             "thread": upload_thread,
             "auto_delete": auto_delete,
             "file_name": self._current_recording_dir,
@@ -1192,15 +1187,15 @@ class FileWriterProcess(InfiniteProcess):
         If none exists, creates user directory in failed_uploads to
         place failed .zip files to process next start.
         """
-        user_id = self._config_settings["user_id"]
+        user_name = self._user_settings["user_name"]
 
-        user_failed_uploads_dir = os.path.join(self._failed_uploads_dir, user_id)
+        user_failed_uploads_dir = os.path.join(self._failed_uploads_dir, user_name)
         if not os.path.exists(user_failed_uploads_dir):
             os.makedirs(user_failed_uploads_dir)
 
         file_name = f"{sub_dir}.zip"
-        zipped_file = os.path.join(self._zipped_files_dir, user_id, file_name)
-        updated_zipped_file = os.path.join(self._failed_uploads_dir, user_id, file_name)
+        zipped_file = os.path.join(self._zipped_files_dir, user_name, file_name)
+        updated_zipped_file = os.path.join(self._failed_uploads_dir, user_name, file_name)
 
         # store failed zip file in failed uploads directory to check at next startup
         if os.path.exists(zipped_file):
@@ -1239,7 +1234,7 @@ class FileWriterProcess(InfiniteProcess):
     #             thread_dict = {
     #                 "failed_upload": True,
     #                 "customer_id": stored_customer_id,
-    #                 "user_id": user_dir,
+    #                 "user_name": user_dir,
     #                 "thread": upload_thread,
     #                 "auto_delete": False,
     #                 "file_name": file_name,
@@ -1256,7 +1251,7 @@ class FileWriterProcess(InfiniteProcess):
         for thread_dict in self._upload_threads_container:
             thread = thread_dict["thread"]
             previously_failed_upload = thread_dict["failed_upload"]
-            user_id = thread_dict["user_id"]
+            user_name = thread_dict["user_name"]
             auto_delete = thread_dict["auto_delete"]
             file_name = thread_dict["file_name"]
 
@@ -1274,8 +1269,8 @@ class FileWriterProcess(InfiniteProcess):
             else:
                 if previously_failed_upload:
                     shutil.move(
-                        os.path.join(self._failed_uploads_dir, user_id, file_name),
-                        os.path.join(self._zipped_files_dir, user_id),
+                        os.path.join(self._failed_uploads_dir, user_name, file_name),
+                        os.path.join(self._zipped_files_dir, user_name),
                     )
                 elif auto_delete:
                     self._delete_local_files(sub_dir=file_name)
