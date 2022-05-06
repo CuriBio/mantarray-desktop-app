@@ -169,6 +169,7 @@ from mantarray_desktop_app.constants import BARCODE_LEN
 from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
+from mantarray_desktop_app.constants import SOFTWARE_RELEASE_CHANNEL
 from mantarray_desktop_app.constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
 from mantarray_desktop_app.constants import STIM_SHORT_CIRCUIT_THRESHOLD_OHMS
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
@@ -290,6 +291,10 @@ def test_COMPILED_EXE_BUILD_TIMESTAMP():
 
 def test_CURRENT_SOFTWARE_VERSION():
     assert CURRENT_SOFTWARE_VERSION == "REPLACETHISWITHVERSIONDURINGBUILD"
+
+
+def test_SOFTWARE_RELEASE_CHANNEL():
+    assert SOFTWARE_RELEASE_CHANNEL == "REPLACETHISWITHRELEASECHANNELDURINGBUILD"
 
 
 def test_CLOUD_ENDPOINT_USER_OPTION():

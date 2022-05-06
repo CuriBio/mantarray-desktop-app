@@ -400,7 +400,7 @@ class FileWriterProcess(InfiniteProcess):
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
-        self._check_dirs()  # TODO unit test
+        self._check_dirs()
 
     def _teardown_after_loop(self) -> None:
         to_main_queue = self._to_main_queue

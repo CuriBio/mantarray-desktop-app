@@ -26,6 +26,7 @@ from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import redact_sensitive_info_from_path
 from mantarray_desktop_app import SensitiveFormatter
 from mantarray_desktop_app import wait_for_subprocesses_to_start
+from mantarray_desktop_app.constants import SOFTWARE_RELEASE_CHANNEL
 from mantarray_desktop_app.server import get_server_address_components
 import pytest
 import requests
@@ -163,6 +164,8 @@ def test_main__logs_system_info__and_software_version_at_very_start(
         spied_info_logger.assert_any_call(f"Log File UUID: {expected_uuid}")
         spied_info_logger.assert_any_call(f"SHA512 digest of Computer Name {expected_name_hash}")
         spied_info_logger.assert_any_call(f"Mantarray Controller v{CURRENT_SOFTWARE_VERSION} started")
+        spied_info_logger.assert_any_call(f"Build timestamp/version: {COMPILED_EXE_BUILD_TIMESTAMP}")
+        spied_info_logger.assert_any_call(f"Release Channel: {SOFTWARE_RELEASE_CHANNEL}")
 
         uname = platform.uname()
         uname_sys = getattr(uname, "system")
@@ -254,8 +257,6 @@ def test_main_can_launch_server_and_processes__and_initial_boot_up_of_ok_comm_pr
     assert any(
         (expected_connection_str in call[0][0] for call in mocked_process_monitor_info_logger.call_args_list)
     )
-
-    mocked_main_info_logger.assert_any_call(f"Build timestamp/version: {COMPILED_EXE_BUILD_TIMESTAMP}")
 
     mocked_main_info_logger.assert_any_call(f"Main Process PID: {expected_main_pid}")
     mocked_main_info_logger.assert_any_call(

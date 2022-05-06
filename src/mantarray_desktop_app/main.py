@@ -31,6 +31,7 @@ from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
 from .constants import SERVER_INITIALIZING_STATE
+from .constants import SOFTWARE_RELEASE_CHANNEL
 from .exceptions import InvalidBeta2FlagOptionError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import MultiprocessingNotSetToSpawnError
@@ -220,12 +221,12 @@ def main(
 
     scrubbed_path_to_log_folder = redact_sensitive_info_from_path(path_to_log_folder)
 
-    msg = f"Mantarray Controller v{CURRENT_SOFTWARE_VERSION} started"
-    logger.info(msg)
-    msg = f"Build timestamp/version: {COMPILED_EXE_BUILD_TIMESTAMP}"
-    logger.info(msg)
-    parsed_args_dict = copy.deepcopy(vars(parsed_args))
+    logger.info(f"Mantarray Controller v{CURRENT_SOFTWARE_VERSION} started")
+    logger.info(f"Build timestamp/version: {COMPILED_EXE_BUILD_TIMESTAMP}")
+    logger.info(f"Release Channel: {SOFTWARE_RELEASE_CHANNEL}")
+
     # Tanner (1/14/21): parsed_args_dict is only used to log the command line args at the moment, so initial_base64_settings can be deleted and log_file_dir can just be replaced here without affecting anything that actually needs the original value
+    parsed_args_dict = copy.deepcopy(vars(parsed_args))
 
     parsed_args_dict["log_file_dir"] = scrubbed_path_to_log_folder
     # Tanner (1/14/21): Unsure why the back slashes are duplicated when converting the dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
