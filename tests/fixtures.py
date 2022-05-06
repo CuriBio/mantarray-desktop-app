@@ -50,8 +50,10 @@ def generate_board_and_error_queues(num_boards: int = 4, queue_type=MPQueue):
     return board_queues, error_queue
 
 
-def get_generic_base64_args():
-    test_dict = {"log_file_id": "any", "recording_directory": get_current_file_abs_directory()}
+def get_generic_base64_args(recording_directory: Optional[str] = None) -> str:
+    if not recording_directory:
+        recording_directory = get_current_file_abs_directory()
+    test_dict = {"log_file_id": "any", "recording_directory": recording_directory}
     json_str = json.dumps(test_dict)
     b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
     return f"--initial-base64-settings={b64_encoded}"
@@ -81,7 +83,7 @@ def fixture_fully_running_app_from_main_entrypoint(mocker):
         if command_line_args is None:
             command_line_args = []
         if not any("--initial-base64-settings=" in arg for arg in command_line_args):
-            command_line_args.append(get_generic_base64_args())  # type: ignore
+            command_line_args.append(get_generic_base64_args())
 
         thread_access_inside_main: Dict[str, Any] = dict()
         main_thread = threading.Thread(
