@@ -205,7 +205,6 @@ class FileWriterProcess(InfiniteProcess):
         from_main_queue: A queue of communication from the main process.
         to_main_queue: A queue to put general communication back to main (including file names of finished files into so the uploader can begin uploading).
         fatal_error_reporter: A queue to report fatal errors back to the main process.
-        stored_customer_settings: A dictionary containing stored customer account credentials and static file directories (failed_uploads and zipped_recordings) from the Electron store.
         file_directory: A static directory for recordings created in Electron.
 
     Attributes:
@@ -215,7 +214,7 @@ class FileWriterProcess(InfiniteProcess):
         _tissue_data_finalized_for_recording: Each index for each board. A dict where they key is the well index. When start recording begins, dict is cleared, and all active well indices for recording are inserted as False. They become True after a stop_recording has been initiated and all data up to the stop point has successfully been written to file.
         _reference_data_finalized_for_recording: Each index for each board. A dict where they key is the well index. When start recording begins, dict is cleared, and all active well indices for recording are inserted as False. They become True after a stop_recording has been initiated and all data up to the stop point has successfully been written to file.
         _end_of_data_stream_reached: A Boolean for each board board queue on whether data is still getting streamed or not, set to False.
-        _customer_settings: A dictionary of the current customer credentials, auto upload and auto delete settings that get stored from the update customer settings command from the main queue.
+        _user_settings: A dictionary of the current user credentials, auto upload and auto delete settings that get stored from the update user settings command from the main queue.
         _sub_dir_name: The directory where the H5 files are written to inside the recording directory.
         _upload_threads_container: A list that contains active upload threads that get looped through every iteration.
     """
@@ -234,8 +233,8 @@ class FileWriterProcess(InfiniteProcess):
         fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
             Tuple[Exception, str]
         ],
-        stored_customer_settings: Dict[str, Any],
-        file_directory: str = "",
+        *,
+        file_directory: str,
         logging_level: int = logging.INFO,
         beta_2_mode: bool = False,
     ):
@@ -245,9 +244,15 @@ class FileWriterProcess(InfiniteProcess):
         self._to_main_queue = to_main_queue
         self._beta_2_mode = beta_2_mode
         self._num_wells = 24
+        # upload values
+        self._user_settings: Dict[str, Any] = {
+            "auto_upload_on_completion": False,
+            "auto_delete_local_files": False,
+        }
+        self._current_recording_dir: Optional[str] = None
+        self._upload_threads_container: List[Dict[str, Any]] = list()
         # general recording values
         self._file_directory = file_directory
-        self._stored_customer_settings = stored_customer_settings
         self._is_recording = False
         self._open_files: Tuple[
             Dict[int, h5py.File],
@@ -258,8 +263,8 @@ class FileWriterProcess(InfiniteProcess):
             [None] * len(self._board_queues)
         )
         self._stop_recording_timestamps: List[Optional[int]] = list([None] * len(self._board_queues))
-        # set calibration recording values if in Beta 2 mode
         if beta_2_mode:
+            # set calibration recording values if in Beta 2 mode
             self.set_beta_2_mode()
         self._is_recording_calibration = False
         # magnetometer data recording values
@@ -292,9 +297,29 @@ class FileWriterProcess(InfiniteProcess):
         self._iterations_since_last_logging = 0
         self._num_recorded_points: List[int] = list()
         self._recording_durations: List[float] = list()
-        self._customer_settings: Dict[str, Any] = dict()
-        self._sub_dir_name: str = ""
-        self._upload_threads_container: List[Dict[str, Any]] = list()
+
+    @property
+    def _file_directory(self) -> str:
+        return self.__file_directory
+
+    @_file_directory.setter
+    def _file_directory(self, value: str) -> None:
+        self.__file_directory = value
+        if self.is_start_up_complete():
+            self._check_dirs()
+
+    @property
+    def _zipped_files_dir(self) -> str:
+        return os.path.join(self._file_directory, "zipped")
+
+    @property
+    def _failed_uploads_dir(self) -> str:
+        return os.path.join(self._file_directory, "failed_uploads")
+
+    def _check_dirs(self) -> None:
+        for new_dir in (self.__file_directory, self._zipped_files_dir, self._failed_uploads_dir):
+            if not os.path.isdir(new_dir):
+                os.makedirs(new_dir)
 
     def start(self) -> None:
         for board_queue_tuple in self._board_queues:
@@ -348,14 +373,6 @@ class FileWriterProcess(InfiniteProcess):
         """
         return self._file_directory
 
-    def get_customer_settings(self) -> Dict[str, Any]:
-        """Mainly for use in unit tests.
-
-        This will not return the correct value after updating the
-        customer settings of a running process.
-        """
-        return self._customer_settings
-
     def is_recording(self) -> bool:
         """Mainly for use in unit tests.
 
@@ -377,13 +394,13 @@ class FileWriterProcess(InfiniteProcess):
         """For use in unit tests."""
         return self._stim_data_buffers[board_idx]
 
-    def get_sub_dir_name(self) -> str:
+    def get_sub_dir_name(self) -> Optional[str]:
         """For use in unit tests."""
-        return self._sub_dir_name
+        return self._current_recording_dir
 
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
-        self._process_failed_upload_files_on_setup()
+        self._check_dirs()
 
     def _teardown_after_loop(self) -> None:
         to_main_queue = self._to_main_queue
@@ -408,6 +425,7 @@ class FileWriterProcess(InfiniteProcess):
         self._update_buffers()
         self._finalize_completed_files()
         self._check_upload_statuses()
+
         self._iterations_since_last_logging += 1
         if self._iterations_since_last_logging >= FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES:
             self._handle_performance_logging()
@@ -473,11 +491,9 @@ class FileWriterProcess(InfiniteProcess):
                     "new_directory": communication["new_directory"],
                 }
             )
-        elif command == "update_customer_settings":
-            self._customer_settings = communication["config_settings"]
-            to_main.put_nowait(
-                {"communication_type": "command_receipt", "command": "update_customer_settings"}
-            )
+        elif command == "update_user_settings":
+            self._user_settings.update(communication["config_settings"])
+            to_main.put_nowait({"communication_type": "command_receipt", "command": "update_user_settings"})
         else:
             raise UnrecognizedCommandFromMainToFileWriterError(command)
         if not input_queue.empty():
@@ -518,10 +534,10 @@ class FileWriterProcess(InfiniteProcess):
                 os.remove(os.path.join(file_folder_dir, file))
         else:
             # create folder
-            self._sub_dir_name = f"{barcode}__{recording_start_timestamp_str}"
-            file_folder_dir = os.path.join(os.path.abspath(self._file_directory), self._sub_dir_name)
+            self._current_recording_dir = f"{barcode}__{recording_start_timestamp_str}"
+            file_folder_dir = os.path.join(os.path.abspath(self._file_directory), self._current_recording_dir)
             os.makedirs(file_folder_dir)
-            file_prefix = self._sub_dir_name
+            file_prefix = self._current_recording_dir
             # copy beta 2 calibration files into new recording folder
             if self._beta_2_mode:
                 calibration_file_paths = glob.glob(os.path.join(self.calibration_file_directory, "*.h5"))
@@ -785,8 +801,11 @@ class FileWriterProcess(InfiniteProcess):
                 {"communication_type": "file_finalized", "message": "all_finals_finalized"}
             )
             # after all files are finalized, upload them if necessary
-            if not self._is_recording_calibration and self._customer_settings:
-                self._start_new_file_upload()
+            if not self._is_recording_calibration:
+                if self._user_settings["auto_upload_on_completion"]:
+                    self._start_new_file_upload()
+                elif self._user_settings["auto_delete_local_files"]:
+                    self._delete_local_files(sub_dir=self._current_recording_dir)
 
     def _process_next_incoming_packet(self) -> None:
         """Process the next incoming packet for that board.
@@ -1114,44 +1133,45 @@ class FileWriterProcess(InfiniteProcess):
         unsuccessful, the file will get placed in failed_uploads
         directory to process later.
         """
-        if self._stored_customer_settings is not None:
-            auto_upload = self._customer_settings["auto_upload_on_completion"]
-            auto_delete = self._customer_settings["auto_delete_local_files"]
-            customer_account_id = self._customer_settings["customer_account_id"]
-            customer_password = self._customer_settings["customer_pass_key"]
-            user_account_id = self._customer_settings["user_account_id"]
-            zipped_recordings_dir = self._stored_customer_settings["zipped_recordings_dir"]
+        if self._current_recording_dir is None:
+            raise NotImplementedError("_current_recording_dir should never be None here")
 
-            if auto_upload:
-                upload_thread = ErrorCatchingThread(
-                    target=uploader,
-                    args=(
-                        self._file_directory,
-                        self._sub_dir_name,
-                        zipped_recordings_dir,
-                        customer_account_id,
-                        customer_password,
-                        user_account_id,
-                    ),
-                )
-                upload_thread.start()
-                thread_dict = {
-                    "failed_upload": False,
-                    "customer_account_id": customer_account_id,
-                    "user_account_id": user_account_id,
-                    "thread": upload_thread,
-                    "auto_delete": auto_delete,
-                    "file_name": self._sub_dir_name,
-                }
-                self._upload_threads_container.append(thread_dict)
-            elif auto_delete:
-                self._delete_local_files(sub_dir=self._sub_dir_name)
+        auto_delete = self._user_settings["auto_delete_local_files"]
+        customer_id = self._user_settings["customer_id"]
+        user_name = self._user_settings["user_name"]
+        user_password = self._user_settings["user_password"]
 
-    def _delete_local_files(self, sub_dir: str) -> None:
+        upload_thread = ErrorCatchingThread(
+            target=uploader,
+            args=(
+                self._file_directory,
+                self._current_recording_dir,
+                self._zipped_files_dir,
+                customer_id,
+                user_name,
+                user_password,
+            ),
+        )
+        upload_thread.start()
+
+        thread_dict = {
+            "failed_upload": False,
+            "customer_id": customer_id,
+            "user_name": user_name,
+            "thread": upload_thread,
+            "auto_delete": auto_delete,
+            "file_name": self._current_recording_dir,
+        }
+        self._upload_threads_container.append(thread_dict)
+
+    def _delete_local_files(self, sub_dir: Optional[str]) -> None:
         """Call after upload if true.
 
         Deletes entire recording directory containing h5 files.
         """
+        if sub_dir is None:
+            raise NotImplementedError("sub_dir should never be None here")
+
         file_folder_dir = os.path.join(os.path.abspath(self._file_directory), sub_dir)
 
         # Remove recording directory and all .h5 files
@@ -1164,77 +1184,22 @@ class FileWriterProcess(InfiniteProcess):
     def _process_new_failed_upload_files(self, sub_dir: str) -> None:
         """Call when a file upload errors.
 
-        If none exists, creates customer directory in failed_uploads to
+        If none exists, creates user directory in failed_uploads to
         place failed .zip files to process next start.
         """
-        failed_uploads_dir = self._stored_customer_settings["failed_uploads_dir"]
-        zipped_recordings_dir = self._stored_customer_settings["zipped_recordings_dir"]
-        customer_account_id = self._customer_settings["customer_account_id"]
-        user_account_id = self._customer_settings["user_account_id"]
+        user_name = self._user_settings["user_name"]
 
-        customer_failed_uploads_dir = os.path.join(failed_uploads_dir, customer_account_id)
-        if not os.path.exists(customer_failed_uploads_dir):
-            os.makedirs(customer_failed_uploads_dir)
-
-        user_failed_uploads_dir = os.path.join(customer_failed_uploads_dir, user_account_id)
+        user_failed_uploads_dir = os.path.join(self._failed_uploads_dir, user_name)
         if not os.path.exists(user_failed_uploads_dir):
             os.makedirs(user_failed_uploads_dir)
 
         file_name = f"{sub_dir}.zip"
-        zipped_file = os.path.join(zipped_recordings_dir, customer_account_id, user_account_id, file_name)
-        updated_zipped_file = os.path.join(
-            failed_uploads_dir, customer_account_id, user_account_id, file_name
-        )
+        zipped_file = os.path.join(self._zipped_files_dir, user_name, file_name)
+        updated_zipped_file = os.path.join(self._failed_uploads_dir, user_name, file_name)
 
         # store failed zip file in failed uploads directory to check at next startup
         if os.path.exists(zipped_file):
             shutil.move(zipped_file, updated_zipped_file)
-
-    def _process_failed_upload_files_on_setup(self) -> None:
-        """Re-upload any failed files on setup_before_loop.
-
-        Will try to process all uploads in failed_uploads directory.
-        Will redirect processed .zip file after successful upload to
-        zipped_recordings directory, but will not move on error.
-        """
-        if self._stored_customer_settings is not None:
-            failed_uploads_dir = self._stored_customer_settings["failed_uploads_dir"]
-            zipped_recordings_dir = self._stored_customer_settings["zipped_recordings_dir"]
-            stored_customer_id = self._stored_customer_settings["stored_customer_id"]
-
-            if os.path.exists(
-                failed_uploads_dir
-            ):  # TODO Tanner (11/9/21): should log if folder for failed uploads not found
-                for customer_dir in os.listdir(failed_uploads_dir):
-                    customer_failed_uploads_dir = os.path.join(failed_uploads_dir, customer_dir)
-                    if stored_customer_id["id"] == customer_dir:
-                        customer_passkey = stored_customer_id["password"]
-                        for user_dir in os.listdir(customer_failed_uploads_dir):
-                            user_failed_uploads_dir = os.path.join(customer_failed_uploads_dir, user_dir)
-
-                            for file_name in os.listdir(user_failed_uploads_dir):
-                                upload_thread = ErrorCatchingThread(
-                                    target=uploader,
-                                    args=(
-                                        user_failed_uploads_dir,
-                                        file_name,
-                                        zipped_recordings_dir,
-                                        customer_dir,
-                                        customer_passkey,
-                                        user_dir,
-                                    ),
-                                )
-                                upload_thread.start()
-                                thread_dict = {
-                                    "failed_upload": True,
-                                    "customer_account_id": customer_dir,
-                                    "user_account_id": user_dir,
-                                    "thread": upload_thread,
-                                    "auto_delete": False,
-                                    "file_name": file_name,
-                                }
-                                self._upload_threads_container.append(thread_dict)
-                                # Lucy (10/22/2021): figure out how to handle if delete local files had been selected on original customer settings and how to handle the zip file
 
     def _check_upload_statuses(self) -> None:
         """Loops through active upload threads.
@@ -1242,47 +1207,38 @@ class FileWriterProcess(InfiniteProcess):
         Checks if thread is alive and if not, processes error or result.
         Moves files according.
         """
-        if self._stored_customer_settings is not None:
-            for thread_dict in self._upload_threads_container:
-                thread = thread_dict["thread"]
-                previously_failed_upload = thread_dict["failed_upload"]
-                customer_account_id = thread_dict["customer_account_id"]
-                user_account_id = thread_dict["user_account_id"]
-                auto_delete = thread_dict["auto_delete"]
-                file_name = thread_dict["file_name"]
+        for thread_dict in self._upload_threads_container:
+            thread = thread_dict["thread"]
+            previously_failed_upload = thread_dict["failed_upload"]
+            user_name = thread_dict["user_name"]
+            auto_delete = thread_dict["auto_delete"]
+            file_name = thread_dict["file_name"]
 
-                if not thread.is_alive():
-                    thread.join()
-                    upload_status = dict()
-                    upload_status["file_name"] = file_name.split(".zip")[0]
+            if thread.is_alive():
+                continue
 
-                    if thread.errors():
-                        upload_status["error"] = thread.get_error()
-                        if not previously_failed_upload:
-                            self._process_new_failed_upload_files(sub_dir=file_name)
-                    else:
-                        if previously_failed_upload:
-                            shutil.move(
-                                os.path.join(
-                                    self._stored_customer_settings["failed_uploads_dir"],
-                                    customer_account_id,
-                                    user_account_id,
-                                    file_name,
-                                ),
-                                os.path.join(
-                                    self._stored_customer_settings["zipped_recordings_dir"],
-                                    customer_account_id,
-                                    user_account_id,
-                                ),
-                            )
-                        elif auto_delete:
-                            self._delete_local_files(sub_dir=file_name)
+            thread.join()
+            upload_status = dict()
+            upload_status["file_name"] = os.path.splitext(file_name)[0]
 
-                    self._upload_threads_container.remove(thread_dict)
-                    outgoing_msg = {"data_type": "upload_status", "data_json": json.dumps(upload_status)}
-                    self._to_main_queue.put_nowait(
-                        {"communication_type": "update_upload_status", "content": outgoing_msg}
+            if thread.error:
+                upload_status["error"] = thread.error
+                if not previously_failed_upload:
+                    self._process_new_failed_upload_files(sub_dir=file_name)
+            else:
+                if previously_failed_upload:
+                    shutil.move(
+                        os.path.join(self._failed_uploads_dir, user_name, file_name),
+                        os.path.join(self._zipped_files_dir, user_name),
                     )
+                elif auto_delete:
+                    self._delete_local_files(sub_dir=file_name)
+
+            self._upload_threads_container.remove(thread_dict)
+            outgoing_msg = {"data_type": "upload_status", "data_json": json.dumps(upload_status)}
+            self._to_main_queue.put_nowait(
+                {"communication_type": "update_upload_status", "content": outgoing_msg}
+            )
 
     def _drain_all_queues(self) -> Dict[str, Any]:
         queue_items: Dict[str, Any] = dict()

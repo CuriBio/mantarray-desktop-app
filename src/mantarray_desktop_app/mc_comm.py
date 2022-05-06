@@ -544,10 +544,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 }
                 self._fw_update_worker_thread = ErrorCatchingThread(
                     target=get_latest_firmware_versions,
-                    args=(
-                        self._fw_update_thread_dict,
-                        comm_from_main["serial_number"],
-                    ),
+                    args=(self._fw_update_thread_dict, comm_from_main["serial_number"]),
                 )
                 self._fw_update_worker_thread.start()
             elif comm_from_main["command"] == "download_firmware_updates":
@@ -568,6 +565,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                         self._fw_update_thread_dict,
                         comm_from_main["main"],
                         comm_from_main["channel"],
+                        comm_from_main["customer_id"],
                         comm_from_main["username"],
                         comm_from_main["password"],
                     ),
@@ -1181,14 +1179,16 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _check_worker_thread(self) -> None:
         if self._fw_update_worker_thread is None or self._fw_update_worker_thread.is_alive():
             return
+
         if self._fw_update_thread_dict is None:
             raise NotImplementedError("_fw_update_thread_dict should never be None here")
+
         to_main_queue = self._board_queues[0][1]
-        if self._fw_update_worker_thread.errors():
+        if self._fw_update_worker_thread.error:
             error_dict = {
                 "communication_type": self._fw_update_thread_dict["communication_type"],
                 "command": self._fw_update_thread_dict["command"],
-                "error": self._fw_update_worker_thread.get_error(),
+                "error": self._fw_update_worker_thread.error,
             }
             to_main_queue.put_nowait(error_dict)
         else:

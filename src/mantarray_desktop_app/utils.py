@@ -15,8 +15,6 @@ from typing import Optional
 from typing import Union
 from uuid import UUID
 
-from flatten_dict import flatten
-from flatten_dict import unflatten
 import psutil
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import BACKEND_LOG_UUID
@@ -61,10 +59,9 @@ from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_VOLTAGE
-from .exceptions import InvalidCustomerAccountIDPasswordError
+from .exceptions import InvalidUserCredsError
 from .exceptions import RecordingFolderDoesNotExistError
 from .file_uploader import uploader
-from .worker_thread import ErrorCatchingThread
 
 logger = logging.getLogger(__name__)
 
@@ -75,99 +72,52 @@ def validate_settings(settings_dict: Dict[str, Any]) -> None:
     Args:
         settings_dict: dictionary containing the new user configuration settings.
     """
-    recording_directory = settings_dict.get("recording_directory", None)
-
-    if recording_directory is not None:
+    if recording_directory := settings_dict.get("recording_directory"):
         if not os.path.isdir(recording_directory):
             raise RecordingFolderDoesNotExistError(recording_directory)
 
 
-def validate_customer_credentials(request_args: Dict[str, Any], shared_values_dict: Dict[str, Any]) -> None:
-    """Check if new customer credentials exist in stored pairs.
+def validate_user_credentials(request_args: Dict[str, Any]) -> None:
+    """Validate users creds using cloud login.
 
     Args:
         request_args: dictionary containing the new user configuration settings.
         shared_values_dict: dictionary containing stored customer settings.
     """
-    customer_account_id = request_args.get("customer_account_uuid", None)
-    customer_pass_key = request_args.get("customer_pass_key", None)
-    stored_customer_id = shared_values_dict["stored_customer_settings"]["stored_customer_id"]
-
-    if customer_account_id is not None:
-        if stored_customer_id["id"] == customer_account_id:
-            if stored_customer_id["password"] != customer_pass_key:
-                raise InvalidCustomerAccountIDPasswordError()
-        else:
-            response = requests.post(
-                f"https://{CLOUD_API_ENDPOINT}/get_auth",
-                json={"username": customer_account_id, "password": customer_pass_key},
-            )
-            if response.status_code != 200:
-                raise InvalidCustomerAccountIDPasswordError()
+    if customer_id := request_args.get("customer_id"):
+        user_name = request_args["user_name"]
+        user_password = request_args["user_password"]
+        response = requests.post(
+            f"https://{CLOUD_API_ENDPOINT}/users/login",
+            json={"customer_id": customer_id, "username": user_name, "password": user_password},
+        )
+        if response.status_code != 200:
+            raise InvalidUserCredsError()
 
 
 def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[str, Any]:
-    """Convert from request/CLI inputs to standard dictionary format.
+    """Convert request inputs to correctly formatted dict.
+
+    Also filters out args that are not given
 
     Args should be validated before being passed to this function.
     """
-    customer_account_uuid = request_args.get("customer_account_uuid", None)
-    customer_pass_key = request_args.get("customer_pass_key", None)
-    user_account_id = request_args.get("user_account_id", None)
-    recording_directory = request_args.get("recording_directory", None)
-    auto_upload_on_completion = request_args.get("auto_upload", None)
-    auto_delete_local_files = request_args.get("auto_delete", None)
-
-    out_dict: Dict[str, Any] = {"config_settings": {}}
-    if customer_account_uuid is not None:
-        out_dict["config_settings"]["customer_account_id"] = customer_account_uuid
-    if customer_pass_key is not None:
-        out_dict["config_settings"]["customer_pass_key"] = customer_pass_key
-    if user_account_id is not None:
-        out_dict["config_settings"]["user_account_id"] = user_account_id
-    if recording_directory is not None:
-        out_dict["config_settings"]["recording_directory"] = recording_directory
-    if auto_upload_on_completion is not None:
+    config_dict: Dict[str, Any] = dict()
+    if customer_id := request_args.get("customer_id"):
+        config_dict["customer_id"] = customer_id
+    if user_password := request_args.get("user_password"):
+        config_dict["user_password"] = user_password
+    if user_name := request_args.get("user_name"):
+        config_dict["user_name"] = user_name
+    if recording_directory := request_args.get("recording_directory"):
+        config_dict["recording_directory"] = recording_directory
+    if auto_upload_on_completion := request_args.get("auto_upload"):
         auto_upload_bool = auto_upload_on_completion.lower() == "true"
-        out_dict["config_settings"]["auto_upload_on_completion"] = auto_upload_bool
-    if auto_delete_local_files is not None:
+        config_dict["auto_upload_on_completion"] = auto_upload_bool
+    if auto_delete_local_files := request_args.get("auto_delete"):
         auto_delete_bool = auto_delete_local_files.lower() == "true"
-        out_dict["config_settings"]["auto_delete_local_files"] = auto_delete_bool
-
-    return out_dict
-
-
-def attempt_to_get_recording_directory_from_new_dict(  # pylint:disable=invalid-name # Eli (12/8/20) I know this is a long name, can try and shorten later
-    new_dict: Dict[str, Any]
-) -> Optional[str]:
-    """Attempt to get the recording directory from the dict of new values."""
-    try:
-        directory = new_dict["config_settings"]["recording_directory"]
-    except KeyError:
-        return None
-    if not isinstance(directory, str):
-        raise NotImplementedError("The directory should always be a string")
-    return directory
-
-
-def update_shared_dict(shared_values_dict: Dict[str, Any], new_info_dict: Dict[str, Any]) -> None:
-    """Update the dictionary and log any critical changes.
-
-    Because this is a nested dictionary, make sure to flatten and then
-    unflatten it to ensure full updates.
-    """
-    flattened_new_dict = flatten(new_info_dict)
-    flattened_shared_dict = flatten(shared_values_dict)
-    flattened_shared_dict.update(flattened_new_dict)
-    updated_shared_dict = unflatten(flattened_shared_dict)
-    shared_values_dict.update(updated_shared_dict)
-
-    new_recording_directory: Optional[str] = attempt_to_get_recording_directory_from_new_dict(new_info_dict)
-
-    if new_recording_directory is not None:
-        scrubbed_recordings_dir = redact_sensitive_info_from_path(new_recording_directory)
-        msg = f"Using directory for recording files: {scrubbed_recordings_dir}"
-        logger.info(msg)
+        config_dict["auto_delete_local_files"] = auto_delete_bool
+    return config_dict
 
 
 def redact_sensitive_info_from_path(file_path: Optional[str]) -> Optional[str]:
@@ -282,10 +232,8 @@ def _create_start_recording_command(
         else:
             barcode_match_dict[barcode_type] = NOT_APPLICABLE_H5_METADATA
 
-    customer_account_id = shared_values_dict["config_settings"].get(
-        "customer_account_id", NOT_APPLICABLE_H5_METADATA
-    )
-    user_account_id = shared_values_dict["config_settings"].get("user_account_id", NOT_APPLICABLE_H5_METADATA)
+    customer_id = shared_values_dict["config_settings"].get("customer_id", NOT_APPLICABLE_H5_METADATA)
+    user_name = shared_values_dict["config_settings"].get("user_name", NOT_APPLICABLE_H5_METADATA)
 
     comm_dict: Dict[str, Any] = {
         "communication_type": "recording",
@@ -294,14 +242,14 @@ def _create_start_recording_command(
         "is_calibration_recording": is_calibration_recording,
         "is_hardware_test_recording": is_hardware_test_recording,
         "metadata_to_copy_onto_main_file_attributes": {
-            BACKEND_LOG_UUID: shared_values_dict["log_file_uuid"],
+            BACKEND_LOG_UUID: shared_values_dict["log_file_id"],
             COMPUTER_NAME_HASH_UUID: shared_values_dict["computer_name_hash"],
             HARDWARE_TEST_RECORDING_UUID: is_hardware_test_recording,
             UTC_BEGINNING_DATA_ACQUISTION_UUID: timestamp_of_sample_idx_zero,
             START_RECORDING_TIME_INDEX_UUID: begin_time_index,
             UTC_BEGINNING_RECORDING_UUID: timestamp_of_begin_recording,
-            CUSTOMER_ACCOUNT_ID_UUID: customer_account_id,
-            USER_ACCOUNT_ID_UUID: user_account_id,
+            CUSTOMER_ACCOUNT_ID_UUID: customer_id,
+            USER_ACCOUNT_ID_UUID: user_name,
             SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
             SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
             MAIN_FIRMWARE_VERSION_UUID: shared_values_dict["main_firmware_version"][board_idx],
@@ -386,38 +334,30 @@ def set_this_process_high_priority() -> None:  # pragma: no cover
     p.nice(nice_value)
 
 
-def upload_log_files_to_s3(shared_values_dict: Dict[str, Any]) -> None:
-    if "customer_account_id" in shared_values_dict["config_settings"]:
-        log_file_dir = shared_values_dict["config_settings"]["log_directory"]
-        sub_dir_name = os.path.basename(log_file_dir)
-        file_directory = os.path.dirname(log_file_dir)
-        zipped_dir = tempfile.TemporaryDirectory()
-        customer_account_id = shared_values_dict["config_settings"]["customer_account_id"]
-        customer_pass_key = shared_values_dict["config_settings"]["customer_pass_key"]
+def upload_log_files_to_s3(config_settings: Dict[str, str]) -> None:
+    if "customer_id" not in config_settings:
+        logger.info("Skipping upload of log files to s3 because no user creds were found")
+        return
 
-        upload_thread = ErrorCatchingThread(
-            target=uploader,
-            args=(
-                file_directory,
-                sub_dir_name,
-                zipped_dir.name,
-                customer_account_id,
-                customer_pass_key,
-            ),
-        )
-        upload_thread.start()
-        upload_thread.join()
+    logger.info("Attempting upload of log files to s3")
 
-        if upload_thread.errors():
-            logger.error(f"Failed to upload log files to s3: {upload_thread.get_error()}")
+    log_file_dir = config_settings["log_directory"]
+    file_directory = os.path.dirname(log_file_dir)
+    sub_dir_name = os.path.basename(log_file_dir)
+
+    customer_id = config_settings["customer_id"]
+    user_name = config_settings["user_name"]
+    user_password = config_settings["user_password"]
+
+    with tempfile.TemporaryDirectory() as zipped_dir:
+        try:
+            uploader(file_directory, sub_dir_name, zipped_dir, customer_id, user_name, user_password)
+        except Exception as e:
+            logger.error(f"Failed to upload log files to s3: {repr(e)}")
         else:
             logger.info("Successfully uploaded session logs to s3 at shutdown")
 
-        zipped_dir.cleanup()
-    else:
-        logger.info("Log upload to s3 has been prevented because no customer account was found")
 
-
-def _compare_semver(version_1: str, version_2: str) -> bool:
-    """Determine if Version 1 is greater than Version 2."""
-    return VersionInfo.parse(version_1) > VersionInfo.parse(version_2)  # type: ignore
+def _compare_semver(version_a: str, version_b: str) -> bool:
+    """Determine if Version A is greater than Version B."""
+    return VersionInfo.parse(version_a) > VersionInfo.parse(version_b)  # type: ignore

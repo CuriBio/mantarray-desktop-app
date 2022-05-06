@@ -27,8 +27,8 @@ from mantarray_desktop_app import CALIBRATION_RECORDING_DUR_SECONDS
 from mantarray_desktop_app import CHECKING_FOR_UPDATES_STATE
 from mantarray_desktop_app import CLEAR_BARCODE_TRIG_BIT
 from mantarray_desktop_app import CLEARED_BARCODE_VALUE
-from mantarray_desktop_app import CLOUD_API_ENDPOINT_USER_OPTION
-from mantarray_desktop_app import CLOUD_API_ENDPOINT_VALID_OPTIONS
+from mantarray_desktop_app import CLOUD_ENDPOINT_USER_OPTION
+from mantarray_desktop_app import CLOUD_ENDPOINT_VALID_OPTIONS
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import CONSTRUCT_SENSORS_PER_REF_SENSOR
@@ -169,6 +169,7 @@ from mantarray_desktop_app.constants import BARCODE_LEN
 from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
+from mantarray_desktop_app.constants import SOFTWARE_RELEASE_CHANNEL
 from mantarray_desktop_app.constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
 from mantarray_desktop_app.constants import STIM_SHORT_CIRCUIT_THRESHOLD_OHMS
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
@@ -292,16 +293,16 @@ def test_CURRENT_SOFTWARE_VERSION():
     assert CURRENT_SOFTWARE_VERSION == "REPLACETHISWITHVERSIONDURINGBUILD"
 
 
-def test_CLOUD_API_ENDPOINT_USER_OPTION():
-    assert CLOUD_API_ENDPOINT_USER_OPTION == "REPLACETHISWITHENDPOINTDURINGBUILD"
+def test_SOFTWARE_RELEASE_CHANNEL():
+    assert SOFTWARE_RELEASE_CHANNEL == "REPLACETHISWITHRELEASECHANNELDURINGBUILD"
 
 
-def test_CLOUD_API_ENDPOINT_VALID_OPTIONS():
-    assert CLOUD_API_ENDPOINT_VALID_OPTIONS == {
-        "test": "curibio-test",
-        "modl": "curibio-modl",
-        "prod": "curibio",
-    }
+def test_CLOUD_ENDPOINT_USER_OPTION():
+    assert CLOUD_ENDPOINT_USER_OPTION == "REPLACETHISWITHENDPOINTDURINGBUILD"
+
+
+def test_CLOUD_ENDPOINT_VALID_OPTIONS():
+    assert CLOUD_ENDPOINT_VALID_OPTIONS == {"test": "curibio-test", "prod": "curibio"}
 
 
 def test_managed_acquisition_commands():
@@ -384,14 +385,14 @@ def test_system_status_uuids():
 
 def test_user_config():
     assert DEFAULT_USER_CONFIG == {
-        "customer_account_id": "",
-        "user_account_id": "",
+        "customer_id": "",
+        "user_name": "",
     }
     assert VALID_CONFIG_SETTINGS == frozenset(
         [
-            "customer_account_uuid",
-            "customer_pass_key",
-            "user_account_id",
+            "customer_id",
+            "user_password",
+            "user_name",
             "recording_directory",
             "auto_upload",
             "auto_delete",

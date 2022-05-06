@@ -12,7 +12,7 @@ from .constants import CLOUD_API_ENDPOINT
 from .exceptions import FirmwareDownloadError
 
 
-def call_firmware_route(url: str, error_message: str, **kwargs: Any) -> Response:
+def call_firmware_download_route(url: str, error_message: str, **kwargs: Any) -> Response:
     try:
         response = requests.get(url, **kwargs)
     except ConnectionError as e:
@@ -28,7 +28,9 @@ def get_latest_firmware_versions(
     result_dict: Dict[str, Dict[str, str]],
     serial_number: str,
 ) -> None:
-    response = requests.get(f"https://{CLOUD_API_ENDPOINT}/firmware_latest?serial_number={serial_number}")
+    response = requests.get(
+        f"https://{CLOUD_API_ENDPOINT}/mantarray/firmware_latest", params={"serial_number": serial_number}
+    )
     response_json = response.json()
     result_dict["latest_versions"].update(response_json["latest_versions"])
 
@@ -37,30 +39,33 @@ def download_firmware_updates(
     result_dict: Dict[str, Any],
     main_fw_version: Optional[str],
     channel_fw_version: Optional[str],
+    customer_id: str,
     username: str,
     password: str,
 ) -> None:
     if main_fw_version is None and channel_fw_version is None:
         raise FirmwareDownloadError("No firmware types specified")
     # get access token
-    get_auth_response = requests.post(
-        f"https://{CLOUD_API_ENDPOINT}/get_auth", json={"username": username, "password": password}
+    login_response = requests.post(
+        f"https://{CLOUD_API_ENDPOINT}/users/login",
+        json={"customer_id": customer_id, "username": username, "password": password},
     )
-    access_token = get_auth_response.json()["access_token"]
+    access_token = login_response.json()["access_token"]
     # get presigned download URL(s)
     presigned_urls: Dict[str, Optional[str]] = {"main": None, "channel": None}
     for version, fw_type in ((main_fw_version, "main"), (channel_fw_version, "channel")):
         if version is not None:
-            download_details = call_firmware_route(
-                f"https://{CLOUD_API_ENDPOINT}/firmware_download?firmware_version={version}&firmware_type={fw_type}",
+            download_details = call_firmware_download_route(
+                f"https://{CLOUD_API_ENDPOINT}/mantarray/firmware_download",
                 headers={"Authorization": f"Bearer {access_token}"},
+                params={"firmware_version": version, "firmware_type": fw_type},
                 error_message=f"Error getting presigned URL for {fw_type} firmware",
             )
             presigned_urls[fw_type] = download_details.json()["presigned_url"]
     # download firmware file(s)
     for fw_type, presigned_url in presigned_urls.items():
         if presigned_url is not None:
-            download_response = call_firmware_route(
+            download_response = call_firmware_download_route(
                 presigned_url, error_message=f"Error during download of {fw_type} firmware"
             )
             result_dict[fw_type] = download_response.content

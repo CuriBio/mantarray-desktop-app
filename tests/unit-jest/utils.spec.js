@@ -1,5 +1,4 @@
 const path = require("path");
-const fs = require("fs");
 const tmp = require("tmp");
 tmp.setGracefulCleanup(); // Eli (7/13/20): According to the docs, this is supposed to enforce automatic deletion of the folders at the end of running the process, but it does not appear to be working. Manual cleanup seems to be required.
 const url_safe_base64 = require("urlsafe-base64");
@@ -45,7 +44,7 @@ describe("utils.js", () => {
           expect(actual_args).toStrictEqual(
             expect.arrayContaining([
               "--log-file-dir=" +
-                path.join(path.dirname(store.path), "logs_flask", main_utils.filename_prefix),
+                path.join(path.dirname(store.path), "logs_flask", main_utils.FILENAME_PREFIX),
             ])
           );
         });
@@ -64,14 +63,8 @@ describe("utils.js", () => {
         test("When the function is invoked, Then the returned --initial-base64-settings encoded settings argument is supplied only containing the recording directory (since no ID exists in the store)", () => {
           const actual_args = main_utils.generate_flask_command_line_args(store);
           const expected_obj = {
-            log_file_uuid: main_utils.filename_prefix,
+            log_file_id: main_utils.FILENAME_PREFIX,
             recording_directory: path.join(tmp_dir_name, "recordings"),
-            stored_customer_id: {
-              id: "",
-              password: "",
-            },
-            zipped_recordings_dir: path.join(tmp_dir_name, "recordings", "zipped_recordings"),
-            failed_uploads_dir: path.join(tmp_dir_name, "recordings", "failed_uploads"),
           };
 
           const regex = "--initial-base64-settings=";
@@ -79,14 +72,6 @@ describe("utils.js", () => {
           const parsed_base64 = JSON.parse(url_safe_base64.decode(base_64_string).toString("utf8"));
 
           expect(parsed_base64).toStrictEqual(expected_obj);
-        });
-
-        test("When the function is invoked, Then subfolders are created for logs and recordings", () => {
-          main_utils.generate_flask_command_line_args(store);
-          expect(fs.existsSync(path.join(tmp_dir_name, "logs_flask", main_utils.filename_prefix))).toBe(true);
-          expect(fs.existsSync(path.join(tmp_dir_name, "recordings"))).toBe(true);
-          expect(fs.existsSync(path.join(tmp_dir_name, "recordings", "zipped_recordings"))).toBe(true);
-          expect(fs.existsSync(path.join(tmp_dir_name, "recordings", "failed_uploads"))).toBe(true);
         });
       });
     });

@@ -43,16 +43,12 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
 
     def __init__(
         self,
-        file_directory: str = "",
+        values_to_share_to_server: Dict[str, Any],
         logging_level: int = logging.INFO,
-        values_to_share_to_server: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._queue_container: MantarrayQueueContainer
 
-        self._logging_level: int
-        if values_to_share_to_server is None:
-            # Tanner (4/23/21): 'values_to_share_to_server' kwarg is only None during testing, so default to Beta 1 mode. Tests that need beta 2 mode should use the kwarg to provide a dict where this value is True
-            values_to_share_to_server = {"beta_2_mode": False}
+        self._logging_level = logging_level
 
         self._values_to_share_to_server = values_to_share_to_server
         self._server_manager: ServerManager
@@ -60,26 +56,15 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self._instrument_communication_process: InstrumentCommProcess
         self._file_writer_process: FileWriterProcess
         self._data_analyzer_process: DataAnalyzerProcess
+
         self._all_processes: Optional[Dict[str, InfiniteProcess]] = None
         self._subprocesses_started: bool = False
-
-        self._file_directory: str = file_directory
-        self.set_logging_level(logging_level)
-
-    def set_logging_level(self, logging_level: int) -> None:
-        self._logging_level = logging_level
 
     def get_values_to_share_to_server(self) -> Dict[str, Any]:
         return self._values_to_share_to_server
 
     def queue_container(self) -> MantarrayQueueContainer:
         return self._queue_container
-
-    def get_file_directory(self) -> str:
-        return self._file_directory
-
-    def set_file_directory(self, file_dir: str) -> None:
-        self._file_directory = file_dir
 
     def get_logging_level(self) -> int:
         return self._logging_level
@@ -101,7 +86,6 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         queue_container = MantarrayQueueContainer()
         self._queue_container = queue_container
         beta_2_mode = self._values_to_share_to_server["beta_2_mode"]
-        stored_customer_settings = self._values_to_share_to_server.get("stored_customer_settings", None)
 
         self._server_manager = ServerManager(
             queue_container.get_communication_queue_from_server_to_main(),
@@ -123,10 +107,9 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             queue_container.get_communication_queue_from_main_to_file_writer(),
             queue_container.get_communication_queue_from_file_writer_to_main(),
             queue_container.get_file_writer_error_queue(),
-            file_directory=self._file_directory,
+            file_directory=self._values_to_share_to_server["config_settings"]["recording_directory"],
             logging_level=self._logging_level,
             beta_2_mode=beta_2_mode,
-            stored_customer_settings=stored_customer_settings,
         )
 
         self._data_analyzer_process = DataAnalyzerProcess(

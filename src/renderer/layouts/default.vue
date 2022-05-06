@@ -14,33 +14,31 @@
       <div class="div__player-controls-container">
         <DesktopPlayerControls @save_customer_id="save_customer_id" />
       </div>
-      <div class="div__stim-barcode-container">
-        <BarcodeViewer :barcode_type="'stim_barcode'" />
-      </div>
-      <div class="div__status-bar-container" :style="'top: 455px;'">
-        <StatusBar
-          :confirmation_request="confirmation_request"
-          :stim_specific="true"
-          @send_confirmation="send_confirmation"
-        />
-      </div>
-      <div
-        class="div__stimulation_controls-controls-icon-container"
-        :class="[
-          beta_2_mode
-            ? 'div__stimulation_controls-controls-icon-container--beta-2-mode'
-            : 'div__stimulation_controls-controls-icon-container--beta-1-mode',
-        ]"
-      >
-        <StimulationControls />
-        <NuxtLink to="/stimulationstudio">
-          <div
-            v-b-popover.hover.bottom="'Click to view Stimulation Studio'"
-            :title="'Stimulation Studio'"
-            class="div__stim-studio-screen-view"
+
+      <!-- Beta 2 specific components -->
+      <div v-if="beta_2_mode">
+        <div class="div__stim-barcode-container">
+          <BarcodeViewer :barcode_type="'stim_barcode'" />
+        </div>
+        <div class="div__status-bar-container" :style="'top: 455px;'">
+          <StatusBar
+            :confirmation_request="confirmation_request"
+            :stim_specific="true"
+            @send_confirmation="send_confirmation"
           />
-        </NuxtLink>
+        </div>
+        <div class="div__stimulation_controls-controls-icon-container">
+          <StimulationControls />
+          <NuxtLink to="/stimulationstudio">
+            <div
+              v-b-popover.hover.bottom="'Click to view Stimulation Studio'"
+              :title="'Stimulation Studio'"
+              class="div__stim-studio-screen-view"
+            />
+          </NuxtLink>
+        </div>
       </div>
+
       <span
         class="span__screen-view-options-text"
         :class="[
@@ -144,11 +142,12 @@ export default {
       current_year: "2022",
       confirmation_request: false,
       beta_2_mode: process.env.SPECTRON || undefined,
+      request_stored_customer_id: true,
       log_dir_name: undefined,
     };
   },
   computed: {
-    ...mapState("settings", ["customer_account_ids", "customer_index", "allow_sw_update_install"]),
+    ...mapState("settings", ["user_accounts", "active_user_index", "allow_sw_update_install"]),
   },
   watch: {
     allow_sw_update_install: function () {
@@ -200,23 +199,17 @@ export default {
       this.beta_2_mode = beta_2_mode;
       this.$store.commit("settings/set_beta_2_mode", beta_2_mode);
     });
+    ipcRenderer.on("stored_customer_id_response", (_, stored_customer_id) => {
+      this.request_stored_customer_id = false;
+      this.$store.commit("settings/set_stored_customer_id", stored_customer_id);
+    });
+
     if (this.beta_2_mode === undefined) {
       ipcRenderer.send("beta_2_mode_request");
     }
-
-    // ipcRenderer.on('customer_account_response', (e, customer_account) => {
-    //   if (customer_account.id !== '') {
-    //     const customer = {
-    //       cust_idx: 0,
-    //       cust_id: customer_account.id,
-    //       pass_key: customer_account.password,
-    //       user_account_id: 'default_user',
-    //     };
-    //     this.$store.commit('settings/set_customer_account_ids', [customer]);
-    //     this.$store.commit('settings/set_customer_index', 0);
-    //   }
-    // });
-    // ipcRenderer.send('customer_account_request');
+    if (this.request_stored_customer_id) {
+      ipcRenderer.send("stored_customer_id_request");
+    }
   },
   methods: {
     send_confirmation: function (idx) {
@@ -224,8 +217,9 @@ export default {
       this.confirmation_request = false;
     },
     save_customer_id: function () {
-      const customer_account = this.customer_account_ids[this.customer_index];
-      ipcRenderer.send("save_customer_id", customer_account);
+      const customer_id = this.user_accounts[this.active_user_index].customer_id;
+      ipcRenderer.send("save_customer_id", customer_id);
+      this.$store.commit("settings/set_stored_customer_id", customer_id);
     },
   },
 };
@@ -303,12 +297,6 @@ body {
   position: absolute;
   top: 505px;
   left: 0px;
-}
-.div__stimulation_controls-controls-icon-container--beta-1-mode {
-  visibility: hidden;
-}
-.div__stimulation_controls-controls-icon-container--beta-2-mode {
-  visibility: visible;
 }
 .div__stim-studio-screen-view {
   position: absolute;

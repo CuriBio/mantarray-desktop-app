@@ -30,7 +30,7 @@ class UnrecognizedCommandFromMainToOkCommError(Exception):
     pass
 
 
-class InvalidCustomerAccountIDPasswordError(Exception):
+class InvalidUserCredsError(Exception):
     pass
 
 
@@ -247,4 +247,8 @@ class InstrumentFirmwareError(Exception):
 
 
 class FirmwareGoingDormantError(Exception):
+    pass
+
+
+class CloudAnalysisJobFailedError(Exception):
     pass

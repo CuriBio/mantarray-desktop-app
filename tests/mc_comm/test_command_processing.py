@@ -458,6 +458,7 @@ def test_McCommunicationProcess__handles_download_firmware_updates_command(
     # mock so thread won't get deleted on same iteration it is created
     mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, return_value=True)
 
+    test_customer_id = "id"
     test_username = "user"
     test_password = "pw"
 
@@ -466,6 +467,7 @@ def test_McCommunicationProcess__handles_download_firmware_updates_command(
         "command": "download_firmware_updates",
         "main": main_fw_update,
         "channel": channel_fw_update,
+        "customer_id": test_customer_id,
         "username": test_username,
         "password": test_password,
     }
@@ -488,6 +490,7 @@ def test_McCommunicationProcess__handles_download_firmware_updates_command(
                 mc_process._fw_update_thread_dict,
                 main_fw_update,
                 channel_fw_update,
+                test_customer_id,
                 test_username,
                 test_password,
             ),
