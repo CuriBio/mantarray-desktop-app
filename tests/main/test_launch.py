@@ -148,7 +148,7 @@ def test_main__logs_system_info__and_software_version_at_very_start(
     with tempfile.TemporaryDirectory() as tmp:
         spied_info_logger = mocker.spy(main.logger, "info")
         expected_uuid = "c7d3e956-cfc3-42df-94d9-b3a19cf1529c"
-        test_dict = {"log_file_id": expected_uuid, "recording_directory": f"/{tmp}"}
+        test_dict = {"log_file_id": expected_uuid, "recording_directory": tmp}
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
         main.main(

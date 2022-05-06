@@ -421,7 +421,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
     # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         test_dict = {
-            "recording_directory": f"/{expected_recordings_dir}",
+            "recording_directory": expected_recordings_dir,
             "log_file_id": str(
                 GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
                     BACKEND_LOG_UUID
