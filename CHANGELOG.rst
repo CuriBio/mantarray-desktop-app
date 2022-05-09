@@ -11,6 +11,7 @@ Added:
 
 - Stim Lid barcode.
 - Stim Lid configuration check.
+- Ability to specify a name for recording files.
 
 Changed:
 ^^^^^^^^
@@ -28,7 +29,7 @@ Changed:
 
   - Removed module ID from general packet structure.
   - Removed ability to set magnetometer configuration.
-  - Misc. other minor changes.
+  - Other minor changes.
 
 - Instrument error handling procedure.
 
