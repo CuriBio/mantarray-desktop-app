@@ -195,12 +195,11 @@ def _trim_barcode(barcode: str) -> str:
 
 def _create_start_recording_command(
     shared_values_dict: Dict[str, Any],
+    *,
+    recording_name: Optional[str] = None,
     time_index: Optional[Union[str, int]] = 0,
     active_well_indices: Optional[List[int]] = None,
-    barcodes: Dict[str, Union[str, UUID]] = {
-        "plate_barcode": NOT_APPLICABLE_H5_METADATA,
-        "stim_barcode": NOT_APPLICABLE_H5_METADATA,
-    },
+    barcodes: Optional[Dict[str, Union[str, UUID]]] = None,
     is_calibration_recording: bool = False,
     is_hardware_test_recording: bool = False,
 ) -> Dict[str, Any]:
@@ -220,8 +219,11 @@ def _create_start_recording_command(
             MICRO_TO_BASE_CONVERSION if shared_values_dict["beta_2_mode"] else CENTIMILLISECONDS_PER_SECOND
         )
 
-    if active_well_indices is None:
+    if not active_well_indices:
         active_well_indices = list(range(24))
+
+    if not barcodes:
+        barcodes = {"plate_barcode": NOT_APPLICABLE_H5_METADATA, "stim_barcode": NOT_APPLICABLE_H5_METADATA}
 
     barcode_match_dict: Dict[str, Union[bool, UUID]] = {}
     for barcode_type, barcode in barcodes.items():
@@ -300,6 +302,9 @@ def _create_start_recording_command(
                 "adc_offsets": adc_offsets,
             }
         )
+
+    if recording_name:
+        comm_dict["recording_name"] = recording_name
 
     return comm_dict
 

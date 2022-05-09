@@ -1261,6 +1261,34 @@ def test_start_recording_command__beta_2_mode__populates_queue_with_stim_metadat
     )
 
 
+@pytest.mark.parametrize("recording_name", ["Test Name", None])
+def test_start_recording_command__populates_queue_with_recording_file_name_correctly(
+    recording_name, test_process_manager_creator, test_client
+):
+    test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
+
+    params = {
+        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
+        "is_hardware_test_recording": False,
+    }
+    if recording_name:
+        params["recording_name"] = recording_name
+
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
+    assert response.status_code == 200
+
+    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["command"] == "start_recording"
+    if recording_name:
+        assert communication["recording_name"] == recording_name
+    else:
+        assert "recording_name" not in communication
+
+
 def test_shutdown__sends_hard_stop_command__waits_for_subprocesses_to_stop__then_shutdown_server_command_to_process_monitor(
     client_and_server_manager_and_shared_values, mocker
 ):

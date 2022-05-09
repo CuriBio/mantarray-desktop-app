@@ -2,6 +2,7 @@ const path = require("path");
 const url_safe_base64 = require("urlsafe-base64");
 import ElectronStore from "./electron_store.js";
 const yaml = require("js-yaml");
+
 const now = new Date();
 const utc_month = (now.getUTCMonth() + 1).toString().padStart(2, "0"); // Eli (3/29/21) for some reason getUTCMonth returns a zero-based number, while everything else is a month, so adjusting here
 

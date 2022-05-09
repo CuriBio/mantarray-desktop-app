@@ -165,10 +165,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
     assert actual_set_of_files == expected_set_of_files
 
     for this_well_idx in range(24):
-        # Eli (2/9/20) can't figure out a more elegant way to test this than accessing the private instance variable.  If you open a file using the :code:`swmr=True` kwarg and the file isn't being written that way, no error is raised, and asserting f.swmr_mode is True on the file being read doesn't work (always returns what the kwarg was set as during opening for reading)
-        open_files = file_writer_process._open_files  # pylint: disable=protected-access
-        this_file_being_written_to = open_files[0][this_well_idx]
-        assert this_file_being_written_to.swmr_mode is True
+        assert file_writer_process._open_files[0][this_well_idx].swmr_mode is True, this_well_idx
 
     for well_idx in range(24):
         row_idx, col_idx = WELL_DEF_24.get_row_and_column_from_well_index(well_idx)
@@ -309,6 +306,35 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         assert get_reference_dataset_from_file(this_file).dtype == data_type
         assert get_tissue_dataset_from_file(this_file).shape == data_shape
         assert get_tissue_dataset_from_file(this_file).dtype == data_type
+
+
+@pytest.mark.parametrize("test_recording_name", ["Test Name", None])
+def test_FileWriterProcess__creates_recording_dir_and_files_with_correct_name(
+    test_recording_name, four_board_file_writer_process
+):
+    fw_process = four_board_file_writer_process["fw_process"]
+    fw_process.set_beta_2_mode()
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
+
+    populate_calibration_folder(fw_process)
+
+    this_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    if test_recording_name:
+        this_command["recording_name"] = test_recording_name
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+
+    invoke_process_run_and_check_errors(fw_process)
+
+    timestamp_str = "2020_02_09_190359"
+    expected_plate_barcode = this_command["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID]
+
+    if test_recording_name:
+        actual_recording_name = test_recording_name
+    else:
+        actual_recording_name = f"{expected_plate_barcode}__{timestamp_str}"
+
+    assert os.path.isdir(os.path.join(file_dir, actual_recording_name))
 
 
 @pytest.mark.timeout(4)
