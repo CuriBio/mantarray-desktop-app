@@ -15,7 +15,7 @@ class ErrorCatchingThread(Thread):
         self._args: Optional[Any]
         self._kwargs: Optional[Any]
 
-    def run(self) -> None:
+    def run(self) -> Any:
         if self._target is not None:
             try:
                 super().run()

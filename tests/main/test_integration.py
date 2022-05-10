@@ -207,12 +207,14 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
     )
     expected_timestamp = "2020_07_16_141955"
     # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
-    with tempfile.TemporaryDirectory() as expected_recordings_dir:
+    with tempfile.TemporaryDirectory() as tmp_dir:
         # Tanner (12/29/20): Sending in alternate recording directory through command line args
+        expected_recordings_dir = os.path.join(tmp_dir, "recordings")
         test_dict = {
             "stored_customer_id": GENERIC_STORED_CUSTOMER_ID,
             "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
             "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
+            "mag_analysis_output_dir": f"{tmp_dir}/time_force_data",
             "recording_directory": expected_recordings_dir,
         }
         json_str = json.dumps(test_dict)
@@ -379,12 +381,14 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         ],
     )
     # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
-    with tempfile.TemporaryDirectory() as expected_recordings_dir:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        expected_recordings_dir = os.path.join(tmp_dir, "recordings")
         test_dict = {
             "stored_customer_id": GENERIC_STORED_CUSTOMER_ID,
-            "zipped_recordings_dir": f"/{expected_recordings_dir}/zipped_recordings",
+            "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
             "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
-            "recording_directory": f"/{expected_recordings_dir}",
+            "mag_analysis_output_dir": f"{tmp_dir}/time_force_data",
+            "recording_directory": expected_recordings_dir,
         }
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
@@ -734,11 +738,13 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
     spied_logger = mocker.spy(main.logger, "info")
     # Tanner (12/29/20): Not making assertions on files, but still need a TemporaryDirectory to hold them
     with tempfile.TemporaryDirectory() as tmp_dir:
+        recording_dir = os.path.join(tmp_dir, "recordings")
         test_dict = {
             "stored_customer_id": GENERIC_STORED_CUSTOMER_ID,
-            "zipped_recordings_dir": f"{tmp_dir}/zipped_recordings",
-            "failed_uploads_dir": f"{tmp_dir}/failed_uploads",
-            "recording_directory": tmp_dir,
+            "zipped_recordings_dir": f"{recording_dir}/zipped_recordings",
+            "failed_uploads_dir": f"{recording_dir}/failed_uploads",
+            "mag_analysis_output_dir": f"{tmp_dir}/time_force_data",
+            "recording_directory": recording_dir,
         }
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
@@ -883,11 +889,13 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         "protocol_assignments": test_protocol_assignments,
     }
 
-    with tempfile.TemporaryDirectory() as expected_recordings_dir:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        expected_recordings_dir = os.path.join(tmp_dir, "recordings")
         test_dict = {
             "stored_customer_id": GENERIC_STORED_CUSTOMER_ID,
             "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
             "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
+            "mag_analysis_output_dir": f"{tmp_dir}/time_force_data",
             "recording_directory": expected_recordings_dir,
         }
         json_str = json.dumps(test_dict)

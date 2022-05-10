@@ -70,6 +70,7 @@ describe("utils.js", () => {
               id: "",
               password: "",
             },
+            mag_analysis_output_dir: path.join(tmp_dir_name, "time_force_data"),
             zipped_recordings_dir: path.join(tmp_dir_name, "recordings", "zipped_recordings"),
             failed_uploads_dir: path.join(tmp_dir_name, "recordings", "failed_uploads"),
           };

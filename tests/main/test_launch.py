@@ -156,6 +156,7 @@ def test_main__logs_system_info__and_software_version_at_very_start(
             "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"/{tmp}/zipped_recordings_dir",
             "failed_uploads_dir": f"/{tmp}/failed_uploads_dir",
+            "mag_analysis_output_dir": f"/{tmp}/time_force_data",
             "recording_directory": f"/{tmp}",
         }
         json_str = json.dumps(test_dict)
@@ -398,6 +399,7 @@ def test_main__stores_values_from_command_line_arguments(mocker, fully_running_a
             "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
             "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
             "log_file_uuid": "91dbb151-0867-44da-a595-bd303f91927d",
+            "mag_analysis_output_dir": "/time_force_data",
         }
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
@@ -434,6 +436,7 @@ def test_main__generates_log_file_uuid_if_none_passed_in_cmd_line_args(
             "user_account_id": "455b93eb-c78f-4494-9f73-d3291130f126",
             "zipped_recordings_dir": f"/{tmp}/zipped_recordings",
             "failed_uploads_dir": f"/{tmp}/failed_uploads",
+            "mag_analysis_output_dir": f"/{tmp}/time_force_data",
             "recording_directory": f"/{tmp}",
             "log_file_uuid": str(expected_log_file_uuid),
         }

@@ -2,41 +2,41 @@
   <div>
     <div class="div__sidebar">
       <div class="div__sidebar-page-divider" />
-      <div class="div__plate-barcode-container">
-        <BarcodeViewer />
-      </div>
-      <div class="div__status-bar-container">
-        <StatusBar :confirmation_request="confirmation_request" @send_confirmation="send_confirmation" />
-      </div>
-      <div class="div__plate-navigator-container">
-        <PlateNavigator />
-      </div>
       <div class="div__accordian-container" role="tablist">
-        <div role="tab">
-          <button v-b-toggle.data-acquisition-card class="button__accordian-tabs">Data Acquisition</button>
+        <div
+          role="tab"
+          @click="handle_tab_visibility(0)"
+          @mouseenter="data_acquisition_hover = true"
+          @mouseleave="data_acquisition_hover = false"
+        >
+          <div
+            v-b-toggle.data-acquisition-card
+            class="div__accordian-tabs"
+            :class="data_acquisition_dynamic_class"
+          >
+            Data Acquisition
+          </div>
+          <div
+            class="div__arrow"
+            :class="{ expanded: data_acquisition_visibility }"
+            :style="data_acquisition_hover ? 'border-top: 6px solid #000' : null"
+          />
         </div>
         <b-collapse id="data-acquisition-card" visible accordion="controls-accordion" role="tabpanel">
+          <div class="div__plate-barcode-container">
+            <BarcodeViewer />
+          </div>
+          <div class="div__plate-navigator-container">
+            <PlateNavigator />
+          </div>
+          <div class="div__status-bar-container">
+            <StatusBar @send_confirmation="send_confirmation" />
+          </div>
           <div class="div__player-controls-container">
             <DesktopPlayerControls @save_customer_id="save_customer_id" />
           </div>
-          <div
-            class="div__screen-view-options-text"
-            :class="[
-              beta_2_mode
-                ? 'span__screen-view-options-text--beta-2-mode'
-                : 'span__screen-view-options-text--beta-1-mode',
-            ]"
-          >
-            Screen View Options
-          </div>
-          <div
-            class="div__screen-view-container"
-            :class="[
-              beta_2_mode
-                ? 'div__screen-view-container--beta-2-mode'
-                : 'div__screen-view-container--beta-1-mode',
-            ]"
-          >
+          <div class="div__screen-view-options-text">Screen View Options</div>
+          <div class="div__screen-view-container">
             <div class="div__waveform-screen-view">
               <!-- Default view is waveform screen -->
               <NuxtLink to="/">
@@ -58,8 +58,21 @@
             </div>
           </div>
         </b-collapse>
-        <div role="tab">
-          <button v-b-toggle.stim-studio-card class="button__accordian-tabs">Stimulation Studio</button>
+        <div
+          v-if="beta_2_mode"
+          role="tab"
+          @click="handle_tab_visibility(1)"
+          @mouseenter="stim_studio_hover = true"
+          @mouseleave="stim_studio_hover = false"
+        >
+          <div v-b-toggle.stim-studio-card class="div__accordian-tabs" :class="stim_studio_dynamic_class">
+            Stimulation Studio
+          </div>
+          <div
+            class="div__arrow"
+            :class="{ expanded: stim_studio_visibility }"
+            :style="stim_studio_hover ? 'border-top: 6px solid #000' : null"
+          />
         </div>
         <b-collapse id="stim-studio-card" accordion="controls-accordion" role="tabpanel">
           <div class="div__stim-barcode-container">
@@ -72,14 +85,7 @@
               @send_confirmation="send_confirmation"
             />
           </div>
-          <div
-            class="div__stimulation_controls-controls-icon-container"
-            :class="[
-              beta_2_mode
-                ? 'div__stimulation_controls-controls-icon-container--beta-2-mode'
-                : 'div__stimulation_controls-controls-icon-container--beta-1-mode',
-            ]"
-          >
+          <div class="div__stimulation_controls-controls-icon-container">
             <StimulationControls />
             <NuxtLink to="/stimulationstudio">
               <div
@@ -90,11 +96,24 @@
             </NuxtLink>
           </div>
         </b-collapse>
-        <div role="tab">
-          <button v-b-toggle.data-analysis-card class="button__accordian-tabs">Data Analysis</button>
+        <div
+          v-if="beta_2_mode"
+          role="tab"
+          @click="handle_tab_visibility(2)"
+          @mouseenter="data_analysis_hover = true"
+          @mouseleave="data_analysis_hover = false"
+        >
+          <div v-b-toggle.data-analysis-card class="div__accordian-tabs" :class="data_analysis_dynamic_class">
+            Data Analysis
+          </div>
+          <div
+            class="div__arrow"
+            :class="{ expanded: data_analysis_visibility }"
+            :style="data_analysis_hover ? 'border-top: 6px solid #000' : null"
+          />
         </div>
         <b-collapse id="data-analysis-card" accordion="controls-accordion" role="tabpanel">
-          <MagFindAnalysisControl />
+          <DataAnalysisControl @send_confirmation="send_confirmation" />
         </b-collapse>
       </div>
       <div class="div__simulation-mode-container">
@@ -126,7 +145,7 @@ import {
   RecordingTime,
   StimulationControls,
   UploadFilesWidget,
-  MagFindAnalysisControl,
+  DataAnalysisControl,
 } from "@curi-bio/mantarray-frontend-components";
 import { ipcRenderer } from "electron";
 import { mapState } from "vuex";
@@ -156,7 +175,7 @@ export default {
     RecordingTime,
     StimulationControls,
     UploadFilesWidget,
-    MagFindAnalysisControl,
+    DataAnalysisControl,
     BCollapse,
   },
   data: function () {
@@ -164,9 +183,14 @@ export default {
       // package_version: module.exports.version,
       package_version: electron_app.getVersion(), // Eli (7/13/20): This only displays the application version when running from a built application---otherwise it displays the version of Electron that is installed
       current_year: "2022",
-      confirmation_request: false,
       beta_2_mode: process.env.SPECTRON || undefined,
-      log_dir_name: undefined,
+      log_dir_name: "C:\\Users\\username\\AppData\\Roaming\\MantarrayController\\logs_flask",
+      data_acquisition_visibility: true,
+      stim_studio_visibility: false,
+      data_analysis_visibility: false,
+      data_analysis_hover: false,
+      data_acquisition_hover: false,
+      stim_studio_hover: false,
     };
   },
   computed: {
@@ -177,7 +201,16 @@ export default {
       "recordings_list",
       "root_recording_path",
     ]),
-    ...mapState("playback", ["mag_find_analysis_state"]),
+    ...mapState("playback", ["data_analysis_state"]),
+    data_acquisition_dynamic_class: function () {
+      return this.data_acquisition_visibility ? "div__accordian-tabs-visible" : "div__accordian-tabs";
+    },
+    stim_studio_dynamic_class: function () {
+      return this.stim_studio_visibility ? "div__accordian-tabs-visible" : "div__accordian-tabs";
+    },
+    data_analysis_dynamic_class: function () {
+      return this.data_analysis_visibility ? "div__accordian-tabs-visible" : "div__accordian-tabs";
+    },
   },
   watch: {
     allow_sw_update_install: function () {
@@ -222,7 +255,7 @@ export default {
     this.$store.dispatch("flask/start_status_pinging");
 
     ipcRenderer.on("confirmation_request", () => {
-      this.confirmation_request = true;
+      this.$store.commit("settings/set_confirmation_request", true);
     });
 
     ipcRenderer.on("beta_2_mode_response", (_, beta_2_mode) => {
@@ -250,11 +283,26 @@ export default {
   methods: {
     send_confirmation: function (idx) {
       ipcRenderer.send("confirmation_response", idx);
-      this.confirmation_request = false;
+      this.$store.commit("settings/set_confirmation_request", false);
     },
     save_customer_id: function () {
       const customer_account = this.customer_account_ids[this.customer_index];
       ipcRenderer.send("save_customer_id", customer_account);
+    },
+    handle_tab_visibility: function (tab) {
+      if (tab === 0) {
+        this.data_acquisition_visibility = !this.data_acquisition_visibility;
+        this.data_analysis_visibility = false;
+        this.stim_studio_visibility = false;
+      } else if (tab === 1) {
+        this.data_acquisition_visibility = false;
+        this.data_analysis_visibility = false;
+        this.stim_studio_visibility = !this.stim_studio_visibility;
+      } else if (tab === 2) {
+        this.data_acquisition_visibility = false;
+        this.data_analysis_visibility = !this.data_analysis_visibility;
+        this.stim_studio_visibility = false;
+      }
     },
   },
 };
@@ -275,14 +323,14 @@ body {
   padding-bottom: 10px;
 }
 #data-acquisition-card {
-  padding-top: 5px;
+  padding: 5px 0px 10px 0px;
 }
 .div__accordian-container {
-  top: 315px;
+  top: 45px;
   position: absolute;
   width: 287px;
 }
-.button__accordian-tabs {
+.div__accordian-tabs {
   background-color: #000;
   color: #b7b7b7;
   font-family: Muli;
@@ -292,9 +340,40 @@ body {
   border-bottom: 2px solid #1c1c1c;
   border-left: 1px solid #000;
   border-right: 1px solid #000;
+  text-align: left;
+  padding-top: 5px;
+  padding-left: 15px;
+}
+.div__accordian-tabs:hover,
+.div__accordian-tabs-visible:hover {
+  background-color: #b7b7b7c9;
+  color: #000;
+}
+.div__accordian-tabs-visible {
+  background-color: #b7b7b7;
+  color: #000;
 }
 
 /* NON-SPECIFIC */
+.div__arrow {
+  position: relative;
+  top: -21px;
+  left: 260px;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 6px solid #b7b7b7c9;
+  width: 9px;
+  transform: rotateZ(0deg) translateY(0px);
+  transition-duration: 0.3s;
+  transition-timing-function: cubic-bezier(0.59, 1.39, 0.37, 1.01);
+}
+.expanded {
+  transform: rotateZ(180deg) translateY(2px);
+  border-top: 6px solid #000;
+}
+.arrow_hover {
+  border-top: 6px solid #000;
+}
 .div__top-bar-above-waveforms {
   position: absolute;
   left: 289px;
@@ -327,21 +406,6 @@ body {
   height: 930px;
   background-color: #0e0e0e;
 }
-.div__plate-barcode-container {
-  position: absolute;
-  top: 45px;
-  left: 0px;
-}
-.div__status-bar-container {
-  position: absolute;
-  left: 0px;
-  top: 267px;
-}
-.div__plate-navigator-container {
-  position: absolute;
-  top: 83px;
-  left: 0px;
-}
 
 /* DATA-ACQUISITION */
 .div__screen-view-container {
@@ -351,7 +415,19 @@ body {
   grid-template-columns: 50% 50%;
   justify-items: center;
 }
-
+.div__plate-barcode-container {
+  position: relative;
+  left: 0px;
+}
+.div__status-bar-container {
+  position: relative;
+  left: 0px;
+}
+.div__plate-navigator-container {
+  position: relative;
+  top: 5px;
+  left: 0px;
+}
 .div__screen-view-options-text {
   line-height: 100%;
   position: relative;
@@ -365,7 +441,6 @@ body {
   text-align: left;
   margin: 10px;
 }
-
 .div__waveform-screen-view- {
   grid-column: 1 / 2;
 }
@@ -393,7 +468,6 @@ body {
   margin-top: 3px;
   left: 0px;
 }
-
 .div__stim-studio-screen-view {
   position: absolute;
   top: 32px;

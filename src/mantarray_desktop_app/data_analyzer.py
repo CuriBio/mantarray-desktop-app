@@ -7,8 +7,11 @@ import json
 import logging
 from multiprocessing import Queue
 from multiprocessing import queues as mpqueues
+import os
 import queue
+import shutil
 from statistics import stdev
+import tempfile
 from time import perf_counter
 from typing import Any
 from typing import Dict
@@ -54,7 +57,10 @@ from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
+from .mag_finding_analyzer import run_mag_finding_analysis
+from .worker_thread import ErrorCatchingThread
 
+# from pulse3D.magnet_finding import run_mag_finding_analysis
 
 METRIC_CALCULATORS = {
     AMPLITUDE_UUID: TwitchAmplitude(rounded=False),
@@ -234,6 +240,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._calibration_settings: Union[None, Dict[Any, Any]] = None
         # Beta 2 items
         self._beta_2_buffer_size: Optional[int] = None  # set in set_sampling_period if in beta 2 mode
+        self._mag_analysis_threads_container: List[Any] = list()
 
     def start(self) -> None:
         for board_queue_tuple in self._board_queues:
@@ -283,6 +290,32 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._data_analysis_durations.append(_get_secs_since_data_analysis_start(analysis_start))
         return analysis_dict
 
+    def mag_analysis_thread(self, recordings: List[str], output_dir: str) -> None:
+        """Thread to handle magnet finding analyses.
+
+        Args:
+            recordings: a list of paths to recording directories of h5 files
+            output_dir: path to the time_force_data directory
+        """
+        failed_recordings = list()
+        for rec_path in recordings:
+            try:
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    # copy existing h5 directories to temp directory
+                    recording_name = os.path.basename(rec_path)
+                    shutil.copytree(rec_path, os.path.join(tmpdir, recording_name))
+                    run_mag_finding_analysis(
+                        file_path=tmpdir, recording_name=recording_name, output_dir=output_dir
+                    )
+
+            except Exception as e:
+                # keep track of failed analyses, but still continue to check all of them
+                failed_recordings.append({"name": recording_name, "error": str(e)})
+                continue
+
+        if failed_recordings:
+            raise Exception(json.dumps(failed_recordings))
+
     def init_streams(self) -> None:
         """Set up data analysis streams for active wells."""
         ends = []
@@ -324,6 +357,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._handle_incoming_packet()
 
         if self._beta_2_mode:
+            self._check_mag_analysis_statuses()
             return
 
         if self._is_data_from_each_well_present():
@@ -358,6 +392,10 @@ class DataAnalyzerProcess(InfiniteProcess):
                     f"Invalid command: {communication['command']} for communication_type: {communication_type}"
                 )
             self._comm_to_main_queue.put_nowait(communication)
+        elif communication_type == "mag_finding_analysis":
+            if communication["command"] == "start_mag_analysis":
+                content = communication["content"]
+                self._start_mag_analysis_thread(content)
         else:
             raise UnrecognizedCommandFromMainToDataAnalyzerError(communication_type)
 
@@ -549,6 +587,48 @@ class DataAnalyzerProcess(InfiniteProcess):
         )
         outgoing_msg = {"data_type": "stimulation", "data_json": outgoing_data_json}
         self._board_queues[0][1].put_nowait(outgoing_msg)
+
+    def _start_mag_analysis_thread(self, content: Dict[str, Any]) -> None:
+        recordings = content.get("recordings")
+        output_dir = content.get("output_dir")
+        mag_analysis_thread = ErrorCatchingThread(
+            target=self.mag_analysis_thread,
+            args=(recordings, output_dir),
+        )
+        mag_analysis_thread.start()
+
+        self._mag_analysis_threads_container.append(
+            {
+                "thread": mag_analysis_thread,
+                "recordings": recordings,
+                "output_dir": output_dir,
+            }
+        )
+
+    def _check_mag_analysis_statuses(self) -> None:
+        for thread_dict in self._mag_analysis_threads_container:
+            thread = thread_dict.get("thread")
+            recordings = thread_dict.get("recordings")
+            output_dir = thread_dict.get("output_dir")
+
+            if not thread.is_alive():
+                thread.join()
+
+                mag_analysis_msg = dict()
+                mag_analysis_msg["recordings"] = recordings
+                mag_analysis_msg["output_dir"] = output_dir
+
+                if error := thread.get_error():
+                    mag_analysis_msg["failed_recordings"] = json.loads(error)
+
+                self._mag_analysis_threads_container.remove(thread_dict)
+                outgoing_msg = {
+                    "data_type": "data_analysis_complete",
+                    "data_json": json.dumps(mag_analysis_msg),
+                }
+                self._comm_to_main_queue.put_nowait(
+                    {"communication_type": "mag_analysis_complete", "content": outgoing_msg}
+                )
 
     def _handle_performance_logging(self) -> None:
         performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}

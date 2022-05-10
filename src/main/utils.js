@@ -82,10 +82,13 @@ const generate_flask_command_line_args = function (electron_store) {
   const recording_directory_path = path.join(electron_store_dir, "recordings");
   const zipped_recordings_dir_path = path.join(recording_directory_path, "zipped_recordings");
   const failed_uploads_dir_path = path.join(recording_directory_path, "failed_uploads");
+  const time_force_dir_path = path.join(electron_store_dir, "time_force_data");
+
   mkdirp.sync(flask_logs_full_path);
   mkdirp.sync(recording_directory_path);
   mkdirp.sync(zipped_recordings_dir_path);
   mkdirp.sync(failed_uploads_dir_path);
+  mkdirp.sync(time_force_dir_path);
 
   const stored_customer_id = electron_store.get("customer_account_id");
   // storing upload dir paths so that they can be found on start up to try re-uploading even if file_directory path changes while FW is running
@@ -95,6 +98,7 @@ const generate_flask_command_line_args = function (electron_store) {
     stored_customer_id,
     zipped_recordings_dir: zipped_recordings_dir_path,
     failed_uploads_dir: failed_uploads_dir_path,
+    mag_analysis_output_dir: time_force_dir_path,
   };
 
   const settings_to_supply_json_str = JSON.stringify(settings_to_supply);

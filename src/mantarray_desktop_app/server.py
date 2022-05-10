@@ -30,7 +30,8 @@ from __future__ import annotations
 
 import copy
 from copy import deepcopy
-import datetime
+from datetime import datetime
+import glob
 import json
 import logging
 import os
@@ -346,11 +347,11 @@ def boot_up() -> Response:
     return response
 
 
-@flask_app.route("/get_recordings_list", methods=["GET"])
+@flask_app.route("/get_recordings", methods=["GET"])
 def get_recordings() -> Response:
     """Get list of recordings from root recordings directory.
 
-    Can be invoked by: curl http://localhost:4567/get_recordings_list
+    Can be invoked by: curl http://localhost:4567/get_recordings
     """
     try:
         recording_dir = _get_values_from_process_monitor()["config_settings"]["recording_directory"]
@@ -358,36 +359,46 @@ def get_recordings() -> Response:
         return Response(status="400 No root recording directory was found")
 
     recordings_list = [
-        dir
+        {
+            "name": dir,
+            "creation_time": datetime.fromtimestamp(
+                os.stat(os.path.join(recording_dir, dir)).st_mtime
+            ).strftime("%m-%d-%Y %H:%M.%S"),
+        }
         for dir in os.listdir(recording_dir)
-        if "failed_uploads" not in dir and "zipped_recordings" not in dir
+        if glob.glob(os.path.join(recording_dir, dir, "*.h5"), recursive=True)
     ]
     response_dict = {"recordings_list": recordings_list, "root_recording_path": recording_dir}
 
     return Response(json.dumps(response_dict), mimetype="application/json")
 
 
-@flask_app.route("/start_mag_analysis", methods=["POST"])
+@flask_app.route("/start_data_analysis", methods=["POST"])
 def run_mag_finding_analysis() -> Response:
     """Route recieves list of recording paths to run analysis on locally.
 
-    Can be invoked by: curl http://localhost:4567/start_mag_analysis
+    Can be invoked by: curl http://localhost:4567/start_data_analysis
     """
     try:
-        recording_rootdir = _get_values_from_process_monitor()["config_settings"]["recording_directory"]
+        config_setting = _get_values_from_process_monitor()["config_settings"]
+        recording_rootdir = config_setting["recording_directory"]
+        mag_analysis_output_dir = config_setting["mag_analysis_output_dir"]
     except KeyError:
-        return Response(status="400 No root recording directory was found")
+        return Response(status="400 Root directories were not found")
 
     recording_paths = [
         os.path.join(recording_rootdir, dirname) for dirname in request.get_json()["selected_recordings"]
     ]
 
-    # TODO PERFORM WHATEVER ANALYSIS
-    sleep(3)  # for testing
-    return Response(
-        json.dumps({"paths": recording_paths, "req": request.get_json()["selected_recordings"]}),
-        mimetype="application/json",
+    queue_command_to_main(
+        {
+            "communication_type": "mag_finding_analysis",
+            "command": "start_mag_analysis",
+            "content": {"recordings": recording_paths, "output_dir": mag_analysis_output_dir},
+        }
     )
+
+    return Response(status=204)
 
 
 @flask_app.route("/update_settings", methods=["GET"])
@@ -715,7 +726,7 @@ def stop_recording() -> Response:
         if not shared_values_dict["beta_2_mode"]:
             stop_time_index /= MICROSECONDS_PER_CENTIMILLISECOND
     else:
-        time_since_index_0 = datetime.datetime.utcnow() - timestamp_of_sample_idx_zero
+        time_since_index_0 = datetime.utcnow() - timestamp_of_sample_idx_zero
         stop_time_index = time_since_index_0.total_seconds() * (
             MICRO_TO_BASE_CONVERSION if shared_values_dict["beta_2_mode"] else CENTIMILLISECONDS_PER_SECOND
         )
