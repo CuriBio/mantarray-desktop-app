@@ -534,7 +534,10 @@ class FileWriterProcess(InfiniteProcess):
                 os.remove(os.path.join(file_folder_dir, file))
         else:
             # create folder
-            self._current_recording_dir = f"{barcode}__{recording_start_timestamp_str}"
+            recording_name: str = communication.get(
+                "recording_name", f"{barcode}__{recording_start_timestamp_str}"
+            )
+            self._current_recording_dir = recording_name
             file_folder_dir = os.path.join(os.path.abspath(self._file_directory), self._current_recording_dir)
             os.makedirs(file_folder_dir)
             file_prefix = self._current_recording_dir
@@ -570,10 +573,7 @@ class FileWriterProcess(InfiniteProcess):
         reference_status[board_idx].clear()
         for this_well_idx in communication["active_well_indices"]:
             well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(this_well_idx)
-            file_path = os.path.join(
-                file_folder_dir,
-                f"{file_prefix}__{well_name}.h5",
-            )
+            file_path = os.path.join(file_folder_dir, f"{file_prefix}__{well_name}.h5")
             file_version = (
                 CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
                 if self._beta_2_mode

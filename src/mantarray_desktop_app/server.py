@@ -612,6 +612,7 @@ def start_recording() -> Response:
 
     comm_dict = _create_start_recording_command(
         shared_values_dict,
+        recording_name=request.args.get("recording_name"),
         time_index=time_index_str,
         active_well_indices=active_well_indices,
         barcodes=barcodes,
