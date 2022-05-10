@@ -14,7 +14,6 @@ from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import server
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
-from mantarray_desktop_app import utils
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.mc_simulator import MantarrayMcSimulator
@@ -993,11 +992,11 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][CUSTOMER_ACCOUNT_ID_UUID]
-        == shared_values_dict["config_settings"]["customer_account_id"]
+        == shared_values_dict["config_settings"]["customer_id"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][USER_ACCOUNT_ID_UUID]
-        == shared_values_dict["config_settings"]["user_account_id"]
+        == shared_values_dict["config_settings"]["user_name"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID]
@@ -1121,11 +1120,11 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][CUSTOMER_ACCOUNT_ID_UUID]
-        == shared_values_dict["config_settings"]["customer_account_id"]
+        == shared_values_dict["config_settings"]["customer_id"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][USER_ACCOUNT_ID_UUID]
-        == shared_values_dict["config_settings"]["user_account_id"]
+        == shared_values_dict["config_settings"]["user_name"]
     )
     assert (
         communication["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID]
@@ -1262,6 +1261,34 @@ def test_start_recording_command__beta_2_mode__populates_queue_with_stim_metadat
     )
 
 
+@pytest.mark.parametrize("recording_name", ["Test Name", None])
+def test_start_recording_command__populates_queue_with_recording_file_name_correctly(
+    recording_name, test_process_manager_creator, test_client
+):
+    test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
+    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
+
+    params = {
+        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
+        "is_hardware_test_recording": False,
+    }
+    if recording_name:
+        params["recording_name"] = recording_name
+
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
+    assert response.status_code == 200
+
+    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["command"] == "start_recording"
+    if recording_name:
+        assert communication["recording_name"] == recording_name
+    else:
+        assert "recording_name" not in communication
+
+
 def test_shutdown__sends_hard_stop_command__waits_for_subprocesses_to_stop__then_shutdown_server_command_to_process_monitor(
     client_and_server_manager_and_shared_values, mocker
 ):
@@ -1271,7 +1298,6 @@ def test_shutdown__sends_hard_stop_command__waits_for_subprocesses_to_stop__then
         mocked_queue_command.assert_called_once()
 
     mocked_wait = mocker.patch.object(server, "wait_for_subprocesses_to_stop", autospec=True, side_effect=se)
-    mocked_upload = mocker.patch.object(utils, "upload_log_files_to_s3", autospec=True)
     mocker.patch.object(server, "_get_values_from_process_monitor", autospec=True)
     test_client, test_server_info, _ = client_and_server_manager_and_shared_values
     test_server, _ = test_server_info
@@ -1291,8 +1317,6 @@ def test_shutdown__sends_hard_stop_command__waits_for_subprocesses_to_stop__then
     assert shutdown_server_command["communication_type"] == "shutdown"
     assert shutdown_server_command["command"] == "shutdown_server"
     assert response_json == shutdown_server_command
-
-    mocked_upload.assert_not_called()
 
 
 @pytest.mark.parametrize(

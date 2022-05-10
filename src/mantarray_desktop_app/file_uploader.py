@@ -6,95 +6,13 @@ import os
 from time import sleep
 from typing import Any
 from typing import Dict
-from typing import Optional
 import zipfile
 
+from mantarray_desktop_app.exceptions import CloudAnalysisJobFailedError
 import requests
 
 from .constants import CLOUD_API_ENDPOINT
-
-
-def get_file_md5(file_path: str) -> str:
-    """Generate md5 of zip file.
-
-    Args:
-        file_path: path to zip file.
-    """
-    with open(file_path, "rb") as file_to_read:
-        contents = file_to_read.read()
-        md5 = hashlib.md5(  # nosec B303 # Tanner (2/4/21): Bandit blacklisted this hash function for cryptographic security reasons that do not apply to the desktop app.
-            contents
-        ).digest()
-        md5s = base64.b64encode(md5).decode()
-    return md5s
-
-
-def get_access_token(customer_account_id: str, password: str) -> str:
-    """Generate user specific token.
-
-    Args:
-        customer_account_id: current customer account id.
-        password: current customer account password.
-    """
-    get_auth_response = requests.post(
-        f"https://{CLOUD_API_ENDPOINT}/get_auth",
-        json={"username": customer_account_id, "password": password},
-    )
-
-    get_auth_response_json = get_auth_response.json()
-    access_token: str = get_auth_response_json["access_token"]
-    return access_token
-
-
-def get_upload_details(
-    access_token: str,
-    file_name: str,
-    customer_account_id: str,
-    file_md5: str,
-    user_account_id: Optional[str],
-    upload_type: str,
-) -> Dict[Any, Any]:
-    """Post to generate post specific parameters.
-
-    Args:
-        access_token: user specific token.
-        file_name: zip file name.
-        customer_account_id: current customer account id for file to upload.
-        user_account_id: current customer user_account_id for file to upload.
-        file_md5: md5 hash.
-        upload_type: determines if it's a log file or recording that is being uploaded.
-    """
-    object_key = (
-        f"{customer_account_id}/{user_account_id}/{file_name}"
-        if user_account_id is not None
-        else f"{customer_account_id}/{file_name}"
-    )
-
-    sdk_upload_response = requests.post(
-        f"https://{CLOUD_API_ENDPOINT}/sdk_upload",
-        json={"file_name": object_key, "upload_type": upload_type},
-        headers={"Authorization": f"Bearer {access_token}", "Content-MD5": file_md5},
-    )
-
-    upload_details: Dict[Any, Any] = sdk_upload_response.json()
-    return upload_details
-
-
-def upload_file_to_s3(file_path: str, file_name: str, upload_details: Dict[Any, Any]) -> None:
-    """Post and upload zip file to s3 using post specific parameters.
-
-    Args:
-        file_path: path to zip file.
-        file_name: zip file name.
-        upload_details: dictionary containing post specific parameters.
-    """
-    with open(file_path, "rb") as file_to_upload:
-        files = {"file": (file_name, file_to_upload)}
-        requests.post(
-            upload_details["presigned_params"]["url"],
-            data=upload_details["presigned_params"]["fields"],
-            files=files,
-        )
+from .constants import CLOUD_PULSE3D_ENDPOINT
 
 
 def create_zip_file(file_directory: str, file_name: str, zipped_recordings_dir: str) -> str:
@@ -125,22 +43,105 @@ def create_zip_file(file_directory: str, file_name: str, zipped_recordings_dir: 
     return zipped_file_path
 
 
-def get_sdk_status(access_token: str, upload_details: Dict[Any, Any]) -> str:
-    """Request current upload status of file.
+def get_file_md5(file_path: str) -> str:
+    """Generate md5 of zip file.
+
+    Args:
+        file_path: path to zip file.
+    """
+    with open(file_path, "rb") as file_to_read:
+        contents = file_to_read.read()
+        md5 = hashlib.md5(  # nosec B303 # Tanner (2/4/21): Bandit blacklisted this hash function for cryptographic security reasons that do not apply to the desktop app.
+            contents
+        ).digest()
+        md5s = base64.b64encode(md5).decode()
+    return md5s
+
+
+def get_access_token(customer_id: str, user_name: str, password: str) -> str:
+    """Generate user specific token.
+
+    Args:
+        customer_id: current user's customer account id.
+        user_name: current user.
+        password: current user's password.
+    """
+    login_response = requests.post(
+        f"https://{CLOUD_API_ENDPOINT}/users/login",
+        json={"customer_id": customer_id, "username": user_name, "password": password},
+    )
+    access_token: str = login_response.json()["access_token"]
+    return access_token
+
+
+def get_upload_details(
+    access_token: str,
+    file_name: str,
+    customer_id: str,
+    file_md5: str,
+    upload_type: str,
+) -> Dict[Any, Any]:
+    """Post to generate post specific parameters.
 
     Args:
         access_token: user specific token.
-        upload_details: dictionary containing s3 upload id.
+        file_name: zip file name.
+        customer_id: current customer account id for file to upload.
+        file_md5: md5 hash.
+        upload_type: determines if it's a log file or recording that is being uploaded.
     """
-    upload_id = upload_details["upload_id"]
-    status_response = requests.get(
-        f"https://{CLOUD_API_ENDPOINT}/get_sdk_status?upload_id={upload_id}",
+    route = "uploads" if upload_type == "recording" else "logs"
+    upload_response = requests.post(
+        f"https://{CLOUD_PULSE3D_ENDPOINT}/{route}",
+        json={"filename": file_name, "md5s": file_md5, "customer_id": customer_id},
         headers={"Authorization": f"Bearer {access_token}"},
     )
+    upload_details: Dict[Any, Any] = upload_response.json()
+    return upload_details
 
-    response = status_response.json()
-    upload_status: str = response["status"]
-    return upload_status
+
+def upload_file_to_s3(file_path: str, file_name: str, upload_details: Dict[Any, Any]) -> None:
+    """Post to upload zip file to s3 using post specific parameters.
+
+    Args:
+        file_path: path to zip file.
+        file_name: zip file name.
+        upload_details: dictionary containing post specific parameters.
+    """
+    with open(file_path, "rb") as file_to_upload:
+        files = {"file": (file_name, file_to_upload)}
+        requests.post(upload_details["params"]["url"], data=upload_details["params"]["fields"], files=files)
+
+
+def start_analysis(access_token: str, upload_id: str) -> str:
+    """Post to start cloud analysis of an uploaded file.
+
+    Args:
+        upload_id: UUID str of uploaded file
+
+    Returns:
+        The ID of the job created to run analysis on the uploaded file
+    """
+    jobs_response = requests.post(
+        f"https://{CLOUD_PULSE3D_ENDPOINT}/jobs",
+        json={"upload_id": upload_id},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    jobs_id: str = jobs_response.json()["id"]
+    return jobs_id
+
+
+def get_analysis_status(access_token: str, job_id: str) -> Dict[str, str]:
+    response = requests.get(
+        f"https://{CLOUD_PULSE3D_ENDPOINT}/jobs",
+        params={"job_ids": job_id},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    job_dict: Dict[str, str] = response.json()["jobs"][0]
+
+    if error := job_dict.get("error"):
+        raise CloudAnalysisJobFailedError(error)
+    return job_dict
 
 
 def download_analysis_from_s3(presigned_url: str, file_name: str) -> None:
@@ -150,22 +151,21 @@ def download_analysis_from_s3(presigned_url: str, file_name: str) -> None:
         presigned_url: URL to get s3 analysis.
         file_name: file name to write to locally.
     """
-    file = requests.get(presigned_url)
-    no_ext_file_name = file_name.split(".zip")[0]
-    xlsx_file_path = os.path.join(os.path.expanduser("~"), "downloads", f"{no_ext_file_name}.xlsx")
+    download_response = requests.get(presigned_url)
+    file_name_no_ext = os.path.splitext(file_name)[0]
+    download_file_path = os.path.join(os.path.expanduser("~"), "downloads", f"{file_name_no_ext}.xlsx")
 
-    with open(xlsx_file_path, "wb") as content:
-        content.write(file.content)
+    with open(download_file_path, "wb") as content:
+        content.write(download_response.content)
 
 
 def uploader(
     file_directory: str,
     file_name: str,
     zipped_recordings_dir: str,
-    customer_account_id: str,
+    customer_id: str,
+    user_name: str,
     password: str,
-    user_account_id: Optional[str] = None,
-    max_num_loops: int = 0,
 ) -> None:
     """Initiate and handle file upload process.
 
@@ -173,58 +173,41 @@ def uploader(
         file_directory: root recording directory.
         file_name: sub directory for h5 files to create zip file name.
         zipped_recordings_dir: static zipped recording directory to store zip files.
-        customer_account_id: current customer account id for user.
-        password: current customer account password for user.
-        user_account_id: current user_account_id assigned for user.
-        max_num_loops: to break loop in testing.
+        customer_id: current customer's account id.
+        user_name: current user's account id.
+        password: current user's account password.
     """
+    upload_type = "recording" if "/recordings" in file_directory else "logs"
+
     file_path = os.path.join(os.path.abspath(file_directory), file_name)
-    upload_type = "sdk" if "/recordings" in file_directory else "logs"
     # Failed uploads will call function with zip file, not directory of well data
     if os.path.isdir(file_path):
-        # store zipped files under customer specific and static zipped directory
-        zipped_dir = os.path.join(zipped_recordings_dir, customer_account_id)
-        if not os.path.exists(zipped_dir):
-            os.makedirs(zipped_dir)
-        if user_account_id is not None:
-            zipped_dir = os.path.join(zipped_dir, user_account_id)
-            if not os.path.exists(zipped_dir):
-                os.makedirs(zipped_dir)
+        if upload_type == "recording":
+            # store zipped files under user specific sub dir of static zipped dir
+            user_recordings_dir = os.path.join(zipped_recordings_dir, user_name)
+            if not os.path.exists(user_recordings_dir):
+                os.makedirs(user_recordings_dir)
+            dir_to_store_zips = user_recordings_dir
+        else:
+            # store zipped files in whatever dir was given
+            dir_to_store_zips = zipped_recordings_dir
 
-        zipped_file_path = create_zip_file(file_directory, file_name, zipped_dir)
-        file_name = f"{file_name}.zip"
+        zipped_file_path = create_zip_file(file_directory, file_name, dir_to_store_zips)
+        file_name += ".zip"
     else:
         zipped_file_path = file_path
 
-    access_token = get_access_token(customer_account_id, password)
-    file_md5 = get_file_md5(file_path=zipped_file_path)
-    upload_details = get_upload_details(
-        access_token=access_token,
-        file_name=file_name,
-        customer_account_id=customer_account_id,
-        user_account_id=user_account_id,
-        file_md5=file_md5,
-        upload_type=upload_type,
-    )
+    access_token = get_access_token(customer_id, user_name, password)
+    file_md5 = get_file_md5(zipped_file_path)
+    upload_details = get_upload_details(access_token, file_name, customer_id, file_md5, upload_type)
+    upload_file_to_s3(zipped_file_path, file_name, upload_details)
 
-    upload_file_to_s3(file_path=zipped_file_path, file_name=file_name, upload_details=upload_details)
+    if upload_type == "logs":
+        return
 
-    if upload_type == "sdk":
-        num_of_loops = 0
-        while True:
-            upload_status: str = get_sdk_status(access_token=access_token, upload_details=upload_details)
-            # for testing, had to put first to cover if max loops is already zero
-            if max_num_loops > 0:
-                num_of_loops += 1
-                if num_of_loops >= max_num_loops:
-                    break
+    analysis_job_id = start_analysis(access_token, upload_details["id"])
+    # wait for analysis to complete
+    while (status_dict := get_analysis_status(access_token, analysis_job_id))["status"] == "pending":
+        sleep(5)
 
-            if "https" in upload_status:
-                break
-
-            if "error" in upload_status:
-                raise Exception(upload_status)
-
-            sleep(5)
-
-        download_analysis_from_s3(upload_status, file_name)
+    download_analysis_from_s3(status_dict["url"], file_name)

@@ -22,34 +22,36 @@ from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 
 CURRENT_SOFTWARE_VERSION = "REPLACETHISWITHVERSIONDURINGBUILD"
-
 COMPILED_EXE_BUILD_TIMESTAMP = "REPLACETHISWITHTIMESTAMPDURINGBUILD"
+SOFTWARE_RELEASE_CHANNEL = "REPLACETHISWITHRELEASECHANNELDURINGBUILD"
 
+# Cloud APIs
+CLOUD_ENDPOINT_USER_OPTION = "REPLACETHISWITHENDPOINTDURINGBUILD"
+CLOUD_ENDPOINT_VALID_OPTIONS = immutabledict({"test": "curibio-test", "prod": "curibio"})
+CLOUD_DOMAIN = CLOUD_ENDPOINT_VALID_OPTIONS.get(CLOUD_ENDPOINT_USER_OPTION, "curibio-test")
+CLOUD_API_ENDPOINT = f"apiv2.{CLOUD_DOMAIN}.com"
+CLOUD_PULSE3D_ENDPOINT = f"pulse3d.{CLOUD_DOMAIN}.com"
+
+# File Versions
 CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION = "0.4.2"
 CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION = "1.0.3"
 
-# Cloud API
-CLOUD_API_ENDPOINT_USER_OPTION = "REPLACETHISWITHENDPOINTDURINGBUILD"
-CLOUD_API_ENDPOINT_VALID_OPTIONS = immutabledict(
-    {
-        "test": "curibio-test",
-        "modl": "curibio-modl",
-        "prod": "curibio",
-    }
-)
-CLOUD_API_ENDPOINT = (
-    f"api.{CLOUD_API_ENDPOINT_VALID_OPTIONS.get(CLOUD_API_ENDPOINT_USER_OPTION, 'curibio-test')}.com"
-)
+# General
+DEFAULT_SERVER_PORT_NUMBER = 4567
+
+MAX_POSSIBLE_CONNECTED_BOARDS = 4
+
+GENERIC_24_WELL_DEFINITION = LabwareDefinition(row_count=4, column_count=6)
 
 CURI_BIO_ACCOUNT_UUID = uuid.UUID("73f52be0-368c-42d8-a1fd-660d49ba5604")
 CURI_BIO_USER_ACCOUNT_ID = uuid.UUID("455b93eb-c78f-4494-9f73-d3291130f126")
 
-DEFAULT_USER_CONFIG = immutabledict({"customer_account_id": "", "user_account_id": ""})
+DEFAULT_USER_CONFIG = immutabledict({"customer_id": "", "user_name": ""})
 VALID_CONFIG_SETTINGS = frozenset(
     [
-        "customer_account_uuid",
-        "user_account_id",
-        "customer_pass_key",
+        "customer_id",
+        "user_name",
+        "user_password",
         "recording_directory",
         "auto_upload",
         "auto_delete",
@@ -59,11 +61,12 @@ VALID_CONFIG_SETTINGS = frozenset(
 BARCODE_HEADERS = immutabledict({"plate_barcode": "ML", "stim_barcode": "MS"})
 ALL_VALID_BARCODE_HEADERS = frozenset(BARCODE_HEADERS.values())
 
-DEFAULT_SERVER_PORT_NUMBER = 4567
+MICROSECONDS_PER_CENTIMILLISECOND = 10
+NANOSECONDS_PER_CENTIMILLISECOND = 10**4
+MICROSECONDS_PER_MILLISECOND = 10**3
 
-MAX_POSSIBLE_CONNECTED_BOARDS = 4
+MICRO_TO_BASE_CONVERSION = int(1e6)
 
-GENERIC_24_WELL_DEFINITION = LabwareDefinition(row_count=4, column_count=6)
 
 # Beta 1 values
 FIRMWARE_VERSION_WIRE_OUT_ADDRESS = 0x21
@@ -90,13 +93,7 @@ BARCODE_UNREADABLE_UUID = uuid.UUID("87525976-4c98-4783-a6f2-ae34a89dace6")
 
 DATA_FRAME_PERIOD = 20  # in centimilliseconds
 ROUND_ROBIN_PERIOD = DATA_FRAME_PERIOD * DATA_FRAMES_PER_ROUND_ROBIN
-TIMESTEP_CONVERSION_FACTOR = 5  # Mantarray firmware represents time indices in units of 5 cms, so we must multiply sample index from hardware by this conversion factor to get value in cms
-
-MICROSECONDS_PER_CENTIMILLISECOND = 10
-NANOSECONDS_PER_CENTIMILLISECOND = 10**4
-MICROSECONDS_PER_MILLISECOND = 10**3
-
-MICRO_TO_BASE_CONVERSION = int(1e6)
+TIMESTEP_CONVERSION_FACTOR = 5  # Mantarray Beta 1.7 firmware represents time indices in units of 5 cms, so we must multiply sample indices from hardware by this conversion factor to get value in cms
 
 MIDSCALE_CODE = 0x800000
 REFERENCE_VOLTAGE = 2.5

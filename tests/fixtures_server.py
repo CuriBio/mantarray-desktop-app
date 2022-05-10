@@ -81,8 +81,8 @@ def put_generic_beta_1_start_recording_info_in_dict(shared_values_dict):
     ]
     shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [timestamp]
     shared_values_dict["config_settings"] = {
-        "customer_account_id": CURI_BIO_ACCOUNT_UUID,
-        "user_account_id": CURI_BIO_USER_ACCOUNT_ID,
+        "customer_id": CURI_BIO_ACCOUNT_UUID,
+        "user_name": CURI_BIO_USER_ACCOUNT_ID,
     }
     shared_values_dict["adc_gain"] = 32
     shared_values_dict["adc_offsets"] = dict()
@@ -98,7 +98,7 @@ def put_generic_beta_1_start_recording_info_in_dict(shared_values_dict):
         board_idx: RunningFIFOSimulator.default_mantarray_serial_number
     }
     shared_values_dict["mantarray_nickname"] = {board_idx: RunningFIFOSimulator.default_mantarray_nickname}
-    shared_values_dict["log_file_uuid"] = GENERIC_BETA_1_START_RECORDING_COMMAND[
+    shared_values_dict["log_file_id"] = GENERIC_BETA_1_START_RECORDING_COMMAND[
         "metadata_to_copy_onto_main_file_attributes"
     ][BACKEND_LOG_UUID]
     shared_values_dict["computer_name_hash"] = GENERIC_BETA_1_START_RECORDING_COMMAND[
@@ -125,8 +125,8 @@ def put_generic_beta_2_start_recording_info_in_dict(shared_values_dict):
     ]
     shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [timestamp]
     shared_values_dict["config_settings"] = {
-        "customer_account_id": CURI_BIO_ACCOUNT_UUID,
-        "user_account_id": CURI_BIO_USER_ACCOUNT_ID,
+        "customer_id": CURI_BIO_ACCOUNT_UUID,
+        "user_name": CURI_BIO_USER_ACCOUNT_ID,
     }
     shared_values_dict["main_firmware_version"] = {
         board_idx: MantarrayMcSimulator.default_main_firmware_version
@@ -135,7 +135,7 @@ def put_generic_beta_2_start_recording_info_in_dict(shared_values_dict):
         board_idx: MantarrayMcSimulator.default_mantarray_serial_number
     }
     shared_values_dict["mantarray_nickname"] = {board_idx: MantarrayMcSimulator.default_mantarray_nickname}
-    shared_values_dict["log_file_uuid"] = GENERIC_BETA_2_START_RECORDING_COMMAND[
+    shared_values_dict["log_file_id"] = GENERIC_BETA_2_START_RECORDING_COMMAND[
         "metadata_to_copy_onto_main_file_attributes"
     ][BACKEND_LOG_UUID]
     shared_values_dict["computer_name_hash"] = GENERIC_BETA_2_START_RECORDING_COMMAND[

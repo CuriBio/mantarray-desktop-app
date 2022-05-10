@@ -39,8 +39,8 @@ from .constants import CHECKING_FOR_UPDATES_STATE
 from .constants import CLEAR_BARCODE_TRIG_BIT
 from .constants import CLEARED_BARCODE_VALUE
 from .constants import CLOUD_API_ENDPOINT
-from .constants import CLOUD_API_ENDPOINT_USER_OPTION
-from .constants import CLOUD_API_ENDPOINT_VALID_OPTIONS
+from .constants import CLOUD_ENDPOINT_USER_OPTION
+from .constants import CLOUD_ENDPOINT_VALID_OPTIONS
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from .constants import CONSTRUCT_SENSORS_PER_REF_SENSOR
@@ -201,10 +201,10 @@ from .exceptions import InstrumentFirmwareError
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InvalidBeta2FlagOptionError
 from .exceptions import InvalidCommandFromMainError
-from .exceptions import InvalidCustomerAccountIDPasswordError
 from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidScriptCommandError
 from .exceptions import InvalidStopRecordingTimepointError
+from .exceptions import InvalidUserCredsError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import MismatchedScriptTypeError
 from .exceptions import MultiprocessingNotSetToSpawnError
@@ -412,7 +412,7 @@ __all__ = [
     "CURI_BIO_USER_ACCOUNT_ID",
     "MantarrayFrontPanelMixIn",
     "MantarrayFrontPanel",
-    "InvalidCustomerAccountIDPasswordError",
+    "InvalidUserCredsError",
     "RecordingFolderDoesNotExistError",
     "VALID_CONFIG_SETTINGS",
     "FIRMWARE_VERSION_WIRE_OUT_ADDRESS",
@@ -592,8 +592,8 @@ __all__ = [
     "IS_CALIBRATION_FILE_UUID",
     "CALIBRATION_RECORDING_DUR_SECONDS",
     "CalibrationFilesMissingError",
-    "CLOUD_API_ENDPOINT_USER_OPTION",
-    "CLOUD_API_ENDPOINT_VALID_OPTIONS",
+    "CLOUD_ENDPOINT_USER_OPTION",
+    "CLOUD_ENDPOINT_VALID_OPTIONS",
     "CLOUD_API_ENDPOINT",
     "NUM_INITIAL_PACKETS_TO_DROP",
     "CHECKING_FOR_UPDATES_STATE",

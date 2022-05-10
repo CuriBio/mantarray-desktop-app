@@ -114,7 +114,6 @@ from stdlib_utils import confirm_port_available
 from ..fixtures import fixture_fully_running_app_from_main_entrypoint
 from ..fixtures import fixture_patched_firmware_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
-from ..fixtures import GENERIC_STORED_CUSTOMER_ID
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import WELL_DEF_24
@@ -154,11 +153,25 @@ def stimulation_running_status_eventually_equals(expected_status: bool, timeout:
 @pytest.mark.timeout(60)
 @pytest.mark.slow
 def test_send_xem_scripts_command__gets_processed_in_fully_running_app(
-    fully_running_app_from_main_entrypoint,
-    patched_xem_scripts_folder,
+    fully_running_app_from_main_entrypoint, patched_xem_scripts_folder, mocker
 ):
+    # mock this so test doesn't actually try to hit cloud API
+    mocker.patch.object(main, "upload_log_files_to_s3", autospec=True)
+
+    test_dict = {
+        "recording_directory": ".",  # Tanner (5/2/22): no files created in this test, so this is ok
+        "log_file_id": str(
+            GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+                BACKEND_LOG_UUID
+            ]
+        ),
+    }
+    json_str = json.dumps(test_dict)
+    b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
+    command_line_args = ["--skip-mantarray-boot-up", f"--initial-base64-settings={b64_encoded}"]
+
     # Tanner (12/29/20): start up the app but skip automatic instrument boot-up process so we can manually test that xem_scripts are run
-    app_info = fully_running_app_from_main_entrypoint(["--skip-mantarray-boot-up"])
+    app_info = fully_running_app_from_main_entrypoint(command_line_args)
     wait_for_subprocesses_to_start()
 
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
@@ -206,16 +219,22 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
         return_value=expected_time,
     )
     expected_timestamp = "2020_07_16_141955"
+
+    # mock this so test doesn't actually try to hit cloud API
+    mocker.patch.object(server, "validate_user_credentials", autospec=True)
+    mocker.patch.object(main, "upload_log_files_to_s3", autospec=True)
+
     # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
     with tempfile.TemporaryDirectory() as tmp_dir:
         # Tanner (12/29/20): Sending in alternate recording directory through command line args
         expected_recordings_dir = os.path.join(tmp_dir, "recordings")
         test_dict = {
-            "stored_customer_id": GENERIC_STORED_CUSTOMER_ID,
-            "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
-            "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
-            "mag_analysis_output_dir": f"{tmp_dir}/time_force_data",
             "recording_directory": expected_recordings_dir,
+            "log_file_id": str(
+                GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+                    BACKEND_LOG_UUID
+                ]
+            ),
         }
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
@@ -238,9 +257,9 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 3) is True
 
         settings_dict = {
-            "customer_account_uuid": "test_id",
-            "customer_pass_key": "test_password",
-            "user_account_id": "test_user",
+            "customer_id": "test_id",
+            "user_password": "test_password",
+            "user_name": "test_user",
             "recording_directory": expected_recordings_dir,
             "auto_upload": False,
             "auto_delete": False,
@@ -303,8 +322,23 @@ def test_managed_acquisition_can_be_stopped_and_restarted_with_simulator(
     patched_firmware_folder,
     fully_running_app_from_main_entrypoint,
     test_socketio_client,
+    mocker,
 ):
-    app_info = fully_running_app_from_main_entrypoint()
+    # mock this so test doesn't actually try to hit cloud API
+    mocker.patch.object(main, "upload_log_files_to_s3", autospec=True)
+
+    test_dict = {
+        "recording_directory": ".",  # Tanner (5/2/22): no files created in this test, so this is ok
+        "log_file_id": str(
+            GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+                BACKEND_LOG_UUID
+            ]
+        ),
+    }
+    json_str = json.dumps(test_dict)
+    b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
+
+    app_info = fully_running_app_from_main_entrypoint([f"--initial-base64-settings={b64_encoded}"])
     wait_for_subprocesses_to_start()
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
@@ -380,15 +414,21 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
             BACKEND_LOG_UUID
         ],
     )
+
+    # mock this so test doesn't actually try to hit cloud API
+    mocker.patch.object(server, "validate_user_credentials", autospec=True)
+    mocker.patch.object(main, "upload_log_files_to_s3", autospec=True)
+
     # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
     with tempfile.TemporaryDirectory() as tmp_dir:
         expected_recordings_dir = os.path.join(tmp_dir, "recordings")
         test_dict = {
-            "stored_customer_id": GENERIC_STORED_CUSTOMER_ID,
-            "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
-            "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
-            "mag_analysis_output_dir": f"{tmp_dir}/time_force_data",
             "recording_directory": expected_recordings_dir,
+            "log_file_id": str(
+                GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+                    BACKEND_LOG_UUID
+                ]
+            ),
         }
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
@@ -404,9 +444,9 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
 
         # Tanner (12/29/20): Manually set recording directory through update_settings route
         settings_dict = {
-            "customer_account_uuid": "test_id",
-            "customer_pass_key": "test_password",
-            "user_account_id": "test_user",
+            "customer_id": "test_id",
+            "user_password": "test_password",
+            "user_name": "test_user",
             "recording_directory": expected_recordings_dir,
             "auto_upload": False,
             "auto_delete": False,
@@ -636,8 +676,24 @@ def test_full_datapath_in_beta_1_mode(
     patched_firmware_folder,
     fully_running_app_from_main_entrypoint,
     test_socketio_client,
+    mocker,
 ):
-    app_info = fully_running_app_from_main_entrypoint()
+    # mock this so test doesn't actually try to hit cloud API
+    mocker.patch.object(server, "validate_user_credentials", autospec=True)
+    mocker.patch.object(main, "upload_log_files_to_s3", autospec=True)
+
+    test_dict = {
+        "recording_directory": ".",  # Tanner (5/2/22): no files created in this test, so this is ok
+        "log_file_id": str(
+            GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+                BACKEND_LOG_UUID
+            ]
+        ),
+    }
+    json_str = json.dumps(test_dict)
+    b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
+
+    app_info = fully_running_app_from_main_entrypoint([f"--initial-base64-settings={b64_encoded}"])
     wait_for_subprocesses_to_start()
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
@@ -735,16 +791,21 @@ def test_full_datapath_in_beta_1_mode(
 def test_app_shutdown__in_worst_case_while_recording_is_running(
     patched_xem_scripts_folder, patched_firmware_folder, fully_running_app_from_main_entrypoint, mocker
 ):
+    # mock this so test doesn't actually try to hit cloud API
+    mocker.patch.object(server, "validate_user_credentials", autospec=True)
+    mocker.patch.object(main, "upload_log_files_to_s3", autospec=True)
+
     spied_logger = mocker.spy(main.logger, "info")
     # Tanner (12/29/20): Not making assertions on files, but still need a TemporaryDirectory to hold them
     with tempfile.TemporaryDirectory() as tmp_dir:
         recording_dir = os.path.join(tmp_dir, "recordings")
         test_dict = {
-            "stored_customer_id": GENERIC_STORED_CUSTOMER_ID,
-            "zipped_recordings_dir": f"{recording_dir}/zipped_recordings",
-            "failed_uploads_dir": f"{recording_dir}/failed_uploads",
-            "mag_analysis_output_dir": f"{tmp_dir}/time_force_data",
             "recording_directory": recording_dir,
+            "log_file_id": str(
+                GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+                    BACKEND_LOG_UUID
+                ]
+            ),
         }
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
@@ -764,9 +825,9 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
 
         # Tanner (12/29/20): use updated settings to set the recording directory to the TemporaryDirectory
         settings_dict = {
-            "customer_account_uuid": "test_id",
-            "customer_pass_key": "test_password",
-            "user_account_id": "test_user",
+            "customer_id": "test_id",
+            "user_password": "test_password",
+            "user_name": "test_user",
             "auto_upload": False,
             "auto_delete": False,
         }
@@ -827,8 +888,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
     test_socketio_client,
     mocker,
 ):
-    # pylint: disable=too-many-statements,too-many-locals  # Tanner (6/1/21): This is a long integration test, it needs extra statements and local variables
-
     # mock this value so that only 2 seconds of recorded data are needed to complete calibration
     mocker.patch.object(process_monitor, "CALIBRATION_RECORDING_DUR_SECONDS", 2)
 
@@ -846,15 +905,10 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         "_get_timestamp_of_acquisition_sample_index_zero",
         return_value=expected_time,
     )
-    # Tanner (12/29/20): Patching uuid4 so we get an expected UUID for the Log Files
-    mocker.patch.object(
-        uuid,
-        "uuid4",
-        autospec=True,
-        return_value=GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-            BACKEND_LOG_UUID
-        ],
-    )
+
+    # mock this so test doesn't actually try to hit cloud API
+    mocker.patch.object(server, "validate_user_credentials", autospec=True)
+    mocker.patch.object(main, "upload_log_files_to_s3", autospec=True)
 
     test_protocol_assignments = {
         GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): (
@@ -892,11 +946,12 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
     with tempfile.TemporaryDirectory() as tmp_dir:
         expected_recordings_dir = os.path.join(tmp_dir, "recordings")
         test_dict = {
-            "stored_customer_id": GENERIC_STORED_CUSTOMER_ID,
-            "zipped_recordings_dir": f"{expected_recordings_dir}/zipped_recordings",
-            "failed_uploads_dir": f"{expected_recordings_dir}/failed_uploads",
-            "mag_analysis_output_dir": f"{tmp_dir}/time_force_data",
             "recording_directory": expected_recordings_dir,
+            "log_file_id": str(
+                GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+                    BACKEND_LOG_UUID
+                ]
+            ),
         }
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
@@ -918,9 +973,9 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
 
         settings_dict = {
-            "customer_account_uuid": "test_id",
-            "customer_pass_key": "test_password",
-            "user_account_id": "test_user",
+            "customer_id": "test_id",
+            "user_password": "test_password",
+            "user_name": "test_user",
             "auto_upload": False,
             "auto_delete": False,
         }

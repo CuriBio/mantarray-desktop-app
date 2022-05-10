@@ -11,24 +11,27 @@ Added:
 
 - Stim Lid barcode.
 - Stim Lid configuration check.
+- Ability to specify a name for recording files.
 
 Changed:
 ^^^^^^^^
 
 - Additional Controls panel is now Stimulation Controls panel.
-- Serial communication protocol:
-
-  - Removed module ID from general packet structure.
-  - Removed ability to set magnetometer configuration.
-  - Misc. other minor changes.
-
-- Instrument error handling procedure.
 - Beta 2 H5 file format version is now 1.0.3. Format Changes:
 
   - Added 2 metadata fields:
 
     - Stim Lid barcode.
     - Whether or not the Stim Lid barcode was scanned by the instrument or manually entered by the user.
+
+- Cloud API calls (now pings k8s endpoints).
+- Serial communication protocol:
+
+  - Removed module ID from general packet structure.
+  - Removed ability to set magnetometer configuration.
+  - Other minor changes.
+
+- Instrument error handling procedure.
 
 
 0.8.1 (2022-03-18)

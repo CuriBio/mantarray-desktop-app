@@ -26,9 +26,9 @@ const get_current_app_version = main_utils.get_current_app_version;
 const store = create_store();
 
 log.transports.file.resolvePath = () => {
-  const filename = main_utils.filename_prefix + "_main.txt";
+  const filename = main_utils.FILENAME_PREFIX + "_main.txt";
 
-  return path.join(path.dirname(store.path), "logs_flask", main_utils.filename_prefix, filename);
+  return path.join(path.dirname(store.path), "logs_flask", main_utils.FILENAME_PREFIX, filename);
 };
 console.log = log.log;
 console.error = log.error;
@@ -142,19 +142,14 @@ const boot_up_flask = function () {
 // start the Flask server
 boot_up_flask();
 
-// save customer id after it's verified in the /get_auth aws route
-ipcMain.on("save_customer_id", (e, customer_account) => {
+// save customer id after it's verified by /users/login
+ipcMain.on("save_customer_id", (e, customer_id) => {
   e.reply("save_customer_id", 200);
-
-  const { cust_id, pass_key } = customer_account;
-  store.set("customer_account_id", {
-    id: cust_id,
-    password: pass_key,
-  });
+  store.set("customer_id", customer_id);
 });
 
 ipcMain.on("set_sw_update_auto_install", (e, enable_auto_install) => {
-  e.reply("save_customer_id", 200);
+  e.reply("set_sw_update_auto_install", 200);
 
   const action = enable_auto_install ? "Enabling" : "Disabling";
   console.log(action + " automatic installation of SW updates after shutdown"); // allow-log
@@ -274,7 +269,7 @@ const exit_app_clean = () => {
 
   const wait_for_subprocess_to_complete_with_timeout = new Promise((resolve) => {
     wait_for_subprocess_to_complete.then((msg) => resolve(msg));
-    setTimeout(() => resolve("Backend not closed after timeout"), 5000);
+    setTimeout(() => resolve("Backend not closed after timeout"), 8000);
   });
   wait_for_subprocess_to_complete_with_timeout.then((msg) => {
     console.log(msg); // allow-log

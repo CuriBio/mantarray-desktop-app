@@ -28,16 +28,37 @@ __fixtures__ = [
 ]
 
 
+def create_process_manager(
+    *, beta_2_mode=False, recording_directory="", logging_level=None, server_port_number=None
+):
+    values_to_share_to_server = {
+        "beta_2_mode": beta_2_mode,
+        "config_settings": {"recording_directory": recording_directory},
+    }
+    if server_port_number is not None:
+        values_to_share_to_server["server_port_number"] = server_port_number
+
+    kwargs = {"values_to_share_to_server": values_to_share_to_server}
+    if logging_level is not None:
+        kwargs["logging_level"] = logging_level
+
+    return MantarrayProcessesManager(**kwargs)
+
+
+@pytest.fixture(scope="function", name="clear_server_manager_after_test", autouse=True)
+def fixture_clear_server_manager_after_test():
+    yield
+    # clean up the ServerManager singleton
+    clear_the_server_manager()
+
+
 @pytest.fixture(scope="function", name="generic_manager")
-def fixture_generic_manager():
-    manager = MantarrayProcessesManager()
+def fixture_generic_manager(clear_server_manager_after_test):
+    manager = create_process_manager()
     yield manager
 
     if manager.are_subprocess_start_ups_complete() and not manager.are_processes_stopped():
         manager.hard_stop_processes()
-
-    # aspects of processes are often mocked just to assert they are called, so make sure to explicitly clean up the ServerManager module singleton
-    clear_the_server_manager()
 
 
 def test_MantarrayProcessesManager__stop_processes__calls_stop_on_all_processes_and_shuts_down_server(
@@ -330,35 +351,27 @@ def test_MantarrayProcessesManager__hard_stop_and_join_processes__hard_stops_pro
 
 
 def test_MantarrayProcessesManager__passes_file_directory_to_FileWriter():
-    manager = MantarrayProcessesManager(file_directory="blahdir")
+    test_dir = "dir"
+    manager = create_process_manager(recording_directory=test_dir)
     manager.create_processes()
-    assert manager.get_file_writer_process().get_file_directory() == "blahdir"
-
-    # clean up the ServerManager singleton
-    clear_the_server_manager()
+    assert manager.get_file_writer_process().get_file_directory() == test_dir
 
 
 def test_MantarrayProcessesManager__passes_shared_values_dict_to_server():
-    expected_dict = {"beta_2_mode": False}
+    expected_dict = {"beta_2_mode": False, "config_settings": {"recording_directory": ""}}
     manager = MantarrayProcessesManager(values_to_share_to_server=expected_dict)
     manager.create_processes()
     assert manager.get_server_manager().get_values_from_process_monitor() == expected_dict
 
-    # clean up the ServerManager singleton
-    clear_the_server_manager()
-
 
 def test_MantarrayProcessesManager__passes_logging_level_to_subprocesses():
     expected_level = logging.WARNING
-    manager = MantarrayProcessesManager(logging_level=expected_level)
+    manager = create_process_manager(logging_level=expected_level)
     manager.create_processes()
     assert manager.get_file_writer_process().get_logging_level() == expected_level
     assert manager.get_instrument_process().get_logging_level() == expected_level
     assert manager.get_data_analyzer_process().get_logging_level() == expected_level
     assert manager.get_server_manager().get_logging_level() == expected_level
-
-    # clean up the ServerManager singleton
-    clear_the_server_manager()
 
 
 @pytest.mark.parametrize(
@@ -461,21 +474,13 @@ def test_MantarrayProcessesManager__create_processes__passes_port_value_from_dic
     mocker,
 ):
     expected_port = 5432
-    manager = MantarrayProcessesManager(
-        values_to_share_to_server={
-            "server_port_number": expected_port,
-            "beta_2_mode": False,
-        }
-    )
+    manager = create_process_manager(beta_2_mode=False, server_port_number=expected_port)
     spied_create_server_manager = mocker.spy(ServerManager, "__init__")
 
     manager.create_processes()
 
     spied_create_server_manager.assert_called_once()
     assert spied_create_server_manager.call_args.kwargs["port"] == expected_port
-
-    # clean up the ServerManager singleton
-    clear_the_server_manager()
 
 
 def test_MantarrayProcessesManager__are_processes_stopped__returns_true_if_stop_occurs_during_polling(
@@ -541,7 +546,7 @@ def test_MantarrayProcessesManager__are_subprocess_start_ups_complete__returns_f
 
 
 def test_MantarrayProcessesManager__are_subprocess_start_ups_complete__returns_false_if_none_are_created():
-    test_manager = MantarrayProcessesManager()
+    test_manager = create_process_manager()
     assert test_manager.are_subprocess_start_ups_complete() is False
 
 
@@ -574,8 +579,7 @@ def test_MantarrayProcessesManager__passes_beta_2_flag_to_subprocesses_other_tha
     mocker,
 ):
     expected_beta_2_flag = True
-    shared_values_dict = {"beta_2_mode": expected_beta_2_flag}
-    manager = MantarrayProcessesManager(values_to_share_to_server=shared_values_dict)
+    manager = create_process_manager(beta_2_mode=expected_beta_2_flag)
 
     spied_fw_init = mocker.spy(FileWriterProcess, "__init__")
     spied_da_init = mocker.spy(DataAnalyzerProcess, "__init__")
@@ -585,22 +589,15 @@ def test_MantarrayProcessesManager__passes_beta_2_flag_to_subprocesses_other_tha
     assert spied_fw_init.call_args.kwargs["beta_2_mode"] is expected_beta_2_flag
     assert spied_da_init.call_args.kwargs["beta_2_mode"] is expected_beta_2_flag
 
-    # clean up the ServerManager singleton
-    clear_the_server_manager()
-
 
 def test_MantarrayProcessesManager__creates_mc_comm_instead_of_ok_comm_when_beta_2_flag_is_set_true(
     mocker,
 ):
-    shared_values_dict = {"beta_2_mode": True}
-    manager = MantarrayProcessesManager(values_to_share_to_server=shared_values_dict)
+    manager = create_process_manager(beta_2_mode=True)
     manager.create_processes()
 
     mc_comm_process = manager.get_instrument_process()
     assert isinstance(mc_comm_process, McCommunicationProcess) is True
-
-    # clean up the ServerManager singleton
-    clear_the_server_manager()
 
 
 def test_MantarrayProcessesManager_shutdown_server__shutsdown_server_and_returns_remaining_items_in_queue_to_server(

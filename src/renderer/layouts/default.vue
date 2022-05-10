@@ -191,12 +191,13 @@ export default {
       data_analysis_hover: false,
       data_acquisition_hover: false,
       stim_studio_hover: false,
+      request_stored_customer_id: true,
     };
   },
   computed: {
     ...mapState("settings", [
-      "customer_account_ids",
-      "customer_index",
+      "user_accounts",
+      "active_user_index",
       "allow_sw_update_install",
       "recordings_list",
       "root_recording_path",
@@ -262,23 +263,17 @@ export default {
       this.beta_2_mode = beta_2_mode;
       this.$store.commit("settings/set_beta_2_mode", beta_2_mode);
     });
+    ipcRenderer.on("stored_customer_id_response", (_, stored_customer_id) => {
+      this.request_stored_customer_id = false;
+      this.$store.commit("settings/set_stored_customer_id", stored_customer_id);
+    });
+
     if (this.beta_2_mode === undefined) {
       ipcRenderer.send("beta_2_mode_request");
     }
-
-    // ipcRenderer.on('customer_account_response', (e, customer_account) => {
-    //   if (customer_account.id !== '') {
-    //     const customer = {
-    //       cust_idx: 0,
-    //       cust_id: customer_account.id,
-    //       pass_key: customer_account.password,
-    //       user_account_id: 'default_user',
-    //     };
-    //     this.$store.commit('settings/set_customer_account_ids', [customer]);
-    //     this.$store.commit('settings/set_customer_index', 0);
-    //   }
-    // });
-    // ipcRenderer.send('customer_account_request');
+    if (this.request_stored_customer_id) {
+      ipcRenderer.send("stored_customer_id_request");
+    }
   },
   methods: {
     send_confirmation: function (idx) {
@@ -286,8 +281,9 @@ export default {
       this.$store.commit("settings/set_confirmation_request", false);
     },
     save_customer_id: function () {
-      const customer_account = this.customer_account_ids[this.customer_index];
-      ipcRenderer.send("save_customer_id", customer_account);
+      const customer_id = this.user_accounts[this.active_user_index].customer_id;
+      ipcRenderer.send("save_customer_id", customer_id);
+      this.$store.commit("settings/set_stored_customer_id", customer_id);
     },
     handle_tab_visibility: function (tab) {
       if (tab === 0) {

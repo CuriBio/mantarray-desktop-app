@@ -8,7 +8,7 @@ from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
-from mantarray_desktop_app import InvalidCustomerAccountIDPasswordError
+from mantarray_desktop_app import InvalidUserCredsError
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import RECORDING_STATE
@@ -26,7 +26,6 @@ from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 import pytest
 
 from ..fixtures import fixture_generic_queue_container
-from ..fixtures import GENERIC_STORED_CUSTOMER_ID
 from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
@@ -506,36 +505,6 @@ def test_start_managed_acquisition__returns_error_code_and_message_called_while_
     )
 
 
-def test_update_settings__returns_error_message_when_customer_creds_dont_make_stored_pairs(
-    client_and_server_manager_and_shared_values,
-):
-    valid_customer_id = "test_id"
-    invalid_password = "invalid_pass"
-    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-
-    shared_values_dict["stored_customer_settings"] = {"stored_customer_id": GENERIC_STORED_CUSTOMER_ID}
-    response = test_client.get(
-        f"/update_settings?customer_account_uuid={valid_customer_id}&customer_pass_key={invalid_password}"
-    )
-    assert response.status_code == 401
-    assert response.status.endswith(f"{repr(InvalidCustomerAccountIDPasswordError())}") is True
-
-
-def test_update_settings__returns_200_code_when_customer_creds_matched_stored_pairs(
-    client_and_server_manager_and_shared_values,
-):
-    valid_customer_id = "test_id"
-    valid_password = "test_password"
-    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-
-    shared_values_dict["stored_customer_settings"] = {"stored_customer_id": GENERIC_STORED_CUSTOMER_ID}
-    response = test_client.get(
-        f"/update_settings?customer_account_uuid={valid_customer_id}&customer_pass_key={valid_password}"
-    )
-    assert response.status_code == 200
-    assert response.status.endswith(f"{repr(InvalidCustomerAccountIDPasswordError())}") is False
-
-
 def test_update_settings__returns_error_message_when_recording_directory_does_not_exist(
     test_client,
 ):
@@ -554,12 +523,35 @@ def test_update_settings__returns_error_message_when_unexpected_argument_is_give
     assert response.status.endswith(f"Invalid argument given: {test_arg}") is True
 
 
-def test_route_error_message_is_logged(mocker, test_client):
-    expected_error_msg = "400 Invalid argument given: a"
+def test_update_settings__returns_correct_error_code_when_user_auth_fails(test_client, mocker):
+    test_error = InvalidUserCredsError("msg")
 
+    # mock so test doesn't hit cloud API
+    mocked_validate = mocker.patch.object(
+        server, "validate_user_credentials", autospec=True, side_effect=test_error
+    )
+
+    test_user_creds = {
+        "customer_id": "cid",
+        "user_name": "user",
+        "user_password": "pw",
+    }
+
+    response = test_client.get(f"/update_settings?{urllib.parse.urlencode(test_user_creds)}")
+    assert response.status_code == 401
+    assert repr(test_error) in response.status
+
+    mocked_validate.assert_called_once()
+    assert dict(mocked_validate.call_args[0][0]) == test_user_creds
+
+
+def test_route_error_message_is_logged(mocker, test_client):
     mocked_logger = mocker.spy(server.logger, "info")
 
-    response = test_client.get("/update_settings?a=b")
+    bad_arg = "a"
+    expected_error_msg = f"400 Invalid argument given: {bad_arg}"
+
+    response = test_client.get(f"/update_settings?{bad_arg}=")
     assert response.status == expected_error_msg
 
     assert expected_error_msg in mocked_logger.call_args[0][0]

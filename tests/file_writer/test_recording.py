@@ -89,7 +89,7 @@ from ..fixtures_file_writer import fixture_running_four_board_file_writer_proces
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
-from ..fixtures_file_writer import GENERIC_UPDATE_CUSTOMER_SETTINGS
+from ..fixtures_file_writer import GENERIC_UPDATE_USER_SETTINGS
 from ..fixtures_file_writer import open_the_generic_h5_file
 from ..fixtures_file_writer import populate_calibration_folder
 from ..fixtures_file_writer import WELL_DEF_24
@@ -112,13 +112,7 @@ __fixtures__ = [
 
 
 @pytest.mark.timeout(6)
-@pytest.mark.parametrize(
-    "test_beta_version,test_description",
-    [
-        (1, "beta 1 mode"),
-        (2, "beta 2 mode"),
-    ],
-)
+@pytest.mark.parametrize("test_beta_version,test_description", [(1, "beta 1 mode"), (2, "beta 2 mode")])
 def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_index__and_supplied_metadata__set_to_swmr_mode__when_receiving_communication_to_start_recording(
     test_beta_version,
     test_description,
@@ -171,10 +165,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
     assert actual_set_of_files == expected_set_of_files
 
     for this_well_idx in range(24):
-        # Eli (2/9/20) can't figure out a more elegant way to test this than accessing the private instance variable.  If you open a file using the :code:`swmr=True` kwarg and the file isn't being written that way, no error is raised, and asserting f.swmr_mode is True on the file being read doesn't work (always returns what the kwarg was set as during opening for reading)
-        open_files = file_writer_process._open_files  # pylint: disable=protected-access
-        this_file_being_written_to = open_files[0][this_well_idx]
-        assert this_file_being_written_to.swmr_mode is True
+        assert file_writer_process._open_files[0][this_well_idx].swmr_mode is True, this_well_idx
 
     for well_idx in range(24):
         row_idx, col_idx = WELL_DEF_24.get_row_and_column_from_well_index(well_idx)
@@ -315,6 +306,35 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         assert get_reference_dataset_from_file(this_file).dtype == data_type
         assert get_tissue_dataset_from_file(this_file).shape == data_shape
         assert get_tissue_dataset_from_file(this_file).dtype == data_type
+
+
+@pytest.mark.parametrize("test_recording_name", ["Test Name", None])
+def test_FileWriterProcess__creates_recording_dir_and_files_with_correct_name(
+    test_recording_name, four_board_file_writer_process
+):
+    fw_process = four_board_file_writer_process["fw_process"]
+    fw_process.set_beta_2_mode()
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
+
+    populate_calibration_folder(fw_process)
+
+    this_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    if test_recording_name:
+        this_command["recording_name"] = test_recording_name
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
+
+    invoke_process_run_and_check_errors(fw_process)
+
+    timestamp_str = "2020_02_09_190359"
+    expected_plate_barcode = this_command["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID]
+
+    if test_recording_name:
+        actual_recording_name = test_recording_name
+    else:
+        actual_recording_name = f"{expected_plate_barcode}__{timestamp_str}"
+
+    assert os.path.isdir(os.path.join(file_dir, actual_recording_name))
 
 
 @pytest.mark.timeout(4)
@@ -740,12 +760,12 @@ def test_FileWriterProcess__closes_the_files_and_sends_communication_to_main_whe
         "close",
     )
 
-    update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-    update_customer_settings_command["config_settings"]["auto_delete_local_files"] = False
-    update_customer_settings_command["config_settings"]["auto_upload_on_completion"] = False
+    update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+    update_user_settings_command["config_settings"]["auto_delete_local_files"] = False
+    update_user_settings_command["config_settings"]["auto_upload_on_completion"] = False
     msgs_to_main = create_and_close_beta_1_h5_files(
         four_board_file_writer_process,
-        update_customer_settings_command,
+        update_user_settings_command,
         num_data_points=test_num_data_points,
         active_well_indices=[0],
     )
@@ -1778,13 +1798,13 @@ def test_FileWriterProcess__stop_recording__immediately_finalizes_any_beta_1_fil
     # mock to make sure uploads don't actually start
     mocked_upload = mocker.patch.object(file_writer_process, "_start_new_file_upload", autospec=True)
 
-    update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-    update_customer_settings_command["config_settings"].update(
+    update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+    update_user_settings_command["config_settings"].update(
         {"auto_delete_local_files": False, "auto_upload_on_completion": True}
     )
     create_and_close_beta_1_h5_files(
         four_board_file_writer_process,
-        update_customer_settings_command,
+        update_user_settings_command,
         active_well_indices=test_well_indices,
     )
 
@@ -1804,11 +1824,11 @@ def test_FileWriterProcess__stop_recording__immediately_finalizes_all_beta_2_fil
     mocked_upload = mocker.patch.object(fw_process, "_start_new_file_upload", autospec=True)
 
     # store new customer settings
-    update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-    update_customer_settings_command["config_settings"].update(
+    update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+    update_user_settings_command["config_settings"].update(
         {"auto_delete_local_files": False, "auto_upload_on_completion": True}
     )
-    this_command = copy.deepcopy(update_customer_settings_command)
+    this_command = copy.deepcopy(update_user_settings_command)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # remove update settings command receipt
@@ -1860,11 +1880,11 @@ def test_FileWriterProcess__stop_managed_acquisition__finalizes_all_files_if_any
     mocked_upload = mocker.patch.object(fw_process, "_start_new_file_upload", autospec=True)
 
     # store new customer settings
-    update_customer_settings_command = copy.deepcopy(GENERIC_UPDATE_CUSTOMER_SETTINGS)
-    update_customer_settings_command["config_settings"].update(
+    update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+    update_user_settings_command["config_settings"].update(
         {"auto_delete_local_files": False, "auto_upload_on_completion": True}
     )
-    this_command = copy.deepcopy(update_customer_settings_command)
+    this_command = copy.deepcopy(update_user_settings_command)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # remove update settings command receipt

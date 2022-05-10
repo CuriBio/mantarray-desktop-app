@@ -35,7 +35,7 @@
     "node": "^14.15.1"
   },
   "dependencies": {
-    "@curi-bio/mantarray-frontend-components": "0.6.5",
+    "@curi-bio/mantarray-frontend-components": "0.7.1",
     "@electron/remote": "~1.0.2",
     "axios": "~0.21.2",
     "current-script-polyfill": "~1.0.0",

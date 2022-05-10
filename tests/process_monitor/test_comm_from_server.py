@@ -3,7 +3,6 @@ import copy
 import datetime
 import json
 import tempfile
-from uuid import UUID
 
 from freezegun import freeze_time
 from mantarray_desktop_app import BUFFERING_STATE
@@ -224,8 +223,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     put_generic_beta_2_start_recording_info_in_dict(svd)
     # Tanner (12/10/21): deleting since these may not actually be set by the time this route is called
     del svd["utc_timestamps_of_beginning_of_data_acquisition"]
-    del svd["config_settings"]["customer_account_id"]
-    del svd["config_settings"]["user_account_id"]
+    del svd["config_settings"]["customer_id"]
+    del svd["config_settings"]["user_name"]
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -441,31 +440,40 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
 
-    new_id = UUID("e7744225-c41c-4bd5-9e32-e79716cc8f40")
-    new_account_id = "new_ai"
+    new_customer_id = "new_cid"
+    new_username = "new_un"
     new_pass_key = "new_pw"
 
-    shared_values_dict["config_settings"] = {"user_account_id": UUID("e623b13c-05a5-41f2-8526-c2eba8e78e7f")}
-    shared_values_dict["customer_creds"] = {"customer_account_id": "old_ai", "customer_pass_key": "old_pw"}
+    shared_values_dict["user_creds"] = {
+        "customer_id": "old_cid",
+        "user_name": "old_un",
+        "user_password": "old_pw",
+    }
+
+    shared_values_dict["config_settings"] = copy.deepcopy(shared_values_dict["user_creds"])
+    shared_values_dict["config_settings"].update(
+        {"auto_upload_on_completion": False, "auto_delete_local_files": True}
+    )
 
     communication = {
-        "communication_type": "update_customer_settings",
+        "communication_type": "update_user_settings",
         "content": {
-            "config_settings": {
-                "user_account_id": new_id,
-                "customer_account_id": new_account_id,
-                "customer_pass_key": new_pass_key,
-            }
+            "customer_id": new_customer_id,
+            "user_name": new_username,
+            "user_password": new_pass_key,
+            "auto_upload_on_completion": True,
+            "auto_delete_local_files": False,
         },
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert shared_values_dict["config_settings"]["user_account_id"] == new_id
-    assert shared_values_dict["customer_creds"] == {
-        "customer_account_id": new_account_id,
-        "customer_pass_key": new_pass_key,
+    assert shared_values_dict["config_settings"] == communication["content"]
+    assert shared_values_dict["user_creds"] == {
+        "customer_id": new_customer_id,
+        "user_name": new_username,
+        "user_password": new_pass_key,
     }
 
 
@@ -481,8 +489,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         communication = {
-            "communication_type": "update_customer_settings",
-            "content": {"config_settings": {"recording_directory": expected_recordings_dir}},
+            "communication_type": "update_user_settings",
+            "content": {"recording_directory": expected_recordings_dir},
         }
 
         put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
@@ -496,7 +504,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         communication = to_file_writer_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
         assert communication["command"] == "update_directory"
         assert communication["new_directory"] == expected_recordings_dir
-        assert test_process_manager.get_file_directory() == expected_recordings_dir
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_stop_recording__by_passing_command_to_file_writer__and_setting_status_to_live_view_active(

@@ -20,7 +20,7 @@ from mantarray_desktop_app import SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PAYLOAD_INDEX
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
-from mantarray_desktop_app.firmware_downloader import call_firmware_route
+from mantarray_desktop_app.firmware_downloader import call_firmware_download_route
 from mantarray_desktop_app.mc_comm import download_firmware_updates
 from mantarray_desktop_app.mc_comm import get_latest_firmware_versions
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
@@ -51,26 +51,26 @@ __fixtures__ = [
 ]
 
 
-def test_call_firmware_route__calls_requests_get_correctly(mocker):
+def test_call_firmware_download_route__calls_requests_get_correctly(mocker):
     mocked_get = mocker.patch.object(requests, "get", autospec=True)
     mocked_get.return_value.status_code = 200
 
     test_url = "url"
     test_headers = {"Authorization": "Bearer token"}
-    call_firmware_route("url", headers=test_headers, error_message="err msg")
+    call_firmware_download_route("url", headers=test_headers, error_message="err msg")
 
     mocked_get.assert_called_once_with(test_url, headers=test_headers)
 
 
-def test_call_firmware_route__handles_connection_error_correctly(mocker):
+def test_call_firmware_download_route__handles_connection_error_correctly(mocker):
     mocker.patch.object(requests, "get", autospec=True, side_effect=ConnectionError)
 
     test_error_message = "err msg"
     with pytest.raises(FirmwareDownloadError, match=test_error_message):
-        call_firmware_route("url", error_message=test_error_message)
+        call_firmware_download_route("url", error_message=test_error_message)
 
 
-def test_call_firmware_route__handles_response_error_code_correctly(mocker):
+def test_call_firmware_download_route__handles_response_error_code_correctly(mocker):
     expected_error_code = 400
     expected_reason = "bad request"
 
@@ -83,7 +83,7 @@ def test_call_firmware_route__handles_response_error_code_correctly(mocker):
         FirmwareDownloadError,
         match=f"{test_error_message} Status code: {expected_error_code}, Reason: {expected_reason}",
     ):
-        call_firmware_route("url", error_message=test_error_message)
+        call_firmware_download_route("url", error_message=test_error_message)
 
 
 def test_get_latest_firmware_versions__calls_api_endpoint_correctly_and_returns_values_correctly(mocker):
@@ -105,7 +105,8 @@ def test_get_latest_firmware_versions__calls_api_endpoint_correctly_and_returns_
     test_serial_number = MantarrayMcSimulator.default_mantarray_serial_number
     get_latest_firmware_versions(test_result_dict, test_serial_number)
     mocked_get.assert_called_once_with(
-        f"https://{CLOUD_API_ENDPOINT}/firmware_latest?serial_number={test_serial_number}"
+        f"https://{CLOUD_API_ENDPOINT}/mantarray/firmware_latest",
+        params={"serial_number": test_serial_number},
     )
 
     assert test_result_dict == expected_response_dict
@@ -115,9 +116,10 @@ def test_get_latest_firmware_versions__calls_api_endpoint_correctly_and_returns_
     "main_fw_update,channel_fw_update",
     [(False, True), (True, False), (True, True)],
 )
-def test_download_firmware_updates__gets_auth_then_downloads_specified_firmware_files_and_returns_values_correctly(
+def test_download_firmware_updates__get_access_token_then_downloads_specified_firmware_files_and_returns_values_correctly(
     main_fw_update, channel_fw_update, mocker
 ):
+    test_customer_id = "id"
     test_username = "user"
     test_password = "pw"
     test_access_token = "access_token"
@@ -142,22 +144,24 @@ def test_download_firmware_updates__gets_auth_then_downloads_specified_firmware_
     mocked_post = mocker.patch.object(requests, "post", autospec=True)
     mocked_post.return_value.json.return_value = {"access_token": test_access_token}
 
-    def call_se(url, *args, **kwargs):
+    def call_se(url, *args, params=None, **kwargs):
+        if params is None:
+            params = {}
+
         mocked_call_return = mocker.MagicMock()
 
+        is_main = params.get("firmware_type") == "main" or "main" in url
         if "firmware_download" in url:
-            mocked_call_return.json = lambda: {
-                "presigned_url": test_main_presigned_url if "main" in url else test_channel_presigned_url
-            }
+            presigned_url = test_main_presigned_url if is_main else test_channel_presigned_url
+            mocked_call_return.json = lambda: {"presigned_url": presigned_url}
         else:
-            mocked_call_return.content = (
-                expected_main_fw_bytes if "main" in url else expected_channel_fw_bytes
-            )
+            content = expected_main_fw_bytes if is_main else expected_channel_fw_bytes
+            mocked_call_return.content = content
 
         return mocked_call_return
 
     mocked_call = mocker.patch.object(
-        firmware_downloader, "call_firmware_route", autospec=True, side_effect=call_se
+        firmware_downloader, "call_firmware_download_route", autospec=True, side_effect=call_se
     )
 
     test_result_dict = {
@@ -170,12 +174,14 @@ def test_download_firmware_updates__gets_auth_then_downloads_specified_firmware_
         test_result_dict,
         test_main_fw_to_download,
         test_channel_fw_to_download,
+        test_customer_id,
         test_username,
         test_password,
     )
 
     mocked_post.assert_called_once_with(
-        f"https://{CLOUD_API_ENDPOINT}/get_auth", json={"username": test_username, "password": test_password}
+        f"https://{CLOUD_API_ENDPOINT}/users/login",
+        json={"customer_id": test_customer_id, "username": test_username, "password": test_password},
     )
 
     assert mocked_call.call_count == 2 * (int(main_fw_update) + int(channel_fw_update))
@@ -187,7 +193,8 @@ def test_download_firmware_updates__gets_auth_then_downloads_specified_firmware_
     ):
         if update_needed:
             assert mocked_call.call_args_list[call_idx] == mocker.call(
-                f"https://{CLOUD_API_ENDPOINT}/firmware_download?firmware_version={test_new_version}&firmware_type={fw_type}",
+                f"https://{CLOUD_API_ENDPOINT}/mantarray/firmware_download",
+                params={"firmware_version": test_new_version, "firmware_type": fw_type},
                 headers={"Authorization": f"Bearer {test_access_token}"},
                 error_message=f"Error getting presigned URL for {fw_type} firmware",
             ), fw_type
@@ -201,13 +208,7 @@ def test_download_firmware_updates__gets_auth_then_downloads_specified_firmware_
 
 def test_download_firmware_updates__raises_error_if_no_updates_needed():
     with pytest.raises(FirmwareDownloadError, match="No firmware types specified"):
-        download_firmware_updates(
-            {},
-            None,
-            None,
-            "any user",
-            "any pw",
-        )
+        download_firmware_updates({}, None, None, "any customer id", "any user", "any pw")
 
 
 def test_McCommunicationProcess__handles_error_in_firmware_update_worker_thread(
@@ -217,12 +218,12 @@ def test_McCommunicationProcess__handles_error_in_firmware_update_worker_thread(
     from_main_queue, to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][:2]
 
     expected_error_msg = "error in thread"
-    mocker.patch.object(
-        mc_comm.ErrorCatchingThread, "get_error", autospec=True, return_value=expected_error_msg
-    )
 
+    def init_se(obj, target, args):
+        obj.error = expected_error_msg
+
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "__init__", autospec=True, side_effect=init_se)
     mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
-    mocker.patch.object(mc_comm.ErrorCatchingThread, "errors", autospec=True, return_value=True)
     # mock so thread will appear complete on the second iteration of mc_process
     mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, side_effect=[True, False])
 
@@ -267,11 +268,11 @@ def test_McCommunicationProcess__handles_successful_completion_of_get_latest_fir
 
     def init_se(obj, target, args):
         args[0].update({"latest_versions": expected_latest_versions})
+        obj.error = None
 
     # mock init so it populates output dict immediately
     mocker.patch.object(mc_comm.ErrorCatchingThread, "__init__", autospec=True, side_effect=init_se)
     mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
-    mocker.patch.object(mc_comm.ErrorCatchingThread, "errors", autospec=True, return_value=False)
     # mock so thread will appear complete on the second iteration of mc_process
     mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, side_effect=[True, False])
 
@@ -310,11 +311,11 @@ def test_McCommunicationProcess__handles_successful_completion_of_download_firmw
 
     def init_se(obj, target, args):
         args[0].update({"main": expected_main_fw_bytes, "channel": expected_channel_fw_bytes})
+        obj.error = None
 
     # mock init so it populates output dict immediately
     mocker.patch.object(mc_comm.ErrorCatchingThread, "__init__", autospec=True, side_effect=init_se)
     mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
-    mocker.patch.object(mc_comm.ErrorCatchingThread, "errors", autospec=True, return_value=False)
     # mock so thread will appear complete on the second iteration of mc_process
     mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, side_effect=[True, False])
 
@@ -324,6 +325,7 @@ def test_McCommunicationProcess__handles_successful_completion_of_download_firmw
         "command": "download_firmware_updates",
         "main": "1.0.0",
         "channel": "1.0.1",
+        "customer_id": "id",
         "username": "user",
         "password": "pw",
     }
