@@ -380,7 +380,6 @@ def run_mag_finding_analysis() -> Response:
     try:
         config_setting = _get_values_from_process_monitor()["config_settings"]
         recording_rootdir = config_setting["recording_directory"]
-        mag_analysis_output_dir = config_setting["mag_analysis_output_dir"]
     except KeyError:
         return Response(status="400 Root directories were not found")
 
@@ -392,7 +391,7 @@ def run_mag_finding_analysis() -> Response:
         {
             "communication_type": "mag_finding_analysis",
             "command": "start_mag_analysis",
-            "content": {"recordings": recording_paths, "output_dir": mag_analysis_output_dir},
+            "content": {"recordings": recording_paths},
         }
     )
 
