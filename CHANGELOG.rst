@@ -10,8 +10,22 @@ Added:
 ^^^^^^
 
 - Stim Lid barcode.
+- Separate Stim Status.
 - Stim Lid configuration check.
 - Ability to specify a name for recording files.
+- Ability to perform magnet finding analysis of existing recordings locally:
+
+    - Added two routes:
+
+        - One route that returns a list of existing recordings to select from to perform analysis.
+        - One route kicks off magnet finding analysis on selected files.
+
+    - Data analysis tab that contains button that will prompty modal with list of existing recordings to select from.
+    - Modal will update to 'in progress' and prevent user from closing modal or performing other processes while a analysis is active.
+    - Modal will upate on completion with successful recordings, failed recording, and location of csv files.
+    - Added prevention of starting an analysis while other process are already active.
+    - Will prompt user to confirm window closure if an attempt is made and an analysis is running.
+
 
 Changed:
 ^^^^^^^^
@@ -32,6 +46,9 @@ Changed:
   - Other minor changes.
 
 - Instrument error handling procedure.
+- Default layout page changes:
+    - Accordian style tabs used to toggle visibility of data acquisition, stim studio, and data analysis tabs
+    - Beta 1 will still see accordian style tabs, but only the data acquisition tab
 
 
 0.8.1 (2022-03-18)

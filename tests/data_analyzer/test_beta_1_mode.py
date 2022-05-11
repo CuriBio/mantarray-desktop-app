@@ -90,7 +90,7 @@ def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(
     # initial pulse3D import:               3.855403546
     # pulse3D 0.23.3:                       3.890723909
 
-    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
         comm_from_main_queue,
@@ -158,7 +158,7 @@ def test_DataAnalyzerProcess_beta_1_performance__single_data_packet_per_well_wit
     # initial pulse3D import:               0.533860423
     # pulse3D 0.23.3:                       0.539447351
 
-    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
         comm_from_main_queue,
