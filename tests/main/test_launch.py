@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import multiprocessing
+import os
 import platform
 import socket
 import sys
@@ -148,7 +149,7 @@ def test_main__logs_system_info__and_software_version_at_very_start(
     with tempfile.TemporaryDirectory() as tmp:
         spied_info_logger = mocker.spy(main.logger, "info")
         expected_uuid = "c7d3e956-cfc3-42df-94d9-b3a19cf1529c"
-        test_dict = {"log_file_id": expected_uuid, "recording_directory": tmp}
+        test_dict = {"log_file_id": expected_uuid, "recording_directory": tmp, "mag_analysis_output_dir": tmp}
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
         main.main(
@@ -381,10 +382,13 @@ def test_main__stores_and_logs_directory_for_log_files_from_command_line_argumen
 
 
 def test_main__stores_values_from_command_line_arguments(mocker, fully_running_app_from_main_entrypoint):
-    with tempfile.TemporaryDirectory() as expected_recordings_dir:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        expected_recordings_dir = os.path.join(tmp_dir, "recordings")
+        expected_analysis_output_dir = os.path.join(tmp_dir, "recordings")
         test_dict = {
             "user_name": "455b93eb-c78f-4494-9f73-d3291130f126",
             "recording_directory": expected_recordings_dir,
+            "mag_analysis_output_dir": expected_analysis_output_dir,
             "log_file_id": "91dbb151-0867-44da-a595-bd303f91927d",
         }
         json_str = json.dumps(test_dict)

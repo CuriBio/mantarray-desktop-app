@@ -65,6 +65,7 @@ describe("utils.js", () => {
           const expected_obj = {
             log_file_id: main_utils.FILENAME_PREFIX,
             recording_directory: path.join(tmp_dir_name, "recordings"),
+            mag_analysis_output_dir: path.join(tmp_dir_name, "time_force_data"),
           };
 
           const regex = "--initial-base64-settings=";

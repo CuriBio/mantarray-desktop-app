@@ -29,11 +29,19 @@ __fixtures__ = [
 
 
 def create_process_manager(
-    *, beta_2_mode=False, recording_directory="", logging_level=None, server_port_number=None
+    *,
+    beta_2_mode=False,
+    recording_directory="",
+    mag_analysis_output_dir="",
+    logging_level=None,
+    server_port_number=None
 ):
     values_to_share_to_server = {
         "beta_2_mode": beta_2_mode,
-        "config_settings": {"recording_directory": recording_directory},
+        "config_settings": {
+            "recording_directory": recording_directory,
+            "mag_analysis_output_dir": mag_analysis_output_dir,
+        },
     }
     if server_port_number is not None:
         values_to_share_to_server["server_port_number"] = server_port_number
@@ -358,7 +366,10 @@ def test_MantarrayProcessesManager__passes_file_directory_to_FileWriter():
 
 
 def test_MantarrayProcessesManager__passes_shared_values_dict_to_server():
-    expected_dict = {"beta_2_mode": False, "config_settings": {"recording_directory": ""}}
+    expected_dict = {
+        "beta_2_mode": False,
+        "config_settings": {"recording_directory": "", "mag_analysis_output_dir": ""},
+    }
     manager = MantarrayProcessesManager(values_to_share_to_server=expected_dict)
     manager.create_processes()
     assert manager.get_server_manager().get_values_from_process_monitor() == expected_dict

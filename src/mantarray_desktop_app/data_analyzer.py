@@ -246,6 +246,7 @@ class DataAnalyzerProcess(InfiniteProcess, FileDirMixIn):
         from_main_queue: a queue of communication from the main process
         to_main_queue: a queue to put general communication back to main
         fatal_error_reporter: a queue to report fatal errors back to the main process
+        mag_analysis_output_dir: directory to write time force csv to
     """
 
     def __init__(

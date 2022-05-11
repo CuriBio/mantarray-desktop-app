@@ -50,10 +50,18 @@ def generate_board_and_error_queues(num_boards: int = 4, queue_type=MPQueue):
     return board_queues, error_queue
 
 
-def get_generic_base64_args(recording_directory: Optional[str] = None) -> str:
+def get_generic_base64_args(
+    recording_directory: Optional[str] = None, analysis_output_dir: Optional[str] = None
+) -> str:
     if not recording_directory:
         recording_directory = get_current_file_abs_directory()
-    test_dict = {"log_file_id": "any", "recording_directory": recording_directory}
+    if not analysis_output_dir:
+        analysis_output_dir = get_current_file_abs_directory()
+    test_dict = {
+        "log_file_id": "any",
+        "recording_directory": recording_directory,
+        "mag_analysis_output_dir": analysis_output_dir,
+    }
     json_str = json.dumps(test_dict)
     b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
     return f"--initial-base64-settings={b64_encoded}"
@@ -135,10 +143,15 @@ def fixture_test_process_manager_creator(mocker):
             mocker.patch.object(queue_container, "Queue", autospec=True, side_effect=lambda: TestingQueue())
 
         with tempfile.TemporaryDirectory() as tmp_dir:
+            recording_dir = os.path.join(tmp_dir, "recordings")
+            mag_analysis_output_dir = os.path.join(tmp_dir, "time_force_data")
             manager = MantarrayProcessesManager(
                 values_to_share_to_server={
                     "beta_2_mode": beta_2_mode,
-                    "config_settings": {"recording_directory": tmp_dir},
+                    "config_settings": {
+                        "recording_directory": recording_dir,
+                        "mag_analysis_output_dir": mag_analysis_output_dir,
+                    },
                 },
             )
             if use_testing_queues:
