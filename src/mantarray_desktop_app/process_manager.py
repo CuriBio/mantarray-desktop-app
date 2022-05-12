@@ -117,6 +117,9 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             queue_container.get_communication_queue_from_main_to_data_analyzer(),
             queue_container.get_communication_queue_from_data_analyzer_to_main(),
             queue_container.get_data_analyzer_error_queue(),
+            mag_analysis_output_dir=self._values_to_share_to_server["config_settings"][
+                "mag_analysis_output_dir"
+            ],
             logging_level=self._logging_level,
             beta_2_mode=beta_2_mode,
         )

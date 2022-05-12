@@ -90,7 +90,7 @@ def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(
     # initial pulse3D import:               3.855403546
     # pulse3D 0.23.3:                       3.890723909
 
-    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
         comm_from_main_queue,
@@ -122,7 +122,7 @@ def test_DataAnalyzerProcess_beta_1_performance__first_second_of_data_with_analy
     # initial pulse3D import:               0.535316489
     # pulse3D 0.23.3:                       0.535428579
 
-    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
         comm_from_main_queue,
@@ -158,7 +158,7 @@ def test_DataAnalyzerProcess_beta_1_performance__single_data_packet_per_well_wit
     # initial pulse3D import:               0.533860423
     # pulse3D 0.23.3:                       0.539447351
 
-    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
         comm_from_main_queue,
@@ -187,7 +187,7 @@ def test_DataAnalyzerProcess_commands_for_each_run_iteration__checks_for_calibra
         "calibration_settings": 1,
     }
 
-    p, _, comm_from_main_queue, _, _ = four_board_analyzer_process
+    p, _, comm_from_main_queue, _, _, _ = four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         calibration_comm,
         comm_from_main_queue,
@@ -222,7 +222,7 @@ def test_DataAnalyzerProcess_commands_for_each_run_iteration__checks_for_calibra
 def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_when_empty(
     test_well_index, test_construct_data, test_description, four_board_analyzer_process
 ):
-    p, board_queues, comm_from_main_queue, _, _ = four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, _, _, _ = four_board_analyzer_process
     p.init_streams()
     incoming_data = board_queues[0][0]
 
@@ -268,7 +268,7 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
 def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_when_not_empty(
     test_well_index, test_construct_data, test_description, four_board_analyzer_process
 ):
-    p, board_queues, comm_from_main_queue, _, _ = four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, _, _, _ = four_board_analyzer_process
     p.init_streams()
     incoming_data = board_queues[0][0]
 
@@ -299,7 +299,7 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
 def test_DataAnalyzerProcess__correctly_pairs_ascending_order_ref_sensor_data_in_buffer(
     four_board_analyzer_process,
 ):
-    p, board_queues, comm_from_main_queue, _, _ = four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, _, _, _ = four_board_analyzer_process
     incoming_data = board_queues[0][0]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -338,7 +338,7 @@ def test_DataAnalyzerProcess__correctly_pairs_ascending_order_ref_sensor_data_in
 def test_DataAnalyzerProcess__correctly_pairs_descending_order_ref_sensor_data_in_buffer(
     four_board_analyzer_process,
 ):
-    p, board_queues, comm_from_main_queue, _, _ = four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, _, _, _ = four_board_analyzer_process
     incoming_data = board_queues[0][0]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -400,7 +400,7 @@ def test_DataAnalyzerProcess__correctly_pairs_descending_order_ref_sensor_data_i
 def test_DataAnalyzerProcess__is_buffer_full_returns_correct_value(
     test_sample_indices, expected_status, test_description, four_board_analyzer_process
 ):
-    p, _, _, _, _ = four_board_analyzer_process
+    p, _, _, _, _, _ = four_board_analyzer_process
 
     test_data = None
     if test_sample_indices is not None:
@@ -430,7 +430,7 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
         side_effect=mocked_force_vals,
     )
 
-    p, board_queues, _, _, _ = four_board_analyzer_process
+    p, board_queues, _, _, _, _ = four_board_analyzer_process
     outgoing_data = board_queues[0][1]
 
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
@@ -479,7 +479,7 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
 def test_DataAnalyzerProcess__dump_data_into_queue__sends_message_to_main_indicating_data_is_available__with_info_about_data(
     four_board_analyzer_process,
 ):
-    p, _, _, comm_to_main_queue, _ = four_board_analyzer_process
+    p, _, _, comm_to_main_queue, _, _ = four_board_analyzer_process
 
     dummy_well_data = [
         [CONSTRUCT_SENSOR_SAMPLING_PERIOD * i for i in range(3)],
@@ -508,7 +508,7 @@ def test_DataAnalyzerProcess__dump_data_into_queue__sends_message_to_main_indica
 def test_DataAnalyzerProcess__create_outgoing_data__normalizes_and_flips_raw_data_then_compresses_force_data(
     four_board_analyzer_process,
 ):
-    p, _, _, _, _ = four_board_analyzer_process
+    p, _, _, _, _, _ = four_board_analyzer_process
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
 
     timepoint_end = math.ceil(DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS / ROUND_ROBIN_PERIOD)
@@ -556,7 +556,7 @@ def test_DataAnalyzerProcess__create_outgoing_data__normalizes_and_flips_raw_dat
 def test_DataAnalyzerProcess__does_not_load_data_to_buffer_if_managed_acquisition_not_running(
     four_board_analyzer_process,
 ):
-    p, board_queues, _, _, _ = four_board_analyzer_process
+    p, board_queues, _, _, _, _ = four_board_analyzer_process
     incoming_data = board_queues[0][0]
 
     p._end_of_data_stream_reached[0] = True  # pylint:disable=protected-access
@@ -586,7 +586,7 @@ def test_DataAnalyzerProcess__does_not_load_data_to_buffer_if_managed_acquisitio
 def test_DataAnalyzerProcess__processes_stop_managed_acquisition_command(
     four_board_analyzer_process,
 ):
-    p, _, comm_from_main_queue, _, _ = four_board_analyzer_process
+    p, _, comm_from_main_queue, _, _, _ = four_board_analyzer_process
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),

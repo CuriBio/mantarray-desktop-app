@@ -317,7 +317,7 @@ class FileWriterProcess(InfiniteProcess):
         return os.path.join(self._file_directory, "failed_uploads")
 
     def _check_dirs(self) -> None:
-        for new_dir in (self.__file_directory, self._zipped_files_dir, self._failed_uploads_dir):
+        for new_dir in (self._file_directory, self._zipped_files_dir, self._failed_uploads_dir):
             if not os.path.isdir(new_dir):
                 os.makedirs(new_dir)
 

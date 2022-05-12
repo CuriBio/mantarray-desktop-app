@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import copy
 import json
+import shutil
 import time
 
 from freezegun import freeze_time
@@ -18,6 +19,7 @@ import numpy as np
 from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
 from pulse3D.constants import MEMSIC_CENTER_OFFSET
 from pulse3D.magnet_finding import fix_dropped_samples
+from pulse3D.plate_recording import PlateRecording
 from pulse3D.transforms import create_filter
 import pytest
 from stdlib_utils import drain_queue
@@ -29,6 +31,7 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
 from ..fixtures_data_analyzer import fixture_runnable_four_board_analyzer_process
 from ..fixtures_data_analyzer import set_sampling_period
+from ..fixtures_data_analyzer import TEST_START_MAG_ANALYSIS_COMMAND
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
@@ -70,7 +73,7 @@ def test_DataAnalyzerProcess_beta_2_performance__fill_data_analysis_buffer(
     # initial pulse3D import:                             1.662150824
     # pulse3D 0.23.3:                                     1.680566285
 
-    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _, _ = runnable_four_board_analyzer_process
     p._beta_2_mode = True
     p.set_sampling_period(DEFAULT_SAMPLING_PERIOD)
 
@@ -104,7 +107,7 @@ def test_DataAnalyzerProcess_beta_2_performance__first_second_of_data_with_analy
     # initial pulse3D import:                             0.334087008
     # pulse3D 0.23.3:                                     0.337370183
 
-    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _, _ = runnable_four_board_analyzer_process
     p._beta_2_mode = True
     p.set_sampling_period(DEFAULT_SAMPLING_PERIOD)
 
@@ -141,7 +144,7 @@ def test_DataAnalyzerProcess_beta_2_performance__single_data_packet_per_well_wit
     # initial pulse3D import:                             0.224968242
     # pulse3D 0.23.3:                                     0.225489661
 
-    p, board_queues, comm_from_main_queue, comm_to_main_queue, _ = runnable_four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, _, _ = runnable_four_board_analyzer_process
     p._beta_2_mode = True
     p.set_sampling_period(DEFAULT_SAMPLING_PERIOD)
 
@@ -340,3 +343,120 @@ def test_DataAnalyzerProcess__formats_and_passes_incoming_stim_packet_through_to
 
     assert outgoing_msg["data_type"] == "stimulation"
     assert outgoing_msg["data_json"] == json.dumps(expected_stim_data)
+
+
+def test_DataAnalyzerProcess__correctly_handles_command_from_main_to_start_mag_analysis(
+    four_board_analyzer_process_beta_2_mode, mocker
+):
+
+    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
+    from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
+
+    spied_start_analysis = mocker.spy(da_process, "_start_mag_finding_analysis")
+    mocker.patch.object(data_analyzer, "_mag_finding_analysis_thread", autospec=True)
+
+    test_mag_analysis_command = copy.deepcopy(TEST_START_MAG_ANALYSIS_COMMAND)
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_mag_analysis_command, from_main_queue
+    )
+    invoke_process_run_and_check_errors(da_process, 1)
+    spied_start_analysis.assert_called_once_with(TEST_START_MAG_ANALYSIS_COMMAND["recordings"])
+
+    drain_queue(from_main_queue)
+
+
+def test_DataAnalyzerProcess__correctly_handles_command_from_main_to_prevent_start_if_beta_1(
+    runnable_four_board_analyzer_process, mocker
+):
+
+    da_process, _, from_main_queue, _, _, _ = runnable_four_board_analyzer_process
+
+    spied_start_analysis = mocker.spy(da_process, "_start_mag_finding_analysis")
+    mocker.patch.object(data_analyzer, "_mag_finding_analysis_thread", autospec=True)
+
+    test_mag_analysis_command = copy.deepcopy(TEST_START_MAG_ANALYSIS_COMMAND)
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_mag_analysis_command, from_main_queue
+    )
+    invoke_process_run_and_check_errors(da_process, 1)
+    spied_start_analysis.assert_not_called()
+
+
+def test_DataAnalyzerProcess__correctly_handles_thread_status_with_failures(
+    four_board_analyzer_process_beta_2_mode, mocker
+):
+
+    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
+    from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
+    to_main_queue = four_board_analyzer_process_beta_2_mode["to_main_queue"]
+    mag_analysis_output_dir = four_board_analyzer_process_beta_2_mode["mag_analysis_output_dir"]
+
+    spied_check_analysis = mocker.spy(da_process, "_check_mag_analysis_statuses")
+
+    mocker.patch.object(shutil, "copytree", autospec=True)
+    mocked_pr = mocker.patch.object(PlateRecording, "from_directory", autospec=True)
+    mocked_pr.return_value = iter([PlateRecording])
+
+    mocker.patch.object(PlateRecording, "write_time_force_csv", side_effect=Exception("exception raised"))
+
+    test_mag_analysis_command = copy.deepcopy(TEST_START_MAG_ANALYSIS_COMMAND)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_mag_analysis_command, from_main_queue
+    )
+    invoke_process_run_and_check_errors(da_process, 7)
+    assert len(spied_check_analysis.call_args_list) == 7
+
+    msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
+    thread_msg = {
+        "recordings": TEST_START_MAG_ANALYSIS_COMMAND["recordings"],
+        "output_dir": mag_analysis_output_dir,
+        "failed_recordings": [{"name": "ML2021172153__2022_01_21_023323", "error": "exception raised"}],
+    }
+    assert msg == {
+        "communication_type": "mag_analysis_complete",
+        "content": {
+            "data_type": "data_analysis_complete",
+            "data_json": json.dumps(thread_msg),
+        },
+    }
+
+    drain_queue(to_main_queue)
+
+
+def test_DataAnalyzerProcess__correctly_handles_thread_status_without_failures(
+    four_board_analyzer_process_beta_2_mode, mocker
+):
+
+    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
+    from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
+    to_main_queue = four_board_analyzer_process_beta_2_mode["to_main_queue"]
+    mag_analysis_output_dir = four_board_analyzer_process_beta_2_mode["mag_analysis_output_dir"]
+
+    mocker.patch.object(shutil, "copytree", autospec=True)
+    mocked_pr = mocker.patch.object(PlateRecording, "from_directory", autospec=True)
+    mocked_pr.return_value = iter([PlateRecording])
+    mocker.patch.object(next(mocked_pr.return_value), "write_time_force_csv", autospec=True)
+
+    test_mag_analysis_command = copy.deepcopy(TEST_START_MAG_ANALYSIS_COMMAND)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        test_mag_analysis_command, from_main_queue
+    )
+    invoke_process_run_and_check_errors(da_process, 7)
+    msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
+    thread_msg = {
+        "recordings": TEST_START_MAG_ANALYSIS_COMMAND["recordings"],
+        "output_dir": mag_analysis_output_dir,
+    }
+    assert msg == {
+        "communication_type": "mag_analysis_complete",
+        "content": {
+            "data_type": "data_analysis_complete",
+            "data_json": json.dumps(thread_msg),
+        },
+    }
+
+    drain_queue(to_main_queue)

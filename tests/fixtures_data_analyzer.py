@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 from multiprocessing import Queue as MPQueue
+import os
+import tempfile
 
 from mantarray_desktop_app import DataAnalyzerProcess
 import pytest
@@ -8,6 +10,14 @@ from stdlib_utils import TestingQueue
 
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
+
+TEST_REC_DIR_PATH = os.path.join("recordings", "ML2021172153__2022_01_21_023323")
+
+TEST_START_MAG_ANALYSIS_COMMAND = {
+    "communication_type": "mag_finding_analysis",
+    "command": "start_mag_analysis",
+    "recordings": [TEST_REC_DIR_PATH, TEST_REC_DIR_PATH],
+}
 
 
 def set_sampling_period(da_fixture, sampling_period):
@@ -34,7 +44,6 @@ def fixture_four_board_analyzer_process():
     comm_from_main_queue = TestingQueue()
     comm_to_main_queue = TestingQueue()
     error_queue = TestingQueue()
-
     board_queues = tuple(
         (
             (
@@ -45,13 +54,15 @@ def fixture_four_board_analyzer_process():
             for _ in range(num_boards)
         )
     )
-    p = DataAnalyzerProcess(
-        board_queues,
-        comm_from_main_queue,
-        comm_to_main_queue,
-        error_queue,
-    )
-    yield p, board_queues, comm_from_main_queue, comm_to_main_queue, error_queue
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        p = DataAnalyzerProcess(
+            board_queues,
+            comm_from_main_queue,
+            comm_to_main_queue,
+            error_queue,
+            mag_analysis_output_dir=tmp_dir,
+        )
+        yield p, board_queues, comm_from_main_queue, comm_to_main_queue, error_queue, tmp_dir
 
 
 @pytest.fixture(scope="function", name="four_board_analyzer_process_beta_2_mode")
@@ -60,19 +71,26 @@ def fixture_four_board_analyzer_process_beta_2_mode():
     comm_from_main_queue = TestingQueue()
     comm_to_main_queue = TestingQueue()
     error_queue = TestingQueue()
-
     board_queues = tuple((TestingQueue(), TestingQueue()) for _ in range(num_boards))
-    da_process = DataAnalyzerProcess(
-        board_queues, comm_from_main_queue, comm_to_main_queue, error_queue, beta_2_mode=True
-    )
-    da_items_dict = {
-        "da_process": da_process,
-        "board_queues": board_queues,
-        "from_main_queue": comm_from_main_queue,
-        "to_main_queue": comm_to_main_queue,
-        "error_queue": error_queue,
-    }
-    yield da_items_dict
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        da_process = DataAnalyzerProcess(
+            board_queues,
+            comm_from_main_queue,
+            comm_to_main_queue,
+            error_queue,
+            mag_analysis_output_dir=os.path.join(tmp_dir, "time_force_data"),
+            beta_2_mode=True,
+        )
+        da_items_dict = {
+            "da_process": da_process,
+            "board_queues": board_queues,
+            "from_main_queue": comm_from_main_queue,
+            "to_main_queue": comm_to_main_queue,
+            "mag_analysis_output_dir": os.path.join(tmp_dir, "time_force_data"),
+            "error_queue": error_queue,
+        }
+        yield da_items_dict
 
 
 @pytest.fixture(scope="function", name="runnable_four_board_analyzer_process")
@@ -81,7 +99,6 @@ def fixture_runnable_four_board_analyzer_process():
     comm_from_main_queue = MPQueue()
     comm_to_main_queue = MPQueue()
     error_queue = MPQueue()
-
     board_queues = tuple(
         (
             (
@@ -92,10 +109,13 @@ def fixture_runnable_four_board_analyzer_process():
             for _ in range(num_boards)
         )
     )
-    p = DataAnalyzerProcess(
-        board_queues,
-        comm_from_main_queue,
-        comm_to_main_queue,
-        error_queue,
-    )
-    yield p, board_queues, comm_from_main_queue, comm_to_main_queue, error_queue
+    with tempfile.TemporaryDirectory() as tmp_dir:
+
+        p = DataAnalyzerProcess(
+            board_queues,
+            comm_from_main_queue,
+            comm_to_main_queue,
+            error_queue,
+            mag_analysis_output_dir=tmp_dir,
+        )
+        yield p, board_queues, comm_from_main_queue, comm_to_main_queue, error_queue, tmp_dir

@@ -353,6 +353,12 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 raise UnrecognizedCommandFromServerToMainError(
                     f"Invalid command: {command} for communication_type: {communication_type}"
                 )
+        elif communication_type == "mag_finding_analysis":
+            if communication["command"] == "start_mag_analysis":
+                main_to_da_queue = (
+                    self._process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
+                )
+                main_to_da_queue.put_nowait(communication)
 
     def _put_communication_into_instrument_comm_queue(self, communication: Dict[str, Any]) -> None:
         main_to_instrument_comm_queue = (
@@ -382,6 +388,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._data_dump_buffer_size += 1
                 if self._data_dump_buffer_size == 2:
                     self._values_to_share_to_server["system_status"] = LIVE_VIEW_ACTIVE_STATE
+        elif communication_type == "mag_analysis_complete":
+            self._queue_websocket_message(communication["content"])
         elif communication_type == "acquisition_manager":
             if communication["command"] == "stop_managed_acquisition":
                 # fmt: off

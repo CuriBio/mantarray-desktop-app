@@ -309,7 +309,7 @@ def test_check_for_new_twitches__returns_latest_twitch_index_and_populated_metri
 def test_DataAnalyzerProcess__sends_beta_1_metrics_of_all_wells_to_main_when_ready(
     four_board_analyzer_process, mantarray_mc_simulator, mocker
 ):
-    da_process, board_queues, from_main_queue, _, _ = four_board_analyzer_process
+    da_process, board_queues, from_main_queue, *_ = four_board_analyzer_process
     da_process.init_streams()
 
     # mock so waveform data doesn't populate outgoing data queue
@@ -448,7 +448,7 @@ def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_rea
 def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_1_data(
     four_board_analyzer_process, mantarray_mc_simulator, mocker
 ):
-    da_process, board_queues, from_main_queue, _, _ = four_board_analyzer_process
+    da_process, board_queues, from_main_queue, *_ = four_board_analyzer_process
     da_process.init_streams()
 
     # mock so waveform data doesn't populate outgoing data queue

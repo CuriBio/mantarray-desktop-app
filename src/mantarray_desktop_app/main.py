@@ -251,6 +251,7 @@ def main(
     shared_values_dict["config_settings"] = {
         "recording_directory": settings_dict["recording_directory"],
         "log_directory": path_to_log_folder,
+        "mag_analysis_output_dir": settings_dict["mag_analysis_output_dir"],
     }
 
     if parsed_args.expected_software_version:

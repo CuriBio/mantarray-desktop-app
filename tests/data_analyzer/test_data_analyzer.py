@@ -4,6 +4,7 @@ import logging
 from multiprocessing import Queue
 import random
 from statistics import stdev
+import tempfile
 import time
 
 from mantarray_desktop_app import data_analyzer
@@ -40,14 +41,16 @@ __fixtures__ = [
 def test_DataAnalyzerProcess_super_is_called_during_init(mocker):
     error_queue = Queue()
     mocked_init = mocker.patch.object(InfiniteProcess, "__init__")
-    DataAnalyzerProcess((), None, None, error_queue)
-    mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
+
+    with tempfile.TemporaryDirectory() as tmp_output_dir:
+        DataAnalyzerProcess((), None, None, error_queue, mag_analysis_output_dir=tmp_output_dir)
+        mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
 
 
 def test_DataAnalyzerProcess_setup_before_loop__calls_super(four_board_analyzer_process, mocker):
     spied_setup = mocker.spy(InfiniteProcess, "_setup_before_loop")
 
-    da_process, _, _, _, _ = four_board_analyzer_process
+    da_process, *_ = four_board_analyzer_process
     invoke_process_run_and_check_errors(da_process, perform_setup_before_loop=True)
     spied_setup.assert_called_once()
 
@@ -58,7 +61,7 @@ def test_DataAnalyzerProcess_setup_before_loop__inits_streams_correctly(
 ):
     da_process, *_ = four_board_analyzer_process
     da_process._beta_2_mode = beta_2_mode
-
+    spied_check_dirs = mocker.spy(da_process, "_check_dirs")
     spied_init_streams = mocker.spy(da_process, "init_streams")
     spied_set_sampling_period = mocker.spy(da_process, "set_sampling_period")
 
@@ -66,6 +69,7 @@ def test_DataAnalyzerProcess_setup_before_loop__inits_streams_correctly(
     spied_init_streams.assert_called_once()
     if beta_2_mode:
         spied_set_sampling_period.assert_called_once_with(DEFAULT_SAMPLING_PERIOD)
+        spied_check_dirs.assert_called_once_with()
     else:
         spied_set_sampling_period.assert_not_called()
 
@@ -84,6 +88,7 @@ def test_DataAnalyzerProcess__drain_all_queues__drains_all_queues_except_error_q
         from_main_queue,
         to_main_queue,
         error_queue,
+        _,
     ) = four_board_analyzer_process
     for i, board in enumerate(board_queues):
         for j, queue in enumerate(board):
@@ -122,7 +127,7 @@ def test_DataAnalyzerProcess__drain_all_queues__drains_all_queues_except_error_q
 def test_DataAnalyzerProcess__raises_error_with_unrecognized_acquisition_manager_command(
     four_board_analyzer_process, mocker, patch_print
 ):
-    p, _, comm_from_main_queue, _, _ = four_board_analyzer_process
+    p, _, comm_from_main_queue, _, _, _ = four_board_analyzer_process
 
     expected_command = "fake_command"
     start_command = {
@@ -138,7 +143,7 @@ def test_DataAnalyzerProcess__raises_error_with_unrecognized_acquisition_manager
 def test_DataAnalyzerProcess__processes_start_managed_acquisition_command__by_draining_outgoing_data_queue(
     four_board_analyzer_process,
 ):
-    p, board_queues, comm_from_main_queue, _, _ = four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, _, _, _ = four_board_analyzer_process
 
     start_command = get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, comm_from_main_queue)
@@ -151,7 +156,7 @@ def test_DataAnalyzerProcess__processes_start_managed_acquisition_command__by_dr
 def test_DataAnalyzerProcess__raises_error_if_communication_type_is_invalid(
     four_board_analyzer_process, mocker, patch_print
 ):
-    p, _, comm_from_main_queue, _, _ = four_board_analyzer_process
+    p, _, comm_from_main_queue, _, _, _ = four_board_analyzer_process
 
     invalid_command = {
         "communication_type": "fake_type",
@@ -168,7 +173,7 @@ def test_DataAnalyzerProcess__raises_error_if_communication_type_is_invalid(
 def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_1_data(
     four_board_analyzer_process, mocker
 ):
-    da_process, _, _, to_main_queue, _ = four_board_analyzer_process
+    da_process, _, _, to_main_queue, _, _ = four_board_analyzer_process
 
     mocker.patch.object(data_analyzer, "get_force_signal", autospec=True, return_value=np.zeros((2, 2)))
 
@@ -338,7 +343,7 @@ def test_DataAnalyzerProcess__does_not_include_performance_metrics_in_first_logg
     # TODO Tanner (8/30/21): change this test to work with Beta 2 data once beta 1 is phased out
     mocker.patch.object(data_analyzer, "get_force_signal", autospec=True, return_value=np.zeros((2, 2)))
 
-    da_process, _, _, to_main_queue, _ = four_board_analyzer_process
+    da_process, _, _, to_main_queue, _, _ = four_board_analyzer_process
     da_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
     data_buffer = da_process._data_buffer  # pylint: disable=protected-access
     for i in range(24):
@@ -377,7 +382,7 @@ def test_DataAnalyzerProcess__processes_set_sampling_period_command(
 def test_DataAnalyzerProcess__reinits_streams_upon_receiving_stop_managed_acquisition_command(
     four_board_analyzer_process, mocker
 ):
-    p, _, from_main_queue, _, _ = four_board_analyzer_process
+    p, _, from_main_queue, _, _, _ = four_board_analyzer_process
 
     spied_init_streams = mocker.spy(p, "init_streams")
 

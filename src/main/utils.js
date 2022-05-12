@@ -82,10 +82,12 @@ const generate_flask_command_line_args = function (electron_store) {
   args.push("--expected-software-version=" + export_functions.get_current_app_version());
 
   const recording_directory_path = path.join(electron_store_dir, "recordings");
+  const time_force_dir_path = path.join(electron_store_dir, "time_force_data");
 
   const settings_to_supply = {
     log_file_id: FILENAME_PREFIX,
     recording_directory: recording_directory_path,
+    mag_analysis_output_dir: time_force_dir_path,
   };
 
   const settings_to_supply_json_str = JSON.stringify(settings_to_supply);

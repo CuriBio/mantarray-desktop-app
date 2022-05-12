@@ -822,6 +822,48 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
 
 
 @pytest.mark.parametrize(
+    "comm_type, command, queue_size",
+    [
+        (
+            "mag_finding_analysis",
+            "start_mag_analysis",
+            1,
+        ),
+        (
+            "mag_finding_analysis",
+            "other_command",
+            0,
+        ),
+        (
+            "mag_analysis",
+            "start_mag_analysis",
+            0,
+        ),
+    ],
+)
+def test_MantarrayProcessesMonitor__processes_start_mag_analysis_command(
+    test_process_manager_creator, test_monitor, comm_type, command, queue_size
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+    main_to_da_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
+    )
+
+    test_command = {
+        "communication_type": comm_type,
+        "command": command,
+        "content": {},
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_of_size(main_to_da_queue, queue_size)
+
+
+@pytest.mark.parametrize(
     "new_version,current_version,update_available",
     [
         ("1.0.0", "NOTASEMVER", False),
