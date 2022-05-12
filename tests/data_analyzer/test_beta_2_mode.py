@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import copy
 import json
+import shutil
 import time
 
 from freezegun import freeze_time
@@ -360,7 +361,7 @@ def test_DataAnalyzerProcess__correctly_handles_command_from_main_to_start_mag_a
         test_mag_analysis_command, from_main_queue
     )
     invoke_process_run_and_check_errors(da_process, 1)
-    spied_start_analysis.assert_called_once_with(TEST_START_MAG_ANALYSIS_COMMAND["content"])
+    spied_start_analysis.assert_called_once_with(TEST_START_MAG_ANALYSIS_COMMAND["recordings"])
 
     drain_queue(from_main_queue)
 
@@ -382,8 +383,6 @@ def test_DataAnalyzerProcess__correctly_handles_command_from_main_to_prevent_sta
     invoke_process_run_and_check_errors(da_process, 1)
     spied_start_analysis.assert_not_called()
 
-    drain_queue(from_main_queue)
-
 
 def test_DataAnalyzerProcess__correctly_handles_thread_status_with_failures(
     four_board_analyzer_process_beta_2_mode, mocker
@@ -396,6 +395,7 @@ def test_DataAnalyzerProcess__correctly_handles_thread_status_with_failures(
 
     spied_check_analysis = mocker.spy(da_process, "_check_mag_analysis_statuses")
 
+    mocker.patch.object(shutil, "copytree", autospec=True)
     mocked_pr = mocker.patch.object(PlateRecording, "from_directory", autospec=True)
     mocked_pr.return_value = iter([PlateRecording])
 
@@ -408,10 +408,10 @@ def test_DataAnalyzerProcess__correctly_handles_thread_status_with_failures(
     invoke_process_run_and_check_errors(da_process, 7)
     assert len(spied_check_analysis.call_args_list) == 7
 
-    msg = to_main_queue.get()
+    msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
     thread_msg = {
-        "recordings": TEST_START_MAG_ANALYSIS_COMMAND["content"]["recordings"],
+        "recordings": TEST_START_MAG_ANALYSIS_COMMAND["recordings"],
         "output_dir": mag_analysis_output_dir,
         "failed_recordings": [{"name": "ML2021172153__2022_01_21_023323", "error": "exception raised"}],
     }
@@ -423,7 +423,6 @@ def test_DataAnalyzerProcess__correctly_handles_thread_status_with_failures(
         },
     }
 
-    drain_queue(from_main_queue)
     drain_queue(to_main_queue)
 
 
@@ -436,6 +435,7 @@ def test_DataAnalyzerProcess__correctly_handles_thread_status_without_failures(
     to_main_queue = four_board_analyzer_process_beta_2_mode["to_main_queue"]
     mag_analysis_output_dir = four_board_analyzer_process_beta_2_mode["mag_analysis_output_dir"]
 
+    mocker.patch.object(shutil, "copytree", autospec=True)
     mocked_pr = mocker.patch.object(PlateRecording, "from_directory", autospec=True)
     mocked_pr.return_value = iter([PlateRecording])
     mocker.patch.object(next(mocked_pr.return_value), "write_time_force_csv", autospec=True)
@@ -445,10 +445,10 @@ def test_DataAnalyzerProcess__correctly_handles_thread_status_without_failures(
         test_mag_analysis_command, from_main_queue
     )
     invoke_process_run_and_check_errors(da_process, 7)
-    msg = to_main_queue.get()
+    msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
     thread_msg = {
-        "recordings": TEST_START_MAG_ANALYSIS_COMMAND["content"]["recordings"],
+        "recordings": TEST_START_MAG_ANALYSIS_COMMAND["recordings"],
         "output_dir": mag_analysis_output_dir,
     }
     assert msg == {
@@ -459,5 +459,4 @@ def test_DataAnalyzerProcess__correctly_handles_thread_status_without_failures(
         },
     }
 
-    drain_queue(from_main_queue)
     drain_queue(to_main_queue)

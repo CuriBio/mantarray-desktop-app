@@ -404,8 +404,8 @@ class DataAnalyzerProcess(InfiniteProcess):
             self._comm_to_main_queue.put_nowait(communication)
         elif communication_type == "mag_finding_analysis":
             if self._beta_2_mode:
-                content = communication["content"]
-                self._start_mag_finding_analysis(content)
+                recordings = communication["recordings"]
+                self._start_mag_finding_analysis(recordings)
         else:
             raise UnrecognizedCommandFromMainToDataAnalyzerError(communication_type)
 
@@ -598,8 +598,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         outgoing_msg = {"data_type": "stimulation", "data_json": outgoing_data_json}
         self._board_queues[0][1].put_nowait(outgoing_msg)
 
-    def _start_mag_finding_analysis(self, content: Dict[str, Any]) -> None:
-        recordings = content.get("recordings")
+    def _start_mag_finding_analysis(self, recordings: List[str]) -> None:
 
         mag_analysis_thread = ErrorCatchingThread(
             target=_mag_finding_analysis_thread,
@@ -620,7 +619,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             recordings = thread_dict.get("recordings")
             output_dir = thread_dict.get("output_dir")
 
-            if thread.is_alive():
+            if not thread.is_alive():
                 thread.join()
 
                 mag_analysis_msg = dict()

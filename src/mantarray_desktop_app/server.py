@@ -391,7 +391,7 @@ def run_mag_finding_analysis() -> Response:
         {
             "communication_type": "mag_finding_analysis",
             "command": "start_mag_analysis",
-            "content": {"recordings": recording_paths},
+            "recordings": recording_paths,
         }
     )
 

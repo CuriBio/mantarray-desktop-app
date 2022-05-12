@@ -11,13 +11,12 @@ from stdlib_utils import TestingQueue
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
-TEST_RECORDING_ROOT_PATH = os.path.join(os.path.abspath("tests"), "test_recording_h5")
-TEST_REC_DIR_PATH = os.path.join(TEST_RECORDING_ROOT_PATH, "ML2021172153__2022_01_21_023323")
+TEST_REC_DIR_PATH = os.path.join("recordings", "ML2021172153__2022_01_21_023323")
 
 TEST_START_MAG_ANALYSIS_COMMAND = {
     "communication_type": "mag_finding_analysis",
     "command": "start_mag_analysis",
-    "content": {"recordings": [TEST_REC_DIR_PATH, TEST_REC_DIR_PATH]},
+    "recordings": [TEST_REC_DIR_PATH, TEST_REC_DIR_PATH],
 }
 
 

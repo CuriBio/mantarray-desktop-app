@@ -286,19 +286,9 @@ export default {
       this.$store.commit("settings/set_stored_customer_id", customer_id);
     },
     handle_tab_visibility: function (tab) {
-      if (tab === 0) {
-        this.data_acquisition_visibility = !this.data_acquisition_visibility;
-        this.data_analysis_visibility = false;
-        this.stim_studio_visibility = false;
-      } else if (tab === 1) {
-        this.data_acquisition_visibility = false;
-        this.data_analysis_visibility = false;
-        this.stim_studio_visibility = !this.stim_studio_visibility;
-      } else if (tab === 2) {
-        this.data_acquisition_visibility = false;
-        this.data_analysis_visibility = !this.data_analysis_visibility;
-        this.stim_studio_visibility = false;
-      }
+      this.data_acquisition_visibility = tab === 0;
+      this.data_analysis_visibility = tab === 1;
+      this.stim_studio_visibility = tab === 2;
     },
   },
 };

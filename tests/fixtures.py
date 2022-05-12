@@ -54,9 +54,10 @@ def get_generic_base64_args(
     recording_directory: Optional[str] = None, analysis_output_dir: Optional[str] = None
 ) -> str:
     if not recording_directory:
-        recording_directory = get_current_file_abs_directory()
+        recording_directory = os.path.join(get_current_file_abs_directory(), "recordings")
     if not analysis_output_dir:
-        analysis_output_dir = get_current_file_abs_directory()
+        analysis_output_dir = os.path.join(get_current_file_abs_directory(), "time_force_data")
+
     test_dict = {
         "log_file_id": "any",
         "recording_directory": recording_directory,

@@ -2,7 +2,6 @@
 """Recording data to file and uploading to cloud analysis."""
 from __future__ import annotations
 
-import abc
 from collections import deque
 import datetime
 import glob
@@ -197,36 +196,8 @@ def _drain_board_queues(
     return board_dict
 
 
-class FileDirMixIn(metaclass=abc.ABCMeta):
-    @property
-    def _file_directory(self) -> str:
-        return self.__file_directory
-
-    @_file_directory.setter
-    def _file_directory(self, value: str) -> None:
-        self.__file_directory = value
-        if self.is_start_up_complete():
-            self._check_dirs()
-
-    @property
-    def _zipped_files_dir(self) -> str:
-        return os.path.join(self._file_directory, "zipped")
-
-    @property
-    def _failed_uploads_dir(self) -> str:
-        return os.path.join(self._file_directory, "failed_uploads")
-
-    @abc.abstractmethod
-    def is_start_up_complete(self) -> None:
-        raise NotImplementedError("Classes using this mix in must implement is_start_up_complete")
-
-    @abc.abstractmethod
-    def _check_dirs(self) -> None:
-        raise NotImplementedError("Classes using this mix in must implement _check_dirs")
-
-
 # pylint: disable=too-many-instance-attributes
-class FileWriterProcess(InfiniteProcess, FileDirMixIn):
+class FileWriterProcess(InfiniteProcess):
     """Process that writes data to disk and uploads H5 files to the cloud.
 
     Args:
@@ -326,6 +297,24 @@ class FileWriterProcess(InfiniteProcess, FileDirMixIn):
         self._iterations_since_last_logging = 0
         self._num_recorded_points: List[int] = list()
         self._recording_durations: List[float] = list()
+
+    @property
+    def _file_directory(self) -> str:
+        return self.__file_directory
+
+    @_file_directory.setter
+    def _file_directory(self, value: str) -> None:
+        self.__file_directory = value
+        if self.is_start_up_complete():
+            self._check_dirs()
+
+    @property
+    def _zipped_files_dir(self) -> str:
+        return os.path.join(self._file_directory, "zipped")
+
+    @property
+    def _failed_uploads_dir(self) -> str:
+        return os.path.join(self._file_directory, "failed_uploads")
 
     def _check_dirs(self) -> None:
         for new_dir in (self._file_directory, self._zipped_files_dir, self._failed_uploads_dir):
