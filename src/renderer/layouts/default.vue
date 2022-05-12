@@ -286,9 +286,9 @@ export default {
       this.$store.commit("settings/set_stored_customer_id", customer_id);
     },
     handle_tab_visibility: function (tab) {
-      this.data_acquisition_visibility = tab === 0;
-      this.data_analysis_visibility = tab === 1;
-      this.stim_studio_visibility = tab === 2;
+      this.data_acquisition_visibility = tab === 0 && !this.data_acquisition_visibility;
+      this.stim_studio_visibility = tab === 1 && !this.stim_studio_visibility;
+      this.data_analysis_visibility = tab === 2 && !this.data_analysis_visibility;
     },
   },
 };
