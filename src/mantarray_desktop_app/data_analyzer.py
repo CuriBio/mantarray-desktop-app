@@ -2,7 +2,6 @@
 """Analyzing data coming from board."""
 from __future__ import annotations
 
-import abc
 import datetime
 import json
 import logging
@@ -174,7 +173,7 @@ def check_for_new_twitches(
     return time_index_list[-1], per_twitch_metrics
 
 
-def mag_finding_analysis_thread(recordings: List[str], output_dir: str, return_list: List[Any]) -> None:
+def _mag_finding_analysis_thread(recordings: List[str], output_dir: str, return_list: List[Any]) -> None:
     """Thread to handle magnet finding analyses.
 
     Args:
@@ -191,7 +190,7 @@ def mag_finding_analysis_thread(recordings: List[str], output_dir: str, return_l
                 prs = PlateRecording.from_directory(tmpdir)
 
                 for pr in prs:
-                    pr._write_time_force_csv(output_dir)
+                    pr.write_time_force_csv(output_dir)
 
         except Exception as e:
             # keep track of failed analyses, but still continue to analyze all
@@ -217,28 +216,8 @@ def _drain_board_queues(
     return board_dict
 
 
-class FileDirMixIn(metaclass=abc.ABCMeta):
-    @property
-    def _mag_analysis_output_dir(self) -> str:
-        return self.__mag_analysis_output_dir
-
-    @_mag_analysis_output_dir.setter
-    def _mag_analysis_output_dir(self, value: str) -> None:
-        self.__mag_analysis_output_dir = value
-        if self.is_start_up_complete():
-            self._check_dirs()
-
-    @abc.abstractmethod
-    def is_start_up_complete(self) -> None:
-        raise NotImplementedError("Classes using this mix in must implement is_start_up_complete")
-
-    @abc.abstractmethod
-    def _check_dirs(self) -> None:
-        raise NotImplementedError("Classes using this mix in must implement _check_dirs")
-
-
 # pylint: disable=too-many-instance-attributes
-class DataAnalyzerProcess(InfiniteProcess, FileDirMixIn):
+class DataAnalyzerProcess(InfiniteProcess):
     """Process that analyzes data.
 
     Args:
@@ -374,17 +353,19 @@ class DataAnalyzerProcess(InfiniteProcess, FileDirMixIn):
         self._filter_coefficients = create_filter(BUTTERWORTH_LOWPASS_30_UUID, sampling_period_us)
         self.init_streams()
 
+    # def join_active_thread():
+
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
         if self._beta_2_mode:
             self.set_sampling_period(DEFAULT_SAMPLING_PERIOD)
+            self._check_dirs()
         else:
             self.init_streams()
 
     def _commands_for_each_run_iteration(self) -> None:
         self._process_next_command_from_main()
         self._handle_incoming_packet()
-
         if self._beta_2_mode:
             self._check_mag_analysis_statuses()
             return
@@ -422,7 +403,7 @@ class DataAnalyzerProcess(InfiniteProcess, FileDirMixIn):
                 )
             self._comm_to_main_queue.put_nowait(communication)
         elif communication_type == "mag_finding_analysis":
-            if communication["command"] == "start_mag_analysis":
+            if self._beta_2_mode:
                 content = communication["content"]
                 self._start_mag_finding_analysis(content)
         else:
@@ -621,7 +602,7 @@ class DataAnalyzerProcess(InfiniteProcess, FileDirMixIn):
         recordings = content.get("recordings")
 
         mag_analysis_thread = ErrorCatchingThread(
-            target=mag_finding_analysis_thread,
+            target=_mag_finding_analysis_thread,
             args=(recordings, self._mag_analysis_output_dir, self._mag_analysis_thread_list),
         )
 
@@ -639,7 +620,7 @@ class DataAnalyzerProcess(InfiniteProcess, FileDirMixIn):
             recordings = thread_dict.get("recordings")
             output_dir = thread_dict.get("output_dir")
 
-            if not thread.is_alive():
+            if thread.is_alive():
                 thread.join()
 
                 mag_analysis_msg = dict()

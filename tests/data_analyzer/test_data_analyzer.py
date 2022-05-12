@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 import copy
+import logging
+from multiprocessing import Queue
 import random
 from statistics import stdev
+import tempfile
 import time
 
 from mantarray_desktop_app import data_analyzer
+from mantarray_desktop_app import DataAnalyzerProcess
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import UnrecognizedCommandFromMainToDataAnalyzerError
@@ -34,11 +38,13 @@ __fixtures__ = [
 ]
 
 
-# def test_DataAnalyzerProcess_super_is_called_during_init(mocker):
-#     error_queue = Queue()
-#     mocked_init = mocker.patch.object(InfiniteProcess, "__init__")
-#     DataAnalyzerProcess((), None, None, error_queue, mag_analysis_output_dir="")
-#     mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
+def test_DataAnalyzerProcess_super_is_called_during_init(mocker):
+    error_queue = Queue()
+    mocked_init = mocker.patch.object(InfiniteProcess, "__init__")
+
+    with tempfile.TemporaryDirectory() as tmp_output_dir:
+        DataAnalyzerProcess((), None, None, error_queue, mag_analysis_output_dir=tmp_output_dir)
+        mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
 
 
 def test_DataAnalyzerProcess_setup_before_loop__calls_super(four_board_analyzer_process, mocker):
@@ -55,7 +61,7 @@ def test_DataAnalyzerProcess_setup_before_loop__inits_streams_correctly(
 ):
     da_process, *_ = four_board_analyzer_process
     da_process._beta_2_mode = beta_2_mode
-
+    spied_check_dirs = mocker.spy(da_process, "_check_dirs")
     spied_init_streams = mocker.spy(da_process, "init_streams")
     spied_set_sampling_period = mocker.spy(da_process, "set_sampling_period")
 
@@ -63,6 +69,7 @@ def test_DataAnalyzerProcess_setup_before_loop__inits_streams_correctly(
     spied_init_streams.assert_called_once()
     if beta_2_mode:
         spied_set_sampling_period.assert_called_once_with(DEFAULT_SAMPLING_PERIOD)
+        spied_check_dirs.assert_called_once_with()
     else:
         spied_set_sampling_period.assert_not_called()
 

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from multiprocessing import Queue as MPQueue
+import os
 import tempfile
 
 from mantarray_desktop_app import DataAnalyzerProcess
@@ -9,6 +10,15 @@ from stdlib_utils import TestingQueue
 
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
+
+TEST_RECORDING_ROOT_PATH = os.path.join(os.path.abspath("tests"), "test_recording_h5")
+TEST_REC_DIR_PATH = os.path.join(TEST_RECORDING_ROOT_PATH, "ML2021172153__2022_01_21_023323")
+
+TEST_START_MAG_ANALYSIS_COMMAND = {
+    "communication_type": "mag_finding_analysis",
+    "command": "start_mag_analysis",
+    "content": {"recordings": [TEST_REC_DIR_PATH, TEST_REC_DIR_PATH]},
+}
 
 
 def set_sampling_period(da_fixture, sampling_period):
@@ -70,7 +80,7 @@ def fixture_four_board_analyzer_process_beta_2_mode():
             comm_from_main_queue,
             comm_to_main_queue,
             error_queue,
-            mag_analysis_output_dir=tmp_dir,
+            mag_analysis_output_dir=os.path.join(tmp_dir, "time_force_data"),
             beta_2_mode=True,
         )
         da_items_dict = {
@@ -78,7 +88,7 @@ def fixture_four_board_analyzer_process_beta_2_mode():
             "board_queues": board_queues,
             "from_main_queue": comm_from_main_queue,
             "to_main_queue": comm_to_main_queue,
-            "mag_analysis_output_dir": tmp_dir,
+            "mag_analysis_output_dir": os.path.join(tmp_dir, "time_force_data"),
             "error_queue": error_queue,
         }
         yield da_items_dict

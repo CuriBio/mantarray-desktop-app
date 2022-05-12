@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 from random import randint
+import tempfile
 import urllib
 
 from mantarray_desktop_app import BUFFERING_STATE
@@ -503,6 +504,52 @@ def test_start_managed_acquisition__returns_error_code_and_message_called_while_
         response.status.endswith("Cannot start managed acquisition while stimulator checks are running")
         is True
     )
+
+
+def test_get_recordings__returns_error_code_and_message_when_recording_directory_is_not_found(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, _ = client_and_server_manager_and_shared_values
+
+    response = test_client.get("/get_recordings")
+    assert response.status_code == 400
+    assert response.status.endswith("No root recording directory was found") is True
+
+
+def test_get_recordings__returns_200_with_list_of_directories(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    with tempfile.TemporaryDirectory() as tmp_recording_dir:
+        shared_values_dict["config_settings"]["recording_directory"] = tmp_recording_dir
+
+        response = test_client.get("/get_recordings")
+        assert response.status_code == 200
+        assert response.get_json() == {"recordings_list": [], "root_recording_path": tmp_recording_dir}
+
+
+def test_start_data_analysis__returns_error_code_and_message_when_recording_directory_is_not_found(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, _ = client_and_server_manager_and_shared_values
+
+    response = test_client.post(
+        "/start_data_analysis", json={"selected_recordings": ["recording_1", "recording_2"]}
+    )
+    assert response.status_code == 400
+    assert response.status.endswith("Root directories were not found") is True
+
+
+def test_start_data_analysis__returns_empty_204_response_if_successful(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["config_settings"]["recording_directory"] = "/"
+
+    response = test_client.post(
+        "/start_data_analysis", json={"selected_recordings": ["recording_1", "recording_2"]}
+    )
+    assert response.status_code == 204
 
 
 def test_update_settings__returns_error_message_when_recording_directory_does_not_exist(
