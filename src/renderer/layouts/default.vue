@@ -184,7 +184,7 @@ export default {
       package_version: electron_app.getVersion(), // Eli (7/13/20): This only displays the application version when running from a built application---otherwise it displays the version of Electron that is installed
       current_year: "2022",
       beta_2_mode: process.env.SPECTRON || undefined,
-      log_dir_name: "C:\\Users\\username\\AppData\\Roaming\\MantarrayController\\logs_flask",
+      log_dir_name: undefined,
       data_acquisition_visibility: true,
       stim_studio_visibility: false,
       data_analysis_visibility: false,
