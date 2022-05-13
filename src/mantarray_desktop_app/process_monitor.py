@@ -261,7 +261,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._put_communication_into_instrument_comm_queue(communication)
             elif command == "start_stim_checks":
                 self._values_to_share_to_server["stimulator_circuit_statuses"] = [
-                    StimulatorCircuitStatuses.CALCULATING.value
+                    StimulatorCircuitStatuses.CALCULATING.name.lower()
                 ] * 24
                 self._put_communication_into_instrument_comm_queue(communication)
             else:

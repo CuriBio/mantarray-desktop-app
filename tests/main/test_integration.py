@@ -998,7 +998,8 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         # wait for checks to complete
         while (
-            shared_values_dict["stimulator_circuit_statuses"] != [StimulatorCircuitStatuses.MEDIA.value] * 24
+            shared_values_dict["stimulator_circuit_statuses"]
+            != [StimulatorCircuitStatuses.MEDIA.name.lower()] * 24
         ):
             time.sleep(0.5)
 

@@ -1904,7 +1904,7 @@ def test_MantarrayProcessesMonitor__passes_stim_status_check_results_from_mc_com
     queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
 
     test_num_wells = 24
-    possible_stim_statuses = [member.value for member in StimulatorCircuitStatuses.__members__.values()]
+    possible_stim_statuses = [member.name.lower() for member in StimulatorCircuitStatuses]
     stim_check_results = [choice(possible_stim_statuses) for _ in range(test_num_wells)]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(

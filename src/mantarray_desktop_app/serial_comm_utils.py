@@ -166,12 +166,12 @@ def convert_adc_readings_to_circuit_status(adc8: int, adc9: int) -> int:
     impedance = convert_adc_readings_to_impedance(adc8, adc9)
     # Tanner (5/12/22): this section NOT based on the FW's actual calculation
     if impedance < 0:
-        return StimulatorCircuitStatuses.ERROR.value
+        return StimulatorCircuitStatuses.ERROR
     if impedance <= STIM_SHORT_CIRCUIT_THRESHOLD_OHMS:
-        return StimulatorCircuitStatuses.SHORT.value
+        return StimulatorCircuitStatuses.SHORT
     if impedance >= STIM_OPEN_CIRCUIT_THRESHOLD_OHMS:
-        return StimulatorCircuitStatuses.OPEN.value
-    return StimulatorCircuitStatuses.MEDIA.value
+        return StimulatorCircuitStatuses.OPEN
+    return StimulatorCircuitStatuses.MEDIA
 
 
 def convert_adc_readings_to_impedance(adc8: int, adc9: int) -> float:

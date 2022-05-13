@@ -1346,7 +1346,7 @@ def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_statu
     test_num_wells = 24
     shared_values_dict["stimulation_running"] = [not expected_status_bool] * test_num_wells
     shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.value
+        StimulatorCircuitStatuses.MEDIA.name.lower()
     ] * test_num_wells
 
     response = test_client.post(f"/set_stim_status?running={test_status}")

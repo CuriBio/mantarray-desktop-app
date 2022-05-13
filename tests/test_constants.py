@@ -531,11 +531,11 @@ def test_serial_comm():
     assert STIM_SHORT_CIRCUIT_THRESHOLD_OHMS == 10
 
     assert issubclass(StimulatorCircuitStatuses, IntEnum) is True
-    assert StimulatorCircuitStatuses.CALCULATING.value == -1
-    assert StimulatorCircuitStatuses.MEDIA.value == 0
-    assert StimulatorCircuitStatuses.OPEN.value == 1
-    assert StimulatorCircuitStatuses.SHORT.value == 2
-    assert StimulatorCircuitStatuses.ERROR.value == 3
+    assert StimulatorCircuitStatuses.CALCULATING == -1
+    assert StimulatorCircuitStatuses.MEDIA == 0
+    assert StimulatorCircuitStatuses.OPEN == 1
+    assert StimulatorCircuitStatuses.SHORT == 2
+    assert StimulatorCircuitStatuses.ERROR == 3
 
     assert issubclass(StimProtocolStatuses, IntEnum) is True
     assert StimProtocolStatuses.ACTIVE == 0

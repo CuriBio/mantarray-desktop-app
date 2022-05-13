@@ -446,7 +446,7 @@ def _is_stimulating_on_any_well() -> bool:
 def _are_stimulator_checks_running() -> bool:
     stimulator_circuit_statuses = _get_values_from_process_monitor()["stimulator_circuit_statuses"]
     return any(
-        status == StimulatorCircuitStatuses.CALCULATING.value for status in stimulator_circuit_statuses
+        status == StimulatorCircuitStatuses.CALCULATING.name.lower() for status in stimulator_circuit_statuses
     )
 
 
@@ -457,7 +457,9 @@ def _are_initial_stimulator_checks_complete() -> bool:
 
 def _are_any_stimulator_circuits_short() -> bool:
     stimulator_circuit_statuses = _get_values_from_process_monitor()["stimulator_circuit_statuses"]
-    return any(status == StimulatorCircuitStatuses.SHORT.value for status in stimulator_circuit_statuses)
+    return any(
+        status == StimulatorCircuitStatuses.SHORT.name.lower() for status in stimulator_circuit_statuses
+    )
 
 
 @flask_app.route("/set_protocols", methods=["POST"])

@@ -304,7 +304,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__passe
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
     assert (
-        svd["stimulator_circuit_statuses"] == [StimulatorCircuitStatuses.CALCULATING.value] * test_num_wells
+        svd["stimulator_circuit_statuses"]
+        == [StimulatorCircuitStatuses.CALCULATING.name.lower()] * test_num_wells
     )
 
     main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
