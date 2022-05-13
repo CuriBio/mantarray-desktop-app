@@ -98,6 +98,7 @@ const start_python_subprocess = () => {
       // allow-log
       "Launching compiled Python EXE at path: " + main_utils.redact_username_from_logs(script)
     );
+    command_line_args.push("--log-level-debug")
     const python_subprocess = require("child_process").execFile(script, command_line_args);
 
     wait_for_subprocess_to_complete = new Promise((resolve) => {
