@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import datetime
+import struct
 from typing import Any
 from typing import Dict
+from typing import List
 from uuid import UUID
 from zlib import crc32
 
 from immutabledict import immutabledict
+import numpy as np
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import BOOTUP_COUNTER_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
@@ -145,7 +148,29 @@ def get_serial_comm_timestamp() -> int:
     ) // datetime.timedelta(microseconds=1)
 
 
-def convert_impedance_to_circuit_status(impedance: int) -> str:
+def convert_stimulator_check_bytes_to_dict(stimulator_check_bytes: bytes) -> Dict[str, List[int]]:
+    # TODO unit test
+    stimulator_checks_as_ints = struct.unpack("<" + "HHB" * 24, stimulator_check_bytes)
+    stimulator_checks_arr = np.array(stimulator_checks_as_ints, copy=False)
+    stimulator_checks_arr.reshape((3, len(stimulator_checks_as_ints) // 3), order="F")
+    stimulator_checks_dict = {
+        key: stimulator_checks_arr[i].to_list() for i, key in enumerate(["adc8", "adc9", "status"])
+    }
+    return stimulator_checks_dict
+
+
+def convert_adc_readings_to_circuit_status(adc8: int, adc9: int) -> int:
+    # Tanner (5/12/22): this calculation is the FW's actual calculation  # TODO consider making all these numbers constants
+    adc8_volts = (adc8 / 4096.0) * 3.3
+    adc9_volts = (adc9 / 4096.0) * 3.3
+    well_plus = 5.7 * (adc8_volts - 1.65053)
+    well_minus = 2 * adc9_volts - 3.3
+    current = well_minus / 33
+    voltage = well_plus - well_minus
+    impedance = voltage / current
+    # Tanner (5/12/22): this section NOT based on the FW's actual calculation
+    if impedance < 0:
+        return StimulatorCircuitStatuses.ERROR.value
     if impedance <= STIM_SHORT_CIRCUIT_THRESHOLD_OHMS:
         return StimulatorCircuitStatuses.SHORT.value
     if impedance >= STIM_OPEN_CIRCUIT_THRESHOLD_OHMS:

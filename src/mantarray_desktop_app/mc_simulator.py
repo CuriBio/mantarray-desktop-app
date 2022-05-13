@@ -16,6 +16,7 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Tuple
 from typing import Union
 from uuid import UUID
 from zlib import crc32
@@ -88,6 +89,7 @@ from .exceptions import SerialCommInvalidSamplingPeriodError
 from .exceptions import SerialCommTooManyMissedHandshakesError
 from .exceptions import UnrecognizedSerialCommPacketTypeError
 from .exceptions import UnrecognizedSimulatorTestCommandError
+from .serial_comm_utils import convert_adc_readings_to_circuit_status
 from .serial_comm_utils import convert_metadata_to_bytes
 from .serial_comm_utils import convert_module_id_to_well_name
 from .serial_comm_utils import convert_stim_bytes_to_dict
@@ -160,7 +162,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             CHANNEL_FIRMWARE_VERSION_UUID: default_channel_firmware_version,
         }
     )
-    default_impedance_value = 0xFF
+    default_adc_reading = 0xFF00
     global_timer_offset_secs = 2.5  # TODO Tanner (11/17/21): figure out if this should be removed
 
     def __init__(
@@ -204,7 +206,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._boot_up_time_secs: Optional[float] = None
         self._status_code: int
         self._sampling_period_us: int
-        self._impedance_values: List[int]
+        self._adc_readings: List[Tuple[int, int]]
         self._stim_info: Dict[str, Any]
         self._stim_running_statuses: Dict[str, bool]
         self._timepoints_of_subprotocols_start: List[Optional[int]]
@@ -305,7 +307,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._reboot_time_secs = None
         self._status_code = SERIAL_COMM_OKAY_CODE
         self._sampling_period_us = DEFAULT_SAMPLING_PERIOD
-        self._impedance_values = [self.default_impedance_value] * self._num_wells
+        self._adc_readings = [(self.default_adc_reading, self.default_adc_reading)] * self._num_wells
         self._stim_info = {}
         self._is_stimulating = False
         self._firmware_update_idx = None
@@ -511,7 +513,9 @@ class MantarrayMcSimulator(InfiniteProcess):
                 self._is_stimulating = False
         elif packet_type == SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE:
             # Tanner (4/8/22): currently assuming that stim checks will take a negligible amount of time
-            response_body += struct.pack(f"<{self._num_wells}H", *self._impedance_values)
+            for channel_readings in self._adc_readings:
+                status = convert_adc_readings_to_circuit_status(*channel_readings)
+                response_body += struct.pack("<HHB", *channel_readings, status)
         elif packet_type == SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE:
             response_body += self._update_sampling_period(comm_from_pc)
         elif packet_type == SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE:
@@ -681,10 +685,10 @@ class MantarrayMcSimulator(InfiniteProcess):
             self._simulated_data_index = test_comm.get("simulated_data_index", 0)
         elif command == "set_sampling_period":
             self._sampling_period_us = test_comm["sampling_period"]
-        elif command == "set_impedance_values":
-            for well_idx, impedance in enumerate(test_comm["impendance_values"]):
+        elif command == "set_adc_readings":
+            for well_idx, adc_readings in enumerate(test_comm["adc_readings"]):
                 module_id = STIM_WELL_IDX_TO_MODULE_ID[well_idx]
-                self._impedance_values[module_id - 1] = impedance
+                self._adc_readings[module_id - 1] = adc_readings
         elif command == "set_stim_info":
             self._stim_info = test_comm["stim_info"]
         elif command == "set_stim_status":

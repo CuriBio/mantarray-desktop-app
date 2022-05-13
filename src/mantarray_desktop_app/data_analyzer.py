@@ -353,8 +353,6 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._filter_coefficients = create_filter(BUTTERWORTH_LOWPASS_30_UUID, sampling_period_us)
         self.init_streams()
 
-    # def join_active_thread():
-
     def _setup_before_loop(self) -> None:
         super()._setup_before_loop()
         if self._beta_2_mode:
@@ -599,7 +597,6 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._board_queues[0][1].put_nowait(outgoing_msg)
 
     def _start_mag_finding_analysis(self, recordings: List[str]) -> None:
-
         mag_analysis_thread = ErrorCatchingThread(
             target=_mag_finding_analysis_thread,
             args=(recordings, self._mag_analysis_output_dir, self._mag_analysis_thread_list),
@@ -615,17 +612,15 @@ class DataAnalyzerProcess(InfiniteProcess):
 
     def _check_mag_analysis_statuses(self) -> None:
         if thread_dict := self._mag_analysis_active_thread:
-            thread = thread_dict.get("thread")
-            recordings = thread_dict.get("recordings")
-            output_dir = thread_dict.get("output_dir")
+            thread = thread_dict["thread"]
 
             if not thread.is_alive():
                 thread.join()
 
-                mag_analysis_msg = dict()
-                mag_analysis_msg["recordings"] = recordings
-                mag_analysis_msg["output_dir"] = output_dir
-
+                mag_analysis_msg = {
+                    "recordings": thread_dict["recordings"],
+                    "output_dir": thread_dict["output_dir"],
+                }
                 if failed_recordings := self._mag_analysis_thread_list:
                     mag_analysis_msg["failed_recordings"] = failed_recordings
 

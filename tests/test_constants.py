@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import datetime
-from enum import Enum
 from enum import IntEnum
 import uuid
 
@@ -531,11 +530,12 @@ def test_serial_comm():
     assert STIM_OPEN_CIRCUIT_THRESHOLD_OHMS == 20000
     assert STIM_SHORT_CIRCUIT_THRESHOLD_OHMS == 10
 
-    assert issubclass(StimulatorCircuitStatuses, Enum) is True
-    assert StimulatorCircuitStatuses.CALCULATING.value == "calculating"
-    assert StimulatorCircuitStatuses.OPEN.value == "open"
-    assert StimulatorCircuitStatuses.SHORT.value == "short"
-    assert StimulatorCircuitStatuses.MEDIA.value == "media"
+    assert issubclass(StimulatorCircuitStatuses, IntEnum) is True
+    assert StimulatorCircuitStatuses.CALCULATING.value == -1
+    assert StimulatorCircuitStatuses.MEDIA.value == 0
+    assert StimulatorCircuitStatuses.OPEN.value == 1
+    assert StimulatorCircuitStatuses.SHORT.value == 2
+    assert StimulatorCircuitStatuses.ERROR.value == 3
 
     assert issubclass(StimProtocolStatuses, IntEnum) is True
     assert StimProtocolStatuses.ACTIVE == 0
