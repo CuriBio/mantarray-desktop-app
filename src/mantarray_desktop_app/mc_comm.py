@@ -250,8 +250,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._packet_len = (
             SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
             + SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
-            + (24 * SERIAL_COMM_NUM_SENSORS_PER_WELL * SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES)
-            + (24 * SERIAL_COMM_NUM_DATA_CHANNELS * SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES)
+            + (self._num_wells * SERIAL_COMM_NUM_SENSORS_PER_WELL * SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES)
+            + (self._num_wells * SERIAL_COMM_NUM_DATA_CHANNELS * SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES)
         )
         self._sampling_period_us = DEFAULT_SAMPLING_PERIOD
         self._is_data_streaming = False
@@ -1037,15 +1037,14 @@ class McCommunicationProcess(InstrumentCommProcess):
 
     def _dump_data_packets(self, parsed_packet_dict: Dict[str, Any]) -> None:
         # Tanner (10/15/21): if performance needs to be improved, consider converting some of this function to cython
-        (
-            time_indices,
-            time_offsets,
-            data,
-            num_data_packets_read,
-        ) = parsed_packet_dict.values()
+        *parsed_data, num_data_packets_read = parsed_packet_dict.values()
+
         # Tanner (5/25/21): it is possible 0 data packets are read when stopping data stream
-        if num_data_packets_read == 0:
+        # Tanner (5/25/22): it is also possible that # data packets < NUM_INITIAL_PACKETS_TO_DROP if stim is running before data stream starts
+        if not num_data_packets_read:
             return
+
+        time_indices, time_offsets, data = parsed_data
 
         is_first_packet = not self._has_data_packet_been_sent
         data_start_idx = NUM_INITIAL_PACKETS_TO_DROP if is_first_packet else 0
@@ -1058,16 +1057,21 @@ class McCommunicationProcess(InstrumentCommProcess):
         }
         time_offset_idx = 0
         for module_id in range(1, self._num_wells + 1):
-            data_idx = (module_id - 1) * SERIAL_COMM_NUM_DATA_CHANNELS
             time_offset_slice = slice(time_offset_idx, time_offset_idx + SERIAL_COMM_NUM_SENSORS_PER_WELL)
-            well_dict: Dict[Any, Any] = {"time_offsets": time_offsets[time_offset_slice, data_slice]}
             time_offset_idx += SERIAL_COMM_NUM_SENSORS_PER_WELL
+
+            well_dict: Dict[Any, Any] = {"time_offsets": time_offsets[time_offset_slice, data_slice]}
+
+            data_idx = (module_id - 1) * SERIAL_COMM_NUM_DATA_CHANNELS
             for channel_idx in range(SERIAL_COMM_NUM_DATA_CHANNELS):
-                well_dict[channel_idx] = data[data_idx + channel_idx][data_slice]
+                well_dict[channel_idx] = data[data_idx + channel_idx, data_slice]
+
             well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
             fw_item[well_idx] = well_dict
+
         to_fw_queue = self._board_queues[0][2]
         to_fw_queue.put_nowait(fw_item)
+
         self._has_data_packet_been_sent = True
 
     def _handle_stim_packets(self, well_statuses: Dict[int, Any]) -> None:

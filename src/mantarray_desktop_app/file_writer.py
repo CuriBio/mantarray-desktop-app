@@ -1051,8 +1051,6 @@ class FileWriterProcess(InfiniteProcess):
             return
 
         # update magnetometer data buffer
-        curr_buffer_memory_size: int
-        max_buffer_memory_size: int
         if self._beta_2_mode:
             curr_buffer_memory_size = (
                 data_packet_buffer[-1]["time_indices"][0] - data_packet_buffer[0]["time_indices"][0]
@@ -1074,8 +1072,7 @@ class FileWriterProcess(InfiniteProcess):
         stim_data_buffers = self._stim_data_buffers[board_idx]
         for well_buffers in stim_data_buffers.values():
             earliest_valid_index = _find_earliest_valid_stim_status_index(
-                well_buffers[0],
-                earliest_magnetometer_time_idx,
+                well_buffers[0], earliest_magnetometer_time_idx
             )
             for well_buffer in well_buffers:
                 buffer_slice = list(well_buffer)[earliest_valid_index:]
