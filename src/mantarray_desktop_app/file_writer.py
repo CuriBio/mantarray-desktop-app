@@ -835,9 +835,17 @@ class FileWriterProcess(InfiniteProcess):
     def _process_magnetometer_data_packet(self, data_packet: Dict[Any, Any]) -> None:
         # Tanner (5/25/21): Creating this log message takes a long time so only do it if we are actually logging. TODO: Should probably refactor this function to something more efficient eventually
         if logging.DEBUG >= self.get_logging_level():  # pragma: no cover
+            num_data_points = data_packet["time_indices"].shape[0]
+            data_packet_info = {
+                "num_data_points": num_data_points,
+                "is_first_packet_of_stream": data_packet["is_first_packet_of_stream"],
+            }
+            if num_data_points:
+                data_packet_info["first_timepoint"] = data_packet["time_indices"][0]
+                data_packet_info["last_timepoint"] = data_packet["time_indices"][-1]
             put_log_message_into_queue(
                 logging.DEBUG,
-                f"Timestamp: {_get_formatted_utc_now()} Received a data packet from InstrumentCommProcess: {data_packet}",
+                f"Timestamp: {_get_formatted_utc_now()} Received a data packet from InstrumentCommProcess. Details: {data_packet_info}",
                 self._to_main_queue,
                 self.get_logging_level(),
             )
@@ -1001,6 +1009,14 @@ class FileWriterProcess(InfiniteProcess):
         self._latest_data_timepoints[0][this_well_idx] = last_timepoint_of_new_data
 
     def _process_stim_data_packet(self, stim_packet: Dict[Any, Any]) -> None:
+        if logging.DEBUG >= self.get_logging_level():  # pragma: no cover
+            put_log_message_into_queue(
+                logging.DEBUG,
+                f"Timestamp: {_get_formatted_utc_now()} Received a stim packet from InstrumentCommProcess: {stim_packet}",
+                self._to_main_queue,
+                self.get_logging_level(),
+            )
+
         board_idx = 0
         if stim_packet["is_first_packet_of_stream"]:
             self._end_of_stim_stream_reached[board_idx] = False
