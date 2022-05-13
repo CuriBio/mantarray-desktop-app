@@ -1161,15 +1161,15 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise FirmwareUpdateTimeoutError(self._firmware_update_type)
 
     def _handle_status_codes(self, status_codes_dict: Dict[str, int], comm_type: str) -> None:
+        board_idx = 0
         status_codes_msg = f"{comm_type} received from instrument. Status Codes: {status_codes_dict}"
         if any(status_codes_dict.values()):
-            board_idx = 0
             self._send_data_packet(board_idx, SERIAL_COMM_ERROR_ACK_PACKET_TYPE)
             raise InstrumentFirmwareError(status_codes_msg)
         put_log_message_into_queue(
-            logging.INFO,
+            logging.DEBUG,
             status_codes_msg,
-            self._board_queues[0][1],
+            self._board_queues[board_idx][1],
             self.get_logging_level(),
         )
 

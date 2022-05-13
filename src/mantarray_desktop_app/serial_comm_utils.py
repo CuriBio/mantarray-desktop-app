@@ -98,11 +98,12 @@ def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[Any, Any]:
         MANTARRAY_SERIAL_NUMBER_UUID: metadata_bytes[14:26].decode("ascii"),
         MAIN_FIRMWARE_VERSION_UUID: convert_semver_bytes_to_str(metadata_bytes[26:29]),
         CHANNEL_FIRMWARE_VERSION_UUID: convert_semver_bytes_to_str(metadata_bytes[29:32]),
-        "status_codes_prior_to_reboot": convert_status_code_bytes_to_dict(metadata_bytes[32:36]),
+        "status_codes_prior_to_reboot": convert_status_code_bytes_to_dict(metadata_bytes[32:58]),
     }
 
 
 def convert_metadata_to_bytes(metadata_dict: Dict[UUID, Any]) -> bytes:
+    num_wells = 24
     return (
         bytes([metadata_dict[BOOT_FLAGS_UUID]])
         + bytes(metadata_dict[MANTARRAY_NICKNAME_UUID], encoding="utf-8")
@@ -110,8 +111,8 @@ def convert_metadata_to_bytes(metadata_dict: Dict[UUID, Any]) -> bytes:
         + convert_semver_str_to_bytes(metadata_dict[MAIN_FIRMWARE_VERSION_UUID])
         + convert_semver_str_to_bytes(metadata_dict[CHANNEL_FIRMWARE_VERSION_UUID])
         # this function is only used in the simulator, so always send default status code
-        + convert_to_status_code_bytes(SERIAL_COMM_OKAY_CODE)
-        + bytes(28)
+        + bytes([SERIAL_COMM_OKAY_CODE] * (num_wells + 2))
+        + bytes(2)
     )
 
 
@@ -123,17 +124,16 @@ def convert_semver_str_to_bytes(semver_str: str) -> bytes:
     return bytes([int(num) for num in semver_str.split(".")])
 
 
-def convert_to_status_code_bytes(status_code: int) -> bytes:
-    # simulator will only ever change byte 0 of status code
-    return bytes([status_code, 0, 0, 0])
-
-
 def convert_status_code_bytes_to_dict(status_code_bytes: bytes) -> Dict[str, int]:
     if len(status_code_bytes) != SERIAL_COMM_STATUS_CODE_LENGTH_BYTES:
         raise ValueError(
             f"Status code bytes must have len of {SERIAL_COMM_STATUS_CODE_LENGTH_BYTES}, {len(status_code_bytes)} bytes given: {str(status_code_bytes)}"
         )
-    status_code_labels = ("main_status", "index_of_thread_with_error", "channel_status", "module_id_of_error")
+    status_code_labels = (
+        "main_status",
+        "index_of_thread_with_error",
+        *[f"module_{i}_status" for i in range(1, 25)],
+    )
     return {label: status_code_bytes[i] for i, label in enumerate(status_code_labels)}
 
 

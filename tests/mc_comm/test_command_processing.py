@@ -11,12 +11,10 @@ from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import UnrecognizedCommandFromMainToMcCommError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
-from mantarray_desktop_app.constants import SERIAL_COMM_OKAY_CODE
 from mantarray_desktop_app.firmware_downloader import download_firmware_updates
 from mantarray_desktop_app.firmware_downloader import get_latest_firmware_versions
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app.serial_comm_utils import convert_status_code_bytes_to_dict
-from mantarray_desktop_app.serial_comm_utils import convert_to_status_code_bytes
 from mantarray_desktop_app.worker_thread import ErrorCatchingThread
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 import pytest
@@ -28,6 +26,7 @@ from ..fixtures_mc_comm import fixture_four_board_mc_comm_process
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import fixture_runnable_four_board_mc_comm_process
 from ..fixtures_mc_comm import set_connection_and_register_simulator
+from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODES
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import get_null_subprotocol
@@ -176,7 +175,7 @@ def test_McCommunicationProcess__processes_get_metadata_command(
     confirm_queue_is_eventually_of_size(output_queue, 1)
     expected_response["metadata"] = dict(MantarrayMcSimulator.default_metadata_values)
     expected_response["metadata"]["status_codes_prior_to_reboot"] = convert_status_code_bytes_to_dict(
-        convert_to_status_code_bytes(SERIAL_COMM_OKAY_CODE)
+        DEFAULT_SIMULATOR_STATUS_CODES
     )
     expected_response["board_index"] = 0
     command_response = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -216,8 +215,7 @@ def test_McCommunicationProcess__processes_command_response_when_packet_received
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
-    input_queue = board_queues[0][0]
-    output_queue = board_queues[0][1]
+    input_queue, output_queue = board_queues[0][:2]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
@@ -226,22 +224,15 @@ def test_McCommunicationProcess__processes_command_response_when_packet_received
     )
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "send_single_beacon"},
-        testing_queue,
+        {"command": "send_single_beacon"}, testing_queue
     )
     invoke_process_run_and_check_errors(simulator)
 
-    test_command = {
-        "communication_type": "metadata_comm",
-        "command": "get_metadata",
-    }
+    test_command = {"communication_type": "metadata_comm", "command": "get_metadata"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, input_queue)
     # send command to simulator and read status beacon sent before command response
     invoke_process_run_and_check_errors(mc_process)
     invoke_process_run_and_check_errors(simulator)
-    # remove status beacon log message
-    confirm_queue_is_eventually_of_size(output_queue, 1)
-    output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     # confirm command response is received and data sent back to main
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(output_queue, 1)
@@ -289,9 +280,7 @@ def test_McCommunicationProcess__processes_reboot_command(
     # run simulator to finish reboot and mc_process to send reboot complete message to main
     invoke_process_run_and_check_errors(simulator)
     invoke_process_run_and_check_errors(mc_process)
-    confirm_queue_is_eventually_of_size(
-        output_queue, 2
-    )  # first message should be reboot complete message, second message should be status code log message
+    confirm_queue_is_eventually_of_size(output_queue, 1)
     reboot_response = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     expected_response["message"] = "Instrument completed reboot"
     assert reboot_response == expected_response

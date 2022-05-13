@@ -283,7 +283,6 @@ from .serial_comm_utils import convert_module_id_to_well_name
 from .serial_comm_utils import convert_status_code_bytes_to_dict
 from .serial_comm_utils import convert_stim_dict_to_bytes
 from .serial_comm_utils import convert_subprotocol_dict_to_bytes
-from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import convert_well_name_to_module_id
 from .serial_comm_utils import create_data_packet
@@ -511,7 +510,6 @@ __all__ = [
     "SERIAL_COMM_GOING_DORMANT_PACKET_TYPE",
     "SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS",
     "SerialCommHandshakeTimeoutError",
-    "convert_to_status_code_bytes",
     "convert_status_code_bytes_to_dict",
     "convert_to_timestamp_bytes",
     "get_serial_comm_timestamp",

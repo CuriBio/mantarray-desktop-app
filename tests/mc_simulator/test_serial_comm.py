@@ -48,7 +48,7 @@ import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import fixture_patch_print
-from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODE
+from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODES
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import HANDSHAKE_RESPONSE_SIZE_BYTES
@@ -82,7 +82,7 @@ def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_on_first_it
     )
 
     expected_initial_beacon = create_data_packet(
-        expected_cms_since_init, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODE
+        expected_cms_since_init, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODES
     )
     expected_randint_upper_bound = len(expected_initial_beacon) - 1
 
@@ -126,7 +126,7 @@ def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_every_5_sec
     expected_beacon_1 = create_data_packet(
         expected_durs[1] * MICROSECONDS_PER_CENTIMILLISECOND,
         SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-        DEFAULT_SIMULATOR_STATUS_CODE,
+        DEFAULT_SIMULATOR_STATUS_CODES,
     )
     assert simulator.read(size=len(expected_beacon_1)) == expected_beacon_1
     # 4 seconds since previous beacon
@@ -136,7 +136,7 @@ def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_every_5_sec
     expected_beacon_2 = create_data_packet(
         expected_durs[2] * MICROSECONDS_PER_CENTIMILLISECOND,
         SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
-        DEFAULT_SIMULATOR_STATUS_CODE,
+        DEFAULT_SIMULATOR_STATUS_CODES,
     )
     assert simulator.read(size=len(expected_beacon_2)) == expected_beacon_2
 
@@ -148,7 +148,7 @@ def test_MantarrayMcSimulator__raises_error_if_unrecognized_packet_type_sent_fro
 
     dummy_timestamp = 0
     test_packet_type = 253
-    test_handshake = create_data_packet(dummy_timestamp, test_packet_type, DEFAULT_SIMULATOR_STATUS_CODE)
+    test_handshake = create_data_packet(dummy_timestamp, test_packet_type, DEFAULT_SIMULATOR_STATUS_CODES)
 
     simulator.write(test_handshake)
     with pytest.raises(UnrecognizedSerialCommPacketTypeError) as exc_info:
@@ -166,7 +166,7 @@ def test_MantarrayMcSimulator__responds_to_handshake__when_checksum_is_correct(
     actual = simulator.read(size=HANDSHAKE_RESPONSE_SIZE_BYTES)
 
     assert_serial_packet_is_expected(
-        actual, SERIAL_COMM_HANDSHAKE_PACKET_TYPE, additional_bytes=DEFAULT_SIMULATOR_STATUS_CODE
+        actual, SERIAL_COMM_HANDSHAKE_PACKET_TYPE, additional_bytes=DEFAULT_SIMULATOR_STATUS_CODES
     )
 
 
@@ -837,5 +837,5 @@ def test_MantarrayMcSimulator__sends_firmware_update_complete_message_after_rebo
     # complete second reboot
     invoke_process_run_and_check_errors(simulator)
     assert simulator.is_rebooting() is False
-    # make sure status code is idle ready
-    assert simulator.get_status_code() == SERIAL_COMM_OKAY_CODE
+    # make sure status code is okay
+    assert bytes(simulator._status_codes) == DEFAULT_SIMULATOR_STATUS_CODES

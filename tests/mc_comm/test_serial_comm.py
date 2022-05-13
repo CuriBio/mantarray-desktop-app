@@ -41,7 +41,7 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import set_connection_and_register_simulator
-from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODE
+from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODES
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -92,7 +92,7 @@ def test_McCommunicationProcess__raises_error_if_magic_word_is_incorrect_in_pack
     mc_process.set_board_connection(board_idx, simulator)
     assert mc_process.is_registered_with_serial_comm(board_idx) is False
     test_bytes_1 = create_data_packet(
-        dummy_timestamp, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODE
+        dummy_timestamp, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODES
     )
     # Add arbitrary incorrect value into magic word slot
     bad_magic_word = b"NANOSURF"
@@ -116,7 +116,7 @@ def test_McCommunicationProcess__raises_error_if_length_of_additional_bytes_read
     # create valid packet
     dummy_timestamp = 0
     test_bytes = create_data_packet(
-        dummy_timestamp, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODE
+        dummy_timestamp, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODES
     )
     # cut off checksum bytes so that the remaining packet size is less than the specified packet length
     truncated_test_bytes = test_bytes[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
@@ -162,7 +162,7 @@ def test_McCommunicationProcess__raises_error_if_checksum_in_data_packet_sent_fr
     # add packet with bad checksum to be sent from simulator
     dummy_timestamp = 0
     test_bytes = create_data_packet(
-        dummy_timestamp, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODE
+        dummy_timestamp, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODES
     )
     # set checksum bytes to an arbitrary incorrect value
     bad_checksum = 1234
@@ -219,7 +219,7 @@ def test_McCommunicationProcess__raises_error_if_unrecognized_packet_type_sent_f
 
     dummy_timestamp = 0
     test_packet_type = 253
-    test_packet = create_data_packet(dummy_timestamp, test_packet_type, DEFAULT_SIMULATOR_STATUS_CODE)
+    test_packet = create_data_packet(dummy_timestamp, test_packet_type, DEFAULT_SIMULATOR_STATUS_CODES)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "add_read_bytes", "read_bytes": test_packet}, testing_queue
     )

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import copy
 import datetime
+import logging
 from random import randint
 from statistics import stdev
 import time
@@ -31,6 +32,7 @@ from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from mantarray_desktop_app import SerialCommIncorrectChecksumFromInstrumentError
 from mantarray_desktop_app import SerialCommIncorrectMagicWordFromMantarrayError
+from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from mantarray_desktop_app.constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 import numpy as np
 import pytest
@@ -62,8 +64,12 @@ __fixtures__ = [
 TEST_NUM_WELLS = 24
 
 TEST_OTHER_TIMESTAMP = random_timestamp()  # type: ignore
-TEST_OTHER_PACKET = create_data_packet(TEST_OTHER_TIMESTAMP, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, bytes(4))
-TEST_OTHER_PACKET_INFO = (TEST_OTHER_TIMESTAMP, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, bytes(4))
+TEST_OTHER_PACKET_INFO = (
+    TEST_OTHER_TIMESTAMP,
+    SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
+    bytes(SERIAL_COMM_STATUS_CODE_LENGTH_BYTES),
+)
+TEST_OTHER_PACKET = create_data_packet(*TEST_OTHER_PACKET_INFO)
 
 
 def create_data_stream_body(
@@ -849,6 +855,9 @@ def test_McCommunicationProcess__handles_one_second_read_with_two_interrupting_p
         {"command": "add_read_bytes", "read_bytes": read_bytes}, testing_queue
     )
     invoke_process_run_and_check_errors(simulator)
+
+    # set logging level to debug so that beacon log message is sent to main
+    mc_process._logging_level = logging.DEBUG
 
     # parse all data and make sure outgoing queues are populated
     invoke_process_run_and_check_errors(mc_process)
