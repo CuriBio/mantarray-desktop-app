@@ -18,7 +18,8 @@ from mantarray_desktop_app import StimulationProtocolUpdateWhileStimulatingError
 from mantarray_desktop_app import StimulationStatusUpdateFailedError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import STIM_WELL_IDX_TO_MODULE_ID
-from mantarray_desktop_app.serial_comm_utils import convert_impedance_to_circuit_status
+from mantarray_desktop_app.constants import StimulatorCircuitStatuses
+from mantarray_desktop_app.serial_comm_utils import convert_adc_readings_to_circuit_status
 import numpy as np
 import pytest
 from stdlib_utils import drain_queue
@@ -209,12 +210,13 @@ def test_McCommunicationProcess__processes_start_stim_checks_command__and_sends_
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
-    # set known impedance values in simulator
     num_wells = 24
-    # test_impedance_values = [randint(0, 0xFFFF) for _ in range(num_wells)]
-    test_impedance_values = [i for i in range(num_wells)]
+
+    # set known adc readings in simulator. these first 4 values are hard coded, if this test fails might need to update them
+    adc_readings = [(0, 0), (0, 2039), (0, 2049), (1113, 0)]
+    adc_readings.extend([(i, i + 100) for i in range(num_wells - len(adc_readings))])
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "set_impedance_values", "impendance_values": test_impedance_values}, testing_queue
+        {"command": "set_adc_readings", "adc_readings": adc_readings}, testing_queue
     )
     invoke_process_run_and_check_errors(simulator)
     # send command
@@ -226,15 +228,21 @@ def test_McCommunicationProcess__processes_start_stim_checks_command__and_sends_
     # process command and send response
     invoke_process_run_and_check_errors(simulator)
     # make sure that the message sent back to main contains the correct values
-    start_stim_checks_command["stimulator_circuit_statuses"] = [
-        convert_impedance_to_circuit_status(impedance) for impedance in test_impedance_values
+    status_ints = [
+        convert_adc_readings_to_circuit_status(*module_readings) for module_readings in adc_readings
     ]
+    start_stim_checks_command["stimulator_circuit_statuses"] = [
+        list(StimulatorCircuitStatuses)[status_int + 1].name.lower() for status_int in status_ints
+    ]
+    start_stim_checks_command["adc_readings"] = adc_readings
+
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(output_queue, 1)
     msg_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert (
         msg_to_main["stimulator_circuit_statuses"] == start_stim_checks_command["stimulator_circuit_statuses"]
     )
+    assert msg_to_main["adc_readings"] == start_stim_checks_command["adc_readings"]
 
 
 @freeze_time(datetime.datetime(year=2021, month=10, day=24, hour=13, minute=7, second=23, microsecond=173814))

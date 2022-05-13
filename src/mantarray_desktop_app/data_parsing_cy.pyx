@@ -172,8 +172,9 @@ cpdef dict handle_data_packets(
 
     Args:
         read_bytes: an array of all bytes waiting to be parsed. Not gauranteed to all be bytes in a magnetometer or stim data packet
+        base_global_time: TODO
 
-    Returns:
+    Returns: TODO
         A tuple of the array of parsed time indices, the array of time offsets, the array of parsed data, the number of data packets read, list of tuples containing info about interrupting packets if any occured (timestamp, packet type, and packet body bytes), the remaining unread bytes
     """
     read_bytes = read_bytes.copy()  # make sure data is C contiguous

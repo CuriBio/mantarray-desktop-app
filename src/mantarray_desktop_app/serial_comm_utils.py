@@ -149,25 +149,21 @@ def get_serial_comm_timestamp() -> int:
 
 
 def convert_stimulator_check_bytes_to_dict(stimulator_check_bytes: bytes) -> Dict[str, List[int]]:
-    # TODO unit test
     stimulator_checks_as_ints = struct.unpack("<" + "HHB" * 24, stimulator_check_bytes)
-    stimulator_checks_arr = np.array(stimulator_checks_as_ints, copy=False)
-    stimulator_checks_arr.reshape((3, len(stimulator_checks_as_ints) // 3), order="F")
+    # convert to lists of adc8, adc9, and status where the index of each list is the module id. Only creating an array here to reshape easily
+    stimulator_checks_list = (
+        np.array(stimulator_checks_as_ints, copy=False)
+        .reshape((3, len(stimulator_checks_as_ints) // 3), order="F")
+        .tolist()
+    )
     stimulator_checks_dict = {
-        key: stimulator_checks_arr[i].to_list() for i, key in enumerate(["adc8", "adc9", "status"])
+        key: stimulator_checks_list[i] for i, key in enumerate(["adc8", "adc9", "status"])
     }
     return stimulator_checks_dict
 
 
 def convert_adc_readings_to_circuit_status(adc8: int, adc9: int) -> int:
-    # Tanner (5/12/22): this calculation is the FW's actual calculation  # TODO consider making all these numbers constants
-    adc8_volts = (adc8 / 4096.0) * 3.3
-    adc9_volts = (adc9 / 4096.0) * 3.3
-    well_plus = 5.7 * (adc8_volts - 1.65053)
-    well_minus = 2 * adc9_volts - 3.3
-    current = well_minus / 33
-    voltage = well_plus - well_minus
-    impedance = voltage / current
+    impedance = convert_adc_readings_to_impedance(adc8, adc9)
     # Tanner (5/12/22): this section NOT based on the FW's actual calculation
     if impedance < 0:
         return StimulatorCircuitStatuses.ERROR.value
@@ -176,6 +172,18 @@ def convert_adc_readings_to_circuit_status(adc8: int, adc9: int) -> int:
     if impedance >= STIM_OPEN_CIRCUIT_THRESHOLD_OHMS:
         return StimulatorCircuitStatuses.OPEN.value
     return StimulatorCircuitStatuses.MEDIA.value
+
+
+def convert_adc_readings_to_impedance(adc8: int, adc9: int) -> float:
+    # Tanner (5/12/22): this calculation is the FW's actual calculation  # TODO consider making all these numbers constants
+    adc8_volts = (adc8 / 4096.0) * 3.3
+    adc9_volts = (adc9 / 4096.0) * 3.3
+    well_plus = 5.7 * (adc8_volts - 1.65053)
+    well_minus = 2 * adc9_volts - 3.3
+    current = well_minus / 33
+    voltage = well_plus - well_minus
+    impedance = voltage / current
+    return impedance
 
 
 def is_null_subprotocol(subprotocol_dict: Dict[str, int]) -> bool:

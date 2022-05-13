@@ -9,7 +9,6 @@ import logging
 from multiprocessing import Queue
 import queue
 from statistics import stdev
-import struct
 from time import perf_counter
 from time import sleep
 from typing import Any
@@ -86,6 +85,7 @@ from .constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from .constants import STIM_MODULE_ID_TO_WELL_IDX
+from .constants import StimulatorCircuitStatuses
 from .constants import STM_VID
 from .data_parsing_cy import handle_data_packets
 from .exceptions import FirmwareGoingDormantError
@@ -117,10 +117,10 @@ from .firmware_downloader import download_firmware_updates
 from .firmware_downloader import get_latest_firmware_versions
 from .instrument_comm import InstrumentCommProcess
 from .mc_simulator import MantarrayMcSimulator
-from .serial_comm_utils import convert_impedance_to_circuit_status
 from .serial_comm_utils import convert_semver_str_to_bytes
 from .serial_comm_utils import convert_status_code_bytes_to_dict
 from .serial_comm_utils import convert_stim_dict_to_bytes
+from .serial_comm_utils import convert_stimulator_check_bytes_to_dict
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import get_serial_comm_timestamp
@@ -806,12 +806,19 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._is_stopping_data_stream = False
                 self._is_data_streaming = False
             elif prev_command["command"] == "start_stim_checks":
+                stimulator_check_dict = convert_stimulator_check_bytes_to_dict(response_data)
+
                 stimulator_circuit_statuses: List[Optional[str]] = [None] * self._num_wells
-                impedances = struct.unpack(f"<{self._num_wells}H", response_data)
-                for module_id, impedance in enumerate(impedances, 1):
+                adc_readings: List[Optional[Tuple[int, int]]] = [None] * self._num_wells
+
+                for module_id, (adc8, adc9, status_int) in enumerate(zip(*stimulator_check_dict.values()), 1):
                     well_idx = STIM_MODULE_ID_TO_WELL_IDX[module_id]
-                    stimulator_circuit_statuses[well_idx] = convert_impedance_to_circuit_status(impedance)
+                    status_str = list(StimulatorCircuitStatuses)[status_int + 1].name.lower()
+                    stimulator_circuit_statuses[well_idx] = status_str
+                    adc_readings[well_idx] = (adc8, adc9)
+
                 prev_command["stimulator_circuit_statuses"] = stimulator_circuit_statuses
+                prev_command["adc_readings"] = adc_readings
             elif prev_command["command"] == "set_protocols":
                 if response_data[0]:
                     if not self._hardware_test_mode:

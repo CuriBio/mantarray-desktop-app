@@ -513,9 +513,9 @@ class MantarrayMcSimulator(InfiniteProcess):
                 self._is_stimulating = False
         elif packet_type == SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE:
             # Tanner (4/8/22): currently assuming that stim checks will take a negligible amount of time
-            for channel_readings in self._adc_readings:
-                status = convert_adc_readings_to_circuit_status(*channel_readings)
-                response_body += struct.pack("<HHB", *channel_readings, status)
+            for module_readings in self._adc_readings:
+                status = convert_adc_readings_to_circuit_status(*module_readings)
+                response_body += struct.pack("<HHB", *module_readings, status)
         elif packet_type == SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE:
             response_body += self._update_sampling_period(comm_from_pc)
         elif packet_type == SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE:
