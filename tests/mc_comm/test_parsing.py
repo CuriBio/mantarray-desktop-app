@@ -312,14 +312,18 @@ def test_parse_stim_data__parses_multiple_stim_data_packet_with_multiple_wells_a
 
 
 def test_performance__magnetometer_data_sorting_and_parsing():
-    # One second of data, max sampling rate, all data channels on
+    # One second of data, max sampling rate, all data channels on.
+    # Results in ns
+    #
     # start:                                        1397497
     # added time offsets + memory views:            2190868
     # refactor before adding stim:                  3164056
     #
-    # This was previously testing a single function but it has since been split into
-    # two separate functions
-    # refactor into sort and parse:                 X
+    # This was previously testing a single function, but it has since been split into
+    # two separate functions. Testing should now be done on the new functions, but
+    # keeping this here to show the split did not degrade performance
+    #
+    # refactor into sort and parse:                 2317237
 
     num_us_of_data_to_send = MICRO_TO_BASE_CONVERSION
     max_sampling_rate_us = 1000
@@ -353,11 +357,65 @@ def test_performance__magnetometer_data_sorting_and_parsing():
     # print(f"Dur (ns): {dur}, (seconds): {dur / 1e9}")  # Tanner (5/11/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
 
     assert dur < 1000000000
-    # good to also assert the entire second of data was parsed correctly
-    np.testing.assert_array_equal(
-        actual_time_indices, list(range(0, num_us_of_data_to_send, max_sampling_rate_us))
+
+
+def test_sort_serial_packets__performance_test__magnetometer_data_only():
+    # One second of data, max sampling rate, all data channels on.
+    # Results in ns
+    #
+    # start:                                        1231030
+
+    num_us_of_data_to_send = MICRO_TO_BASE_CONVERSION
+    max_sampling_rate_us = 1000
+    test_num_data_packets = num_us_of_data_to_send // max_sampling_rate_us
+    expected_time_indices = list(range(0, num_us_of_data_to_send, max_sampling_rate_us))
+
+    test_data_packet_bytes = bytes(0)
+    expected_data_points = []
+    expected_time_offsets = []
+    for packet_num in range(test_num_data_packets):
+        data_packet_payload, test_offsets, test_data = create_data_stream_body(
+            expected_time_indices[packet_num]
+        )
+        test_data_packet_bytes += create_data_packet(
+            random_timestamp(), SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE, data_packet_payload
+        )
+        expected_data_points.extend(test_data)
+        expected_time_offsets.extend(test_offsets)
+    expected_time_offsets = np.array(expected_time_offsets).reshape(
+        (len(expected_time_offsets) // test_num_data_packets, test_num_data_packets), order="F"
     )
-    np.testing.assert_array_equal(actual_time_offsets, expected_time_offsets)
-    np.testing.assert_array_equal(actual_data, expected_data_points)
-    assert sorted_packet_dict["other_packet_info"] == []
-    assert sorted_packet_dict["unread_bytes"] == bytearray(0)
+    expected_data_points = np.array(expected_data_points).reshape(
+        (len(expected_data_points) // test_num_data_packets, test_num_data_packets), order="F"
+    )
+
+    start = time.perf_counter_ns()
+    sort_serial_packets(bytearray(test_data_packet_bytes))
+    dur = time.perf_counter_ns() - start
+    # print(f"Dur (ns): {dur}, (seconds): {dur / 1e9}")  # Tanner (5/11/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+
+    assert dur < 1000000000
+
+
+def test_parse_magetometer_data__performance_test():
+    # One second of data, max sampling rate, all data channels on.
+    # Results in ns
+    #
+    # start:                                        1517561
+
+    num_us_of_data_to_send = MICRO_TO_BASE_CONVERSION
+    max_sampling_rate_us = 1000
+    test_num_data_packets = num_us_of_data_to_send // max_sampling_rate_us
+    expected_time_indices = list(range(0, num_us_of_data_to_send, max_sampling_rate_us))
+
+    mag_data_bytes = bytearray(0)
+    for packet_num in range(test_num_data_packets):
+        data_packet_payload, *_ = create_data_stream_body(expected_time_indices[packet_num])
+        mag_data_bytes += data_packet_payload
+
+    start = time.perf_counter_ns()
+    parse_magetometer_data(mag_data_bytes, test_num_data_packets, 0)
+    dur = time.perf_counter_ns() - start
+    # print(f"Dur (ns): {dur}, (seconds): {dur / 1e9}")  # Tanner (5/11/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+
+    assert dur < 1000000000
