@@ -1009,12 +1009,13 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._timepoint_of_prev_data_parse_secs
         )
 
-        self._log_data_parse(parsed_packet_dict)
-
         self._data_packet_cache = parsed_packet_dict["unread_bytes"]
         # process any other packets
         for other_packet_info in parsed_packet_dict["other_packet_info"]:
             self._process_comm_from_instrument(*other_packet_info[1:])
+
+        self._log_data_parse(parsed_packet_dict)
+
         # create dict and send to file writer if any packets were read
         self._dump_data_packets(parsed_packet_dict["magnetometer_data"])
         self._handle_stim_packets(parsed_packet_dict["stim_data"])
@@ -1053,13 +1054,13 @@ class McCommunicationProcess(InstrumentCommProcess):
                     else not self._has_stim_packet_been_sent
                 )
                 parsed_data_info["stim_data"] = {"is_first_packet_of_stream": stream_info}
-            if any(parsed_data_info.values()):
-                put_log_message_into_queue(
-                    logging.DEBUG,
-                    f"Timestamp: {_get_formatted_utc_now()} Data parsing results: {parsed_data_info}",
-                    self._board_queues[0][1],
-                    self.get_logging_level(),
-                )
+            parsed_data_info["other_packet_info"] = parsed_packet_dict["other_packet_info"]
+            put_log_message_into_queue(
+                logging.DEBUG,
+                f"Timestamp: {_get_formatted_utc_now()} Data parsing results: {parsed_data_info}",
+                self._board_queues[0][1],
+                self.get_logging_level(),
+            )
 
     def _dump_data_packets(self, parsed_packet_dict: Dict[str, Any]) -> None:
         # Tanner (10/15/21): if performance needs to be improved, consider converting some of this function to cython
