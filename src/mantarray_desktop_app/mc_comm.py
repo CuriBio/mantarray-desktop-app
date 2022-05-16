@@ -87,6 +87,7 @@ from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from .constants import STIM_MODULE_ID_TO_WELL_IDX
 from .constants import STM_VID
+from .data_parsing_cy import sort_serial_packets
 from .exceptions import FirmwareGoingDormantError
 from .exceptions import FirmwareUpdateCommandFailedError
 from .exceptions import FirmwareUpdateTimeoutError
@@ -998,7 +999,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             )
         self._timepoint_of_prev_data_parse_secs = perf_counter()
 
-        parsed_packet_dict = handle_data_packets(
+        parsed_packet_dict = sort_serial_packets(  # TODO
             bytearray(self._data_packet_cache), self._base_global_time_of_data_stream
         )
         performance_tracking_values["dur_of_data_parse"] = _get_dur_of_data_parse_secs(
