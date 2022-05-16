@@ -87,7 +87,6 @@ from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from .constants import STIM_MODULE_ID_TO_WELL_IDX
 from .constants import STM_VID
-from .data_parsing_cy import handle_data_packets
 from .exceptions import FirmwareGoingDormantError
 from .exceptions import FirmwareUpdateCommandFailedError
 from .exceptions import FirmwareUpdateTimeoutError
@@ -684,6 +683,7 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _handle_comm_from_instrument(self) -> None:
         board_idx = 0
         board = self._board_connections[board_idx]
+
         if board is None:
             return
         if not self._is_registered_with_serial_comm[board_idx]:
@@ -694,6 +694,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 raise SerialCommIncorrectMagicWordFromMantarrayError(str(magic_word_bytes))
         else:
             return
+
         packet_size_bytes = board.read(size=SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES)
         packet_size = int.from_bytes(packet_size_bytes, byteorder="little")
         data_packet_bytes = board.read(size=packet_size)
@@ -728,12 +729,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             full_data_packet[SERIAL_COMM_PAYLOAD_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES],
         )
 
-    def _process_comm_from_instrument(
-        self,
-        packet_type: int,
-        packet_payload: bytes,
-    ) -> None:
-        # pylint: disable=too-many-branches, too-many-statements
+    def _process_comm_from_instrument(self, packet_type: int, packet_payload: bytes) -> None:
         if packet_type == SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE:
             returned_packet = SERIAL_COMM_MAGIC_WORD_BYTES + packet_payload
             raise SerialCommIncorrectChecksumFromPCError(returned_packet)

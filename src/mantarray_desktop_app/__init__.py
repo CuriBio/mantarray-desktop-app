@@ -177,12 +177,12 @@ from .constants import VALID_CONFIG_SETTINGS
 from .constants import VALID_SCRIPTING_COMMANDS
 from .constants import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 from .data_analyzer import DataAnalyzerProcess
-from .data_parsing_cy import handle_data_packets
 from .data_parsing_cy import parse_adc_metadata_byte
 from .data_parsing_cy import parse_little_endian_int24
 from .data_parsing_cy import parse_sensor_bytes
 from .data_parsing_cy import SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY
 from .data_parsing_cy import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY
+from .data_parsing_cy import sort_serial_packets
 from .exceptions import AttemptToAddCyclesWhileSPIRunningError
 from .exceptions import AttemptToInitializeFIFOReadsError
 from .exceptions import BarcodeNotClearedError
@@ -531,7 +531,7 @@ __all__ = [
     "SERIAL_COMM_PLATE_EVENT_PACKET_TYPE",
     "SERIAL_COMM_NUM_DATA_CHANNELS",
     "SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE",
-    "handle_data_packets",
+    "sort_serial_packets",
     "SamplingPeriodUpdateWhileDataStreamingError",
     "CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION",
     "get_time_index_dataset_from_file",
