@@ -1009,6 +1009,8 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._timepoint_of_prev_data_parse_secs
         )
 
+        self._log_data_parse(parsed_packet_dict)
+
         self._data_packet_cache = parsed_packet_dict["unread_bytes"]
         # process any other packets
         for other_packet_info in parsed_packet_dict["other_packet_info"]:
@@ -1034,6 +1036,30 @@ class McCommunicationProcess(InstrumentCommProcess):
             if self._parses_since_last_logging[board_idx] >= self._performance_logging_cycles:
                 self._handle_performance_logging()
                 self._parses_since_last_logging[board_idx] = 0
+
+    def _log_data_parse(self, parsed_packet_dict: Dict[str, Any]) -> None:
+        if logging.DEBUG >= self.get_logging_level():  # pragma: no cover
+            parsed_data_info: Dict[str, Any] = {"magnetometer_data": None, "stim_data": None}
+            if num_mag_data_packets := parsed_packet_dict["magnetometer_data"]["num_data_packets"]:
+                parsed_data_info["magnetometer_data"] = {
+                    "num_data_packets": num_mag_data_packets,
+                    "is_first_packet_of_stream": not self._has_data_packet_been_sent,
+                }
+            if parsed_packet_dict["stim_data"]:
+                packet_will_be_discarded = not (self._is_data_streaming and not self._is_stopping_data_stream)
+                stream_info = (
+                    "packet_will_be_discarded"
+                    if packet_will_be_discarded
+                    else not self._has_stim_packet_been_sent
+                )
+                parsed_data_info["stim_data"] = {"is_first_packet_of_stream": stream_info}
+            if any(parsed_data_info.values()):
+                put_log_message_into_queue(
+                    logging.DEBUG,
+                    f"Timestamp: {_get_formatted_utc_now()} Data parsing results: {parsed_data_info}",
+                    self._board_queues[0][1],
+                    self.get_logging_level(),
+                )
 
     def _dump_data_packets(self, parsed_packet_dict: Dict[str, Any]) -> None:
         # Tanner (10/15/21): if performance needs to be improved, consider converting some of this function to cython
