@@ -177,10 +177,10 @@ cpdef dict sort_serial_packets(unsigned char [:] read_bytes):
     cdef int num_bytes = len(read_bytes)
 
     # generic data parsing values
+    cdef int num_packets_sorted = 0
     cdef unsigned char [:] packet_payload
     cdef int payload_len
     cdef int relative_checksum_idx
-
 
     # magnetometer data parsing values
     cdef unsigned char [:] mag_data_packet_bytes = bytearray(num_bytes)
@@ -254,8 +254,10 @@ cpdef dict sort_serial_packets(unsigned char [:] read_bytes):
             other_packet_info.append((p.timestamp, p.packet_type, bytearray(packet_payload)))
 
         bytes_idx += PACKET_HEADER_LEN + p.packet_len
+        num_packets_sorted += 1
 
     return {
+        "num_packets_sorted": num_packets_sorted,
         "magnetometer_stream_info": {
             "raw_bytes": mag_data_packet_bytes[:mag_data_packet_byte_idx],
             "num_packets": num_mag_data_packets,
@@ -269,7 +271,7 @@ cpdef dict sort_serial_packets(unsigned char [:] read_bytes):
     }
 
 
-cpdef dict parse_magetometer_data(
+cpdef dict parse_magnetometer_data(
     unsigned char [:] mag_data_packet_bytes,
     int num_mag_data_packets,
     uint64_t base_global_time,

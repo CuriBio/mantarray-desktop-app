@@ -6,7 +6,7 @@ import time
 from immutabledict import immutabledict
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
-from mantarray_desktop_app import parse_magetometer_data
+from mantarray_desktop_app import parse_magnetometer_data
 from mantarray_desktop_app import parse_stim_data
 from mantarray_desktop_app import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
 from mantarray_desktop_app import sort_serial_packets
@@ -77,7 +77,7 @@ def create_data_stream_body(time_index_us, num_wells_on_plate=24):
 
 @pytest.mark.parametrize("test_packet_type", STREAM_PACKET_TYPES)
 def test_sort_serial_packets__sorts_single_stream_packet_correctly(test_packet_type):
-    # sort_serial_packets won't parse payloads, so can make it arbitrary bytes
+    # sort_serial_packets won't parse payload, so can make it arbitrary bytes
     test_payload = bytes(range(10))
     test_packet = create_data_packet(random_timestamp(), test_packet_type, test_payload)
 
@@ -175,7 +175,7 @@ def test_sort_serial_packets__raises_error_when_packet_from_instrument_has_incor
     assert str(bytearray(bad_packet)) in exc_info.value.args[0]
 
 
-def test_parse_magetometer_data__handles_two_mag_data_packets_correctly__and_assigns_correct_data_type_to_parsed_values__when_all_channels_enabled():
+def test_parse_magnetometer_data__handles_two_mag_data_packets_correctly__and_assigns_correct_data_type_to_parsed_values__when_all_channels_enabled():
     expected_time_indices = [0xFFFFFFFFFFFFFF00, 0xFFFFFFFFFFFFFF01]
     test_num_data_packets = len(expected_time_indices)
 
@@ -196,7 +196,7 @@ def test_parse_magetometer_data__handles_two_mag_data_packets_correctly__and_ass
         (len(expected_data_points) // test_num_data_packets, test_num_data_packets), order="F"
     )
 
-    parsed_mag_data_dict = parse_magetometer_data(
+    parsed_mag_data_dict = parse_magnetometer_data(
         test_mag_data_bytes, test_num_data_packets, base_global_time
     )
     actual_time_indices, actual_time_offsets, actual_data = parsed_mag_data_dict.values()
@@ -353,7 +353,9 @@ def test_performance__magnetometer_data_sorting_and_parsing():
 
     start = time.perf_counter_ns()
     sorted_packet_dict = sort_serial_packets(bytearray(test_data_packet_bytes))
-    parsed_mag_data_dict = parse_magetometer_data(*sorted_packet_dict["magnetometer_stream_info"].values(), 0)
+    parsed_mag_data_dict = parse_magnetometer_data(
+        *sorted_packet_dict["magnetometer_stream_info"].values(), 0
+    )
     actual_time_indices, actual_time_offsets, actual_data = parsed_mag_data_dict.values()
     dur = time.perf_counter_ns() - start
     # print(f"Dur (ns): {dur}, (seconds): {dur / 1e9}")  # Tanner (5/11/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
@@ -399,7 +401,7 @@ def test_sort_serial_packets__performance_test__magnetometer_data_only():
     assert dur < 1000000000
 
 
-def test_parse_magetometer_data__performance_test():
+def test_parse_magnetometer_data__performance_test():
     # One second of data, max sampling rate, all data channels on.
     # Results in ns
     #
@@ -416,7 +418,7 @@ def test_parse_magetometer_data__performance_test():
         mag_data_bytes += data_packet_payload
 
     start = time.perf_counter_ns()
-    parse_magetometer_data(mag_data_bytes, test_num_data_packets, 0)
+    parse_magnetometer_data(mag_data_bytes, test_num_data_packets, 0)
     dur = time.perf_counter_ns() - start
     # print(f"Dur (ns): {dur}, (seconds): {dur / 1e9}")  # Tanner (5/11/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
 

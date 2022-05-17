@@ -50,9 +50,9 @@ __fixtures__ = [
 
 def test_McCommunicationProcess_super_is_called_during_init(mocker):
     error_queue = Queue()
-    mocked_init = mocker.patch.object(InfiniteProcess, "__init__")
-    McCommunicationProcess((), error_queue)
-    mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
+    spied_init = mocker.spy(InfiniteProcess, "__init__")
+    mc_process = McCommunicationProcess((), error_queue)
+    spied_init.assert_called_once_with(mc_process, error_queue, logging_level=logging.INFO)
 
 
 def test_McCommunicationProcess_setup_before_loop__calls_super(four_board_mc_comm_process, mocker):

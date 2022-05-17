@@ -50,10 +50,8 @@ from mantarray_desktop_app import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
 from mantarray_desktop_app import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from mantarray_desktop_app import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from mantarray_desktop_app import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
-from mantarray_desktop_app import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
 from mantarray_desktop_app import INSTALLING_UPDATES_STATE
-from mantarray_desktop_app import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
@@ -69,6 +67,7 @@ from mantarray_desktop_app import NANOSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import NO_PLATE_DETECTED_BARCODE_VALUE
 from mantarray_desktop_app import NO_PLATE_DETECTED_UUID
 from mantarray_desktop_app import NUM_INITIAL_PACKETS_TO_DROP
+from mantarray_desktop_app import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import OUTGOING_DATA_BUFFER_SIZE
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import RECORDING_STATE
@@ -166,6 +165,7 @@ from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 from mantarray_desktop_app.constants import ALL_VALID_BARCODE_HEADERS
 from mantarray_desktop_app.constants import BARCODE_HEADERS
 from mantarray_desktop_app.constants import BARCODE_LEN
+from mantarray_desktop_app.constants import PERFOMANCE_LOGGING_PERIOD_SECS
 from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
@@ -344,8 +344,8 @@ def test_buffer_size_constants():
 
 
 def test_performance_logging_constants():
-    assert INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES == 20
-    assert FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES == 2000
+    assert PERFOMANCE_LOGGING_PERIOD_SECS == 20
+    assert OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES == 20
 
 
 def test_system_status_uuids():

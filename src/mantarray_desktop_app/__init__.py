@@ -62,11 +62,9 @@ from .constants import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
 from .constants import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from .constants import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
-from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
 from .constants import GOING_DORMANT_HANDSHAKE_TIMEOUT_CODE
 from .constants import INSTALLING_UPDATES_STATE
-from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
@@ -83,6 +81,7 @@ from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
 from .constants import NO_PLATE_DETECTED_UUID
 from .constants import NUM_INITIAL_PACKETS_TO_DROP
+from .constants import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import OUTGOING_DATA_BUFFER_SIZE
 from .constants import RAW_TO_SIGNED_CONVERSION_VALUE
 from .constants import RECORDING_STATE
@@ -179,7 +178,7 @@ from .constants import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 from .data_analyzer import DataAnalyzerProcess
 from .data_parsing_cy import parse_adc_metadata_byte
 from .data_parsing_cy import parse_little_endian_int24
-from .data_parsing_cy import parse_magetometer_data
+from .data_parsing_cy import parse_magnetometer_data
 from .data_parsing_cy import parse_sensor_bytes
 from .data_parsing_cy import parse_stim_data
 from .data_parsing_cy import SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY
@@ -373,7 +372,7 @@ __all__ = [
     "DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS",
     "FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE",
     "RAW_TO_SIGNED_CONVERSION_VALUE",
-    "INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES",
+    "OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES",
     "SYSTEM_STATUS_UUIDS",
     "DEFAULT_USER_CONFIG",
     "firmware_manager",
@@ -403,7 +402,6 @@ __all__ = [
     "ADC_CH_TO_IS_REF_SENSOR",
     "UnrecognizedMantarrayNamingCommandError",
     "check_mantarray_serial_number",
-    "FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES",
     "FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS",
     "OUTGOING_DATA_BUFFER_SIZE",
     "get_latest_firmware_name",
@@ -534,7 +532,7 @@ __all__ = [
     "SERIAL_COMM_NUM_DATA_CHANNELS",
     "SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE",
     "sort_serial_packets",
-    "parse_magetometer_data",
+    "parse_magnetometer_data",
     "parse_stim_data",
     "SamplingPeriodUpdateWhileDataStreamingError",
     "CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION",

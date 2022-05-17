@@ -589,6 +589,12 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     )
 
 
+def test_McCommunicationProcess__stim_packets_immediately_sent_to_file_writer_if_received_while_mag_data_is_streaming(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+):
+    assert not "TODO"
+
+
 def test_McCommunicationProcess__protocols_can_be_updated_and_stimulation_can_be_restarted_after_initial_run_completes(
     four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
 ):

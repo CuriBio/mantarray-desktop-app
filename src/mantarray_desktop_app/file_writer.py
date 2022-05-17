@@ -65,10 +65,10 @@ from .constants import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from .constants import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import FILE_WRITER_BUFFER_SIZE_MICROSECONDS
-from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
+from .constants import PERFOMANCE_LOGGING_PERIOD_SECS
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
@@ -294,6 +294,9 @@ class FileWriterProcess(InfiniteProcess):
             for _ in range(len(self._board_queues))
         )
         # performance tracking values
+        self._iterations_per_logging_cycle = int(
+            PERFOMANCE_LOGGING_PERIOD_SECS / self._minimum_iteration_duration_seconds
+        )
         self._iterations_since_last_logging = 0
         self._num_recorded_points: List[int] = list()
         self._recording_durations: List[float] = list()
@@ -426,10 +429,12 @@ class FileWriterProcess(InfiniteProcess):
         self._finalize_completed_files()
         self._check_upload_statuses()
 
-        self._iterations_since_last_logging += 1
-        if self._iterations_since_last_logging >= FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES:
-            self._handle_performance_logging()
-            self._iterations_since_last_logging = 0
+        if self._is_recording:
+            # TODO unit test
+            self._iterations_since_last_logging += 1
+            if self._iterations_since_last_logging >= self._iterations_per_logging_cycle:
+                self._handle_performance_logging()
+                self._iterations_since_last_logging = 0
 
     def _process_next_command_from_main(self) -> None:
         input_queue = self._from_main_queue

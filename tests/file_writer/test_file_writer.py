@@ -10,7 +10,6 @@ import time
 from freezegun import freeze_time
 import h5py
 from mantarray_desktop_app import file_writer
-from mantarray_desktop_app import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import get_data_slice_within_timepoints
 from mantarray_desktop_app import get_time_index_dataset_from_file
@@ -332,10 +331,12 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
     file_writer_process = four_board_file_writer_process["fw_process"]
     to_main_queue = four_board_file_writer_process["to_main_queue"]
 
+    test_num_iterations = file_writer_process._iterations_per_logging_cycle
+
     expected_iteration_dur = 0.001 * 10**9
-    expected_idle_time = expected_iteration_dur * FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
+    expected_idle_time = expected_iteration_dur * test_num_iterations
     expected_start_timepoint = 0
-    expected_stop_timepoint = 2 * expected_iteration_dur * FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
+    expected_stop_timepoint = 2 * expected_idle_time
     expected_latest_percent_use = 100 * (
         1 - expected_idle_time / (expected_stop_timepoint - expected_start_timepoint)
     )
@@ -345,7 +346,7 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
     ]
 
     perf_counter_vals = []
-    for _ in range(FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES - 1):
+    for _ in range(test_num_iterations - 1):
         perf_counter_vals.append(0)
         perf_counter_vals.append(expected_iteration_dur)
     perf_counter_vals.append(0)
@@ -364,9 +365,7 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
         :-1
     ]
 
-    invoke_process_run_and_check_errors(
-        file_writer_process, num_iterations=FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
-    )
+    invoke_process_run_and_check_errors(file_writer_process, num_iterations=test_num_iterations)
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
     actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]
@@ -412,7 +411,7 @@ def test_FileWriterProcess__does_not_include_recording_metrics_in_performance_me
     # get performance metrics dict
     invoke_process_run_and_check_errors(
         file_writer_process,
-        num_iterations=FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES,
+        num_iterations=file_writer_process._iterations_per_logging_cycle,
         perform_setup_before_loop=True,
     )
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
@@ -439,7 +438,7 @@ def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cy
 
     invoke_process_run_and_check_errors(
         file_writer_process,
-        num_iterations=FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES,
+        num_iterations=file_writer_process._iterations_per_logging_cycle,
         perform_setup_before_loop=True,
     )
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
@@ -495,7 +494,7 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_correctly(
     mocker.patch.object(time, "perf_counter", autospec=True, side_effect=perf_counter_vals)
 
     invoke_process_run_and_check_errors(
-        file_writer_process, num_iterations=FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
+        file_writer_process, num_iterations=file_writer_process._iterations_per_logging_cycle
     )
     confirm_queue_is_eventually_empty(board_queues[0][0])
 
