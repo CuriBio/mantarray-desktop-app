@@ -4,20 +4,14 @@ import datetime
 from random import randint
 
 from freezegun import freeze_time
-from mantarray_desktop_app import create_data_packet
-from mantarray_desktop_app import handle_data_packets
 from mantarray_desktop_app import mc_simulator
-from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
-from mantarray_desktop_app import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
 from mantarray_desktop_app import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
-from mantarray_desktop_app import StimProtocolStatuses
 from mantarray_desktop_app import StimulationProtocolUpdateFailedError
 from mantarray_desktop_app import StimulationProtocolUpdateWhileStimulatingError
 from mantarray_desktop_app import StimulationStatusUpdateFailedError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
-from mantarray_desktop_app.constants import STIM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.serial_comm_utils import convert_adc_readings_to_circuit_status
 import numpy as np
@@ -37,8 +31,6 @@ from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import get_null_subprotocol
 from ..fixtures_mc_simulator import get_random_subprotocol
-from ..fixtures_mc_simulator import random_time_index
-from ..fixtures_mc_simulator import random_timestamp
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -74,129 +66,6 @@ def set_stimulation_protocols(
 
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-
-
-def test_handle_data_packets__parses_single_stim_data_packet_with_a_single_status_correctly():
-    base_global_time = randint(0, 100)
-    test_time_index = random_time_index()
-    test_well_idx = randint(0, 23)
-    test_subprotocol_idx = randint(0, 5)
-
-    stim_packet_payload = (
-        bytes([1])  # num status updates in packet
-        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
-        + bytes([StimProtocolStatuses.ACTIVE])
-        + test_time_index.to_bytes(8, byteorder="little")
-        + bytes([test_subprotocol_idx])
-    )
-    test_data_packet = create_data_packet(
-        random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_payload
-    )
-
-    parsed_data_dict = handle_data_packets(bytearray(test_data_packet), base_global_time)
-    actual_stim_data = parsed_data_dict["stim_data"]
-    assert list(actual_stim_data.keys()) == [test_well_idx]
-    assert actual_stim_data[test_well_idx].dtype == np.int64
-    np.testing.assert_array_equal(
-        actual_stim_data[test_well_idx], [[test_time_index], [test_subprotocol_idx]]
-    )
-
-    # make sure no magnetometer data was returned
-    assert not any(parsed_data_dict["magnetometer_data"].values())
-
-
-def test_handle_data_packets__parses_single_stim_data_packet_with_multiple_statuses_correctly():
-    base_global_time = randint(0, 100)
-    test_time_indices = [random_time_index(), random_time_index(), random_time_index()]
-    test_well_idx = randint(0, 23)
-    test_subprotocol_indices = [randint(0, 5), randint(0, 5), 0]
-    test_statuses = [StimProtocolStatuses.ACTIVE, StimProtocolStatuses.NULL, StimProtocolStatuses.RESTARTING]
-
-    stim_packet_payload = bytes([3])  # num status updates in packet
-    for packet_idx in range(3):
-        stim_packet_payload += (
-            bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
-            + bytes([test_statuses[packet_idx]])
-            + test_time_indices[packet_idx].to_bytes(8, byteorder="little")
-            + bytes([test_subprotocol_indices[packet_idx]])
-        )
-    test_data_packet = create_data_packet(
-        random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_payload
-    )
-
-    parsed_data_dict = handle_data_packets(bytearray(test_data_packet), base_global_time)
-    actual_stim_data = parsed_data_dict["stim_data"]
-    assert list(actual_stim_data.keys()) == [test_well_idx]
-    np.testing.assert_array_equal(
-        actual_stim_data[test_well_idx],
-        # removing last item in these lists since restarting status info is not needed
-        [np.array(test_time_indices[:-1]), test_subprotocol_indices[:-1]],
-    )
-
-
-def test_handle_data_packets__parses_multiple_stim_data_packet_with_multiple_wells_and_statuses_correctly():
-    base_global_time = randint(0, 100)
-    test_well_indices = [randint(0, 11), randint(12, 23)]
-    test_time_indices = [
-        [random_time_index(), random_time_index()],
-        [random_time_index(), random_time_index(), random_time_index()],
-    ]
-    test_subprotocol_indices = [
-        [0, randint(1, 5)],
-        [randint(0, 5), randint(0, 5), STIM_COMPLETE_SUBPROTOCOL_IDX],
-    ]
-    test_statuses = [
-        [StimProtocolStatuses.RESTARTING, StimProtocolStatuses.NULL],
-        [StimProtocolStatuses.ACTIVE, StimProtocolStatuses.NULL, StimProtocolStatuses.FINISHED],
-    ]
-
-    stim_packet_payload_1 = (
-        bytes([2])  # num status updates in packet
-        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_indices[0]]])
-        + bytes([test_statuses[0][0]])
-        + test_time_indices[0][0].to_bytes(8, byteorder="little")
-        + bytes([test_subprotocol_indices[0][0]])
-        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_indices[1]]])
-        + bytes([test_statuses[1][0]])
-        + test_time_indices[1][0].to_bytes(8, byteorder="little")
-        + bytes([test_subprotocol_indices[1][0]])
-    )
-    stim_packet_payload_2 = (
-        bytes([3])  # num status updates in packet
-        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_indices[1]]])
-        + bytes([test_statuses[1][1]])
-        + test_time_indices[1][1].to_bytes(8, byteorder="little")
-        + bytes([test_subprotocol_indices[1][1]])
-        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_indices[0]]])
-        + bytes([test_statuses[0][1]])
-        + test_time_indices[0][1].to_bytes(8, byteorder="little")
-        + bytes([test_subprotocol_indices[0][1]])
-        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_indices[1]]])
-        + bytes([test_statuses[1][2]])
-        + test_time_indices[1][2].to_bytes(8, byteorder="little")
-        + bytes([test_subprotocol_indices[1][2]])
-    )
-    test_data_packet_1 = create_data_packet(
-        random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_payload_1
-    )
-    test_data_packet_2 = create_data_packet(
-        random_timestamp(), SERIAL_COMM_STIM_STATUS_PACKET_TYPE, stim_packet_payload_2
-    )
-
-    parsed_data_dict = handle_data_packets(
-        bytearray(test_data_packet_1 + test_data_packet_2), base_global_time
-    )
-    actual_stim_data = parsed_data_dict["stim_data"]
-    assert sorted(list(actual_stim_data.keys())) == sorted(test_well_indices)
-    np.testing.assert_array_equal(
-        actual_stim_data[test_well_indices[0]],
-        # removing first item in these lists since restarting status info is not needed
-        [np.array(test_time_indices[0][1:]), test_subprotocol_indices[0][1:]],
-    )
-    np.testing.assert_array_equal(
-        actual_stim_data[test_well_indices[1]],
-        [np.array(test_time_indices[1]), test_subprotocol_indices[1]],
-    )
 
 
 def test_McCommunicationProcess__processes_start_stim_checks_command__and_sends_correct_stim_circuit_statuses_to_main(
@@ -474,7 +343,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     assert msg_to_main["command"] == "status_update"
     assert set(msg_to_main["wells_done_stimulating"]) == set(test_well_indices)
 
-    # mock so no data packets are sent
+    # mock so no mag data is produced
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_last_data_packet",
@@ -534,7 +403,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     # remove message to main
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
-    # mock so no data packets are produced
+    # mock so no mag data is produced
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_last_data_packet",
@@ -661,12 +530,12 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
-    # mock so full second of data is sent
+    # mock so no mag data is produced
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_last_data_packet",
         autospec=True,
-        return_value=MICRO_TO_BASE_CONVERSION,
+        return_value=0,
     )
     # start data streaming
     set_sampling_period_and_start_streaming(four_board_mc_comm_process_no_handshake, simulator)
@@ -855,7 +724,7 @@ def test_McCommunicationProcess__stim_packets_sent_to_file_writer_after_restarti
     # remove message to main
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
-    # mock so no data packets are sent
+    # mock so no mag data is produced
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_last_data_packet",

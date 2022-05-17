@@ -13,8 +13,8 @@ from mantarray_desktop_app import FIFO_READ_PRODUCER_DATA_OFFSET
 from mantarray_desktop_app import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
 from mantarray_desktop_app import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from mantarray_desktop_app import FirstManagedReadLessThanOneRoundRobinError
-from mantarray_desktop_app import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import InstrumentCommIncorrectHeaderError
+from mantarray_desktop_app import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
@@ -625,19 +625,19 @@ def test_OkCommunicationProcess_managed_acquisition__logs_performance_metrics_af
         1 - expected_idle_time / (expected_stop_timepoint - expected_start_timepoint)
     )
     expected_percent_use_values = [40.1, 67.8, expected_latest_percent_use]
-    expected_longest_iterations = list(range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES - 1))
+    expected_longest_iterations = list(range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES - 1))
 
-    test_data_parse_dur_values = [0 for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2)]
-    test_read_dur_values = [0 for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2)]
-    for i in range(1, INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2, 2):
+    test_data_parse_dur_values = [0 for _ in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2)]
+    test_read_dur_values = [0 for _ in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2)]
+    for i in range(1, OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2, 2):
         test_data_parse_dur_values[i] = i
         test_read_dur_values[i] = i // 2 + 1
-    test_acquisition_values = [20 for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)]
-    for i in range(1, INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES):
+    test_acquisition_values = [20 for _ in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)]
+    for i in range(1, OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES):
         test_acquisition_values[i] = test_acquisition_values[i - 1] + 10 * (i + 1)
 
     perf_counter_vals = list()
-    for i in range(0, INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2, 2):
+    for i in range(0, OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2, 2):
         perf_counter_vals.append(test_read_dur_values[i])
         perf_counter_vals.append(test_read_dur_values[i + 1])
         perf_counter_vals.append(test_data_parse_dur_values[i])
@@ -666,11 +666,11 @@ def test_OkCommunicationProcess_managed_acquisition__logs_performance_metrics_af
     )
     ok_process._percent_use_values = expected_percent_use_values[:-1]  # pylint: disable=protected-access
 
-    test_fifo_reads = [produce_data(i + 2, 0) for i in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)]
+    test_fifo_reads = [produce_data(i + 2, 0) for i in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)]
     fifo = TestingQueue()
     for read in test_fifo_reads:
         fifo.put_nowait(read)
-    confirm_queue_is_eventually_of_size(fifo, INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
+    confirm_queue_is_eventually_of_size(fifo, OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
@@ -678,9 +678,7 @@ def test_OkCommunicationProcess_managed_acquisition__logs_performance_metrics_af
     board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
     confirm_queue_is_eventually_of_size(board_queues[0][0], 1)
 
-    invoke_process_run_and_check_errors(
-        ok_process, num_iterations=INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
-    )
+    invoke_process_run_and_check_errors(ok_process, num_iterations=OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
 
     assert_queue_is_eventually_not_empty(board_queues[0][1])
     queue_items = drain_queue(board_queues[0][1])
@@ -689,9 +687,9 @@ def test_OkCommunicationProcess_managed_acquisition__logs_performance_metrics_af
     actual = actual["message"]
 
     expected_num_bytes = [len(read) for read in test_fifo_reads]
-    expected_parsing_dur_values = [i * 2 + 1 for i in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)]
-    expected_read_dur_values = [i + 1 for i in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)]
-    expected_acquisition_values = [10 * (i + 1) for i in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)]
+    expected_parsing_dur_values = [i * 2 + 1 for i in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)]
+    expected_read_dur_values = [i + 1 for i in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)]
+    expected_acquisition_values = [10 * (i + 1) for i in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)]
     assert actual["communication_type"] == "performance_metrics"
     assert "idle_iteration_time_ns" not in actual
     assert "start_timepoint_of_measurements" not in actual
@@ -748,9 +746,9 @@ def test_OkCommunicationProcess_managed_acquisition__does_not_log_percent_use_me
     ok_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
 
     fifo = TestingQueue()
-    for _ in range(INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES):
+    for _ in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES):
         fifo.put_nowait(produce_data(2, 0))
-    confirm_queue_is_eventually_of_size(fifo, INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
+    confirm_queue_is_eventually_of_size(fifo, OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
     queues = {"pipe_outs": {PIPE_OUT_FIFO: fifo}}
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
@@ -760,7 +758,7 @@ def test_OkCommunicationProcess_managed_acquisition__does_not_log_percent_use_me
 
     invoke_process_run_and_check_errors(
         ok_process,
-        num_iterations=INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES,
+        num_iterations=OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES,
         perform_setup_before_loop=True,
     )
 

@@ -49,9 +49,9 @@ __fixtures__ = [
 
 def test_McCommunicationProcess_super_is_called_during_init(mocker):
     error_queue = Queue()
-    mocked_init = mocker.patch.object(InfiniteProcess, "__init__")
-    McCommunicationProcess((), error_queue)
-    mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
+    spied_init = mocker.spy(InfiniteProcess, "__init__")
+    mc_process = McCommunicationProcess((), error_queue)
+    spied_init.assert_called_once_with(mc_process, error_queue, logging_level=logging.INFO)
 
 
 def test_McCommunicationProcess_setup_before_loop__calls_super(four_board_mc_comm_process, mocker):
@@ -251,7 +251,7 @@ def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_
 
     # add data to mc_process cache
     expected_cache_data = bytes([randint(0, 255) for _ in range(15)])
-    mc_process._data_packet_cache = expected_cache_data
+    mc_process._serial_packet_cache = expected_cache_data
 
     # add one data packet with bad magic word to raise error and additional bytes to flush from simulator
     test_read_bytes = [

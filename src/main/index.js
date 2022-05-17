@@ -79,6 +79,7 @@ let wait_for_subprocess_to_complete = null;
 const start_python_subprocess = () => {
   console.log("About to generate command line arguments to use when booting up server"); // allow-log
   const command_line_args = generate_flask_command_line_args(store);
+  command_line_args.push("--log-level-debug");
   if (process.platform !== "win32") {
     // presumably running in a unix dev or CI environment
     if (!ci.isCI) {

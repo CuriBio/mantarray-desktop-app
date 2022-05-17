@@ -42,8 +42,8 @@ from .constants import CALIBRATED_STATE
 from .constants import CALIBRATION_NEEDED_STATE
 from .constants import CLEARED_BARCODE_VALUE
 from .constants import DATA_FRAME_PERIOD
-from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
+from .constants import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import TIMESTEP_CONVERSION_FACTOR
 from .constants import VALID_SCRIPTING_COMMANDS
@@ -439,7 +439,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
             None,
         ]
         # performance tracking values
-        self._performance_logging_cycles = INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+        self._performance_logging_cycles = OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
         self._reads_since_last_logging: List[int] = [0] * len(self._board_queues)
         self._fifo_read_durations: List[float] = list()
         self._fifo_read_lengths: List[int] = list()
