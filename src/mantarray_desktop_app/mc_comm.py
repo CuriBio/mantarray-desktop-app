@@ -1102,17 +1102,17 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._reset_mag_data_cache()
 
     def _handle_stim_packets(self, stim_stream_info: Dict[str, Union[bytes, int]]) -> None:
-        # TODO
         if not stim_stream_info["num_packets"]:
             return
 
-        well_statuses: Dict[int, Any] = parse_stim_data()  # TODO
+        well_statuses: Dict[int, Any] = parse_stim_data(*stim_stream_info.values())
 
         for well_idx in range(self._num_wells):
             stim_statuses = well_statuses.get(well_idx, [[], []])
             for i in range(2):
                 self._stim_status_buffers[well_idx][i] = self._stim_status_buffers[well_idx][i][-1:]
                 self._stim_status_buffers[well_idx][i].extend(stim_statuses[i])
+
         wells_done_stimulating = [
             well_idx
             for well_idx, status_updates_arr in well_statuses.items()
