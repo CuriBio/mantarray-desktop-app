@@ -5,7 +5,6 @@ from random import randint
 
 from freezegun import freeze_time
 from mantarray_desktop_app import mc_simulator
-from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
 from mantarray_desktop_app import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
@@ -336,7 +335,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     assert msg_to_main["command"] == "status_update"
     assert set(msg_to_main["wells_done_stimulating"]) == set(test_well_indices)
 
-    # mock so no data packets are sent
+    # mock so no mag data is produced
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_last_data_packet",
@@ -396,7 +395,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     # remove message to main
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
-    # mock so no data packets are produced
+    # mock so no mag data is produced
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_last_data_packet",
@@ -523,12 +522,12 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
-    # mock so full second of data is sent
+    # mock so no mag data is produced
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_last_data_packet",
         autospec=True,
-        return_value=MICRO_TO_BASE_CONVERSION,
+        return_value=0,
     )
     # start data streaming
     set_sampling_period_and_start_streaming(four_board_mc_comm_process_no_handshake, simulator)
@@ -587,12 +586,6 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     np.testing.assert_array_equal(
         stim_status_msg["well_statuses"][test_well_indices[1]], expected_well_statuses
     )
-
-
-def test_McCommunicationProcess__stim_packets_immediately_sent_to_file_writer_if_received_while_mag_data_is_streaming(
-    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
-):
-    assert not "TODO"
 
 
 def test_McCommunicationProcess__protocols_can_be_updated_and_stimulation_can_be_restarted_after_initial_run_completes(
@@ -723,7 +716,7 @@ def test_McCommunicationProcess__stim_packets_sent_to_file_writer_after_restarti
     # remove message to main
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
-    # mock so no data packets are sent
+    # mock so no mag data is produced
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_last_data_packet",

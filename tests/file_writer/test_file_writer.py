@@ -331,6 +331,8 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
     file_writer_process = four_board_file_writer_process["fw_process"]
     to_main_queue = four_board_file_writer_process["to_main_queue"]
 
+    file_writer_process._is_recording = True
+
     test_num_iterations = file_writer_process._iterations_per_logging_cycle
 
     expected_iteration_dur = 0.001 * 10**9
@@ -384,57 +386,18 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
     assert "start_timepoint_of_measurements" not in actual
 
 
-@pytest.mark.parametrize(
-    "test_data_packet,test_description",
-    [
-        (SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0, "does not log recording metrics with beta 1 data"),
-        (SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS, "does not log recording metrics with beta 2 data"),
-    ],
-)
-def test_FileWriterProcess__does_not_include_recording_metrics_in_performance_metrics_when_not_recording(
-    test_data_packet, test_description, four_board_file_writer_process, mocker
-):
-    file_writer_process = four_board_file_writer_process["fw_process"]
-    to_main_queue = four_board_file_writer_process["to_main_queue"]
-    incoming_data_queue = four_board_file_writer_process["board_queues"][0][0]
-
-    if test_data_packet == SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS:
-        file_writer_process.set_beta_2_mode()
-
-    # add data packets
-    num_packets_to_send = 3  # send arbitrary number of packets
-    for _ in range(num_packets_to_send):
-        incoming_data_queue.put_nowait(test_data_packet)
-    confirm_queue_is_eventually_of_size(incoming_data_queue, num_packets_to_send)
-    # set to 0 to speed up test
-    file_writer_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
-    # get performance metrics dict
-    invoke_process_run_and_check_errors(
-        file_writer_process,
-        num_iterations=file_writer_process._iterations_per_logging_cycle,
-        perform_setup_before_loop=True,
-    )
-    confirm_queue_is_eventually_of_size(to_main_queue, 1)
-    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    actual = actual["message"]
-    # make sure recording metrics not present
-    assert "num_recorded_data_points_metrics" not in actual
-    assert "recording_duration_metrics" not in actual
-
-    # Tanner (6/1/21): avoid BrokenPipeErrors
-    drain_queue(four_board_file_writer_process["board_queues"][0][1])
-
-
 @pytest.mark.slow
-@pytest.mark.timeout(200)
+@pytest.mark.timeout(20)
 def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cycle(
     four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     to_main_queue = four_board_file_writer_process["to_main_queue"]
 
+    file_writer_process._is_recording = True
+
     # set to 0 to speed up test
-    file_writer_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
+    file_writer_process._minimum_iteration_duration_seconds = 0
 
     invoke_process_run_and_check_errors(
         file_writer_process,
@@ -443,8 +406,7 @@ def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cy
     )
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
 
-    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    actual = actual["message"]
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)["message"]
     assert "percent_use_metrics" not in actual
 
 

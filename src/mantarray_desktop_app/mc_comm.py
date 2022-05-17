@@ -35,6 +35,7 @@ from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
 from .constants import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
+from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import NUM_INITIAL_PACKETS_TO_DROP
 from .constants import PERFOMANCE_LOGGING_PERIOD_SECS
 from .constants import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
@@ -282,10 +283,15 @@ class McCommunicationProcess(InstrumentCommProcess):
                 "num_packets_sorted",
                 "period_between_mag_data_parsing",
                 "mag_data_parsing_duration",
+                "num_mag_packets_parsed",
             )
         }
         self._timepoints_of_prev_actions: Dict[str, Optional[float]]
         self._reset_timepoints_of_prev_actions()
+
+    @property
+    def _num_mag_packets_per_second(self) -> int:
+        return MICRO_TO_BASE_CONVERSION // self._sampling_period_us
 
     @property
     def _is_stimulating(self) -> bool:
@@ -1044,8 +1050,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._mag_data_cache_dict[key] += value  # type: ignore
 
         # don't parse and send to file writer unless there is at least 1 second worth of data
-        num_packets_per_second = int(1e6 // self._sampling_period_us)
-        if self._mag_data_cache_dict["num_packets"] < num_packets_per_second:  # type: ignore
+        if self._mag_data_cache_dict["num_packets"] < self._num_mag_packets_per_second:  # type: ignore
             # TODO make sure this is unit tested
             return
 
@@ -1066,11 +1071,13 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         time_indices, time_offsets, data = parsed_mag_data_dict.values()
 
+        new_performance_tracking_values["num_mag_packets_parsed"] = len(time_indices)
+
         is_first_packet = not self._has_data_packet_been_sent
         data_start_idx = NUM_INITIAL_PACKETS_TO_DROP if is_first_packet else 0
         data_slice = slice(data_start_idx, self._mag_data_cache_dict["num_packets"])
 
-        fw_item: Dict[Any, Any] = {
+        mag_data_packet: Dict[Any, Any] = {
             "data_type": "magnetometer",
             "time_indices": time_indices[data_slice],
             "is_first_packet_of_stream": is_first_packet,
@@ -1087,16 +1094,19 @@ class McCommunicationProcess(InstrumentCommProcess):
                 well_dict[channel_idx] = data[data_idx + channel_idx, data_slice]
 
             well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
-            fw_item[well_idx] = well_dict
+            mag_data_packet[well_idx] = well_dict
 
-        to_fw_queue = self._board_queues[0][2]
-        to_fw_queue.put_nowait(fw_item)
+        self._dump_mag_data_packet(mag_data_packet)
 
-        self._has_data_packet_been_sent = True
         # reset cache now that all mag data has been parsed
         self._reset_mag_data_cache()
 
         self._update_performance_metrics(new_performance_tracking_values)
+
+    def _dump_mag_data_packet(self, mag_data_packet: Dict[Any, Any]) -> None:
+        to_fw_queue = self._board_queues[0][2]
+        to_fw_queue.put_nowait(mag_data_packet)
+        self._has_data_packet_been_sent = True
 
     def _handle_stim_packets(self, stim_stream_info: Dict[str, Union[bytes, int]]) -> None:
         # TODO Tanner (10/22/21): add stim packet parsing to metrics once real stream is implemented, could also clean up the performance tracking

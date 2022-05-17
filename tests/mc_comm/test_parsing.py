@@ -100,6 +100,7 @@ def test_sort_serial_packets__sorts_single_stream_packet_correctly(test_packet_t
         test_unpopulated_dict_key: dict(UNPOPULATED_STREAM_DICT),
         "other_packet_info": [],
         "unread_bytes": bytearray(0),
+        "num_packets_sorted": 1,
     }
 
 
@@ -110,6 +111,7 @@ def test_sort_serial_packets__sorts_single_non_stream_packet_correctly():
         "stim_stream_info": dict(UNPOPULATED_STREAM_DICT),
         "other_packet_info": [TEST_OTHER_PACKET_INFO],
         "unread_bytes": bytearray(0),
+        "num_packets_sorted": 1,
     }
 
 
@@ -121,6 +123,7 @@ def test_sort_serial_packets__sorts_incomplete_packet():
         "stim_stream_info": dict(UNPOPULATED_STREAM_DICT),
         "other_packet_info": [],
         "unread_bytes": bytearray(incomplete_packet),
+        "num_packets_sorted": 0,
     }
 
 
@@ -148,6 +151,7 @@ def test_sort_serial_packets__sorts_multiple_of_each_possible_packet_type_togeth
         "stim_stream_info": {"raw_bytes": bytearray(b"STIM1STIM2"), "num_packets": 2},
         "other_packet_info": [test_other_info_1, test_other_info_2],
         "unread_bytes": bytearray(incomplete_packet),
+        "num_packets_sorted": 6,
     }
 
 
