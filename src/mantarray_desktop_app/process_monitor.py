@@ -514,10 +514,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
         elif communication_type == "xem_scripts":
             if "status_update" in communication:
                 self._values_to_share_to_server["system_status"] = communication["status_update"]
+                if communication["status_update"] == CALIBRATION_NEEDED_STATE:
+                    self._send_enable_sw_auto_install_message()
             if "adc_gain" in communication:
                 self._values_to_share_to_server["adc_gain"] = communication["adc_gain"]
-            description = communication.get("description", "")
-            if ADC_OFFSET_DESCRIPTION_TAG in description:
+            if ADC_OFFSET_DESCRIPTION_TAG in (description := communication.get("description", "")):
                 parsed_description = description.split("__")
                 adc_index = int(parsed_description[1][-1])
                 ch_index = int(parsed_description[2][-1])
@@ -611,6 +612,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                             }
                         )
                     else:
+                        # if no updates found, enable auto install of SW update and switch to calibration needed state
                         self._send_enable_sw_auto_install_message()
                         self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
             elif command == "download_firmware_updates":
