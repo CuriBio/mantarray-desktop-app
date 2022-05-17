@@ -252,7 +252,7 @@ def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_
 
     # add data to mc_process cache
     expected_cache_data = bytes([randint(0, 255) for _ in range(15)])
-    mc_process._data_packet_cache = expected_cache_data
+    mc_process._serial_packet_cache = expected_cache_data
 
     # add one data packet with bad magic word to raise error and additional bytes to flush from simulator
     test_read_bytes = [

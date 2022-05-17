@@ -326,7 +326,7 @@ cpdef dict parse_magetometer_data(
     return {"time_indices": time_indices, "time_offsets": time_offsets, "data": data}
 
 
-cpdef parse_stim_data(unsigned char [:] stim_packet_bytes, int num_stim_packets):
+cpdef dict parse_stim_data(unsigned char [:] stim_packet_bytes, int num_stim_packets):
     cdef dict stim_data_dict = {}  # dict for storing stim statuses
 
     # Tanner (10/15/21): No need to heavily optimize this function until stim waveforms are streamed

@@ -668,12 +668,12 @@ def test_McCommunicationProcess__logs_performance_metrics_after_parsing_data(
         10  # set this to a lower value to speed up the test
     )
     # mock to speed up test
-    mocker.patch.object(mc_process, "_dump_data_packets", autospec=True)
+    mocker.patch.object(mc_process, "_handle_mag_data_packets", autospec=True)
 
     # create expected values for metric creation
     expected_secs_between_parsing = list(range(15, 15 + INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES - 1))
     mocked_since_last_parse = mocker.patch.object(
-        mc_comm, "_get_secs_since_last_data_parse", autospec=True, side_effect=expected_secs_between_parsing
+        mc_comm, "_get_secs_since_last_data_sort", autospec=True, side_effect=expected_secs_between_parsing
     )
     expected_secs_between_reading = list(range(25, 25 + INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES - 1))
     mocked_since_last_read = mocker.patch.object(
@@ -693,7 +693,7 @@ def test_McCommunicationProcess__logs_performance_metrics_after_parsing_data(
     )
     expected_parse_durs = list(range(0, INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES * 2, 2))
     mocked_data_parse_dur = mocker.patch.object(
-        mc_comm, "_get_dur_of_data_parse_secs", autospec=True, side_effect=expected_parse_durs
+        mc_comm, "_get_dur_of_data_sort_secs", autospec=True, side_effect=expected_parse_durs
     )
     expected_num_packets_read = list(range(20, 20 + INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES))
     mocker.patch.object(
@@ -773,17 +773,17 @@ def test_McCommunicationProcess__does_not_update_or_log_performance_metrics_when
         10  # set this to a lower value to speed up the test
     )
     # mock to speed up test
-    mocker.patch.object(mc_process, "_dump_data_packets", autospec=True)
+    mocker.patch.object(mc_process, "_handle_mag_data_packets", autospec=True)
 
     # create expected values for metric creation
-    mocker.patch.object(mc_comm, "_get_secs_since_last_data_parse", autospec=True, return_value=-1)
+    mocker.patch.object(mc_comm, "_get_secs_since_last_data_sort", autospec=True, return_value=-1)
     mocker.patch.object(mc_comm, "_get_secs_since_last_data_read", autospec=True, return_value=-1)
     mocker.patch.object(mc_comm, "_get_dur_of_data_read_secs", autospec=True, return_value=-1)
     # Tanner (8/30/21): using arbitrary large number here. If data packet size changes this test may fail
     mocker.patch.object(
         simulator, "read_all", autospec=True, side_effect=lambda *args: bytes(1000000)  # arbitrary len
     )
-    mocker.patch.object(mc_comm, "_get_dur_of_data_parse_secs", autospec=True, return_value=-1)
+    mocker.patch.object(mc_comm, "_get_dur_of_data_sort_secs", autospec=True, return_value=-1)
     mocker.patch.object(
         mc_comm,
         "handle_data_packets",

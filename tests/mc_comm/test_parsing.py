@@ -196,8 +196,10 @@ def test_parse_magetometer_data__handles_two_mag_data_packets_correctly__and_ass
         (len(expected_data_points) // test_num_data_packets, test_num_data_packets), order="F"
     )
 
-    parsed_data_dict = parse_magetometer_data(test_mag_data_bytes, test_num_data_packets, base_global_time)
-    actual_time_indices, actual_time_offsets, actual_data = parsed_data_dict.values()
+    parsed_mag_data_dict = parse_magetometer_data(
+        test_mag_data_bytes, test_num_data_packets, base_global_time
+    )
+    actual_time_indices, actual_time_offsets, actual_data = parsed_mag_data_dict.values()
 
     assert actual_time_indices.dtype == np.uint64
     assert actual_time_offsets.dtype == np.uint16

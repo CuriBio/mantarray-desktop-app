@@ -87,7 +87,7 @@ from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from .constants import STIM_MODULE_ID_TO_WELL_IDX
 from .constants import STM_VID
-from .data_parsing_cy import sort_serial_packets
+from .data_parsing_cy import sort_serial_packets, parse_stim_data, parse_magetometer_data
 from .exceptions import FirmwareGoingDormantError
 from .exceptions import FirmwareUpdateCommandFailedError
 from .exceptions import FirmwareUpdateTimeoutError
@@ -179,7 +179,7 @@ def _get_firmware_update_dur_secs(command_time: float) -> float:
     return perf_counter() - command_time
 
 
-def _get_secs_since_last_data_parse(last_parse_time: float) -> float:
+def _get_secs_since_last_data_sort(last_parse_time: float) -> float:
     return perf_counter() - last_parse_time
 
 
@@ -191,7 +191,7 @@ def _get_dur_of_data_read_secs(start: float) -> float:
     return perf_counter() - start
 
 
-def _get_dur_of_data_parse_secs(start: float) -> float:
+def _get_dur_of_data_sort_secs(start: float) -> float:
     return perf_counter() - start
 
 
@@ -247,17 +247,12 @@ class McCommunicationProcess(InstrumentCommProcess):
         ] = None  # Tanner (11/17/21): This value will only be a float when from the moment the end of firmware packet is received to the moment the firmware update complete packet is received
         # data streaming values
         self._base_global_time_of_data_stream = 0
-        self._packet_len = (
-            SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
-            + SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
-            + (24 * SERIAL_COMM_NUM_SENSORS_PER_WELL * SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES)
-            + (24 * SERIAL_COMM_NUM_DATA_CHANNELS * SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES)
-        )
         self._sampling_period_us = DEFAULT_SAMPLING_PERIOD
         self._is_data_streaming = False
-        self._is_stopping_data_stream = False
         self._has_data_packet_been_sent = False
-        self._data_packet_cache = bytes(0)
+        self._serial_packet_cache = bytes(0)
+        self._mag_data_cache_dict: Dict[str, Union[bytearray, int]]
+        self._reset_mag_data_cache()
         # stimulation values
         self._wells_assigned_a_protocol: FrozenSet[int] = frozenset()
         self._wells_actively_stimulating: Set[int] = set()
@@ -326,7 +321,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             # log any data in cache, flush and log remaining serial data
             put_log_message_into_queue(
                 logging.INFO,
-                f"Remaining serial data in cache: {str(self._data_packet_cache)}, in buffer: {str(board.read_all())}",
+                f"Remaining serial data in cache: {str(self._serial_packet_cache)}, in buffer: {str(board.read_all())}",
                 self._board_queues[board_idx][1],
                 self.get_logging_level(),
             )
@@ -341,6 +336,9 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _report_fatal_error(self, the_err: Exception) -> None:
         self._error = the_err
         super()._report_fatal_error(the_err)
+
+    def _reset_mag_data_cache(self):
+        self._mag_data_cache_dict = {"raw_bytes": bytearray(0), "num_packets": 0}
 
     def _reset_stim_status_buffers(self) -> None:
         self._stim_status_buffers = {well_idx: [[], []] for well_idx in range(self._num_wells)}
@@ -493,12 +491,12 @@ class McCommunicationProcess(InstrumentCommProcess):
                 )
         elif communication_type == "acquisition_manager":
             if comm_from_main["command"] == "start_managed_acquisition":
+                self._reset_mag_data_cache()
                 self._timepoint_of_prev_data_parse_secs = None
                 self._timepoint_of_prev_data_read_secs = None
                 self._parses_since_last_logging = [0] * len(self._board_queues)
                 packet_type = SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
             elif comm_from_main["command"] == "stop_managed_acquisition":
-                self._is_stopping_data_stream = True
                 packet_type = SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
             elif comm_from_main["command"] == "set_sampling_period":
                 if self._is_data_streaming:
@@ -796,12 +794,11 @@ class McCommunicationProcess(InstrumentCommProcess):
                 if well_statuses:
                     self._dump_stim_packet(well_statuses)
             elif prev_command["command"] == "stop_managed_acquisition":
+                self._is_data_streaming = False
                 if response_data[0]:
                     if not self._hardware_test_mode:
                         raise InstrumentDataStreamingAlreadyStoppedError()
                     prev_command["hardware_test_message"] = "Data stream already stopped"  # pragma: no cover
-                self._is_stopping_data_stream = False
-                self._is_data_streaming = False
             elif prev_command["command"] == "start_stim_checks":
                 stimulator_circuit_statuses: List[Optional[str]] = [None] * self._num_wells
                 impedances = struct.unpack(f"<{self._num_wells}H", response_data)
@@ -962,8 +959,7 @@ class McCommunicationProcess(InstrumentCommProcess):
 
     def _handle_streams(self) -> None:
         board_idx = 0
-        board = self._board_connections[board_idx]
-        if board is None:
+        if not (board := self._board_connections[board_idx]):
             raise NotImplementedError("board should never be None here")
 
         performance_tracking_values: Dict[str, Any] = dict()
@@ -973,135 +969,150 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._timepoint_of_prev_data_read_secs
             )
         self._timepoint_of_prev_data_read_secs = perf_counter()
-
+        # read bytes from serial buffer
         data_read_bytes = board.read_all()
         performance_tracking_values["dur_of_data_read"] = _get_dur_of_data_read_secs(
             self._timepoint_of_prev_data_read_secs
         )
         performance_tracking_values["data_read_len"] = len(data_read_bytes)
 
-        self._data_packet_cache += data_read_bytes
-        # If stopping data stream, make sure at least 1 byte is available.
-        # Otherwise, wait for at least 1 second of data
-        return_cond = len(self._data_packet_cache) == 0
-        # if streaming data and not stopping yet, need to make sure at least one second of data is present
-        if self._is_data_streaming and not self._is_stopping_data_stream:
-            num_bytes_per_second = self._packet_len * int(1e6 // self._sampling_period_us)
-            return_cond |= len(self._data_packet_cache) < num_bytes_per_second
-        if return_cond:
-            return
-        # update performance tracking values
-        self._parses_since_last_logging[board_idx] += 1
+        # append all bytes to cache
+        self._serial_packet_cache += data_read_bytes
+        # return if not at least 1 complete packet available
+        if len(self._serial_packet_cache) < SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES:
+            return  # TODO unit test
 
         if self._timepoint_of_prev_data_parse_secs is not None:
-            performance_tracking_values["dur_since_prev_parse"] = _get_secs_since_last_data_parse(
+            performance_tracking_values["dur_since_prev_sort"] = _get_secs_since_last_data_sort(
                 self._timepoint_of_prev_data_parse_secs
             )
         self._timepoint_of_prev_data_parse_secs = perf_counter()
-
-        parsed_packet_dict = sort_serial_packets(  # TODO
-            bytearray(self._data_packet_cache), self._base_global_time_of_data_stream
-        )
-        performance_tracking_values["dur_of_data_parse"] = _get_dur_of_data_parse_secs(
+        # sort packets by into packet type groups: magnetometer data, stim status, other
+        sorted_packet_dict = sort_serial_packets(bytearray(self._serial_packet_cache))
+        performance_tracking_values["dur_of_data_sort"] = _get_dur_of_data_sort_secs(
             self._timepoint_of_prev_data_parse_secs
         )
 
-        self._data_packet_cache = parsed_packet_dict["unread_bytes"]
+        # update unsorted bytes
+        self._serial_packet_cache = sorted_packet_dict["unread_bytes"]
+
         # process any other packets
-        for other_packet_info in parsed_packet_dict["other_packet_info"]:
+        for other_packet_info in sorted_packet_dict["other_packet_info"]:
             self._process_comm_from_instrument(*other_packet_info[1:])
 
-        self._log_data_parse(parsed_packet_dict)
+        # self._log_data_parse(sorted_packet_dict)
 
-        # create dict and send to file writer if any packets were read
-        self._dump_data_packets(parsed_packet_dict["magnetometer_data"])
-        self._handle_stim_packets(parsed_packet_dict["stim_data"])
+        # create dict and send to file writer if any stream packets were found
+        self._handle_mag_data_packets(sorted_packet_dict["magnetometer_stream_info"])
+        self._handle_stim_packets(sorted_packet_dict["stim_stream_info"])
 
         # update performance tracking values if not stopping data stream
-        if not self._is_stopping_data_stream:
-            # TODO Tanner (10/22/21): add stim packet parsing to metrics once real stream is implemented, could also clean up the performance tracking
-            if "dur_since_prev_read" in performance_tracking_values:
-                self._durations_between_reading.append(performance_tracking_values["dur_since_prev_read"])
-            self._data_read_durations.append(performance_tracking_values["dur_of_data_read"])
-            self._data_read_lengths.append(performance_tracking_values["data_read_len"])
-            if "dur_since_prev_parse" in performance_tracking_values:
-                self._durations_between_parsing.append(performance_tracking_values["dur_since_prev_parse"])
-            self._data_parsing_durations.append(performance_tracking_values["dur_of_data_parse"])
-            self._data_parsing_num_packets_produced.append(
-                parsed_packet_dict["magnetometer_data"]["num_data_packets"]
-            )
-            # handle performance logging if ready
-            if self._parses_since_last_logging[board_idx] >= self._performance_logging_cycles:
-                self._handle_performance_logging()
-                self._parses_since_last_logging[board_idx] = 0
+        # if self._is_data_streaming:
+        #     # TODO fix this
+        #     self._parses_since_last_logging[board_idx] += 1
+        #     # TODO Tanner (10/22/21): add stim packet parsing to metrics once real stream is implemented, could also clean up the performance tracking
+        #     if "dur_since_prev_read" in performance_tracking_values:
+        #         self._durations_between_reading.append(performance_tracking_values["dur_since_prev_read"])
+        #     self._data_read_durations.append(performance_tracking_values["dur_of_data_read"])
+        #     self._data_read_lengths.append(performance_tracking_values["data_read_len"])
+        #     if "dur_since_prev_sort" in performance_tracking_values:
+        #         self._durations_between_parsing.append(performance_tracking_values["dur_since_prev_sort"])
+        #     self._data_parsing_durations.append(performance_tracking_values["dur_of_data_sort"])
+        #     self._data_parsing_num_packets_produced.append(
+        #         sorted_packet_dict["magnetometer_stream_info"]["num_packets"]
+        #     )
+        #     # handle performance logging if ready
+        #     if self._parses_since_last_logging[board_idx] >= self._performance_logging_cycles:
+        #         self._handle_performance_logging()
+        #         self._parses_since_last_logging[board_idx] = 0
 
-    def _log_data_parse(self, parsed_packet_dict: Dict[str, Any]) -> None:
-        if logging.DEBUG >= self.get_logging_level():  # pragma: no cover
-            parsed_data_info: Dict[str, Any] = {"magnetometer_data": None, "stim_data": None}
-            if num_mag_data_packets := parsed_packet_dict["magnetometer_data"]["num_data_packets"]:
-                parsed_data_info["magnetometer_data"] = {
-                    "num_data_packets": num_mag_data_packets,
-                    "is_first_packet_of_stream": not self._has_data_packet_been_sent,
-                }
-            if parsed_packet_dict["stim_data"]:
-                packet_will_be_discarded = not (self._is_data_streaming and not self._is_stopping_data_stream)
-                stream_info = (
-                    "packet_will_be_discarded"
-                    if packet_will_be_discarded
-                    else not self._has_stim_packet_been_sent
-                )
-                parsed_data_info["stim_data"] = {"is_first_packet_of_stream": stream_info}
-            parsed_data_info["other_packet_info"] = parsed_packet_dict["other_packet_info"]
-            put_log_message_into_queue(
-                logging.DEBUG,
-                f"Timestamp: {_get_formatted_utc_now()} Data parsing results: {parsed_data_info}",
-                self._board_queues[0][1],
-                self.get_logging_level(),
-            )
+    # def _log_data_parse(self, parsed_packet_dict: Dict[str, Any]) -> None:
+    #     if logging.DEBUG >= self.get_logging_level():  # pragma: no cover
+    #         parsed_data_info: Dict[str, Any] = {"magnetometer_data": None, "stim_data": None}
+    #         if num_mag_data_packets := parsed_packet_dict["magnetometer_data"]["num_data_packets"]:
+    #             parsed_data_info["magnetometer_data"] = {
+    #                 "num_data_packets": num_mag_data_packets,
+    #                 "is_first_packet_of_stream": not self._has_data_packet_been_sent,
+    #             }
+    #         if parsed_packet_dict["stim_data"]:
+    #             packet_will_be_discarded = not self._is_data_streaming
+    #             stream_info = (
+    #                 "packet_will_be_discarded"
+    #                 if packet_will_be_discarded
+    #                 else not self._has_stim_packet_been_sent
+    #             )
+    #             parsed_data_info["stim_data"] = {"is_first_packet_of_stream": stream_info}
+    #         parsed_data_info["other_packet_info"] = parsed_packet_dict["other_packet_info"]
+    #         put_log_message_into_queue(
+    #             logging.DEBUG,
+    #             f"Timestamp: {_get_formatted_utc_now()} Data parsing results: {parsed_data_info}",
+    #             self._board_queues[0][1],
+    #             self.get_logging_level(),
+    #         )
 
-    def _dump_data_packets(self, parsed_packet_dict: Dict[str, Any]) -> None:
-        # Tanner (10/15/21): if performance needs to be improved, consider converting some of this function to cython
-        (
-            time_indices,
-            time_offsets,
-            data,
-            num_data_packets_read,
-        ) = parsed_packet_dict.values()
-        # Tanner (5/25/21): it is possible 0 data packets are read when stopping data stream
-        if num_data_packets_read == 0:
+    # Tanner (10/15/21): if performance needs to be improved, consider converting some of this function to cython
+    def _handle_mag_data_packets(self, mag_stream_info: Dict[str, Union[bytes, int]]) -> None:
+        # don't update cache if not streaming or there are no packets to add
+        if not (self._is_data_streaming and mag_stream_info["num_packets"]):
             return
+        # update cache values
+        for key, value in mag_stream_info.items():
+            self._mag_data_cache_dict[key] += value
+
+        # don't parse and send to file writer unless there is at least 1 second worth of data
+        num_packets_per_second = int(1e6 // self._sampling_period_us)
+        if self._mag_data_cache_dict["num_packets"] < num_packets_per_second:
+            return
+
+        # TODO add performance metric tracking here
+        parsed_mag_data_dict = parse_magetometer_data(
+            *self._mag_data_cache_dict.values(), self._base_global_time_of_data_stream
+        )
+
+        time_indices, time_offsets, data = parsed_mag_data_dict.values()
 
         is_first_packet = not self._has_data_packet_been_sent
         data_start_idx = NUM_INITIAL_PACKETS_TO_DROP if is_first_packet else 0
-        data_slice = slice(data_start_idx, num_data_packets_read)
+        data_slice = slice(data_start_idx, self._mag_data_cache_dict["num_packets"])
 
         fw_item: Dict[Any, Any] = {
             "data_type": "magnetometer",
             "time_indices": time_indices[data_slice],
             "is_first_packet_of_stream": is_first_packet,
         }
+
         time_offset_idx = 0
         for module_id in range(1, self._num_wells + 1):
-            data_idx = (module_id - 1) * SERIAL_COMM_NUM_DATA_CHANNELS
             time_offset_slice = slice(time_offset_idx, time_offset_idx + SERIAL_COMM_NUM_SENSORS_PER_WELL)
             well_dict: Dict[Any, Any] = {"time_offsets": time_offsets[time_offset_slice, data_slice]}
             time_offset_idx += SERIAL_COMM_NUM_SENSORS_PER_WELL
+
+            data_idx = (module_id - 1) * SERIAL_COMM_NUM_DATA_CHANNELS
             for channel_idx in range(SERIAL_COMM_NUM_DATA_CHANNELS):
-                well_dict[channel_idx] = data[data_idx + channel_idx][data_slice]
+                well_dict[channel_idx] = data[data_idx + channel_idx, data_slice]
+
             well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
             fw_item[well_idx] = well_dict
+
         to_fw_queue = self._board_queues[0][2]
         to_fw_queue.put_nowait(fw_item)
-        self._has_data_packet_been_sent = True
 
-    def _handle_stim_packets(self, well_statuses: Dict[int, Any]) -> None:
+        self._has_data_packet_been_sent = True
+        # reset cache now that all mag data has been parsed
+        self._reset_mag_data_cache()
+
+    def _handle_stim_packets(self, stim_stream_info: Dict[str, Union[bytes, int]]) -> None:
+        # TODO
+        if not stim_stream_info["num_packets"]:
+            return
+
+        well_statuses: Dict[int, Any] = parse_stim_data()  # TODO
+
         for well_idx in range(self._num_wells):
             stim_statuses = well_statuses.get(well_idx, [[], []])
             for i in range(2):
                 self._stim_status_buffers[well_idx][i] = self._stim_status_buffers[well_idx][i][-1:]
                 self._stim_status_buffers[well_idx][i].extend(stim_statuses[i])
-        if not well_statuses:
-            return
         wells_done_stimulating = [
             well_idx
             for well_idx, status_updates_arr in well_statuses.items()
@@ -1118,7 +1129,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 }
             )
 
-        if self._is_data_streaming and not self._is_stopping_data_stream:
+        if self._is_data_streaming:
             for stim_status_updates in well_statuses.values():
                 stim_status_updates[0] -= self._base_global_time_of_data_stream
             self._dump_stim_packet(well_statuses)
