@@ -360,13 +360,9 @@ def test_McCommunicationProcess__processes_set_protocols_command(
         },
     }
     # send command to mc_process
-    expected_response = {
-        "communication_type": "stimulation",
-        "command": "set_protocols",
-        "stim_info": expected_stim_info,
-    }
+    expected_response = {"communication_type": "stimulation", "command": "set_protocols"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        copy.deepcopy(expected_response), input_queue
+        {**expected_response, "stim_info": expected_stim_info}, input_queue
     )
     # run mc_process to send command
     invoke_process_run_and_check_errors(mc_process)

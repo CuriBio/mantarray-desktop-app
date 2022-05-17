@@ -849,6 +849,8 @@ class McCommunicationProcess(InstrumentCommProcess):
                     if not self._hardware_test_mode:
                         raise StimulationProtocolUpdateFailedError()
                     prev_command["hardware_test_message"] = "Command failed"  # pragma: no cover
+                # delete stim info so it is not logged again
+                del prev_command["stim_info"]
             elif prev_command["command"] == "start_stimulation":
                 # Tanner (10/25/21): if needed, can save _base_global_time_of_data_stream here
                 if response_data[0]:
