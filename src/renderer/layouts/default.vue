@@ -157,12 +157,13 @@ import { VBPopover, VBToggle, BCollapse } from "bootstrap-vue";
 // Note: Vue automatically prefixes the directive name with 'v-'
 Vue.directive("b-popover", VBPopover);
 Vue.directive("b-toggle", VBToggle);
-// const pkginfo = require('pkginfo')(module, 'version');
 const dummy_electron_app = {
   getVersion() {
     return "0.0.0";
   },
 };
+
+// TODO remove this so remote is not exposed in renderer
 const electron_app = process.env.NODE_ENV === "test" ? dummy_electron_app : require("electron").remote.app;
 
 export default {
