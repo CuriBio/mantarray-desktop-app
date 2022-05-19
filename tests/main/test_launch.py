@@ -473,7 +473,7 @@ def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_e
             "Spawning subprocesses",
             "Starting process monitor thread",
             "Starting Flask SocketIO",
-            "Server shut down, about to stop processes",
+            "Socketio shut down",
             "Process monitor shut down",
             "Program exiting",
         ]

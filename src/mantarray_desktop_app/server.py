@@ -1246,18 +1246,13 @@ class ServerManager:
 
     def shutdown_server(self) -> None:
         """Shutdown the Flask/SocketIO server."""
+        logger.info("Calling /stop_server")
         try:
-            requests.get(f"{get_api_endpoint()}stop_server")
-        except requests.exceptions.ConnectionError:
-            message = "Server is shutdown"
+            r = requests.get(f"{get_api_endpoint()}stop_server")
+        except requests.exceptions.ConnectionError as e:
+            logger.info(f"Server successfully shutting down: {repr(e)}")
         else:
-            raise NotImplementedError("Not sure why this happened, nothing should return from /stop_server")
-        put_log_message_into_queue(
-            logging.INFO,
-            message,
-            self._to_main_queue,
-            self.get_logging_level(),
-        )
+            logger.error(f"Unknown issue, /stop_server returned a response: {r.json()}")
         clear_the_server_manager()
 
     def drain_all_queues(self) -> Dict[str, Any]:

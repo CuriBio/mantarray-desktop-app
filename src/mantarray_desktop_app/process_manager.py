@@ -258,16 +258,14 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         start = perf_counter()
         if self._all_processes is None:
             raise NotImplementedError("Processes must be created first.")
-        processes = self._all_processes.values()
 
-        are_stopped = all(p.is_stopped() for p in processes)
-        while not are_stopped:
+        processes = self._all_processes.values()
+        while not (are_stopped := all(p.is_stopped() for p in processes)):
             if sleep_between_checks:
                 sleep(SUBPROCESS_POLL_DELAY_SECONDS)
             elapsed_time = perf_counter() - start
             if elapsed_time >= timeout_seconds:
                 break
-            are_stopped = all(p.is_stopped() for p in processes)
         return are_stopped
 
     def are_subprocess_start_ups_complete(self) -> bool:

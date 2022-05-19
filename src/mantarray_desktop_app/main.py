@@ -329,12 +329,13 @@ def main(
     object_access_for_testing["process_monitor"] = process_monitor_thread
     logger.info("Starting process monitor thread")
     process_monitor_thread.start()
-    logger.info("Starting Flask SocketIO")
-    _, host, _ = get_server_address_components()
-
-    data_queue_to_server = process_manager.queue_container().get_data_queue_to_server()
 
     if start_flask:
+        logger.info("Starting Flask SocketIO")
+        _, host, _ = get_server_address_components()
+
+        data_queue_to_server = process_manager.queue_container().get_data_queue_to_server()
+
         object_access_for_testing["data_sender"] = _set_up_socketio_handlers(data_queue_to_server)
 
         socketio.run(
@@ -346,7 +347,7 @@ def main(
             log_format='%(client_ip)s - - "%(request_line)s" %(status_code)s %(body_length)s - %(wall_seconds).6f',
         )
 
-    logger.info("Server shut down, about to stop processes")
+    logger.info("Socketio shut down")
     process_monitor_thread.soft_stop()
     process_monitor_thread.join()
     logger.info("Process monitor shut down")
