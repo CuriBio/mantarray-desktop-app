@@ -15,12 +15,12 @@
             :class="data_acquisition_dynamic_class"
           >
             Data Acquisition
+            <div
+              class="div__arrow"
+              :class="{ expanded: data_acquisition_visibility }"
+              :style="data_acquisition_hover ? 'border-top: 6px solid #000' : null"
+            />
           </div>
-          <div
-            class="div__arrow"
-            :class="{ expanded: data_acquisition_visibility }"
-            :style="data_acquisition_hover ? 'border-top: 6px solid #000' : null"
-          />
         </div>
         <b-collapse id="data-acquisition-card" visible accordion="controls-accordion" role="tabpanel">
           <div class="div__plate-barcode-container">
@@ -67,12 +67,12 @@
         >
           <div v-b-toggle.stim-studio-card class="div__accordian-tabs" :class="stim_studio_dynamic_class">
             Stimulation Studio
+            <div
+              class="div__arrow"
+              :class="{ expanded: stim_studio_visibility }"
+              :style="stim_studio_hover ? 'border-top: 6px solid #000' : null"
+            />
           </div>
-          <div
-            class="div__arrow"
-            :class="{ expanded: stim_studio_visibility }"
-            :style="stim_studio_hover ? 'border-top: 6px solid #000' : null"
-          />
         </div>
         <b-collapse id="stim-studio-card" accordion="controls-accordion" role="tabpanel">
           <div class="div__stim-barcode-container">
@@ -105,12 +105,12 @@
         >
           <div v-b-toggle.data-analysis-card class="div__accordian-tabs" :class="data_analysis_dynamic_class">
             Data Analysis
+            <div
+              class="div__arrow"
+              :class="{ expanded: data_analysis_visibility }"
+              :style="data_analysis_hover ? 'border-top: 6px solid #000' : null"
+            />
           </div>
-          <div
-            class="div__arrow"
-            :class="{ expanded: data_analysis_visibility }"
-            :style="data_analysis_hover ? 'border-top: 6px solid #000' : null"
-          />
         </div>
         <b-collapse id="data-analysis-card" accordion="controls-accordion" role="tabpanel">
           <DataAnalysisControl @send_confirmation="send_confirmation" />
@@ -344,8 +344,8 @@ body {
 /* NON-SPECIFIC */
 .div__arrow {
   position: relative;
-  top: -21px;
-  left: 260px;
+  top: -13px;
+  left: 245px;
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
   border-top: 6px solid #b7b7b7c9;
