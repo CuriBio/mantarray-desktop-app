@@ -10,6 +10,7 @@ import json
 import logging
 import multiprocessing
 from os import getpid
+import os
 import platform
 import queue
 from queue import Queue
@@ -21,6 +22,7 @@ from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
+import uuid
 
 from eventlet.queue import Empty
 from eventlet.queue import LightQueue
@@ -124,7 +126,6 @@ def main(
     command_line_args: List[str],
     object_access_for_testing: Optional[Dict[str, Any]] = None,
 ) -> None:
-    # pylint: disable=too-many-locals,too-many-statements  # Tanner (6/17/21): long start up script needed
     """Parse command line arguments and run."""
     if object_access_for_testing is None:
         object_access_for_testing = dict()
@@ -230,24 +231,26 @@ def main(
 
     parsed_args_dict["log_file_dir"] = scrubbed_path_to_log_folder
     # Tanner (1/14/21): Unsure why the back slashes are duplicated when converting the dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
-    msg = f"Command Line Args: {parsed_args_dict}".replace(r"\\", "\\")
-    logger.info(msg)
-    msg = f"Using directory for log files: {scrubbed_path_to_log_folder}"
-    logger.info(msg)
+    logger.info(f"Command Line Args: {parsed_args_dict}".replace(r"\\", "\\"))
+    logger.info(f"Using directory for log files: {scrubbed_path_to_log_folder}")
 
     multiprocessing_start_method = multiprocessing.get_start_method(allow_none=True)
     if multiprocessing_start_method != "spawn":
         raise MultiprocessingNotSetToSpawnError(multiprocessing_start_method)
 
     shared_values_dict: Dict[str, Any] = dict()
-    settings_dict: Dict[str, Any] = dict()
 
-    if not parsed_args.initial_base64_settings:
-        raise NotImplementedError("initial_base64_settings must be specified in cmd line args")
+    if parsed_args.initial_base64_settings:
+        # Eli (7/15/20): Moved this ahead of the exit for debug_test_post_build so that it could be easily unit tested. The equals signs are adding padding..apparently a quirk in python https://stackoverflow.com/questions/2941995/python-ignore-incorrect-padding-error-when-base64-decoding
+        decoded_settings: bytes = base64.urlsafe_b64decode(str(parsed_args.initial_base64_settings) + "===")
+        settings_dict = json.loads(decoded_settings)
+    else:  # pragma: no cover
+        settings_dict = {
+            "recording_directory": os.getcwd(),
+            "mag_analysis_output_dir": os.getcwd(),
+            "log_file_id": uuid.uuid4(),
+        }
 
-    # Eli (7/15/20): Moved this ahead of the exit for debug_test_post_build so that it could be easily unit tested. The equals signs are adding padding..apparently a quirk in python https://stackoverflow.com/questions/2941995/python-ignore-incorrect-padding-error-when-base64-decoding
-    decoded_settings: bytes = base64.urlsafe_b64decode(str(parsed_args.initial_base64_settings) + "===")
-    settings_dict = json.loads(decoded_settings)
     shared_values_dict["config_settings"] = {
         "recording_directory": settings_dict["recording_directory"],
         "log_directory": path_to_log_folder,
@@ -314,8 +317,10 @@ def main(
     boot_up_after_processes_start = not parsed_args.skip_mantarray_boot_up and not parsed_args.beta_2_mode
     load_firmware_file = not parsed_args.no_load_firmware and not parsed_args.beta_2_mode
 
-    the_lock = threading.Lock()
-    process_monitor_error_queue: Queue[str] = queue.Queue()  # pylint: disable=unsubscriptable-object
+    the_lock = (
+        threading.Lock()
+    )  # could probably remove this, it's not used by anything except process monitor
+    process_monitor_error_queue: Queue[str] = queue.Queue()
 
     process_monitor_thread = MantarrayProcessesMonitor(
         shared_values_dict,
@@ -351,5 +356,4 @@ def main(
     process_monitor_thread.soft_stop()
     process_monitor_thread.join()
     logger.info("Process monitor shut down")
-    upload_log_files_to_s3(shared_values_dict["config_settings"])
     logger.info("Program exiting")

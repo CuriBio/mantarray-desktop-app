@@ -60,7 +60,7 @@ from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
 from .process_manager import MantarrayProcessesManager
 from .server import ServerManager
-from .utils import _compare_semver
+from .utils import _compare_semver, upload_log_files_to_s3
 from .utils import _create_start_recording_command
 from .utils import _trim_barcode
 from .utils import get_redacted_string
@@ -200,6 +200,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             command = communication["command"]
             if command == "hard_stop":
                 self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=False, error=False)
+                upload_log_files_to_s3(self._values_to_share_to_server["config_settings"])
             elif command == "shutdown_server":
                 self._process_manager.shutdown_server()
             else:

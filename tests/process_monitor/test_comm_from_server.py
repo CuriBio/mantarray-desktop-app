@@ -699,14 +699,46 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     assert expected_da_item in actual_log_message
 
 
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop_by__uploading_files_after_hard_stopping_and_joining_subprocesses(
+    test_process_manager_creator, test_monitor, patch_subprocess_joins, mocker
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+
+    shared_values_dict["config_settings"] = {"config": "settings"}
+
+    mocked_hard_stop_and_join = mocker.patch.object(
+        monitor_thread, "_hard_stop_and_join_processes_and_log_leftovers", autospec=True
+    )
+
+    def se(*args):
+        mocked_hard_stop_and_join.assert_called_once()
+
+    mocked_upload = mocker.patch.object(
+        process_monitor, "upload_log_files_to_s3", autospec=True, side_effect=se
+    )
+
+    communication = {"communication_type": "shutdown", "command": "hard_stop"}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
+
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    mocked_upload.assert_called_once_with(shared_values_dict["config_settings"])
+
+
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_server_by_stopping_server(
     test_process_manager_creator, test_monitor, patch_subprocess_joins, mocker
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, *_ = test_monitor(test_process_manager)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
     )
+
+    shared_values_dict["config_settings"] = {}
 
     server_manager = test_process_manager.get_server_manager()
     expected_server_item = "server item"
@@ -723,9 +755,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     invoke_process_run_and_check_errors(monitor_thread)
     spied_shutdown_server.assert_called_once()
-    # confirm log message is present and remove
-    confirm_queue_is_eventually_of_size(server_to_main_queue, 1)
-    server_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
 
 def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_mantarray_nickname(

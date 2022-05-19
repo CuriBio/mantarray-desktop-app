@@ -155,9 +155,6 @@ def stimulation_running_status_eventually_equals(expected_status: bool, timeout:
 def test_send_xem_scripts_command__gets_processed_in_fully_running_app(
     fully_running_app_from_main_entrypoint, patched_xem_scripts_folder, mocker
 ):
-    # mock this so test doesn't actually try to hit cloud API
-    mocker.patch.object(main, "upload_log_files_to_s3", autospec=True)
-
     test_dict = {
         "recording_directory": ".",  # Tanner (5/2/22): no files created in this test, so this is ok
         "mag_analysis_output_dir": ".",
@@ -223,7 +220,6 @@ def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_li
 
     # mock this so test doesn't actually try to hit cloud API
     mocker.patch.object(server, "validate_user_credentials", autospec=True)
-    mocker.patch.object(main, "upload_log_files_to_s3", autospec=True)
 
     # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -327,9 +323,6 @@ def test_managed_acquisition_can_be_stopped_and_restarted_with_simulator(
     test_socketio_client,
     mocker,
 ):
-    # mock this so test doesn't actually try to hit cloud API
-    mocker.patch.object(main, "upload_log_files_to_s3", autospec=True)
-
     test_dict = {
         "recording_directory": ".",  # Tanner (5/2/22): no files created in this test, so this is ok
         "mag_analysis_output_dir": ".",
@@ -421,7 +414,6 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
 
     # mock this so test doesn't actually try to hit cloud API
     mocker.patch.object(server, "validate_user_credentials", autospec=True)
-    mocker.patch.object(main, "upload_log_files_to_s3", autospec=True)
 
     # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -686,7 +678,6 @@ def test_full_datapath_in_beta_1_mode(
 ):
     # mock this so test doesn't actually try to hit cloud API
     mocker.patch.object(server, "validate_user_credentials", autospec=True)
-    mocker.patch.object(main, "upload_log_files_to_s3", autospec=True)
 
     test_dict = {
         "recording_directory": ".",  # Tanner (5/2/22): no files created in this test, so this is ok
@@ -800,7 +791,6 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
 ):
     # mock this so test doesn't actually try to hit cloud API
     mocker.patch.object(server, "validate_user_credentials", autospec=True)
-    mocker.patch.object(main, "upload_log_files_to_s3", autospec=True)
 
     spied_logger = mocker.spy(main.logger, "info")
     # Tanner (12/29/20): Not making assertions on files, but still need a TemporaryDirectory to hold them
@@ -917,7 +907,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
 
     # mock this so test doesn't actually try to hit cloud API
     mocker.patch.object(server, "validate_user_credentials", autospec=True)
-    mocker.patch.object(main, "upload_log_files_to_s3", autospec=True)
 
     test_protocol_assignments = {
         GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): (
