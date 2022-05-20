@@ -181,7 +181,7 @@ def test_upload_log_files_to_s3__successful_upload(mocker):
 
     assert spied_info.call_args_list == [
         mocker.call("Attempting upload of log files to s3"),
-        mocker.call("Successfully uploaded session logs to s3 at shutdown"),
+        mocker.call("Successfully uploaded session logs to s3"),
     ]
     spied_error.assert_not_called()
 

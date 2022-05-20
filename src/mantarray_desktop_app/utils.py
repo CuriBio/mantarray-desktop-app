@@ -360,7 +360,7 @@ def upload_log_files_to_s3(config_settings: Dict[str, str]) -> None:
         except Exception as e:
             logger.error(f"Failed to upload log files to s3: {repr(e)}")
         else:
-            logger.info("Successfully uploaded session logs to s3 at shutdown")
+            logger.info("Successfully uploaded session logs to s3")
 
 
 def _compare_semver(version_a: str, version_b: str) -> bool:
