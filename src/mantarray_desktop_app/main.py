@@ -342,6 +342,9 @@ def main(
 
         object_access_for_testing["data_sender"] = _set_up_socketio_handlers(data_queue_to_server)
 
+        # Tanner (5/20/22): This is currently having issues with exiting on Windows.
+        # It likely has something to do with keeping the HTTP connections alive and/or the sockets open.
+        # It won't close until the parent electron process kills it, so it's likely that no lines of code after this will run.
         socketio.run(
             flask_app,
             host=host,
