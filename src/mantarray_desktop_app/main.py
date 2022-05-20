@@ -209,7 +209,7 @@ def main(
 
     if parsed_args.log_level_debug:
         log_level = logging.DEBUG
-    path_to_log_folder = parsed_args.log_file_dir or os.path.join(os.getcwd(), "logs")
+    path_to_log_folder = parsed_args.log_file_dir
     logging_formatter = SensitiveFormatter(
         "[%(asctime)s UTC] %(name)s-{%(filename)s:%(lineno)d} %(levelname)s - %(message)s"
     )

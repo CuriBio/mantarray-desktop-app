@@ -95,15 +95,19 @@ def test_validate_checksum__returns_false_when_checksum_is_incorrect():
 
 
 def test_parse_metadata_bytes__returns_expected_value():
+    test_status_codes = list(range(SERIAL_COMM_STATUS_CODE_LENGTH_BYTES))
     metadata_bytes = (
         bytes([0b10101010])  # boot flags
         + bytes("マンタレ1", encoding="utf-8")  # nickname
         + bytes(MantarrayMcSimulator.default_mantarray_serial_number, encoding="ascii")
         + bytes([0, 1, 2])  # main FW version
         + bytes([255, 255, 255])  # channel FW version
-        + bytes([1, 2, 3, 4])
-        + bytes(28)
+        + bytes(test_status_codes)
     )
+
+    metadata_bytes += bytes(SERIAL_COMM_METADATA_BYTES_LENGTH - len(metadata_bytes))
+
+    # confirm precondition
     assert len(metadata_bytes) == SERIAL_COMM_METADATA_BYTES_LENGTH
 
     assert parse_metadata_bytes(metadata_bytes) == {
@@ -112,7 +116,7 @@ def test_parse_metadata_bytes__returns_expected_value():
         MANTARRAY_NICKNAME_UUID: "マンタレ1",
         MAIN_FIRMWARE_VERSION_UUID: "0.1.2",
         CHANNEL_FIRMWARE_VERSION_UUID: "255.255.255",
-        "status_codes_prior_to_reboot": convert_status_code_bytes_to_dict(bytes([1, 2, 3, 4])),
+        "status_codes_prior_to_reboot": convert_status_code_bytes_to_dict(bytes(test_status_codes)),
     }
 
 
