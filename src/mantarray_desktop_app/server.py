@@ -59,7 +59,6 @@ import requests
 from semver import VersionInfo
 from stdlib_utils import drain_queue
 from stdlib_utils import is_port_in_use
-from stdlib_utils import put_log_message_into_queue
 
 from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE

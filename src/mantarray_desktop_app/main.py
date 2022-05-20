@@ -9,8 +9,8 @@ import hashlib
 import json
 import logging
 import multiprocessing
-from os import getpid
 import os
+from os import getpid
 import platform
 import queue
 from queue import Queue
@@ -47,7 +47,6 @@ from .server import get_the_server_manager
 from .server import ServerManagerNotInitializedError
 from .server import socketio
 from .utils import redact_sensitive_info_from_path
-from .utils import upload_log_files_to_s3
 
 
 logger = logging.getLogger(__name__)

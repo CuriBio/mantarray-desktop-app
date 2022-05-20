@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from queue import Queue
 import threading
-import requests
 
 from immutabledict import immutabledict
 from mantarray_desktop_app import clear_server_singletons
@@ -14,7 +13,7 @@ from mantarray_desktop_app import ServerManagerNotInitializedError
 from mantarray_desktop_app import ServerManagerSingletonAlreadySetError
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 import pytest
-from stdlib_utils import confirm_port_available
+import requests
 
 from ..fixtures import fixture_generic_queue_container
 from ..fixtures import fixture_patch_print
@@ -23,7 +22,6 @@ from ..fixtures_server import clear_the_server_manager
 from ..fixtures_server import fixture_server_manager
 from ..fixtures_server import fixture_test_client
 from ..helpers import confirm_queue_is_eventually_of_size
-from ..helpers import is_queue_eventually_of_size
 
 __fixtures__ = [
     fixture_patch_print,

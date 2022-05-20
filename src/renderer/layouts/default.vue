@@ -157,14 +157,6 @@ import { VBPopover, VBToggle, BCollapse } from "bootstrap-vue";
 // Note: Vue automatically prefixes the directive name with 'v-'
 Vue.directive("b-popover", VBPopover);
 Vue.directive("b-toggle", VBToggle);
-const dummy_electron_app = {
-  getVersion() {
-    return "0.0.0";
-  },
-};
-
-// TODO remove this so remote is not exposed in renderer
-const electron_app = process.env.NODE_ENV === "test" ? dummy_electron_app : require("electron").remote.app;
 
 export default {
   components: {
@@ -181,9 +173,8 @@ export default {
   },
   data: function () {
     return {
-      // package_version: module.exports.version,
-      package_version: electron_app.getVersion(), // Eli (7/13/20): This only displays the application version when running from a built application---otherwise it displays the version of Electron that is installed
-      current_year: "2022",
+      package_version: "",
+      current_year: "2022", // TODO look into better ways of handling this. Not sure if just using the system's current year is the best approach
       beta_2_mode: process.env.SPECTRON || undefined,
       log_dir_name: undefined,
       data_acquisition_visibility: true,
@@ -238,6 +229,14 @@ export default {
 
     if (this.log_dir_name === undefined) {
       ipcRenderer.send("logs_flask_dir_request");
+    }
+
+    ipcRenderer.on("sw_version_response", (_, package_version) => {
+      this.package_version = package_version;
+    });
+
+    if (this.package_version === "") {
+      ipcRenderer.send("sw_version_request");
     }
 
     // init store values needed in pages here since this side bar is only created once

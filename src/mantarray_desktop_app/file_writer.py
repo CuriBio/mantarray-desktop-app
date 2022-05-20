@@ -430,7 +430,6 @@ class FileWriterProcess(InfiniteProcess):
         self._check_upload_statuses()
 
         if self._is_recording:
-            # TODO unit test
             self._iterations_since_last_logging += 1
             if self._iterations_since_last_logging >= self._iterations_per_logging_cycle:
                 self._handle_performance_logging()

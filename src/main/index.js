@@ -157,6 +157,10 @@ ipcMain.on("set_sw_update_auto_install", (e, enable_auto_install) => {
   autoUpdater.autoInstallOnAppQuit = enable_auto_install;
 });
 
+ipcMain.once("sw_version_request", (event) => {
+  event.reply("sw_version_response", get_current_app_version());
+});
+
 const post_latest_software_version = (version) => {
   if (!store.get("beta_2_mode")) {
     return; // cannot call this route in beta 1 mode
