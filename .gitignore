@@ -71,7 +71,10 @@ docs/build
 
 secrets.json
 
+# auto generated folders
 logs/
+recordings/
+analysis/
 
 
 # Spectron screenshots
@@ -84,6 +87,3 @@ logs/
 .windows_codebuild_cache/
 # config settings
 config/
-
-# recordings
-recordings/

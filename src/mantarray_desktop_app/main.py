@@ -129,6 +129,7 @@ def main(
     if object_access_for_testing is None:
         object_access_for_testing = dict()
 
+    # Tanner (5/20/22): not sure if this is actually logging anything since logging isn't configured yet
     logger.info(command_line_args)
 
     log_level = logging.INFO
@@ -208,7 +209,7 @@ def main(
 
     if parsed_args.log_level_debug:
         log_level = logging.DEBUG
-    path_to_log_folder = parsed_args.log_file_dir
+    path_to_log_folder = parsed_args.log_file_dir or os.path.join(os.getcwd(), "logs")
     logging_formatter = SensitiveFormatter(
         "[%(asctime)s UTC] %(name)s-{%(filename)s:%(lineno)d} %(levelname)s - %(message)s"
     )
@@ -245,8 +246,8 @@ def main(
         settings_dict = json.loads(decoded_settings)
     else:  # pragma: no cover
         settings_dict = {
-            "recording_directory": os.getcwd(),
-            "mag_analysis_output_dir": os.getcwd(),
+            "recording_directory": os.path.join(os.getcwd(), "recordings"),
+            "mag_analysis_output_dir": os.path.join(os.getcwd(), "analysis"),
             "log_file_id": uuid.uuid4(),
         }
 
