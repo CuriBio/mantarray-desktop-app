@@ -62,11 +62,9 @@ from .constants import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
 from .constants import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from .constants import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
-from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
 from .constants import GOING_DORMANT_HANDSHAKE_TIMEOUT_CODE
 from .constants import INSTALLING_UPDATES_STATE
-from .constants import INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import INSTRUMENT_INITIALIZING_STATE
 from .constants import LIVE_VIEW_ACTIVE_STATE
 from .constants import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
@@ -83,6 +81,7 @@ from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
 from .constants import NO_PLATE_DETECTED_UUID
 from .constants import NUM_INITIAL_PACKETS_TO_DROP
+from .constants import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import OUTGOING_DATA_BUFFER_SIZE
 from .constants import RAW_TO_SIGNED_CONVERSION_VALUE
 from .constants import RECORDING_STATE
@@ -177,12 +176,14 @@ from .constants import VALID_CONFIG_SETTINGS
 from .constants import VALID_SCRIPTING_COMMANDS
 from .constants import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 from .data_analyzer import DataAnalyzerProcess
-from .data_parsing_cy import handle_data_packets
 from .data_parsing_cy import parse_adc_metadata_byte
 from .data_parsing_cy import parse_little_endian_int24
+from .data_parsing_cy import parse_magnetometer_data
 from .data_parsing_cy import parse_sensor_bytes
+from .data_parsing_cy import parse_stim_data
 from .data_parsing_cy import SERIAL_COMM_MAGIC_WORD_LENGTH_BYTES_CY
 from .data_parsing_cy import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_CY
+from .data_parsing_cy import sort_serial_packets
 from .exceptions import AttemptToAddCyclesWhileSPIRunningError
 from .exceptions import AttemptToInitializeFIFOReadsError
 from .exceptions import BarcodeNotClearedError
@@ -283,7 +284,6 @@ from .serial_comm_utils import convert_module_id_to_well_name
 from .serial_comm_utils import convert_status_code_bytes_to_dict
 from .serial_comm_utils import convert_stim_dict_to_bytes
 from .serial_comm_utils import convert_subprotocol_dict_to_bytes
-from .serial_comm_utils import convert_to_status_code_bytes
 from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import convert_well_name_to_module_id
 from .serial_comm_utils import create_data_packet
@@ -371,7 +371,7 @@ __all__ = [
     "DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS",
     "FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE",
     "RAW_TO_SIGNED_CONVERSION_VALUE",
-    "INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES",
+    "OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES",
     "SYSTEM_STATUS_UUIDS",
     "DEFAULT_USER_CONFIG",
     "firmware_manager",
@@ -401,7 +401,6 @@ __all__ = [
     "ADC_CH_TO_IS_REF_SENSOR",
     "UnrecognizedMantarrayNamingCommandError",
     "check_mantarray_serial_number",
-    "FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES",
     "FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS",
     "OUTGOING_DATA_BUFFER_SIZE",
     "get_latest_firmware_name",
@@ -511,7 +510,6 @@ __all__ = [
     "SERIAL_COMM_GOING_DORMANT_PACKET_TYPE",
     "SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS",
     "SerialCommHandshakeTimeoutError",
-    "convert_to_status_code_bytes",
     "convert_status_code_bytes_to_dict",
     "convert_to_timestamp_bytes",
     "get_serial_comm_timestamp",
@@ -531,7 +529,9 @@ __all__ = [
     "SERIAL_COMM_PLATE_EVENT_PACKET_TYPE",
     "SERIAL_COMM_NUM_DATA_CHANNELS",
     "SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE",
-    "handle_data_packets",
+    "sort_serial_packets",
+    "parse_magnetometer_data",
+    "parse_stim_data",
     "SamplingPeriodUpdateWhileDataStreamingError",
     "CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION",
     "get_time_index_dataset_from_file",

@@ -4,13 +4,11 @@ from multiprocessing import Queue
 from random import randint
 
 from immutabledict import immutabledict
-from mantarray_desktop_app import convert_to_status_code_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
-from mantarray_desktop_app import SERIAL_COMM_OKAY_CODE
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_START_DATA_STREAMING_PACKET_TYPE
@@ -419,11 +417,8 @@ def test_MantarrayMcSimulator__allows_status_code_to_be_set_through_testing_queu
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
-    expected_status_code = SERIAL_COMM_OKAY_CODE
-    test_command = {
-        "command": "set_status_code",
-        "status_code": expected_status_code,
-    }
+    expected_status_codes = list(range(2 + simulator._num_wells))
+    test_command = {"command": "set_status_code", "status_codes": expected_status_codes}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, testing_queue)
     invoke_process_run_and_check_errors(simulator)
 
@@ -434,7 +429,7 @@ def test_MantarrayMcSimulator__allows_status_code_to_be_set_through_testing_queu
     status_code_end = len(handshake_response) - SERIAL_COMM_CHECKSUM_LENGTH_BYTES
     status_code_start = status_code_end - SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
     actual_status_code_bytes = handshake_response[status_code_start:status_code_end]
-    assert actual_status_code_bytes == convert_to_status_code_bytes(expected_status_code)
+    assert actual_status_code_bytes == bytes(expected_status_codes)
 
 
 def test_MantarrayMcSimulator__processes_testing_commands_during_reboot(

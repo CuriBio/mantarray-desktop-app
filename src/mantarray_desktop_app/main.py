@@ -9,6 +9,7 @@ import hashlib
 import json
 import logging
 import multiprocessing
+import os
 from os import getpid
 import platform
 import queue
@@ -21,6 +22,7 @@ from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
+import uuid
 
 from eventlet.queue import Empty
 from eventlet.queue import LightQueue
@@ -45,7 +47,6 @@ from .server import get_the_server_manager
 from .server import ServerManagerNotInitializedError
 from .server import socketio
 from .utils import redact_sensitive_info_from_path
-from .utils import upload_log_files_to_s3
 
 
 logger = logging.getLogger(__name__)
@@ -124,11 +125,11 @@ def main(
     command_line_args: List[str],
     object_access_for_testing: Optional[Dict[str, Any]] = None,
 ) -> None:
-    # pylint: disable=too-many-locals,too-many-statements  # Tanner (6/17/21): long start up script needed
     """Parse command line arguments and run."""
     if object_access_for_testing is None:
         object_access_for_testing = dict()
 
+    # Tanner (5/20/22): not sure if this is actually logging anything since logging isn't configured yet
     logger.info(command_line_args)
 
     log_level = logging.INFO
@@ -230,24 +231,26 @@ def main(
 
     parsed_args_dict["log_file_dir"] = scrubbed_path_to_log_folder
     # Tanner (1/14/21): Unsure why the back slashes are duplicated when converting the dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
-    msg = f"Command Line Args: {parsed_args_dict}".replace(r"\\", "\\")
-    logger.info(msg)
-    msg = f"Using directory for log files: {scrubbed_path_to_log_folder}"
-    logger.info(msg)
+    logger.info(f"Command Line Args: {parsed_args_dict}".replace(r"\\", "\\"))
+    logger.info(f"Using directory for log files: {scrubbed_path_to_log_folder}")
 
     multiprocessing_start_method = multiprocessing.get_start_method(allow_none=True)
     if multiprocessing_start_method != "spawn":
         raise MultiprocessingNotSetToSpawnError(multiprocessing_start_method)
 
     shared_values_dict: Dict[str, Any] = dict()
-    settings_dict: Dict[str, Any] = dict()
 
-    if not parsed_args.initial_base64_settings:
-        raise NotImplementedError("initial_base64_settings must be specified in cmd line args")
+    if parsed_args.initial_base64_settings:
+        # Eli (7/15/20): Moved this ahead of the exit for debug_test_post_build so that it could be easily unit tested. The equals signs are adding padding..apparently a quirk in python https://stackoverflow.com/questions/2941995/python-ignore-incorrect-padding-error-when-base64-decoding
+        decoded_settings: bytes = base64.urlsafe_b64decode(str(parsed_args.initial_base64_settings) + "===")
+        settings_dict = json.loads(decoded_settings)
+    else:  # pragma: no cover
+        settings_dict = {
+            "recording_directory": os.path.join(os.getcwd(), "recordings"),
+            "mag_analysis_output_dir": os.path.join(os.getcwd(), "analysis"),
+            "log_file_id": uuid.uuid4(),
+        }
 
-    # Eli (7/15/20): Moved this ahead of the exit for debug_test_post_build so that it could be easily unit tested. The equals signs are adding padding..apparently a quirk in python https://stackoverflow.com/questions/2941995/python-ignore-incorrect-padding-error-when-base64-decoding
-    decoded_settings: bytes = base64.urlsafe_b64decode(str(parsed_args.initial_base64_settings) + "===")
-    settings_dict = json.loads(decoded_settings)
     shared_values_dict["config_settings"] = {
         "recording_directory": settings_dict["recording_directory"],
         "log_directory": path_to_log_folder,
@@ -314,8 +317,10 @@ def main(
     boot_up_after_processes_start = not parsed_args.skip_mantarray_boot_up and not parsed_args.beta_2_mode
     load_firmware_file = not parsed_args.no_load_firmware and not parsed_args.beta_2_mode
 
-    the_lock = threading.Lock()
-    process_monitor_error_queue: Queue[str] = queue.Queue()  # pylint: disable=unsubscriptable-object
+    the_lock = (
+        threading.Lock()
+    )  # could probably remove this, it's not used by anything except process monitor
+    process_monitor_error_queue: Queue[str] = queue.Queue()
 
     process_monitor_thread = MantarrayProcessesMonitor(
         shared_values_dict,
@@ -329,14 +334,18 @@ def main(
     object_access_for_testing["process_monitor"] = process_monitor_thread
     logger.info("Starting process monitor thread")
     process_monitor_thread.start()
-    logger.info("Starting Flask SocketIO")
-    _, host, _ = get_server_address_components()
-
-    data_queue_to_server = process_manager.queue_container().get_data_queue_to_server()
 
     if start_flask:
+        logger.info("Starting Flask SocketIO")
+        _, host, _ = get_server_address_components()
+
+        data_queue_to_server = process_manager.queue_container().get_data_queue_to_server()
+
         object_access_for_testing["data_sender"] = _set_up_socketio_handlers(data_queue_to_server)
 
+        # Tanner (5/20/22): This is currently having issues with exiting on Windows.
+        # It likely has something to do with keeping the HTTP connections alive and/or the sockets open.
+        # It won't close until the parent electron process kills it, so it's likely that no lines of code after this will run.
         socketio.run(
             flask_app,
             host=host,
@@ -346,9 +355,8 @@ def main(
             log_format='%(client_ip)s - - "%(request_line)s" %(status_code)s %(body_length)s - %(wall_seconds).6f',
         )
 
-    logger.info("Server shut down, about to stop processes")
+    logger.info("Socketio shut down")
     process_monitor_thread.soft_stop()
     process_monitor_thread.join()
     logger.info("Process monitor shut down")
-    upload_log_files_to_s3(shared_values_dict["config_settings"])
     logger.info("Program exiting")

@@ -18,6 +18,7 @@ from mantarray_desktop_app import SERIAL_COMM_METADATA_BYTES_LENGTH
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_EPOCH
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from mantarray_desktop_app import serial_comm_utils
 from mantarray_desktop_app import STIM_NO_PROTOCOL_ASSIGNED
 from mantarray_desktop_app import validate_checksum
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
@@ -26,7 +27,9 @@ from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from mantarray_desktop_app.constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
 from mantarray_desktop_app.constants import STIM_SHORT_CIRCUIT_THRESHOLD_OHMS
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
-from mantarray_desktop_app.serial_comm_utils import convert_impedance_to_circuit_status
+from mantarray_desktop_app.serial_comm_utils import convert_adc_readings_to_circuit_status
+from mantarray_desktop_app.serial_comm_utils import convert_adc_readings_to_impedance
+import numpy as np
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
@@ -92,15 +95,19 @@ def test_validate_checksum__returns_false_when_checksum_is_incorrect():
 
 
 def test_parse_metadata_bytes__returns_expected_value():
+    test_status_codes = list(range(SERIAL_COMM_STATUS_CODE_LENGTH_BYTES))
     metadata_bytes = (
         bytes([0b10101010])  # boot flags
         + bytes("マンタレ1", encoding="utf-8")  # nickname
         + bytes(MantarrayMcSimulator.default_mantarray_serial_number, encoding="ascii")
         + bytes([0, 1, 2])  # main FW version
         + bytes([255, 255, 255])  # channel FW version
-        + bytes([1, 2, 3, 4])
-        + bytes(28)
+        + bytes(test_status_codes)
     )
+
+    metadata_bytes += bytes(SERIAL_COMM_METADATA_BYTES_LENGTH - len(metadata_bytes))
+
+    # confirm precondition
     assert len(metadata_bytes) == SERIAL_COMM_METADATA_BYTES_LENGTH
 
     assert parse_metadata_bytes(metadata_bytes) == {
@@ -109,7 +116,7 @@ def test_parse_metadata_bytes__returns_expected_value():
         MANTARRAY_NICKNAME_UUID: "マンタレ1",
         MAIN_FIRMWARE_VERSION_UUID: "0.1.2",
         CHANNEL_FIRMWARE_VERSION_UUID: "255.255.255",
-        "status_codes_prior_to_reboot": convert_status_code_bytes_to_dict(bytes([1, 2, 3, 4])),
+        "status_codes_prior_to_reboot": convert_status_code_bytes_to_dict(bytes(test_status_codes)),
     }
 
 
@@ -123,18 +130,40 @@ def test_get_serial_comm_timestamp__returns_microseconds_since_2021_01_01():
 
 
 @pytest.mark.parametrize(
+    "test_adc8,test_adc9,expected_impedance",
+    [(0, 0, 61.08021), (0, 2039, 21375.4744533), (0, 2049, -192709.2700799), (1113, 0, 9.9680762)],
+)
+def test_convert_adc_readings_to_impedance__returns_expected_values(test_adc8, test_adc9, expected_impedance):
+    actual_impedance = convert_adc_readings_to_impedance(test_adc8, test_adc9)
+    np.testing.assert_almost_equal(actual_impedance, expected_impedance)
+
+
+@pytest.mark.parametrize(
     "test_impedance,expected_status",
     [
-        (STIM_OPEN_CIRCUIT_THRESHOLD_OHMS + 1, StimulatorCircuitStatuses.OPEN.value),
-        (STIM_OPEN_CIRCUIT_THRESHOLD_OHMS, StimulatorCircuitStatuses.OPEN.value),
-        (STIM_OPEN_CIRCUIT_THRESHOLD_OHMS - 1, StimulatorCircuitStatuses.MEDIA.value),
-        (STIM_SHORT_CIRCUIT_THRESHOLD_OHMS + 1, StimulatorCircuitStatuses.MEDIA.value),
-        (STIM_SHORT_CIRCUIT_THRESHOLD_OHMS, StimulatorCircuitStatuses.SHORT.value),
-        (STIM_SHORT_CIRCUIT_THRESHOLD_OHMS - 1, StimulatorCircuitStatuses.SHORT.value),
+        (STIM_OPEN_CIRCUIT_THRESHOLD_OHMS + 1, StimulatorCircuitStatuses.OPEN),
+        (STIM_OPEN_CIRCUIT_THRESHOLD_OHMS, StimulatorCircuitStatuses.OPEN),
+        (STIM_OPEN_CIRCUIT_THRESHOLD_OHMS - 1, StimulatorCircuitStatuses.MEDIA),
+        (STIM_SHORT_CIRCUIT_THRESHOLD_OHMS + 1, StimulatorCircuitStatuses.MEDIA),
+        (STIM_SHORT_CIRCUIT_THRESHOLD_OHMS, StimulatorCircuitStatuses.SHORT),
+        (STIM_SHORT_CIRCUIT_THRESHOLD_OHMS - 1, StimulatorCircuitStatuses.SHORT),
+        (0, StimulatorCircuitStatuses.SHORT),
+        (-1, StimulatorCircuitStatuses.ERROR),
     ],
 )
-def test_convert_impedance_to_circuit_status__returns_correct_values(test_impedance, expected_status):
-    assert convert_impedance_to_circuit_status(test_impedance) == expected_status
+def test_convert_adc_readings_to_circuit_status__returns_correct_values(
+    test_impedance, expected_status, mocker
+):
+    mocked_to_impedance = mocker.patch.object(
+        serial_comm_utils, "convert_adc_readings_to_impedance", autospec=True, return_value=test_impedance
+    )
+    # mocking convert_adc_readings_to_impedance so these values don't actually matter
+    test_adc8 = randint(0, 0xFFFF)
+    test_adc9 = randint(0, 0xFFFF)
+
+    assert convert_adc_readings_to_circuit_status(test_adc8, test_adc9) == expected_status
+
+    mocked_to_impedance.assert_called_once_with(test_adc8, test_adc9)
 
 
 @pytest.mark.parametrize(

@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import datetime
+import struct
 from typing import Any
 from typing import Dict
+from typing import List
 from uuid import UUID
 from zlib import crc32
 
 from immutabledict import immutabledict
+import numpy as np
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import BOOTUP_COUNTER_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
@@ -95,11 +98,12 @@ def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[Any, Any]:
         MANTARRAY_SERIAL_NUMBER_UUID: metadata_bytes[14:26].decode("ascii"),
         MAIN_FIRMWARE_VERSION_UUID: convert_semver_bytes_to_str(metadata_bytes[26:29]),
         CHANNEL_FIRMWARE_VERSION_UUID: convert_semver_bytes_to_str(metadata_bytes[29:32]),
-        "status_codes_prior_to_reboot": convert_status_code_bytes_to_dict(metadata_bytes[32:36]),
+        "status_codes_prior_to_reboot": convert_status_code_bytes_to_dict(metadata_bytes[32:58]),
     }
 
 
 def convert_metadata_to_bytes(metadata_dict: Dict[UUID, Any]) -> bytes:
+    num_wells = 24
     return (
         bytes([metadata_dict[BOOT_FLAGS_UUID]])
         + bytes(metadata_dict[MANTARRAY_NICKNAME_UUID], encoding="utf-8")
@@ -107,8 +111,8 @@ def convert_metadata_to_bytes(metadata_dict: Dict[UUID, Any]) -> bytes:
         + convert_semver_str_to_bytes(metadata_dict[MAIN_FIRMWARE_VERSION_UUID])
         + convert_semver_str_to_bytes(metadata_dict[CHANNEL_FIRMWARE_VERSION_UUID])
         # this function is only used in the simulator, so always send default status code
-        + convert_to_status_code_bytes(SERIAL_COMM_OKAY_CODE)
-        + bytes(28)
+        + bytes([SERIAL_COMM_OKAY_CODE] * (num_wells + 2))
+        + bytes(2)
     )
 
 
@@ -120,17 +124,16 @@ def convert_semver_str_to_bytes(semver_str: str) -> bytes:
     return bytes([int(num) for num in semver_str.split(".")])
 
 
-def convert_to_status_code_bytes(status_code: int) -> bytes:
-    # simulator will only ever change byte 0 of status code
-    return bytes([status_code, 0, 0, 0])
-
-
 def convert_status_code_bytes_to_dict(status_code_bytes: bytes) -> Dict[str, int]:
     if len(status_code_bytes) != SERIAL_COMM_STATUS_CODE_LENGTH_BYTES:
         raise ValueError(
             f"Status code bytes must have len of {SERIAL_COMM_STATUS_CODE_LENGTH_BYTES}, {len(status_code_bytes)} bytes given: {str(status_code_bytes)}"
         )
-    status_code_labels = ("main_status", "index_of_thread_with_error", "channel_status", "module_id_of_error")
+    status_code_labels = (
+        "main_status",
+        "index_of_thread_with_error",
+        *[f"module_{i}_status" for i in range(1, 25)],
+    )
     return {label: status_code_bytes[i] for i, label in enumerate(status_code_labels)}
 
 
@@ -145,12 +148,42 @@ def get_serial_comm_timestamp() -> int:
     ) // datetime.timedelta(microseconds=1)
 
 
-def convert_impedance_to_circuit_status(impedance: int) -> str:
+def convert_stimulator_check_bytes_to_dict(stimulator_check_bytes: bytes) -> Dict[str, List[int]]:
+    stimulator_checks_as_ints = struct.unpack("<" + "HHB" * 24, stimulator_check_bytes)
+    # convert to lists of adc8, adc9, and status where the index of each list is the module id. Only creating an array here to reshape easily
+    stimulator_checks_list = (
+        np.array(stimulator_checks_as_ints, copy=False)
+        .reshape((3, len(stimulator_checks_as_ints) // 3), order="F")
+        .tolist()
+    )
+    stimulator_checks_dict = {
+        key: stimulator_checks_list[i] for i, key in enumerate(["adc8", "adc9", "status"])
+    }
+    return stimulator_checks_dict
+
+
+def convert_adc_readings_to_circuit_status(adc8: int, adc9: int) -> int:
+    impedance = convert_adc_readings_to_impedance(adc8, adc9)
+    # Tanner (5/12/22): this section NOT based on the FW's actual calculation
+    if impedance < 0:
+        return StimulatorCircuitStatuses.ERROR
     if impedance <= STIM_SHORT_CIRCUIT_THRESHOLD_OHMS:
-        return StimulatorCircuitStatuses.SHORT.value
+        return StimulatorCircuitStatuses.SHORT
     if impedance >= STIM_OPEN_CIRCUIT_THRESHOLD_OHMS:
-        return StimulatorCircuitStatuses.OPEN.value
-    return StimulatorCircuitStatuses.MEDIA.value
+        return StimulatorCircuitStatuses.OPEN
+    return StimulatorCircuitStatuses.MEDIA
+
+
+def convert_adc_readings_to_impedance(adc8: int, adc9: int) -> float:
+    # Tanner (5/12/22): this calculation is the FW's actual calculation  # TODO consider making all these numbers constants
+    adc8_volts = (adc8 / 4096.0) * 3.3
+    adc9_volts = (adc9 / 4096.0) * 3.3
+    well_plus = 5.7 * (adc8_volts - 1.65053)
+    well_minus = 2 * adc9_volts - 3.3
+    current = well_minus / 33
+    voltage = well_plus - well_minus
+    impedance = voltage / current
+    return impedance
 
 
 def is_null_subprotocol(subprotocol_dict: Dict[str, int]) -> bool:

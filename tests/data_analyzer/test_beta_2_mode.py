@@ -351,6 +351,7 @@ def test_DataAnalyzerProcess__correctly_handles_command_from_main_to_start_mag_a
 
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
+    to_main_queue = four_board_analyzer_process_beta_2_mode["to_main_queue"]
 
     spied_start_analysis = mocker.spy(da_process, "_start_mag_finding_analysis")
     mocker.patch.object(data_analyzer, "_mag_finding_analysis_thread", autospec=True)
@@ -363,13 +364,12 @@ def test_DataAnalyzerProcess__correctly_handles_command_from_main_to_start_mag_a
     invoke_process_run_and_check_errors(da_process, 1)
     spied_start_analysis.assert_called_once_with(TEST_START_MAG_ANALYSIS_COMMAND["recordings"])
 
-    drain_queue(from_main_queue)
+    drain_queue(to_main_queue)
 
 
 def test_DataAnalyzerProcess__correctly_handles_command_from_main_to_prevent_start_if_beta_1(
     runnable_four_board_analyzer_process, mocker
 ):
-
     da_process, _, from_main_queue, _, _, _ = runnable_four_board_analyzer_process
 
     spied_start_analysis = mocker.spy(da_process, "_start_mag_finding_analysis")
@@ -387,7 +387,6 @@ def test_DataAnalyzerProcess__correctly_handles_command_from_main_to_prevent_sta
 def test_DataAnalyzerProcess__correctly_handles_thread_status_with_failures(
     four_board_analyzer_process_beta_2_mode, mocker
 ):
-
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
     to_main_queue = four_board_analyzer_process_beta_2_mode["to_main_queue"]
@@ -429,7 +428,6 @@ def test_DataAnalyzerProcess__correctly_handles_thread_status_with_failures(
 def test_DataAnalyzerProcess__correctly_handles_thread_status_without_failures(
     four_board_analyzer_process_beta_2_mode, mocker
 ):
-
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
     to_main_queue = four_board_analyzer_process_beta_2_mode["to_main_queue"]

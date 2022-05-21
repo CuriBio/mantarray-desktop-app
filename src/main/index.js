@@ -78,16 +78,17 @@ let wait_for_subprocess_to_complete = null;
 
 const start_python_subprocess = () => {
   console.log("About to generate command line arguments to use when booting up server"); // allow-log
-  const command_line_args = generate_flask_command_line_args(store);
+  const python_cmd_line_args = generate_flask_command_line_args(store);
+  if (process.argv.includes("--log-level-debug")) python_cmd_line_args.push("--log-level-debug");
   if (process.platform !== "win32") {
     // presumably running in a unix dev or CI environment
     if (!ci.isCI) {
       // don't do this in CI environment, only locally
-      command_line_args.push("--skip-software-version-verification"); // TODO (Eli 3/12/21): use the `yargs` package to accept this as a command line argument to the Electron app so that it can be passed appropriately and with more control than everytime the python source code is run (which is based on the assumption that anytime source code is tested it's running locally in a dev environment and the bit file isn't available)
+      python_cmd_line_args.push("--skip-software-version-verification"); // TODO (Eli 3/12/21): use the `yargs` package to accept this as a command line argument to the Electron app so that it can be passed appropriately and with more control than everytime the python source code is run (which is based on the assumption that anytime source code is tested it's running locally in a dev environment and the bit file isn't available)
     }
   }
 
-  const redacted_args = command_line_args.map((a, i) =>
+  const redacted_args = python_cmd_line_args.map((a, i) =>
     i == 0 ? main_utils.redact_username_from_logs(a) : a
   );
 
@@ -98,7 +99,7 @@ const start_python_subprocess = () => {
       // allow-log
       "Launching compiled Python EXE at path: " + main_utils.redact_username_from_logs(script)
     );
-    const python_subprocess = require("child_process").execFile(script, command_line_args);
+    const python_subprocess = require("child_process").execFile(script, python_cmd_line_args);
 
     wait_for_subprocess_to_complete = new Promise((resolve) => {
       python_subprocess.on("close", (code, signal) =>
@@ -107,7 +108,7 @@ const start_python_subprocess = () => {
     });
   } else {
     const PythonShell = require("python-shell").PythonShell; // Eli (4/15/20) experienced odd error where the compiled exe was not able to load package python-shell...but since it's only actually required in development, just moving it to here
-    if (!store.get("beta_2_mode")) command_line_args.push("--no-load-firmware");
+    if (!store.get("beta_2_mode")) python_cmd_line_args.push("--no-load-firmware");
 
     console.log("sending command line args: " + redacted_args); // allow-log
     const options = {
@@ -115,7 +116,7 @@ const start_python_subprocess = () => {
       pythonPath: process.platform === "win32" ? "python" : "python3",
       // pythonOptions: ['-u'], // get print results in real-time
       scriptPath: "src",
-      args: command_line_args,
+      args: python_cmd_line_args,
     };
     const py_file_name = "entrypoint.py";
     const redacted_options = { ...options, args: redacted_args };
@@ -154,6 +155,10 @@ ipcMain.on("set_sw_update_auto_install", (e, enable_auto_install) => {
   const action = enable_auto_install ? "Enabling" : "Disabling";
   console.log(action + " automatic installation of SW updates after shutdown"); // allow-log
   autoUpdater.autoInstallOnAppQuit = enable_auto_install;
+});
+
+ipcMain.once("sw_version_request", (event) => {
+  event.reply("sw_version_response", get_current_app_version());
 });
 
 const post_latest_software_version = (version) => {

@@ -65,6 +65,7 @@ from .utils import _create_start_recording_command
 from .utils import _trim_barcode
 from .utils import get_redacted_string
 from .utils import redact_sensitive_info_from_path
+from .utils import upload_log_files_to_s3
 
 logger = logging.getLogger(__name__)
 
@@ -200,6 +201,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             command = communication["command"]
             if command == "hard_stop":
                 self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=False, error=False)
+                upload_log_files_to_s3(self._values_to_share_to_server["config_settings"])
             elif command == "shutdown_server":
                 self._process_manager.shutdown_server()
             else:
@@ -261,7 +263,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._put_communication_into_instrument_comm_queue(communication)
             elif command == "start_stim_checks":
                 self._values_to_share_to_server["stimulator_circuit_statuses"] = [
-                    StimulatorCircuitStatuses.CALCULATING.value
+                    StimulatorCircuitStatuses.CALCULATING.name.lower()
                 ] * 24
                 self._put_communication_into_instrument_comm_queue(communication)
             else:
@@ -483,13 +485,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 if not any(self._values_to_share_to_server["stimulation_running"]):
                     self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [None]
             elif command == "start_stim_checks":
-                stimulator_circuit_statuses = communication["stimulator_circuit_statuses"]
-                self._values_to_share_to_server["stimulator_circuit_statuses"] = stimulator_circuit_statuses
+                key = "stimulator_circuit_statuses"
+                stimulator_circuit_statuses = communication[key]
+                self._values_to_share_to_server[key] = stimulator_circuit_statuses
                 self._queue_websocket_message(
-                    {
-                        "data_type": "stimulator_circuit_statuses",
-                        "data_json": json.dumps(stimulator_circuit_statuses),
-                    }
+                    {"data_type": key, "data_json": json.dumps(stimulator_circuit_statuses)}
                 )
         elif communication_type == "board_connection_status_change":
             board_idx = communication["board_index"]
@@ -516,10 +516,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
         elif communication_type == "xem_scripts":
             if "status_update" in communication:
                 self._values_to_share_to_server["system_status"] = communication["status_update"]
+                if communication["status_update"] == CALIBRATION_NEEDED_STATE:
+                    self._send_enable_sw_auto_install_message()
             if "adc_gain" in communication:
                 self._values_to_share_to_server["adc_gain"] = communication["adc_gain"]
-            description = communication.get("description", "")
-            if ADC_OFFSET_DESCRIPTION_TAG in description:
+            if ADC_OFFSET_DESCRIPTION_TAG in (description := communication.get("description", "")):
                 parsed_description = description.split("__")
                 adc_index = int(parsed_description[1][-1])
                 ch_index = int(parsed_description[2][-1])
@@ -613,6 +614,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                             }
                         )
                     else:
+                        # if no updates found, enable auto install of SW update and switch to calibration needed state
                         self._send_enable_sw_auto_install_message()
                         self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
             elif command == "download_firmware_updates":

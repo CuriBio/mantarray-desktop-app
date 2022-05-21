@@ -19,10 +19,8 @@ from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app import SerialCommPacketRegistrationReadEmptyError
 from mantarray_desktop_app import SerialCommPacketRegistrationSearchExhaustedError
 from mantarray_desktop_app import SerialCommPacketRegistrationTimeoutError
-from mantarray_desktop_app.constants import SERIAL_COMM_OKAY_CODE
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app.serial_comm_utils import convert_status_code_bytes_to_dict
-from mantarray_desktop_app.serial_comm_utils import convert_to_status_code_bytes
 import pytest
 import serial
 from serial import Serial
@@ -37,7 +35,7 @@ from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import fixture_patch_comports
 from ..fixtures_mc_comm import fixture_patch_serial_connection
 from ..fixtures_mc_comm import set_connection_and_register_simulator
-from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODE
+from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODES
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..helpers import confirm_queue_is_eventually_of_size
@@ -152,7 +150,7 @@ def test_McCommunicationProcess_register_magic_word__registers_magic_word_in_ser
     test_bytes = SERIAL_COMM_MAGIC_WORD_BYTES[3:] + bytes(8)
     dummy_timestamp = 0
     test_bytes += create_data_packet(
-        dummy_timestamp, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODE
+        dummy_timestamp, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODES
     )
     test_item = {"command": "add_read_bytes", "read_bytes": test_bytes}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_item, testing_queue)
@@ -176,7 +174,7 @@ def test_McCommunicationProcess_register_magic_word__registers_magic_word_in_ser
     mc_process.set_board_connection(board_idx, simulator)
     assert mc_process.is_registered_with_serial_comm(board_idx) is False
     test_bytes = create_data_packet(
-        timestamp, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODE
+        timestamp, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODES
     )
     test_item = {"command": "add_read_bytes", "read_bytes": [test_bytes, test_bytes]}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_item, testing_queue)
@@ -206,7 +204,7 @@ def test_McCommunicationProcess_register_magic_word__registers_with_magic_word_i
     # add a real data packet after but remove magic word
     dummy_timestamp = 0
     test_packet = create_data_packet(
-        dummy_timestamp, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODE
+        dummy_timestamp, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODES
     )
     packet_length_bytes = test_packet[
         len(SERIAL_COMM_MAGIC_WORD_BYTES) : len(SERIAL_COMM_MAGIC_WORD_BYTES)
@@ -488,6 +486,6 @@ def test_McCommunicationProcess__requests_metadata_if_setup_before_loop_was_perf
     assert metadata_comm["communication_type"] == "metadata_comm"
     expected_dict = dict(MantarrayMcSimulator.default_metadata_values)
     expected_dict["status_codes_prior_to_reboot"] = convert_status_code_bytes_to_dict(
-        convert_to_status_code_bytes(SERIAL_COMM_OKAY_CODE)
+        DEFAULT_SIMULATOR_STATUS_CODES
     )
     assert metadata_comm["metadata"] == expected_dict

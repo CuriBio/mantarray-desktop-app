@@ -284,7 +284,7 @@ def test_start_calibration__returns_error_code_and_message_if_called_in_beta_2_m
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulation_running"][0] = True  # arbitrary well
     shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.value
+        StimulatorCircuitStatuses.MEDIA.name.lower()
     ] * test_num_wells
 
     response = test_client.get("/start_calibration")
@@ -302,12 +302,12 @@ def test_start_calibration__returns_error_code_and_message_if_called_in_beta_2_m
     test_num_wells = 24
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.value
+        StimulatorCircuitStatuses.MEDIA.name.lower()
     ] * test_num_wells
     # set random circuit status to calculating
     shared_values_dict["stimulator_circuit_statuses"][
         randint(0, test_num_wells - 1)
-    ] = StimulatorCircuitStatuses.CALCULATING.value
+    ] = StimulatorCircuitStatuses.CALCULATING.name.lower()
 
     response = test_client.get("/start_calibration")
     assert response.status_code == 403
@@ -350,7 +350,7 @@ def test_start_stim_checks__returns_correct_response(
     test_num_wells = 24
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.value
+        StimulatorCircuitStatuses.MEDIA.name.lower()
     ] * test_num_wells
 
     expected_status_code = 200 if test_system_status in (CALIBRATED_STATE) else 403
@@ -372,7 +372,7 @@ def test_start_stim_checks__returns_error_code_and_message_if_called_while_stimu
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulation_running"][0] = True  # arbitrary well
     shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.value
+        StimulatorCircuitStatuses.MEDIA.name.lower()
     ] * test_num_wells
 
     response = test_client.post("/start_stim_checks")
@@ -389,12 +389,12 @@ def test_set_start_stim_checks__returns_code_and_message_if_checks_are_already_r
     test_num_wells = 24
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.value
+        StimulatorCircuitStatuses.MEDIA.name.lower()
     ] * test_num_wells
     # set random circuit status to calculating
     shared_values_dict["stimulator_circuit_statuses"][
         randint(0, test_num_wells - 1)
-    ] = StimulatorCircuitStatuses.CALCULATING.value
+    ] = StimulatorCircuitStatuses.CALCULATING.name.lower()
 
     response = test_client.post("/start_stim_checks")
     assert response.status_code == 304
@@ -491,12 +491,12 @@ def test_start_managed_acquisition__returns_error_code_and_message_called_while_
 
     test_num_wells = 24
     shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.value
+        StimulatorCircuitStatuses.MEDIA.name.lower()
     ] * test_num_wells
     # set random circuit status to calculating
     shared_values_dict["stimulator_circuit_statuses"][
         randint(0, test_num_wells - 1)
-    ] = StimulatorCircuitStatuses.CALCULATING.value
+    ] = StimulatorCircuitStatuses.CALCULATING.name.lower()
 
     response = test_client.get("/start_managed_acquisition")
     assert response.status_code == 403
@@ -837,7 +837,7 @@ def test_set_stim_status__returns_error_code_and_message_if_called_with_true_bef
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulation_info"] = create_random_stim_info()
     shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.value
+        StimulatorCircuitStatuses.MEDIA.name.lower()
     ] * test_num_wells
     # set random circuit status to None
     shared_values_dict["stimulator_circuit_statuses"][randint(0, test_num_wells - 1)] = None
@@ -861,12 +861,12 @@ def test_set_stim_status__returns_error_code_and_message_if_called_with_true_if_
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulation_info"] = create_random_stim_info()
     shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.value
+        StimulatorCircuitStatuses.MEDIA.name.lower()
     ] * test_num_wells
     # set random circuit status to short
     shared_values_dict["stimulator_circuit_statuses"][
         randint(0, test_num_wells - 1)
-    ] = StimulatorCircuitStatuses.SHORT.value
+    ] = StimulatorCircuitStatuses.SHORT.name.lower()
 
     response = test_client.post("/set_stim_status?running=true")
     assert response.status_code == 403
@@ -884,12 +884,12 @@ def test_set_stim_status__returns_error_code_and_message_if_called_with_true_whi
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulation_info"] = create_random_stim_info()
     shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.value
+        StimulatorCircuitStatuses.MEDIA.name.lower()
     ] * test_num_wells
     # set random circuit status to calculating
     shared_values_dict["stimulator_circuit_statuses"][
         randint(0, test_num_wells - 1)
-    ] = StimulatorCircuitStatuses.CALCULATING.value
+    ] = StimulatorCircuitStatuses.CALCULATING.name.lower()
 
     response = test_client.post("/set_stim_status?running=true")
     assert response.status_code == 403
@@ -908,7 +908,7 @@ def test_set_stim_status__returns_code_and_message_if_new_status_is_the_same_as_
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulation_info"] = {}
     shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.value
+        StimulatorCircuitStatuses.MEDIA.name.lower()
     ] * test_num_wells
 
     response = test_client.post("/set_stim_status?running=false")

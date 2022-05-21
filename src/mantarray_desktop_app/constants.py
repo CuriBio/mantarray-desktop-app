@@ -9,7 +9,6 @@ The following constants are based off the geometry of Mantarray Board Rev 2
 * WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 """
 import datetime
-from enum import Enum
 from enum import IntEnum
 from typing import Dict
 from typing import Tuple
@@ -126,10 +125,8 @@ OUTGOING_DATA_BUFFER_SIZE = 2
 FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS = 30 * CENTIMILLISECONDS_PER_SECOND
 FILE_WRITER_BUFFER_SIZE_MICROSECONDS = 30 * MICRO_TO_BASE_CONVERSION
 
-INSTRUMENT_COMM_PERFOMANCE_LOGGING_NUM_CYCLES = 20
-FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES = int(
-    20 / 0.01
-)  # 20 seconds / FileWriterProcess minimum_iteration_duration_seconds
+PERFOMANCE_LOGGING_PERIOD_SECS = 20
+OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES = 20
 
 VALID_SCRIPTING_COMMANDS = frozenset(
     [
@@ -286,7 +283,7 @@ SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES = (
     SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES + SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES
 )
 
-SERIAL_COMM_STATUS_CODE_LENGTH_BYTES = 4
+SERIAL_COMM_STATUS_CODE_LENGTH_BYTES = 2 + 24  # main micro, idx of thread with error, 24 wells
 # data stream components
 SERIAL_COMM_TIME_INDEX_LENGTH_BYTES = 8
 SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES = 2
@@ -367,11 +364,12 @@ STIM_OPEN_CIRCUIT_THRESHOLD_OHMS = 20000
 STIM_SHORT_CIRCUIT_THRESHOLD_OHMS = 10
 
 
-class StimulatorCircuitStatuses(Enum):
-    CALCULATING = "calculating"
-    OPEN = "open"
-    SHORT = "short"
-    MEDIA = "media"
+class StimulatorCircuitStatuses(IntEnum):
+    CALCULATING = -1
+    MEDIA = 0
+    OPEN = 1
+    SHORT = 2
+    ERROR = 3
 
 
 class StimProtocolStatuses(IntEnum):

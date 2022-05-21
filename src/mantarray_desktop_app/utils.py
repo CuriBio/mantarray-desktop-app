@@ -344,9 +344,13 @@ def upload_log_files_to_s3(config_settings: Dict[str, str]) -> None:
         logger.info("Skipping upload of log files to s3 because no user creds were found")
         return
 
+    log_file_dir = config_settings["log_directory"]
+    if not log_file_dir:
+        logger.info("Skipping upload of log files to s3 because no log files were created")
+        return
+
     logger.info("Attempting upload of log files to s3")
 
-    log_file_dir = config_settings["log_directory"]
     file_directory = os.path.dirname(log_file_dir)
     sub_dir_name = os.path.basename(log_file_dir)
 
@@ -360,7 +364,7 @@ def upload_log_files_to_s3(config_settings: Dict[str, str]) -> None:
         except Exception as e:
             logger.error(f"Failed to upload log files to s3: {repr(e)}")
         else:
-            logger.info("Successfully uploaded session logs to s3 at shutdown")
+            logger.info("Successfully uploaded session logs to s3")
 
 
 def _compare_semver(version_a: str, version_b: str) -> bool:

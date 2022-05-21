@@ -65,10 +65,10 @@ from .constants import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from .constants import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
 from .constants import FILE_WRITER_BUFFER_SIZE_MICROSECONDS
-from .constants import FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES
 from .constants import GENERIC_24_WELL_DEFINITION
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
+from .constants import PERFOMANCE_LOGGING_PERIOD_SECS
 from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
@@ -294,6 +294,9 @@ class FileWriterProcess(InfiniteProcess):
             for _ in range(len(self._board_queues))
         )
         # performance tracking values
+        self._iterations_per_logging_cycle = int(
+            PERFOMANCE_LOGGING_PERIOD_SECS / self._minimum_iteration_duration_seconds
+        )
         self._iterations_since_last_logging = 0
         self._num_recorded_points: List[int] = list()
         self._recording_durations: List[float] = list()
@@ -426,10 +429,11 @@ class FileWriterProcess(InfiniteProcess):
         self._finalize_completed_files()
         self._check_upload_statuses()
 
-        self._iterations_since_last_logging += 1
-        if self._iterations_since_last_logging >= FILE_WRITER_PERFOMANCE_LOGGING_NUM_CYCLES:
-            self._handle_performance_logging()
-            self._iterations_since_last_logging = 0
+        if self._is_recording:
+            self._iterations_since_last_logging += 1
+            if self._iterations_since_last_logging >= self._iterations_per_logging_cycle:
+                self._handle_performance_logging()
+                self._iterations_since_last_logging = 0
 
     def _process_next_command_from_main(self) -> None:
         input_queue = self._from_main_queue
@@ -835,9 +839,17 @@ class FileWriterProcess(InfiniteProcess):
     def _process_magnetometer_data_packet(self, data_packet: Dict[Any, Any]) -> None:
         # Tanner (5/25/21): Creating this log message takes a long time so only do it if we are actually logging. TODO: Should probably refactor this function to something more efficient eventually
         if logging.DEBUG >= self.get_logging_level():  # pragma: no cover
+            num_data_points = data_packet["time_indices"].shape[0]
+            data_packet_info = {
+                "num_data_points": num_data_points,
+                "is_first_packet_of_stream": data_packet["is_first_packet_of_stream"],
+            }
+            if num_data_points:
+                data_packet_info["first_timepoint"] = data_packet["time_indices"][0]
+                data_packet_info["last_timepoint"] = data_packet["time_indices"][-1]
             put_log_message_into_queue(
                 logging.DEBUG,
-                f"Timestamp: {_get_formatted_utc_now()} Received a data packet from InstrumentCommProcess: {data_packet}",
+                f"Timestamp: {_get_formatted_utc_now()} Received a data packet from InstrumentCommProcess. Details: {data_packet_info}",
                 self._to_main_queue,
                 self.get_logging_level(),
             )
@@ -1001,6 +1013,14 @@ class FileWriterProcess(InfiniteProcess):
         self._latest_data_timepoints[0][this_well_idx] = last_timepoint_of_new_data
 
     def _process_stim_data_packet(self, stim_packet: Dict[Any, Any]) -> None:
+        if logging.DEBUG >= self.get_logging_level():  # pragma: no cover
+            put_log_message_into_queue(
+                logging.DEBUG,
+                f"Timestamp: {_get_formatted_utc_now()} Received a stim packet from InstrumentCommProcess: {stim_packet}",
+                self._to_main_queue,
+                self.get_logging_level(),
+            )
+
         board_idx = 0
         if stim_packet["is_first_packet_of_stream"]:
             self._end_of_stim_stream_reached[board_idx] = False
@@ -1051,8 +1071,6 @@ class FileWriterProcess(InfiniteProcess):
             return
 
         # update magnetometer data buffer
-        curr_buffer_memory_size: int
-        max_buffer_memory_size: int
         if self._beta_2_mode:
             curr_buffer_memory_size = (
                 data_packet_buffer[-1]["time_indices"][0] - data_packet_buffer[0]["time_indices"][0]
@@ -1074,8 +1092,7 @@ class FileWriterProcess(InfiniteProcess):
         stim_data_buffers = self._stim_data_buffers[board_idx]
         for well_buffers in stim_data_buffers.values():
             earliest_valid_index = _find_earliest_valid_stim_status_index(
-                well_buffers[0],
-                earliest_magnetometer_time_idx,
+                well_buffers[0], earliest_magnetometer_time_idx
             )
             for well_buffer in well_buffers:
                 buffer_slice = list(well_buffer)[earliest_valid_index:]

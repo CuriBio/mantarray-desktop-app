@@ -15,10 +15,8 @@ from mantarray_desktop_app import SERIAL_COMM_REBOOT_PACKET_TYPE
 from mantarray_desktop_app import SerialCommIncorrectMagicWordFromMantarrayError
 from mantarray_desktop_app.constants import SERIAL_COMM_ERROR_ACK_PACKET_TYPE
 from mantarray_desktop_app.constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
-from mantarray_desktop_app.constants import SERIAL_COMM_OKAY_CODE
 from mantarray_desktop_app.exceptions import InstrumentFirmwareError
 from mantarray_desktop_app.serial_comm_utils import convert_status_code_bytes_to_dict
-from mantarray_desktop_app.serial_comm_utils import convert_to_status_code_bytes
 import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
@@ -30,6 +28,7 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import set_connection_and_register_simulator
+from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODES
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..helpers import assert_queue_is_eventually_not_empty
@@ -50,9 +49,9 @@ __fixtures__ = [
 
 def test_McCommunicationProcess_super_is_called_during_init(mocker):
     error_queue = Queue()
-    mocked_init = mocker.patch.object(InfiniteProcess, "__init__")
-    McCommunicationProcess((), error_queue)
-    mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
+    spied_init = mocker.spy(InfiniteProcess, "__init__")
+    mc_process = McCommunicationProcess((), error_queue)
+    spied_init.assert_called_once_with(mc_process, error_queue, logging_level=logging.INFO)
 
 
 def test_McCommunicationProcess_setup_before_loop__calls_super(four_board_mc_comm_process, mocker):
@@ -252,7 +251,7 @@ def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_
 
     # add data to mc_process cache
     expected_cache_data = bytes([randint(0, 255) for _ in range(15)])
-    mc_process._data_packet_cache = expected_cache_data
+    mc_process._serial_packet_cache = expected_cache_data
 
     # add one data packet with bad magic word to raise error and additional bytes to flush from simulator
     test_read_bytes = [
@@ -329,8 +328,9 @@ def test_McCommunicationProcess_teardown_after_loop__stops_running_simulator():
     assert simulator.is_alive() is False
 
 
-def test_McCommunicationProcess__logs_status_codes_from_status_beacons(
-    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+@pytest.mark.parametrize("log_level", [logging.DEBUG, logging.INFO])
+def test_McCommunicationProcess__logs_status_codes_from_status_beacons_correctly(
+    log_level, four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
@@ -340,24 +340,28 @@ def test_McCommunicationProcess__logs_status_codes_from_status_beacons(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
-    expected_status_code_dict = convert_status_code_bytes_to_dict(
-        convert_to_status_code_bytes(SERIAL_COMM_OKAY_CODE)
-    )
+    expected_status_code_dict = convert_status_code_bytes_to_dict(DEFAULT_SIMULATOR_STATUS_CODES)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "send_single_beacon"}, testing_queue
     )
     invoke_process_run_and_check_errors(simulator)
 
+    mc_process._logging_level = log_level
     invoke_process_run_and_check_errors(mc_process)
-    confirm_queue_is_eventually_of_size(output_queue, 1)
-    actual = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert "status beacon" in actual["message"].lower()
-    assert str(expected_status_code_dict) in actual["message"]
+
+    if log_level == logging.INFO:
+        confirm_queue_is_eventually_empty(output_queue)
+    else:
+        confirm_queue_is_eventually_of_size(output_queue, 1)
+        actual = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+        assert "status beacon" in actual["message"].lower()
+        assert str(expected_status_code_dict) in actual["message"]
 
 
-def test_McCommunicationProcess__logs_status_codes_from_handshake_responses(
-    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon
+@pytest.mark.parametrize("log_level", [logging.DEBUG, logging.INFO])
+def test_McCommunicationProcess__logs_status_codes_from_handshake_responses_correctly(
+    log_level, four_board_mc_comm_process, mantarray_mc_simulator_no_beacon
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
     output_queue = four_board_mc_comm_process["board_queues"][0][1]
@@ -365,18 +369,21 @@ def test_McCommunicationProcess__logs_status_codes_from_handshake_responses(
     # handshake sent in this function
     set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator_no_beacon)
 
-    expected_status_code_dict = convert_status_code_bytes_to_dict(
-        convert_to_status_code_bytes(SERIAL_COMM_OKAY_CODE)
-    )
+    expected_status_code_dict = convert_status_code_bytes_to_dict(DEFAULT_SIMULATOR_STATUS_CODES)
 
     # process handshake
     invoke_process_run_and_check_errors(simulator)
     # process handshake response
+    mc_process._logging_level = log_level
     invoke_process_run_and_check_errors(mc_process)
-    confirm_queue_is_eventually_of_size(output_queue, 1)
-    actual = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert "handshake" in actual["message"].lower()
-    assert str(expected_status_code_dict) in actual["message"]
+
+    if log_level == logging.INFO:
+        confirm_queue_is_eventually_empty(output_queue)
+    else:
+        confirm_queue_is_eventually_of_size(output_queue, 1)
+        actual = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+        assert "handshake" in actual["message"].lower()
+        assert str(expected_status_code_dict) in actual["message"]
 
 
 def test_McCommunicationProcess__handles_error_status_code_found_in_status_beacon(
@@ -393,12 +400,11 @@ def test_McCommunicationProcess__handles_error_status_code_found_in_status_beaco
     # mock so that mc_comm will use teardown procedure for a real instrument
     mocker.patch.object(mc_comm, "_is_simulator", autospec=True, return_value=False)
 
-    expected_status_code = 123
-    expected_status_code_dict = convert_status_code_bytes_to_dict(
-        convert_to_status_code_bytes(expected_status_code)
-    )
+    expected_status_codes = list(range(simulator._num_wells + 2))
+    expected_status_code_dict = convert_status_code_bytes_to_dict(expected_status_codes)
+
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "set_status_code", "status_code": expected_status_code}, testing_queue
+        {"command": "set_status_code", "status_codes": expected_status_codes}, testing_queue
     )
     invoke_process_run_and_check_errors(simulator)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -436,12 +442,11 @@ def test_McCommunicationProcess__handles_error_status_code_found_in_handshake_re
     # mock so that mc_comm will use teardown procedure for a real instrument
     mocker.patch.object(mc_comm, "_is_simulator", autospec=True, return_value=False)
 
-    expected_status_code = 123
-    expected_status_code_dict = convert_status_code_bytes_to_dict(
-        convert_to_status_code_bytes(expected_status_code)
-    )
+    expected_status_codes = list(range(simulator._num_wells + 2))
+    expected_status_code_dict = convert_status_code_bytes_to_dict(expected_status_codes)
+
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "set_status_code", "status_code": expected_status_code}, testing_queue
+        {"command": "set_status_code", "status_codes": expected_status_codes}, testing_queue
     )
     invoke_process_run_and_check_errors(simulator)
 

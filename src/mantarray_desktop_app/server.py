@@ -59,7 +59,6 @@ import requests
 from semver import VersionInfo
 from stdlib_utils import drain_queue
 from stdlib_utils import is_port_in_use
-from stdlib_utils import put_log_message_into_queue
 
 from .constants import BUFFERING_STATE
 from .constants import CALIBRATED_STATE
@@ -446,7 +445,7 @@ def _is_stimulating_on_any_well() -> bool:
 def _are_stimulator_checks_running() -> bool:
     stimulator_circuit_statuses = _get_values_from_process_monitor()["stimulator_circuit_statuses"]
     return any(
-        status == StimulatorCircuitStatuses.CALCULATING.value for status in stimulator_circuit_statuses
+        status == StimulatorCircuitStatuses.CALCULATING.name.lower() for status in stimulator_circuit_statuses
     )
 
 
@@ -457,7 +456,9 @@ def _are_initial_stimulator_checks_complete() -> bool:
 
 def _are_any_stimulator_circuits_short() -> bool:
     stimulator_circuit_statuses = _get_values_from_process_monitor()["stimulator_circuit_statuses"]
-    return any(status == StimulatorCircuitStatuses.SHORT.value for status in stimulator_circuit_statuses)
+    return any(
+        status == StimulatorCircuitStatuses.SHORT.name.lower() for status in stimulator_circuit_statuses
+    )
 
 
 @flask_app.route("/set_protocols", methods=["POST"])
@@ -1244,18 +1245,13 @@ class ServerManager:
 
     def shutdown_server(self) -> None:
         """Shutdown the Flask/SocketIO server."""
+        logger.info("Calling /stop_server")
         try:
-            requests.get(f"{get_api_endpoint()}stop_server")
-        except requests.exceptions.ConnectionError:
-            message = "Server is shutdown"
+            r = requests.get(f"{get_api_endpoint()}stop_server")
+        except requests.exceptions.ConnectionError as e:
+            logger.info(f"Server successfully shutting down: {repr(e)}")
         else:
-            raise NotImplementedError("Not sure why this happened, nothing should return from /stop_server")
-        put_log_message_into_queue(
-            logging.INFO,
-            message,
-            self._to_main_queue,
-            self.get_logging_level(),
-        )
+            logger.error(f"Unknown issue, /stop_server returned a response: {r.json()}")
         clear_the_server_manager()
 
     def drain_all_queues(self) -> Dict[str, Any]:

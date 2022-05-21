@@ -154,6 +154,23 @@ def test_upload_log_files_to_s3__no_user_creds_found(mocker):
     spied_error.assert_not_called()
 
 
+def test_upload_log_files_to_s3__log_file_is_None(mocker):
+    spied_info = mocker.spy(utils.logger, "info")
+    spied_error = mocker.spy(utils.logger, "error")
+    mocked_uploader = mocker.patch.object(utils, "uploader", autospec=True)
+    mocked_tempdir = mocker.patch.object(utils.tempfile, "TemporaryDirectory", autospec=True)
+
+    utils.upload_log_files_to_s3(
+        {"customer_id": "cid", "user_name": "un", "user_password": "pw", "log_directory": None}
+    )
+
+    mocked_uploader.assert_not_called()
+    mocked_tempdir.assert_not_called()
+
+    spied_info.assert_called_once_with("Skipping upload of log files to s3 because no log files were created")
+    spied_error.assert_not_called()
+
+
 def test_upload_log_files_to_s3__successful_upload(mocker):
     spied_info = mocker.spy(utils.logger, "info")
     spied_error = mocker.spy(utils.logger, "error")
@@ -181,7 +198,7 @@ def test_upload_log_files_to_s3__successful_upload(mocker):
 
     assert spied_info.call_args_list == [
         mocker.call("Attempting upload of log files to s3"),
-        mocker.call("Successfully uploaded session logs to s3 at shutdown"),
+        mocker.call("Successfully uploaded session logs to s3"),
     ]
     spied_error.assert_not_called()
 

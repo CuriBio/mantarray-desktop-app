@@ -13,7 +13,7 @@ from mantarray_desktop_app import ServerManagerNotInitializedError
 from mantarray_desktop_app import ServerManagerSingletonAlreadySetError
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
 import pytest
-from stdlib_utils import confirm_port_available
+import requests
 
 from ..fixtures import fixture_generic_queue_container
 from ..fixtures import fixture_patch_print
@@ -22,7 +22,6 @@ from ..fixtures_server import clear_the_server_manager
 from ..fixtures_server import fixture_server_manager
 from ..fixtures_server import fixture_test_client
 from ..helpers import confirm_queue_is_eventually_of_size
-from ..helpers import is_queue_eventually_of_size
 
 __fixtures__ = [
     fixture_patch_print,
@@ -107,34 +106,44 @@ def test_ServerManager__shutdown_server__clears_the_server_module_singleton(
         get_the_server_manager()
 
 
-@pytest.mark.timeout(15)
-@pytest.mark.slow
-def test_ServerManager__shutdown_server__shuts_down_flask_and_socketio__and_sends_message_to_main_queue(
-    server_manager,
-):
-    sm, to_main_queue = server_manager
-    sm.shutdown_server()
-    confirm_port_available(DEFAULT_SERVER_PORT_NUMBER, timeout=5)  # wait for server to shut down
+def test_ServerManager__shutdown_server__call_stop_server__and_logs_info(server_manager, mocker):
+    error = requests.exceptions.ConnectionError("test msg")
 
-    assert is_queue_eventually_of_size(to_main_queue, 1)
-    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert actual.get("communication_type") == "log"
-    assert "server" in actual.get("message").lower()
+    mocker.patch.object(server.requests, "get", autospec=True, side_effect=error)
+
+    spied_info = mocker.spy(server.logger, "info")
+
+    sm, _ = server_manager
+    sm.shutdown_server()
+
+    assert spied_info.call_args_list == [
+        mocker.call("Calling /stop_server"),
+        mocker.call(f"Server successfully shutting down: {repr(error)}"),
+    ]
+
+
+def test_ServerManager__shutdown_server__call_stop_server__and_logs_error(server_manager, mocker):
+    mocked_get = mocker.patch.object(server.requests, "get", autospec=True)
+
+    spied_info = mocker.spy(server.logger, "info")
+    spied_error = mocker.spy(server.logger, "error")
+
+    sm, _ = server_manager
+    sm.shutdown_server()
+
+    spied_info.assert_called_once_with("Calling /stop_server")
+    spied_error.assert_called_once_with(
+        f"Unknown issue, /stop_server returned a response: {mocked_get.return_value.json()}"
+    )
 
 
 def test_ServerManager__get_values_from_process_monitor__acquires_lock_and_returns_an_immutable_copy(
-    mocker, generic_queue_container
+    generic_queue_container,
 ):
     to_main_queue = Queue()
     initial_dict = {"some key here": "some other value"}
     lock = threading.Lock()
-    # Eli (11/3/20): still unable to test if lock was acquired.
-    #   https://stackoverflow.com/questions/60187817/mocking-python-thread-locking  (no responses to question as of 1/19/21)
-    #   https://stackoverflow.com/questions/11836436/how-to-mock-a-readonly-property-with-mock/11843806
-    #   https://stackoverflow.com/questions/28850070/python-mocking-a-context-manager
-    # mocked_lock_aquire=mocker.patch.object(lock,'acquire',new_callable=mocker.PropertyMock)
 
-    # spied_lock_release=mocker.spy(lock,'release')
     sm = ServerManager(
         to_main_queue,
         generic_queue_container,
@@ -148,9 +157,6 @@ def test_ServerManager__get_values_from_process_monitor__acquires_lock_and_retur
     assert id(actual_dict) != id(
         initial_dict
     )  # assert they are not actually the same object in memory (it should be a copy)
-
-    # confirm lock was acquired
-    # assert mocked_lock_aquire.call_count==1
 
     clear_the_server_manager()
 

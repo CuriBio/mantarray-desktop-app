@@ -20,6 +20,7 @@ from mantarray_desktop_app import StimProtocolStatuses
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
 from mantarray_desktop_app.constants import STIM_WELL_IDX_TO_MODULE_ID
+from mantarray_desktop_app.serial_comm_utils import convert_adc_readings_to_circuit_status
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -34,14 +35,12 @@ from ..helpers import get_full_packet_size_from_payload_len
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 
-__fixtures__ = [
-    fixture_mantarray_mc_simulator,
-    fixture_mantarray_mc_simulator_no_beacon,
-]
+__fixtures__ = [fixture_mantarray_mc_simulator, fixture_mantarray_mc_simulator_no_beacon]
 
 
 def test_MantarrayMcSimulator__processes_start_stimulator_checks_command(mantarray_mc_simulator_no_beacon):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    num_wells = 24
 
     expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     start_checks_command = create_data_packet(
@@ -50,9 +49,14 @@ def test_MantarrayMcSimulator__processes_start_stimulator_checks_command(mantarr
     simulator.write(start_checks_command)
 
     invoke_process_run_and_check_errors(simulator)
+
+    test_adc_reading = MantarrayMcSimulator.default_adc_reading
+
     # make sure results immediately sent back
-    num_wells = 24
-    payload_bytes = MantarrayMcSimulator.default_impedance_value.to_bytes(2, byteorder="little") * num_wells
+    payload_bytes = (
+        test_adc_reading.to_bytes(2, byteorder="little") * 2
+        + bytes([convert_adc_readings_to_circuit_status(test_adc_reading, test_adc_reading)])
+    ) * num_wells
     stim_check_results = simulator.read(size=get_full_packet_size_from_payload_len(len(payload_bytes)))
     assert_serial_packet_is_expected(
         stim_check_results, SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE, additional_bytes=payload_bytes

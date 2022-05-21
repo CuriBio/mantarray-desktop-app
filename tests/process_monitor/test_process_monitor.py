@@ -847,9 +847,8 @@ def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm
 def test_MantarrayProcessesMonitor__does_not_switch_from_INSTRUMENT_INITIALIZING_STATE__in_beta_2_mode_if_required_values_are_not_set(
     test_monitor, test_process_manager_creator
 ):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = INSTRUMENT_INITIALIZING_STATE
 
     # confirm preconditions
@@ -874,6 +873,33 @@ def test_MantarrayProcessesMonitor__does_not_switch_from_INSTRUMENT_INITIALIZING
     assert shared_values_dict["system_status"] == INSTRUMENT_INITIALIZING_STATE
 
 
+def test_MantarrayProcessesMonitor__enables_sw_auto_install_when_reaching_CALIBRATION_NEEDED_STATE_in_beta_1_mode(
+    test_monitor, test_process_manager_creator
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    shared_values_dict["system_status"] = CALIBRATING_STATE
+
+    board_idx = 0
+    from_ic_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(board_idx)
+    )
+    queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"communication_type": "xem_scripts", "status_update": CALIBRATION_NEEDED_STATE}, from_ic_queue
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["system_status"] == CALIBRATION_NEEDED_STATE
+
+    confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
+    ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert ws_message == {
+        "data_type": "sw_update",
+        "data_json": json.dumps({"allow_software_update": True}),
+    }
+
+
 @pytest.mark.parametrize(
     "test_simulation_mode,expected_state",
     [(True, CALIBRATION_NEEDED_STATE), (False, CHECKING_FOR_UPDATES_STATE)],
@@ -881,9 +907,8 @@ def test_MantarrayProcessesMonitor__does_not_switch_from_INSTRUMENT_INITIALIZING
 def test_MantarrayProcessesMonitor__handles_switch_from_INSTRUMENT_INITIALIZING_STATE_in_beta_2_mode_correctly(
     test_monitor, test_process_manager_creator, test_simulation_mode, expected_state
 ):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = INSTRUMENT_INITIALIZING_STATE
 
     shared_values_dict["in_simulation_mode"] = test_simulation_mode
@@ -939,9 +964,8 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
     expected_state_from_sw,
     expected_state_from_fw,
 ):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = CHECKING_FOR_UPDATES_STATE
 
     board_idx = 0
@@ -1028,9 +1052,8 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
 def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_beta_2_mode_correctly(
     update_accepted, user_creds_already_stored, test_monitor, test_process_manager_creator
 ):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = UPDATES_NEEDED_STATE
 
     test_customer_id = "id"
@@ -1115,9 +1138,8 @@ def test_MantarrayProcessesMonitor__handles_switch_from_DOWNLOADING_UPDATES_STAT
     test_monitor,
     test_process_manager_creator,
 ):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = DOWNLOADING_UPDATES_STATE
     shared_values_dict["firmware_updates_needed"] = {
         "main": "1.0.0" if main_fw_update else None,
@@ -1168,9 +1190,8 @@ def test_MantarrayProcessesMonitor__handles_switch_from_DOWNLOADING_UPDATES_STAT
 def test_MantarrayProcessesMonitor__handles_firmware_update_completed_commands_correctly(
     main_fw_update, channel_fw_update, test_monitor, test_process_manager_creator
 ):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = INSTALLING_UPDATES_STATE
     shared_values_dict["firmware_updates_needed"] = {
         "main": "1.0.0" if main_fw_update else None,
@@ -1215,9 +1236,8 @@ def test_MantarrayProcessesMonitor__handles_firmware_update_completed_commands_c
 def test_MantarrayProcessesMonitor__ignores_start_firmware_update_command_response(
     test_monitor, test_process_manager_creator
 ):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = INSTALLING_UPDATES_STATE
 
     board_idx = 0
@@ -1264,10 +1284,7 @@ def test_MantarrayProcessesMonitor__doesnt_call_boot_up_after_subprocesses_start
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     mocked_boot_up = mocker.patch.object(test_process_manager, "boot_up_instrument")
 
-    shared_values_dict = {
-        "system_status": SERVER_READY_STATE,
-        "beta_2_mode": False,
-    }
+    shared_values_dict = {"system_status": SERVER_READY_STATE, "beta_2_mode": False}
     error_queue = TestingQueue()
     the_lock = threading.Lock()
     monitor = MantarrayProcessesMonitor(
@@ -1288,10 +1305,7 @@ def test_MantarrayProcessesMonitor__calls_boot_up_instrument_with_load_firmware_
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     mocked_boot_up = mocker.patch.object(test_process_manager, "boot_up_instrument")
 
-    shared_values_dict = {
-        "system_status": SERVER_READY_STATE,
-        "beta_2_mode": False,
-    }
+    shared_values_dict = {"system_status": SERVER_READY_STATE, "beta_2_mode": False}
     error_queue = TestingQueue()
     the_lock = threading.Lock()
     monitor = MantarrayProcessesMonitor(
@@ -1904,7 +1918,7 @@ def test_MantarrayProcessesMonitor__passes_stim_status_check_results_from_mc_com
     queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
 
     test_num_wells = 24
-    possible_stim_statuses = [member.value for member in StimulatorCircuitStatuses.__members__.values()]
+    possible_stim_statuses = [member.name.lower() for member in StimulatorCircuitStatuses]
     stim_check_results = [choice(possible_stim_statuses) for _ in range(test_num_wells)]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(

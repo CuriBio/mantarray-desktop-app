@@ -15,12 +15,12 @@
             :class="data_acquisition_dynamic_class"
           >
             Data Acquisition
+            <div
+              class="div__arrow"
+              :class="{ expanded: data_acquisition_visibility }"
+              :style="data_acquisition_hover ? 'border-top: 6px solid #000' : null"
+            />
           </div>
-          <div
-            class="div__arrow"
-            :class="{ expanded: data_acquisition_visibility }"
-            :style="data_acquisition_hover ? 'border-top: 6px solid #000' : null"
-          />
         </div>
         <b-collapse id="data-acquisition-card" visible accordion="controls-accordion" role="tabpanel">
           <div class="div__plate-barcode-container">
@@ -67,12 +67,12 @@
         >
           <div v-b-toggle.stim-studio-card class="div__accordian-tabs" :class="stim_studio_dynamic_class">
             Stimulation Studio
+            <div
+              class="div__arrow"
+              :class="{ expanded: stim_studio_visibility }"
+              :style="stim_studio_hover ? 'border-top: 6px solid #000' : null"
+            />
           </div>
-          <div
-            class="div__arrow"
-            :class="{ expanded: stim_studio_visibility }"
-            :style="stim_studio_hover ? 'border-top: 6px solid #000' : null"
-          />
         </div>
         <b-collapse id="stim-studio-card" accordion="controls-accordion" role="tabpanel">
           <div class="div__stim-barcode-container">
@@ -105,12 +105,12 @@
         >
           <div v-b-toggle.data-analysis-card class="div__accordian-tabs" :class="data_analysis_dynamic_class">
             Data Analysis
+            <div
+              class="div__arrow"
+              :class="{ expanded: data_analysis_visibility }"
+              :style="data_analysis_hover ? 'border-top: 6px solid #000' : null"
+            />
           </div>
-          <div
-            class="div__arrow"
-            :class="{ expanded: data_analysis_visibility }"
-            :style="data_analysis_hover ? 'border-top: 6px solid #000' : null"
-          />
         </div>
         <b-collapse id="data-analysis-card" accordion="controls-accordion" role="tabpanel">
           <DataAnalysisControl @send_confirmation="send_confirmation" />
@@ -157,13 +157,6 @@ import { VBPopover, VBToggle, BCollapse } from "bootstrap-vue";
 // Note: Vue automatically prefixes the directive name with 'v-'
 Vue.directive("b-popover", VBPopover);
 Vue.directive("b-toggle", VBToggle);
-// const pkginfo = require('pkginfo')(module, 'version');
-const dummy_electron_app = {
-  getVersion() {
-    return "0.0.0";
-  },
-};
-const electron_app = process.env.NODE_ENV === "test" ? dummy_electron_app : require("electron").remote.app;
 
 export default {
   components: {
@@ -180,9 +173,8 @@ export default {
   },
   data: function () {
     return {
-      // package_version: module.exports.version,
-      package_version: electron_app.getVersion(), // Eli (7/13/20): This only displays the application version when running from a built application---otherwise it displays the version of Electron that is installed
-      current_year: "2022",
+      package_version: "",
+      current_year: "2022", // TODO look into better ways of handling this. Not sure if just using the system's current year is the best approach
       beta_2_mode: process.env.SPECTRON || undefined,
       log_dir_name: undefined,
       data_acquisition_visibility: true,
@@ -239,6 +231,14 @@ export default {
       ipcRenderer.send("logs_flask_dir_request");
     }
 
+    ipcRenderer.on("sw_version_response", (_, package_version) => {
+      this.package_version = package_version;
+    });
+
+    if (this.package_version === "") {
+      ipcRenderer.send("sw_version_request");
+    }
+
     // init store values needed in pages here since this side bar is only created once
     this.$store.commit("data/set_heatmap_values", {
       "Twitch Force": { data: [...Array(24)].map((_) => Array(0)) },
@@ -286,9 +286,9 @@ export default {
       this.$store.commit("settings/set_stored_customer_id", customer_id);
     },
     handle_tab_visibility: function (tab) {
-      this.data_acquisition_visibility = tab === 0;
-      this.data_analysis_visibility = tab === 1;
-      this.stim_studio_visibility = tab === 2;
+      this.data_acquisition_visibility = tab === 0 && !this.data_acquisition_visibility;
+      this.stim_studio_visibility = tab === 1 && !this.stim_studio_visibility;
+      this.data_analysis_visibility = tab === 2 && !this.data_analysis_visibility;
     },
   },
 };
@@ -343,8 +343,8 @@ body {
 /* NON-SPECIFIC */
 .div__arrow {
   position: relative;
-  top: -21px;
-  left: 260px;
+  top: -13px;
+  left: 245px;
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
   border-top: 6px solid #b7b7b7c9;

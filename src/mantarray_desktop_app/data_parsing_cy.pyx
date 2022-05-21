@@ -162,38 +162,32 @@ cdef int get_checksum_index(int packet_len):
     return packet_len + PACKET_HEADER_LEN - SERIAL_COMM_CHECKSUM_LENGTH_BYTES_C_INT
 
 
-cpdef dict handle_data_packets(
-    unsigned char [:] read_bytes, uint64_t base_global_time
-):
-    """Read the given number of data packets from the instrument.
-
-    If data stream is interrupted by a packet that is not part of the data stream,
-    a tuple of info about the interrupting packet will be returned and the first two data arrays will not be full.
+cpdef dict sort_serial_packets(unsigned char [:] read_bytes):
+    """Sort all complete packets from the given buffer by packet type.
 
     Args:
-        read_bytes: an array of all bytes waiting to be parsed. Not gauranteed to all be bytes in a magnetometer or stim data packet
+        read_bytes: an array of all bytes to be parsed are sorted by packet type
 
     Returns:
-        A tuple of the array of parsed time indices, the array of time offsets, the array of parsed data, the number of data packets read, list of tuples containing info about interrupting packets if any occured (timestamp, packet type, and packet body bytes), the remaining unread bytes
+        A dict whose values consist of a dict containing a bytearray and the number of packets found for both
+        magnetometer data and stim data, a list of bytearrays of all other data packets, and a bytearray of
+        all remaining bytes that were not sorted (usually part of an incomplete packet)
     """
     read_bytes = read_bytes.copy()  # make sure data is C contiguous
     cdef int num_bytes = len(read_bytes)
 
+    # generic data parsing values
+    cdef int num_packets_sorted = 0
+    cdef unsigned char [:] packet_payload
+    cdef int payload_len
+    cdef int relative_checksum_idx
+
     # magnetometer data parsing values
-    cdef int num_wells = 24
-    cdef int num_time_offsets = TOTAL_NUM_SENSORS_C_INT
-    cdef int num_data_channels = TOTAL_NUM_SENSORS_C_INT * SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_C_INT
-    cdef int magnetometer_data_packet_len = (
-        TIME_INDEX_LEN
-        + (num_data_channels * SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES_C_INT)
-        + (num_time_offsets * SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES_C_INT)
-    )
-    cdef unsigned char [:] data_packet_bytes = bytearray(num_bytes)
-    cdef int data_packet_byte_idx = 0
-    cdef int num_data_packets = 0
+    cdef unsigned char [:] mag_data_packet_bytes = bytearray(num_bytes)
+    cdef int mag_data_packet_byte_idx = 0
+    cdef int num_mag_data_packets = 0
 
     # stim data parsing values
-    cdef int stim_packet_payload_len
     cdef unsigned char [:] stim_packet_bytes = bytearray(num_bytes)
     cdef int stim_packet_byte_idx = 0
     cdef int num_stim_packets = 0
@@ -201,7 +195,7 @@ cpdef dict handle_data_packets(
     # list for storing non-data packets
     other_packet_info = list()
 
-    # packet integrity valeus
+    # packet integrity values
     cdef unsigned int crc, original_crc
     cdef char[MAGIC_WORD_LEN + 1] magic_word
     magic_word[MAGIC_WORD_LEN] = 0
@@ -209,6 +203,7 @@ cpdef dict handle_data_packets(
     cdef Packet *p
     cdef int bytes_idx = 0
     cdef int payload_start_idx, checksum_start_idx
+
     while bytes_idx <= num_bytes - MIN_PACKET_SIZE:
         p = <Packet *> &read_bytes[bytes_idx]
 
@@ -221,11 +216,13 @@ cpdef dict handle_data_packets(
         if strncmp(magic_word, MAGIC_WORD, MAGIC_WORD_LEN) != 0:
             raise SerialCommIncorrectMagicWordFromMantarrayError(str(magic_word))
 
+        relative_checksum_idx = get_checksum_index(p.packet_len)
+
         # get actual CRC value from packet
-        original_crc = (<uint32_t *> ((<uint8_t *> &p.magic) + get_checksum_index(p.packet_len)))[0]
+        original_crc = (<uint32_t *> ((<uint8_t *> &p.magic) + relative_checksum_idx))[0]
         # calculate expected CRC value
         crc = crc32(0, Z_NULL, 0)
-        crc = crc32(crc, <uint8_t *> &p.magic, get_checksum_index(p.packet_len))
+        crc = crc32(crc, <uint8_t *> &p.magic, relative_checksum_idx)
         # check that actual CRC is the expected value. Do this before checking if it is a data packet
         if crc != original_crc:
             # raising error here, so ok to incur reasonable amount of python overhead here
@@ -235,87 +232,75 @@ cpdef dict handle_data_packets(
             )
 
         payload_start_idx = bytes_idx + SERIAL_COMM_PAYLOAD_INDEX_C_INT
-        checksum_start_idx = bytes_idx + get_checksum_index(p.packet_len)
-        # if this packet was not a data packet then need to store its info and handle it after all data packets are parsed
-        if (
-            p.packet_type != SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE_C_INT
-            and p.packet_type != SERIAL_COMM_STIM_STATUS_PACKET_TYPE_C_INT
-        ):
-            # exceptional case, so ok to incur reasonable amount of python overhead here
-            other_bytes = bytearray(read_bytes[payload_start_idx : checksum_start_idx])
-            other_packet_info.append((p.timestamp, p.packet_type, other_bytes))
-        elif p.packet_type == SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE_C_INT:
-            data_packet_bytes[
-                data_packet_byte_idx : data_packet_byte_idx + magnetometer_data_packet_len
-            ] = read_bytes[payload_start_idx : checksum_start_idx]
-            data_packet_byte_idx += magnetometer_data_packet_len
-            num_data_packets += 1
-        else:
-            stim_packet_payload_len = get_checksum_index(p.packet_len) - SERIAL_COMM_PAYLOAD_INDEX_C_INT
+        checksum_start_idx = bytes_idx + relative_checksum_idx
+
+        packet_payload = read_bytes[payload_start_idx : checksum_start_idx]
+        payload_len = checksum_start_idx - payload_start_idx
+
+        if p.packet_type == SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE_C_INT:
+            mag_data_packet_bytes[
+                mag_data_packet_byte_idx : mag_data_packet_byte_idx + payload_len
+            ] = packet_payload
+            mag_data_packet_byte_idx += payload_len
+            num_mag_data_packets += 1
+        elif p.packet_type == SERIAL_COMM_STIM_STATUS_PACKET_TYPE_C_INT:
             stim_packet_bytes[
-                stim_packet_byte_idx : stim_packet_byte_idx + stim_packet_payload_len
-            ] = read_bytes[payload_start_idx : checksum_start_idx]
-            stim_packet_byte_idx += stim_packet_payload_len
+                stim_packet_byte_idx : stim_packet_byte_idx + payload_len
+            ] = packet_payload
+            stim_packet_byte_idx += payload_len
             num_stim_packets += 1
+        else:
+            # exceptional case, so ok to incur reasonable amount of python overhead here
+            other_packet_info.append((p.timestamp, p.packet_type, bytearray(packet_payload)))
+
         bytes_idx += PACKET_HEADER_LEN + p.packet_len
-
-    # arrays for storing parsed data
-    time_indices = np.empty(num_data_packets, dtype=np.uint64, order="C")
-    time_offsets = np.empty((num_time_offsets, num_data_packets), dtype=np.uint16, order="C")
-    data = np.empty((num_data_channels, num_data_packets), dtype=np.uint16, order="C")
-    # get memory views of numpy arrays for faster operations
-    cdef uint64_t [::1] time_indices_view = time_indices
-    cdef uint16_t [:, ::1] time_offsets_view = time_offsets
-    cdef uint16_t [:, ::1] data_view = data
-
-    if num_data_packets > 0:
-        _parse_magetometer_data(
-            data_packet_bytes[:data_packet_byte_idx],
-            num_data_packets,
-            time_indices_view,
-            time_offsets_view,
-            data_view
-        )
-        time_indices -= base_global_time
-
-    cdef dict stim_data_dict = {}  # dict for storing stim statuses
-    if num_stim_packets > 0:
-        _parse_stim_data(stim_packet_bytes, num_stim_packets, stim_data_dict)
+        num_packets_sorted += 1
 
     return {
-        "magnetometer_data": {
-            "time_indices": time_indices,
-            "time_offsets": time_offsets,
-            "data": data,
-            "num_data_packets": num_data_packets,
+        "num_packets_sorted": num_packets_sorted,
+        "magnetometer_stream_info": {
+            "raw_bytes": mag_data_packet_bytes[:mag_data_packet_byte_idx],
+            "num_packets": num_mag_data_packets,
         },
-        "stim_data": stim_data_dict,
+        "stim_stream_info": {
+            "raw_bytes": stim_packet_bytes[:stim_packet_byte_idx],
+            "num_packets": num_stim_packets,
+        },
         "other_packet_info": other_packet_info,
         "unread_bytes": bytearray(read_bytes[bytes_idx:]),
     }
 
 
-cdef _parse_magetometer_data(
-    unsigned char [:] data_packet_bytes,
-    int num_data_packets,
-    uint64_t [::1] time_indices_view,
-    uint16_t [:, ::1] time_offsets_view,
-    uint16_t [:, ::1] data_view,
+cpdef dict parse_magnetometer_data(
+    unsigned char [:] mag_data_packet_bytes,
+    int num_mag_data_packets,
+    uint64_t base_global_time,
 ):
-    data_packet_bytes = data_packet_bytes.copy()  # make sure data is C contiguous
-    cdef int magnetometer_data_packet_len = len(data_packet_bytes) // num_data_packets
+    mag_data_packet_bytes = mag_data_packet_bytes.copy()  # make sure data is C contiguous
+    cdef int magnetometer_data_packet_len = len(mag_data_packet_bytes) // num_mag_data_packets
 
-    cdef int time_offset_arr_idx
-    cdef int channel_arr_idx
+    cdef int num_time_offsets = TOTAL_NUM_SENSORS_C_INT
+    cdef int num_data_channels = TOTAL_NUM_SENSORS_C_INT * SERIAL_COMM_NUM_CHANNELS_PER_SENSOR_C_INT
+
+    # arrays for storing parsed data
+    time_indices = np.empty(num_mag_data_packets, dtype=np.uint64, order="C")
+    time_offsets = np.empty((num_time_offsets, num_mag_data_packets), dtype=np.uint16, order="C")
+    data = np.empty((num_data_channels, num_mag_data_packets), dtype=np.uint16, order="C")
+    # get memory views of numpy arrays for faster operations
+    cdef uint64_t [::1] time_indices_view = time_indices
+    cdef uint16_t [:, ::1] time_offsets_view = time_offsets
+    cdef uint16_t [:, ::1] data_view = data
+
+    # loop vars
+    cdef int bytes_idx = 0
+    cdef int data_packet_idx
+    cdef int time_offset_arr_idx, channel_arr_idx
     cdef MagnetometerData * data_packet_ptr
     cdef SensorData * sensor_data_ptr
-    cdef int sensor
-    cdef int num_channels_on_sensor
-    cdef int channel
-    cdef int data_packet_idx
-    cdef int bytes_idx = 0
-    for data_packet_idx in range(num_data_packets):
-        data_packet_ptr = <MagnetometerData *> &data_packet_bytes[bytes_idx]
+    cdef int sensor, channel
+
+    for data_packet_idx in range(num_mag_data_packets):
+        data_packet_ptr = <MagnetometerData *> &mag_data_packet_bytes[bytes_idx]
         # add to time index array
         time_indices_view[data_packet_idx] = (<uint64_t *> &data_packet_ptr.time_index)[0]
         # add next data points to data array
@@ -338,17 +323,20 @@ cdef _parse_magetometer_data(
         bytes_idx += magnetometer_data_packet_len
         data_packet_idx += 1
 
+    time_indices -= base_global_time
 
-cdef _parse_stim_data(
-    unsigned char [:] stim_packet_bytes,
-    int num_stim_packets,
-    dict stim_data_dict,
-):
+    return {"time_indices": time_indices, "time_offsets": time_offsets, "data": data}
+
+
+cpdef dict parse_stim_data(unsigned char [:] stim_packet_bytes, int num_stim_packets):
+    cdef dict stim_data_dict = {}  # dict for storing stim statuses
+
     # Tanner (10/15/21): No need to heavily optimize this function until stim waveforms are streamed
     cdef int64_t time_index
     cdef int num_status_updates
     cdef int stim_packet_idx
     cdef int bytes_idx = 0
+
     for stim_packet_idx in range(num_stim_packets):
         num_status_updates = stim_packet_bytes[bytes_idx]
         bytes_idx += 1
@@ -365,5 +353,8 @@ cdef _parse_stim_data(
             else:
                 stim_data_dict[well_idx][0].append(time_index)
                 stim_data_dict[well_idx][1].append(subprotocol_idx)
+
     for well_idx, stim_statuses in stim_data_dict.items():
         stim_data_dict[well_idx] = np.array(stim_statuses, dtype=np.int64)  # Tanner (10/18/21): using int64 here since top bit will never be used and these values can be negative
+
+    return stim_data_dict

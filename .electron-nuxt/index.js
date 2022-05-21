@@ -24,6 +24,7 @@ async function just_build_nuxt() {
 const launcher = new ElectronLauncher({
   electronPath: electron,
   entryFile: path.join(DIST_DIR, "main", "index.js"),
+  electronOptions: process.argv.slice(2),
 });
 
 let builder_config_path;

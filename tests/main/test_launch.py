@@ -451,7 +451,6 @@ def test_main__when_launched_with_an_expected_software_version_but_also_the_flag
 def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_entrypoint, mocker):
     spied_info = mocker.spy(main.logger, "info")
     mocked_set_up = mocker.patch.object(main, "_set_up_socketio_handlers", autospec=True)
-    mocked_upload = mocker.patch.object(main, "upload_log_files_to_s3", autospec=True)
 
     app_info = fully_running_app_from_main_entrypoint(
         ["--startup-test-options", "no_subprocesses", "--beta-2-mode"]
@@ -473,7 +472,7 @@ def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_e
             "Spawning subprocesses",
             "Starting process monitor thread",
             "Starting Flask SocketIO",
-            "Server shut down, about to stop processes",
+            "Socketio shut down",
             "Process monitor shut down",
             "Program exiting",
         ]
@@ -505,7 +504,6 @@ def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_e
         log_output=True,
         log_format='%(client_ip)s - - "%(request_line)s" %(status_code)s %(body_length)s - %(wall_seconds).6f',
     )
-    mocked_upload.assert_called_once_with(shared_values_dict["config_settings"])
 
 
 def test_main__raises_error_if_port_in_use_before_starting_socketio(mocker):
