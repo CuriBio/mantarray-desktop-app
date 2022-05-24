@@ -326,19 +326,13 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     invoke_process_run_and_check_errors(mc_process)
     # process command, send back response and initial stimulator status packet
     invoke_process_run_and_check_errors(simulator)
-    # process command response only
-    invoke_process_run_and_check_errors(mc_process)
-    assert simulator.in_waiting > 0
-    # remove message to main
-    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    # process both stim packet and make sure it was not sent to file writer
+    # process command response and stim packet and make sure stim packet was not sent to file writer
     invoke_process_run_and_check_errors(mc_process)
     assert simulator.in_waiting == 0
     confirm_queue_is_eventually_empty(to_fw_queue)
 
     # confirm stimulation complete message sent to main
-    confirm_queue_is_eventually_of_size(to_main_queue, 1)
-    msg_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    msg_to_main = drain_queue(to_main_queue)[-1]
     assert msg_to_main["communication_type"] == "stimulation"
     assert msg_to_main["command"] == "status_update"
     assert set(msg_to_main["wells_done_stimulating"]) == set(test_well_indices)
@@ -426,13 +420,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     invoke_process_run_and_check_errors(mc_process)
     # process command, send back response and initial stimulator status packet
     invoke_process_run_and_check_errors(simulator)
-    # process command response only
-    invoke_process_run_and_check_errors(mc_process)
-    assert simulator.in_waiting > 0
-    # remove message to main
-    confirm_queue_is_eventually_of_size(to_main_queue, 1)
-    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    # process initial stim packet and make sure it was not sent to file writer
+    # process command response and initial stim packet and make sure stim packet was not sent to file writer
     invoke_process_run_and_check_errors(mc_process)
     assert simulator.in_waiting == 0
     confirm_queue_is_eventually_empty(to_fw_queue)
