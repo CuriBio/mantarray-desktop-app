@@ -945,8 +945,9 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise SerialCommPacketRegistrationReadEmptyError()
         self._is_registered_with_serial_comm[board_idx] = True
 
+        # put the magic word bytes into the cache so the next data packet can be read properly
         self._serial_packet_cache = SERIAL_COMM_MAGIC_WORD_BYTES
-
+        # immediately process this packet since it would otherwise be skipped in _commands_for_each_run_iteration
         self._handle_data_stream()
 
     def _handle_data_stream(self) -> None:
