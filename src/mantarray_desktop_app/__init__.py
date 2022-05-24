@@ -219,8 +219,6 @@ from .exceptions import SerialCommIncorrectChecksumFromPCError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
 from .exceptions import SerialCommInvalidSamplingPeriodError
 from .exceptions import SerialCommMetadataValueTooLargeError
-from .exceptions import SerialCommNotEnoughAdditionalBytesReadError
-from .exceptions import SerialCommPacketFromMantarrayTooSmallError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimeoutError
@@ -491,7 +489,6 @@ __all__ = [
     "parse_metadata_bytes",
     "SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS",
     "UnrecognizedCommandFromMainToMcCommError",
-    "SerialCommPacketFromMantarrayTooSmallError",
     "SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES",
     "SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS",
     "SERIAL_COMM_TIMESTAMP_BYTES_INDEX",
@@ -545,7 +542,6 @@ __all__ = [
     "get_time_offset_dataset_from_file",
     "SERIAL_COMM_MODULE_ID_TO_WELL_IDX",
     "SERIAL_COMM_WELL_IDX_TO_MODULE_ID",
-    "SerialCommNotEnoughAdditionalBytesReadError",
     "STM_VID",
     "socketio",
     "SensitiveFormatter",

@@ -9,12 +9,12 @@ from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import McCommunicationProcess
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
-from mantarray_desktop_app import SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_REBOOT_PACKET_TYPE
 from mantarray_desktop_app import SerialCommIncorrectMagicWordFromMantarrayError
 from mantarray_desktop_app.constants import SERIAL_COMM_ERROR_ACK_PACKET_TYPE
 from mantarray_desktop_app.constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
+from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app.exceptions import InstrumentFirmwareError
 from mantarray_desktop_app.serial_comm_utils import convert_status_code_bytes_to_dict
 import pytest
@@ -31,6 +31,7 @@ from ..fixtures_mc_comm import set_connection_and_register_simulator
 from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODES
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
+from ..fixtures_mc_simulator import random_timestamp
 from ..helpers import assert_queue_is_eventually_not_empty
 from ..helpers import assert_serial_packet_is_expected
 from ..helpers import confirm_queue_is_eventually_empty
@@ -239,31 +240,25 @@ def test_McCommunicationProcess_teardown_after_loop__puts_teardown_log_message_i
 
 
 def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_serial_data__and_unread_data_in_cache__if_error_occurred_in_mc_comm(
-    patch_print, four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker, patch_print
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     output_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
-    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
-    # add data to mc_process cache
-    expected_cache_data = bytes([randint(0, 255) for _ in range(15)])
-    mc_process._serial_packet_cache = expected_cache_data
-
     # add one data packet with bad magic word to raise error and additional bytes to flush from simulator
-    test_read_bytes = [
-        bytes(SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES),  # bad packet
-        bytes(SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES),  # start of additional bytes
-        bytes(SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES),
-        bytes(SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES // 2),  # arbitrary final length
-    ]
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "add_read_bytes", "read_bytes": test_read_bytes}, testing_queue
+    data_packet = create_data_packet(random_timestamp(), SERIAL_COMM_STATUS_BEACON_PACKET_TYPE)
+    test_cache_bytes = (
+        bytes(len(SERIAL_COMM_MAGIC_WORD_BYTES)) + data_packet[len(SERIAL_COMM_MAGIC_WORD_BYTES) :]
     )
-    invoke_process_run_and_check_errors(simulator)
+    test_buffer_bytes = bytes([randint(0, 10) for _ in range(SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES)])
+    mocker.patch.object(
+        simulator, "read_all", autospec=True, side_effect=[test_cache_bytes, test_buffer_bytes]
+    )
+
     # read beacon then flush remaining serial data
     with pytest.raises(SerialCommIncorrectMagicWordFromMantarrayError):
         invoke_process_run_and_check_errors(mc_process, perform_teardown_after_loop=True)
@@ -272,11 +267,8 @@ def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_
     teardown_messages = drain_queue(output_queue)
     actual = teardown_messages[-1]
     assert "message" in actual, f"Correct message not found. Full message dict: {actual}"
-    expected_bytes = bytes(
-        sum([len(packet) for packet in test_read_bytes]) - len(SERIAL_COMM_MAGIC_WORD_BYTES)
-    )
-    assert str(expected_cache_data) in actual["message"]
-    assert str(expected_bytes) in actual["message"]
+    assert str(test_cache_bytes) in actual["message"]
+    assert str(test_buffer_bytes) in actual["message"]
 
 
 @pytest.mark.parametrize("error", [True, False])

@@ -154,10 +154,6 @@ class SerialCommPacketRegistrationSearchExhaustedError(Exception):
     pass
 
 
-class SerialCommNotEnoughAdditionalBytesReadError(Exception):
-    pass
-
-
 class SerialCommIncorrectChecksumFromInstrumentError(Exception):
     pass
 
@@ -167,10 +163,6 @@ class SerialCommIncorrectChecksumFromPCError(Exception):
 
 
 class SerialCommIncorrectMagicWordFromMantarrayError(Exception):
-    pass
-
-
-class SerialCommPacketFromMantarrayTooSmallError(Exception):
     pass
 
 

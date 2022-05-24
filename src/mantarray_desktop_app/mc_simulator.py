@@ -853,6 +853,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         if len(self._leftover_read_bytes) > 0:
             read_bytes = self._leftover_read_bytes
             self._leftover_read_bytes = bytes(0)
+
         start = perf_counter()
         read_dur_secs = 0.0
         while read_dur_secs <= self._read_timeout_seconds:
@@ -862,6 +863,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 read_bytes += next_bytes
             except queue.Empty:
                 pass
+
         return read_bytes
 
     def write(self, input_item: bytes) -> None:

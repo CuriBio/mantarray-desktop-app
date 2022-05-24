@@ -42,7 +42,6 @@ from .constants import SERIAL_COMM_BAUD_RATE
 from .constants import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
 from .constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
-from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from .constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from .constants import SERIAL_COMM_ERROR_ACK_PACKET_TYPE
 from .constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
@@ -59,11 +58,7 @@ from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .constants import SERIAL_COMM_OKAY_CODE
-from .constants import SERIAL_COMM_PACKET_HEADER_LENGTH_BYTES
 from .constants import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
-from .constants import SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES
-from .constants import SERIAL_COMM_PACKET_TYPE_INDEX
-from .constants import SERIAL_COMM_PAYLOAD_INDEX
 from .constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from .constants import SERIAL_COMM_REBOOT_PACKET_TYPE
 from .constants import SERIAL_COMM_REGISTRATION_TIMEOUT_SECONDS
@@ -98,11 +93,7 @@ from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InvalidCommandFromMainError
 from .exceptions import SamplingPeriodUpdateWhileDataStreamingError
 from .exceptions import SerialCommCommandResponseTimeoutError
-from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectChecksumFromPCError
-from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
-from .exceptions import SerialCommNotEnoughAdditionalBytesReadError
-from .exceptions import SerialCommPacketFromMantarrayTooSmallError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
 from .exceptions import SerialCommPacketRegistrationSearchExhaustedError
 from .exceptions import SerialCommPacketRegistrationTimeoutError
@@ -125,7 +116,6 @@ from .serial_comm_utils import convert_to_timestamp_bytes
 from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import get_serial_comm_timestamp
 from .serial_comm_utils import parse_metadata_bytes
-from .serial_comm_utils import validate_checksum
 from .utils import check_barcode_is_valid
 from .utils import set_this_process_high_priority
 from .worker_thread import ErrorCatchingThread
@@ -272,20 +262,8 @@ class McCommunicationProcess(InstrumentCommProcess):
             PERFOMANCE_LOGGING_PERIOD_SECS / self._minimum_iteration_duration_seconds
         )
         self._iterations_since_last_logging: List[int] = [0] * len(self._board_queues)
-        self._performance_tracking_values: Dict[str, List[Any]] = {
-            key: list()
-            for key in (
-                "period_between_reading",
-                "data_read_duration",
-                "num_bytes_read",
-                "period_between_sorting",
-                "sorting_duration",
-                "num_packets_sorted",
-                "period_between_mag_data_parsing",
-                "mag_data_parsing_duration",
-                "num_mag_packets_parsed",
-            )
-        }
+        self._performance_tracking_values: Dict[str, List[Any]]
+        self._reset_performance_tracking_values()
         self._timepoints_of_prev_actions: Dict[str, Optional[float]]
         self._reset_timepoints_of_prev_actions()
 
@@ -365,6 +343,22 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _reset_stim_status_buffers(self) -> None:
         self._stim_status_buffers = {well_idx: [[], []] for well_idx in range(self._num_wells)}
 
+    def _reset_performance_tracking_values(self) -> None:
+        self._performance_tracking_values = {
+            key: list()
+            for key in (
+                "period_between_reading",
+                "data_read_duration",
+                "num_bytes_read",
+                "period_between_sorting",
+                "sorting_duration",
+                "num_packets_sorted",
+                "period_between_mag_data_parsing",
+                "mag_data_parsing_duration",
+                "num_mag_packets_parsed",
+            )
+        }
+
     def _reset_timepoints_of_prev_actions(self) -> None:
         self._timepoints_of_prev_actions = {
             key: None for key in ("data_read", "packet_sort", "mag_data_parse")
@@ -440,11 +434,12 @@ class McCommunicationProcess(InstrumentCommProcess):
         1. Before doing anything, simulator errors must be checked for. If they go unchecked before performing comm with the simulator, and error may be raised in this process that masks the simulator's error which is actually the root of the problem.
         2. Process next communication from main. This process's next highest priority is to be responsive to the main process and should check for messages from main first. These messages will let this process know when to send commands to the instrument. Ignore messages from main if conducting a firmware update
         3. Send handshake to instrument when necessary. Third highest priority is to let the instrument know that this process and the rest of the software are alive and responsive.
-        4. Process packets coming from the instrument. This is the highest priority task after sending data to it. Also handle performance tracking
-        5. Make sure the beacon is not overdue, unless instrument is rebooting. If the beacon is overdue, it's reasonable to assume something caused the instrument to stop working. This task should happen after handling of sending/receiving data from the instrument and main process.
-        6. Make sure commands are not overdue. This task should happen after the instrument has been determined to be working properly.
-        7. If rebooting or waiting for firmware update to complete, make sure that the reboot has not taken longer than the max allowed reboot time.
-        8. Check on the status of any worker threads.
+        4. Sync with the magic word coming from the instrument. If this is already done, then process packets coming from the instrument. This is the highest priority task after sending data to it.
+        5. Handle performance tracking if data is streaming
+        6. Make sure the beacon is not overdue, unless instrument is rebooting. If the beacon is overdue, it's reasonable to assume something caused the instrument to stop working. This task should happen after handling of sending/receiving data from the instrument and main process.
+        7. Make sure commands are not overdue. This task should happen after the instrument has been determined to be working properly.
+        8. If rebooting or waiting for firmware update to complete, make sure that the reboot has not taken longer than the max allowed reboot time.
+        9. Check on the status of any worker threads.
         """
         if self._in_simulation_mode:
             if self._check_simulator_error():
@@ -459,16 +454,18 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._process_next_communication_from_main()
             self._handle_sending_handshake()
 
-        if self._is_data_streaming or self._is_stimulating:
-            self._handle_streams()
-            # handle performance logging if ready
-            board_idx = 0
-            self._iterations_since_last_logging[board_idx] += 1
-            if self._iterations_since_last_logging[board_idx] >= self._iterations_per_logging_cycle:
-                self._handle_performance_logging()
-                self._iterations_since_last_logging[board_idx] = 0
+        board_idx = 0
+        if not self._is_registered_with_serial_comm[board_idx]:
+            self._register_magic_word(board_idx)
         else:
-            self._handle_comm_from_instrument()
+            self._handle_data_stream()
+
+            if self._is_data_streaming or self._is_stimulating:
+                # handle performance logging if ready
+                self._iterations_since_last_logging[board_idx] += 1
+                if self._iterations_since_last_logging[board_idx] > self._iterations_per_logging_cycle:
+                    self._handle_performance_logging()
+                    self._iterations_since_last_logging[board_idx] = 0
 
         self._handle_beacon_tracking()
         self._handle_command_tracking()
@@ -709,55 +706,6 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._send_data_packet(board_idx, SERIAL_COMM_HANDSHAKE_PACKET_TYPE)
         self._add_command_to_track({"command": "handshake"})
 
-    def _handle_comm_from_instrument(self) -> None:
-        board_idx = 0
-        board = self._board_connections[board_idx]
-
-        if board is None:
-            return
-        if not self._is_registered_with_serial_comm[board_idx]:
-            self._register_magic_word(board_idx)
-        elif board.in_waiting >= SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES:
-            magic_word_bytes = board.read(size=len(SERIAL_COMM_MAGIC_WORD_BYTES))
-            if magic_word_bytes != SERIAL_COMM_MAGIC_WORD_BYTES:
-                raise SerialCommIncorrectMagicWordFromMantarrayError(str(magic_word_bytes))
-        else:
-            return
-
-        packet_size_bytes = board.read(size=SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES)
-        packet_size = int.from_bytes(packet_size_bytes, byteorder="little")
-        data_packet_bytes = board.read(size=packet_size)
-        # check that the expected number of bytes are read. Read function will never return more bytes than requested, but can return less bytes than requested if not enough are present before the read timeout
-        if len(data_packet_bytes) < packet_size:
-            # Tanner (10/22/21): if problems with not enough bytes being read persist, then try reading one more time before raising error
-            raise SerialCommNotEnoughAdditionalBytesReadError(
-                f"Expected Size: {packet_size}, Actual Size: {len(data_packet_bytes)}, {data_packet_bytes}"  # type: ignore
-            )
-        # validate checksum before handling the communication. Need to reconstruct the whole packet to get the correct checksum
-        full_data_packet = SERIAL_COMM_MAGIC_WORD_BYTES + packet_size_bytes + data_packet_bytes
-        is_checksum_valid = validate_checksum(full_data_packet)
-        if not is_checksum_valid:
-            calculated_checksum = crc32(full_data_packet[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES])
-            received_checksum = int.from_bytes(
-                full_data_packet[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:],
-                byteorder="little",
-            )
-            try:
-                prev_command = self._commands_awaiting_response.popleft()
-            except IndexError:
-                prev_command = None  # type: ignore
-            raise SerialCommIncorrectChecksumFromInstrumentError(
-                f"Checksum Received: {received_checksum}, Checksum Calculated: {calculated_checksum}, Full Data Packet: {str(full_data_packet)}, Previous Command: {prev_command}"
-            )
-        if packet_size < SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES - SERIAL_COMM_PACKET_HEADER_LENGTH_BYTES:
-            raise SerialCommPacketFromMantarrayTooSmallError(
-                f"Invalid packet length received: {packet_size}, Full Data Packet: {str(full_data_packet)}"
-            )
-        self._process_comm_from_instrument(
-            full_data_packet[SERIAL_COMM_PACKET_TYPE_INDEX],
-            full_data_packet[SERIAL_COMM_PAYLOAD_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES],
-        )
-
     def _process_comm_from_instrument(self, packet_type: int, packet_payload: bytes) -> None:
         if packet_type == SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE:
             returned_packet = SERIAL_COMM_MAGIC_WORD_BYTES + packet_payload
@@ -961,7 +909,7 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _register_magic_word(self, board_idx: int) -> None:
         board = self._board_connections[board_idx]
         if board is None:
-            raise NotImplementedError("board should never be None here")
+            return
 
         # read bytes once every second until enough bytes have been read or timeout occurs
         # Tanner (3/16/21): issue seen with simulator taking slightly longer than status beacon period to send next data packet
@@ -997,7 +945,12 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise SerialCommPacketRegistrationReadEmptyError()
         self._is_registered_with_serial_comm[board_idx] = True
 
-    def _handle_streams(self) -> None:
+        # put the magic word bytes into the cache so the next data packet can be read properly
+        self._serial_packet_cache = SERIAL_COMM_MAGIC_WORD_BYTES
+        # immediately process this packet since it would otherwise be skipped in _commands_for_each_run_iteration
+        self._handle_data_stream()
+
+    def _handle_data_stream(self) -> None:
         board_idx = 0
         board = self._board_connections[board_idx]
         if not board:
@@ -1021,7 +974,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._serial_packet_cache += data_read_bytes
         # return if not at least 1 complete packet available
         if len(self._serial_packet_cache) < SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES:
-            return  # TODO make sure this is unit tested
+            return
 
         if self._timepoints_of_prev_actions["packet_sort"] is not None:
             new_performance_tracking_values["period_between_sorting"] = _get_secs_since_last_data_sort(
@@ -1060,7 +1013,6 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         # don't parse and send to file writer unless there is at least 1 second worth of data
         if self._mag_data_cache_dict["num_packets"] < self._num_mag_packets_per_second:  # type: ignore
-            # TODO make sure this is unit tested
             return
 
         new_performance_tracking_values: Dict[str, Any] = dict()
@@ -1270,7 +1222,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
         for metric_name, metric_values in self._performance_tracking_values.items():
             performance_metrics[metric_name] = None
-            if metric_values:
+            if len(metric_values) > 2:
                 performance_metrics[metric_name] = {
                     "max": max(metric_values),
                     "min": min(metric_values),

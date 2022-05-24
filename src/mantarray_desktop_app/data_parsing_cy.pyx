@@ -214,7 +214,9 @@ cpdef dict sort_serial_packets(unsigned char [:] read_bytes):
         # check that magic word is correct
         strncpy(magic_word, p.magic, MAGIC_WORD_LEN)
         if strncmp(magic_word, MAGIC_WORD, MAGIC_WORD_LEN) != 0:
-            raise SerialCommIncorrectMagicWordFromMantarrayError(str(magic_word))
+            raise SerialCommIncorrectMagicWordFromMantarrayError(
+                str(bytes(read_bytes[bytes_idx : bytes_idx + MAGIC_WORD_LEN]))
+            )
 
         relative_checksum_idx = get_checksum_index(p.packet_len)
 
@@ -225,7 +227,7 @@ cpdef dict sort_serial_packets(unsigned char [:] read_bytes):
         crc = crc32(crc, <uint8_t *> &p.magic, relative_checksum_idx)
         # check that actual CRC is the expected value. Do this before checking if it is a data packet
         if crc != original_crc:
-            # raising error here, so ok to incur reasonable amount of python overhead here
+            # raising error here, so ok to incur python overhead
             full_data_packet = bytearray(read_bytes[bytes_idx : bytes_idx + PACKET_HEADER_LEN + p.packet_len])
             raise SerialCommIncorrectChecksumFromInstrumentError(
                 f"Checksum Received: {original_crc}, Checksum Calculated: {crc}, Full Data Packet: {str(full_data_packet)}"
