@@ -79,8 +79,8 @@ from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import SUBPROCESS_POLL_DELAY_SECONDS
 from .constants import SYSTEM_STATUS_UUIDS
 from .constants import VALID_CONFIG_SETTINGS
-from .exceptions import InvalidUserCredsError
 from .exceptions import LocalServerPortAlreadyInUseError
+from .exceptions import LoginFailedError
 from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import ServerManagerNotInitializedError
 from .exceptions import ServerManagerSingletonAlreadySetError
@@ -415,7 +415,7 @@ def update_settings() -> Response:
 
     try:
         validate_user_credentials(request.args)
-    except InvalidUserCredsError as e:
+    except LoginFailedError as e:
         return Response(status=f"401 {repr(e)}")
 
     queue_command_to_main(

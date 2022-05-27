@@ -205,7 +205,6 @@ from .exceptions import InvalidCommandFromMainError
 from .exceptions import InvalidDataFramePeriodError
 from .exceptions import InvalidScriptCommandError
 from .exceptions import InvalidStopRecordingTimepointError
-from .exceptions import InvalidUserCredsError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import MismatchedScriptTypeError
 from .exceptions import MultiprocessingNotSetToSpawnError
@@ -409,7 +408,6 @@ __all__ = [
     "CURI_BIO_USER_ACCOUNT_ID",
     "MantarrayFrontPanelMixIn",
     "MantarrayFrontPanel",
-    "InvalidUserCredsError",
     "RecordingFolderDoesNotExistError",
     "VALID_CONFIG_SETTINGS",
     "FIRMWARE_VERSION_WIRE_OUT_ADDRESS",

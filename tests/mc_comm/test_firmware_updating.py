@@ -122,7 +122,7 @@ def test_download_firmware_updates__get_access_token_then_downloads_specified_fi
     test_customer_id = "id"
     test_username = "user"
     test_password = "pw"
-    test_access_token = "access_token"
+    test_access_token = "at"
 
     test_main_presigned_url = "main_url"
     test_channel_presigned_url = "channel_url"
@@ -141,8 +141,8 @@ def test_download_firmware_updates__get_access_token_then_downloads_specified_fi
         "channel": expected_channel_fw_bytes,
     }
 
-    mocked_post = mocker.patch.object(requests, "post", autospec=True)
-    mocked_post.return_value.json.return_value = {"access_token": test_access_token}
+    mocked_get_token = mocker.patch.object(firmware_downloader, "get_cloud_api_tokens", autospec=True)
+    mocked_get_token.return_value.access = test_access_token
 
     def call_se(url, *args, params=None, **kwargs):
         if params is None:
@@ -179,10 +179,7 @@ def test_download_firmware_updates__get_access_token_then_downloads_specified_fi
         test_password,
     )
 
-    mocked_post.assert_called_once_with(
-        f"https://{CLOUD_API_ENDPOINT}/users/login",
-        json={"customer_id": test_customer_id, "username": test_username, "password": test_password},
-    )
+    mocked_get_token.assert_called_once_with(test_customer_id, test_username, test_password)
 
     assert mocked_call.call_count == 2 * (int(main_fw_update) + int(channel_fw_update))
     call_idx = 0
