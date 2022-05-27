@@ -37,8 +37,8 @@ from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 import pytest
 
-from .fixtures import fixture_patch_print
-from .fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
+from ..fixtures import fixture_patch_print
+from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 
 
 __fixtures__ = [fixture_patch_print, fixture_mantarray_mc_simulator_no_beacon]
