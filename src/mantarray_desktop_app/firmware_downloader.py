@@ -4,6 +4,7 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
+from mantarray_desktop_app.web_api_utils import get_cloud_api_tokens
 import requests
 from requests.exceptions import ConnectionError
 from requests.models import Response
@@ -46,11 +47,7 @@ def download_firmware_updates(
     if main_fw_version is None and channel_fw_version is None:
         raise FirmwareDownloadError("No firmware types specified")
     # get access token
-    login_response = requests.post(
-        f"https://{CLOUD_API_ENDPOINT}/users/login",
-        json={"customer_id": customer_id, "username": username, "password": password},
-    )
-    access_token = login_response.json()["access_token"]
+    access_token = get_cloud_api_tokens(customer_id, username, password).access
     # get presigned download URL(s)
     presigned_urls: Dict[str, Optional[str]] = {"main": None, "channel": None}
     for version, fw_type in ((main_fw_version, "main"), (channel_fw_version, "channel")):

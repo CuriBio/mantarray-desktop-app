@@ -9,7 +9,6 @@ from mantarray_desktop_app import CALIBRATED_STATE
 from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
-from mantarray_desktop_app import InvalidUserCredsError
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import RECORDING_STATE
@@ -24,6 +23,7 @@ from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
+from mantarray_desktop_app.exceptions import LoginFailedError
 import pytest
 
 from ..fixtures import fixture_generic_queue_container
@@ -571,7 +571,7 @@ def test_update_settings__returns_error_message_when_unexpected_argument_is_give
 
 
 def test_update_settings__returns_correct_error_code_when_user_auth_fails(test_client, mocker):
-    test_error = InvalidUserCredsError("msg")
+    test_error = LoginFailedError(401)
 
     # mock so test doesn't hit cloud API
     mocked_validate = mocker.patch.object(

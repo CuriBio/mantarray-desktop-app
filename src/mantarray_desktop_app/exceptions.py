@@ -30,10 +30,6 @@ class UnrecognizedCommandFromMainToOkCommError(Exception):
     pass
 
 
-class InvalidUserCredsError(Exception):
-    pass
-
-
 class UnrecognizedCommandFromMainToFileWriterError(Exception):
     pass
 
@@ -243,4 +239,19 @@ class FirmwareGoingDormantError(Exception):
 
 
 class CloudAnalysisJobFailedError(Exception):
+    pass
+
+
+class CloudAuthFailedError(Exception):
+    """Base class for cloud auth related errors."""
+
+    def __init__(self, status_code: int):
+        super().__init__(f"Status Code: {status_code}")
+
+
+class LoginFailedError(CloudAuthFailedError):
+    pass
+
+
+class RefreshFailedError(CloudAuthFailedError):
     pass

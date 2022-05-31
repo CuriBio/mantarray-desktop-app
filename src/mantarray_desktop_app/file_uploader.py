@@ -11,8 +11,8 @@ import zipfile
 from mantarray_desktop_app.exceptions import CloudAnalysisJobFailedError
 import requests
 
-from .constants import CLOUD_API_ENDPOINT
 from .constants import CLOUD_PULSE3D_ENDPOINT
+from .web_api_utils import WebWorker
 
 
 def create_zip_file(file_directory: str, file_name: str, zipped_recordings_dir: str) -> str:
@@ -56,22 +56,6 @@ def get_file_md5(file_path: str) -> str:
         ).digest()
         md5s = base64.b64encode(md5).decode()
     return md5s
-
-
-def get_access_token(customer_id: str, user_name: str, password: str) -> str:
-    """Generate user specific token.
-
-    Args:
-        customer_id: current user's customer account id.
-        user_name: current user.
-        password: current user's password.
-    """
-    login_response = requests.post(
-        f"https://{CLOUD_API_ENDPOINT}/users/login",
-        json={"customer_id": customer_id, "username": user_name, "password": password},
-    )
-    access_token: str = login_response.json()["access_token"]
-    return access_token
 
 
 def get_upload_details(
@@ -131,19 +115,6 @@ def start_analysis(access_token: str, upload_id: str) -> str:
     return jobs_id
 
 
-def get_analysis_status(access_token: str, job_id: str) -> Dict[str, str]:
-    response = requests.get(
-        f"https://{CLOUD_PULSE3D_ENDPOINT}/jobs",
-        params={"job_ids": job_id},
-        headers={"Authorization": f"Bearer {access_token}"},
-    )
-    job_dict: Dict[str, str] = response.json()["jobs"][0]
-
-    if error := job_dict.get("error"):
-        raise CloudAnalysisJobFailedError(error)
-    return job_dict
-
-
 def download_analysis_from_s3(presigned_url: str, file_name: str) -> None:
     """Get analysis from s3 and download to local directory.
 
@@ -159,14 +130,7 @@ def download_analysis_from_s3(presigned_url: str, file_name: str) -> None:
         content.write(download_response.content)
 
 
-def uploader(
-    file_directory: str,
-    file_name: str,
-    zipped_recordings_dir: str,
-    customer_id: str,
-    user_name: str,
-    password: str,
-) -> None:
+class FileUploader(WebWorker):
     """Initiate and handle file upload process.
 
     Args:
@@ -177,37 +141,75 @@ def uploader(
         user_name: current user's account id.
         password: current user's account password.
     """
-    upload_type = "recording" if "/recordings" in file_directory else "logs"
 
-    file_path = os.path.join(os.path.abspath(file_directory), file_name)
-    # Failed uploads will call function with zip file, not directory of well data
-    if os.path.isdir(file_path):
-        if upload_type == "recording":
-            # store zipped files under user specific sub dir of static zipped dir
-            user_recordings_dir = os.path.join(zipped_recordings_dir, user_name)
-            if not os.path.exists(user_recordings_dir):
-                os.makedirs(user_recordings_dir)
-            dir_to_store_zips = user_recordings_dir
+    def __init__(
+        self,
+        file_directory: str,
+        file_name: str,
+        zipped_recordings_dir: str,
+        customer_id: str,
+        user_name: str,
+        password: str,
+    ) -> None:
+        super().__init__(customer_id, user_name, password)
+        self.file_directory = file_directory
+        self.file_name = file_name
+        self.zipped_recordings_dir = zipped_recordings_dir
+
+    def job(self) -> None:
+        # TODO Tanner (5/27/22): Should probably just pass in the upload type
+        upload_type = "recording" if "recording" in self.file_directory else "logs"
+
+        file_path = os.path.join(os.path.abspath(self.file_directory), self.file_name)
+        # Failed uploads will call function with zip file, not directory of well data
+        if os.path.isdir(file_path):
+            if upload_type == "recording":
+                # store zipped files under user specific sub dir of static zipped dir
+                user_recordings_dir = os.path.join(self.zipped_recordings_dir, self.user_name)
+                if not os.path.exists(user_recordings_dir):
+                    os.makedirs(user_recordings_dir)
+                dir_to_store_zips = user_recordings_dir
+            else:
+                # store zipped files in whatever dir was given
+                dir_to_store_zips = self.zipped_recordings_dir
+
+            zipped_file_path = create_zip_file(self.file_directory, self.file_name, dir_to_store_zips)
+            self.file_name += ".zip"
         else:
-            # store zipped files in whatever dir was given
-            dir_to_store_zips = zipped_recordings_dir
+            zipped_file_path = file_path
 
-        zipped_file_path = create_zip_file(file_directory, file_name, dir_to_store_zips)
-        file_name += ".zip"
-    else:
-        zipped_file_path = file_path
+        # upload file
+        file_md5 = get_file_md5(zipped_file_path)
+        upload_details = get_upload_details(
+            self.tokens.access, self.file_name, self.customer_id, file_md5, upload_type
+        )
+        upload_file_to_s3(zipped_file_path, self.file_name, upload_details)
 
-    access_token = get_access_token(customer_id, user_name, password)
-    file_md5 = get_file_md5(zipped_file_path)
-    upload_details = get_upload_details(access_token, file_name, customer_id, file_md5, upload_type)
-    upload_file_to_s3(zipped_file_path, file_name, upload_details)
+        # nothing else to do if just uploading a log file
+        if upload_type == "logs":
+            return
 
-    if upload_type == "logs":
-        return
+        # start analysis and wait for analysis to complete
+        analysis_job_id = start_analysis(self.tokens.access, upload_details["id"])
 
-    analysis_job_id = start_analysis(access_token, upload_details["id"])
-    # wait for analysis to complete
-    while (status_dict := get_analysis_status(access_token, analysis_job_id))["status"] == "pending":
-        sleep(5)
+        while (status_dict := self.get_analysis_status(analysis_job_id))["status"] == "pending":
+            sleep(5)
 
-    download_analysis_from_s3(status_dict["url"], file_name)
+        # download analysis of file
+        download_analysis_from_s3(status_dict["url"], self.file_name)
+
+    def get_analysis_status(self, job_id: str) -> Dict[str, str]:
+        response = self.request_with_refresh(
+            lambda: requests.get(
+                f"https://{CLOUD_PULSE3D_ENDPOINT}/jobs",
+                params={"job_ids": job_id},
+                headers={"Authorization": f"Bearer {self.tokens.access}"},
+            )
+        )
+
+        job_dict: Dict[str, str] = response.json()["jobs"][0]
+
+        if error := job_dict.get("error"):
+            raise CloudAnalysisJobFailedError(error)
+
+        return job_dict

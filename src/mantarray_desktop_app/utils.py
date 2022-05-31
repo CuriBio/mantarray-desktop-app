@@ -15,6 +15,8 @@ from typing import Optional
 from typing import Union
 from uuid import UUID
 
+from mantarray_desktop_app.file_uploader import FileUploader
+from mantarray_desktop_app.web_api_utils import get_cloud_api_tokens
 import psutil
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import BACKEND_LOG_UUID
@@ -43,7 +45,6 @@ from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
 from pulse3D.constants import UTC_BEGINNING_STIMULATION_UUID
 from pulse3D.constants import XEM_SERIAL_NUMBER_UUID
-import requests
 from semver import VersionInfo
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_frozen_as_exe
@@ -52,16 +53,13 @@ from .constants import ALL_VALID_BARCODE_HEADERS
 from .constants import BARCODE_HEADERS
 from .constants import BARCODE_LEN
 from .constants import CENTIMILLISECONDS_PER_SECOND
-from .constants import CLOUD_API_ENDPOINT
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_VOLTAGE
-from .exceptions import InvalidUserCredsError
 from .exceptions import RecordingFolderDoesNotExistError
-from .file_uploader import uploader
 
 logger = logging.getLogger(__name__)
 
@@ -87,12 +85,7 @@ def validate_user_credentials(request_args: Dict[str, Any]) -> None:
     if customer_id := request_args.get("customer_id"):
         user_name = request_args["user_name"]
         user_password = request_args["user_password"]
-        response = requests.post(
-            f"https://{CLOUD_API_ENDPOINT}/users/login",
-            json={"customer_id": customer_id, "username": user_name, "password": user_password},
-        )
-        if response.status_code != 200:
-            raise InvalidUserCredsError()
+        get_cloud_api_tokens(customer_id, user_name, user_password)
 
 
 def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[str, Any]:
@@ -360,7 +353,10 @@ def upload_log_files_to_s3(config_settings: Dict[str, str]) -> None:
 
     with tempfile.TemporaryDirectory() as zipped_dir:
         try:
-            uploader(file_directory, sub_dir_name, zipped_dir, customer_id, user_name, user_password)
+            file_uploader = FileUploader(
+                file_directory, sub_dir_name, zipped_dir, customer_id, user_name, user_password
+            )
+            file_uploader()
         except Exception as e:
             logger.error(f"Failed to upload log files to s3: {repr(e)}")
         else:

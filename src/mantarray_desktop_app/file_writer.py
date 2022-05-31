@@ -25,6 +25,7 @@ from typing import Union
 from uuid import UUID
 
 import h5py
+from mantarray_desktop_app.file_uploader import FileUploader
 from nptyping import NDArray
 import numpy as np
 from pulse3D.constants import ADC_REF_OFFSET_UUID
@@ -76,7 +77,6 @@ from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from .exceptions import CalibrationFilesMissingError
 from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import UnrecognizedCommandFromMainToFileWriterError
-from .file_uploader import uploader
 from .worker_thread import ErrorCatchingThread
 
 
@@ -1158,17 +1158,16 @@ class FileWriterProcess(InfiniteProcess):
         user_name = self._user_settings["user_name"]
         user_password = self._user_settings["user_password"]
 
-        upload_thread = ErrorCatchingThread(
-            target=uploader,
-            args=(
-                self._file_directory,
-                self._current_recording_dir,
-                self._zipped_files_dir,
-                customer_id,
-                user_name,
-                user_password,
-            ),
+        file_uploader = FileUploader(
+            self._file_directory,
+            self._current_recording_dir,
+            self._zipped_files_dir,
+            customer_id,
+            user_name,
+            user_password,
         )
+
+        upload_thread = ErrorCatchingThread(target=file_uploader)
         upload_thread.start()
 
         thread_dict = {
