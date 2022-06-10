@@ -353,9 +353,9 @@ def test_start_stim_checks__returns_correct_response(
         StimulatorCircuitStatuses.MEDIA.name.lower()
     ] * test_num_wells
 
-    expected_status_code = 200 if test_system_status in (CALIBRATED_STATE) else 403
+    expected_status_code = 200 if test_system_status == CALIBRATED_STATE else 403
 
-    response = test_client.post("/start_stim_checks")
+    response = test_client.post("/start_stim_checks", json={"well_indices": [0]})
     assert response.status_code == expected_status_code
     if expected_status_code == 403:
         assert response.status.endswith("Route cannot be called unless in calibrated state") is True
@@ -399,6 +399,38 @@ def test_set_start_stim_checks__returns_code_and_message_if_checks_are_already_r
     response = test_client.post("/start_stim_checks")
     assert response.status_code == 304
     assert response.status.endswith("Stimulator checks already running") is True
+
+
+def test_start_stim_checks__returns_error_code_and_message_if_called_without_well_indices_in_body(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    shared_values_dict["beta_2_mode"] = True
+
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = [None] * test_num_wells
+
+    response = test_client.post("/start_stim_checks")
+    assert response.status_code == 400
+    assert response.status.endswith("Request body missing 'well_indices'") is True
+
+
+def test_start_stim_checks__returns_error_code_and_message_if_called_with_empty_well_indices_list(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    shared_values_dict["beta_2_mode"] = True
+
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = [None] * test_num_wells
+
+    response = test_client.post("/start_stim_checks", json={"well_indices": []})
+    assert response.status_code == 400
+    assert response.status.endswith("No well indices given") is True
 
 
 def test_dev_begin_hardware_script__returns_correct_response(test_client):

@@ -1446,9 +1446,19 @@ def test_start_stim_checks__populates_queue_to_process_monitor_with_correct_comm
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulator_circuit_statuses"] = [None] * test_num_wells
 
-    expected_comm_dict = {"communication_type": "stimulation", "command": "start_stim_checks"}
+    test_well_indices = [i for i in range(test_num_wells) if random_bool()]
+    if not test_well_indices:
+        # guard against unlikely case where no wells were selected
+        test_well_indices = [0]
+    test_well_indices_dict = {"well_indices": test_well_indices}
 
-    response = test_client.post("/start_stim_checks")
+    expected_comm_dict = {
+        "communication_type": "stimulation",
+        "command": "start_stim_checks",
+        **test_well_indices_dict,
+    }
+
+    response = test_client.post("/start_stim_checks", json=test_well_indices_dict)
     assert response.status_code == 200
 
     comm_queue = server_manager.get_queue_to_main()

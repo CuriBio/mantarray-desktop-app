@@ -326,8 +326,16 @@ def start_stim_checks() -> Response:
         return Response(status="403 Cannot perform stimulator checks while stimulation is running")
     if _are_stimulator_checks_running():
         return Response(status="304 Stimulator checks already running")
+    try:
+        well_indices = request.get_json()["well_indices"]
+    except Exception:
+        return Response(status="400 Request body missing 'well_indices'")
+    if not well_indices:
+        return Response(status="400 No well indices given")
 
-    response = queue_command_to_main({"communication_type": "stimulation", "command": "start_stim_checks"})
+    response = queue_command_to_main(
+        {"communication_type": "stimulation", "command": "start_stim_checks", "well_indices": well_indices}
+    )
     return response
 
 
