@@ -23,6 +23,7 @@ from mantarray_desktop_app.constants import PERFOMANCE_LOGGING_PERIOD_SECS
 from mantarray_desktop_app.constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from mantarray_desktop_app.exceptions import SerialCommCommandProcessingError
 import numpy as np
 import pytest
 from stdlib_utils import drain_queue
@@ -155,8 +156,9 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__an
     # run mc_simulator once to process command and send response
     invoke_process_run_and_check_errors(simulator)
     # run mc_process to check command response and raise error
-    with pytest.raises(InstrumentDataStreamingAlreadyStartedError):
+    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
+    assert type(exc_info.value.__cause__) == InstrumentDataStreamingAlreadyStartedError
 
 
 def test_McCommunicationProcess__processes_stop_data_streaming_command__when_data_is_streaming(
@@ -212,8 +214,9 @@ def test_McCommunicationProcess__processes_stop_data_streaming_command__and_rais
     invoke_process_run_and_check_errors(mc_process)
     invoke_process_run_and_check_errors(simulator)
     # run mc_process to check command response and raise error
-    with pytest.raises(InstrumentDataStreamingAlreadyStoppedError):
+    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
+    assert type(exc_info.value.__cause__) == InstrumentDataStreamingAlreadyStoppedError
 
 
 def test_McCommunicationProcess__reads_all_bytes_from_instrument__and_does_not_sort_packets_if_not_at_least_one_full_packet_is_present(

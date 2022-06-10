@@ -16,6 +16,7 @@ from mantarray_desktop_app.constants import SERIAL_COMM_ERROR_ACK_PACKET_TYPE
 from mantarray_desktop_app.constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app.exceptions import InstrumentFirmwareError
+from mantarray_desktop_app.exceptions import SerialCommCommandProcessingError
 from mantarray_desktop_app.serial_comm_utils import convert_status_code_bytes_to_dict
 import pytest
 from stdlib_utils import drain_queue
@@ -405,14 +406,16 @@ def test_McCommunicationProcess__handles_error_status_code_found_in_status_beaco
     invoke_process_run_and_check_errors(simulator)
 
     # read beacon with error code and then teardown
-    with pytest.raises(InstrumentFirmwareError) as exc_info:
+    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
         invoke_process_run_and_check_errors(mc_process, perform_teardown_after_loop=True)
+    assert type(exc_info.value.__cause__) == InstrumentFirmwareError
+    # make sure relevant info is in error message
+    assert "status beacon" in str(exc_info.value.__cause__).lower()
+    assert str(expected_status_code_dict) in str(exc_info.value.__cause__)
+
     # make sure only error ack packet was sent to simulator
     spied_write.assert_called_once()
     assert_serial_packet_is_expected(spied_write.call_args[0][0], SERIAL_COMM_ERROR_ACK_PACKET_TYPE)
-    # make sure relevant info is in error message
-    assert "status beacon" in str(exc_info.value).lower()
-    assert str(expected_status_code_dict) in str(exc_info.value)
 
 
 def test_McCommunicationProcess__handles_error_status_code_found_in_handshake_response(
@@ -446,17 +449,21 @@ def test_McCommunicationProcess__handles_error_status_code_found_in_handshake_re
     mocked_secs_since_handshake.return_value = SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
     invoke_process_run_and_check_errors(mc_process)
     invoke_process_run_and_check_errors(simulator)
-    # read handshake response with error code and then teardown
+
     mocked_secs_since_handshake.return_value = 0
     spied_write = mocker.spy(simulator, "write")
-    with pytest.raises(InstrumentFirmwareError) as exc_info:
+
+    # read handshake response with error code and then teardown
+    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
         invoke_process_run_and_check_errors(mc_process, perform_teardown_after_loop=True)
+    assert type(exc_info.value.__cause__) == InstrumentFirmwareError
+    # make sure relevant info is in error message
+    assert "handshake" in str(exc_info.value.__cause__).lower()
+    assert str(expected_status_code_dict) in str(exc_info.value.__cause__)
+
     # make sure only error ack packet was sent to simulator
     spied_write.assert_called_once()
     assert_serial_packet_is_expected(spied_write.call_args[0][0], SERIAL_COMM_ERROR_ACK_PACKET_TYPE)
-    # make sure relevant info is in error message
-    assert "handshake" in str(exc_info.value).lower()
-    assert str(expected_status_code_dict) in str(exc_info.value)
 
 
 def test_McCommunicationProcess__checks_for_simulator_errors_in_simulator_error_queue__and_if_error_is_present_sends_to_main_process_and_stops_itself(
