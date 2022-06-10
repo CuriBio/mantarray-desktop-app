@@ -158,11 +158,10 @@ const log = require("electron-log");
 import path from "path";
 import Vue from "vue";
 
-import { VBPopover, VBToggle, BCollapse, BModal } from "bootstrap-vue";
+import { VBPopover, VBToggle, BCollapse } from "bootstrap-vue";
 // Note: Vue automatically prefixes the directive name with 'v-'
 Vue.directive("b-popover", VBPopover);
 Vue.directive("b-toggle", VBToggle);
-Vue.component("BModal", BModal);
 
 export default {
   components: {
