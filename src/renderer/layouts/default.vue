@@ -30,7 +30,11 @@
             <PlateNavigator />
           </div>
           <div class="div__status-bar-container">
-            <StatusBar @send_confirmation="send_confirmation" />
+            <StatusBar
+              :da_check="da_check"
+              @close_da_check_modal="close_da_check_modal"
+              @send_confirmation="send_confirmation"
+            />
           </div>
           <div class="div__player-controls-container">
             <DesktopPlayerControls @save_customer_id="save_customer_id" />
@@ -79,11 +83,7 @@
             <BarcodeViewer :barcode_type="'stim_barcode'" />
           </div>
           <div class="div__stim-status-container">
-            <StatusBar
-              :confirmation_request="confirmation_request"
-              :stim_specific="true"
-              @send_confirmation="send_confirmation"
-            />
+            <StatusBar :stim_specific="true" @send_confirmation="send_confirmation" />
           </div>
           <div class="div__stimulation_controls-controls-icon-container">
             <StimulationControls />
@@ -99,11 +99,11 @@
         <div
           v-if="beta_2_mode"
           role="tab"
-          @click="handle_tab_visibility(2)"
+          @click="da_check = true"
           @mouseenter="data_analysis_hover = true"
           @mouseleave="data_analysis_hover = false"
         >
-          <div v-b-toggle.data-analysis-card class="div__accordian-tabs" :class="data_analysis_dynamic_class">
+          <div class="div__accordian-tabs" :class="data_analysis_dynamic_class">
             Data Analysis
             <div
               class="div__arrow"
@@ -112,7 +112,12 @@
             />
           </div>
         </div>
-        <b-collapse id="data-analysis-card" accordion="controls-accordion" role="tabpanel">
+        <b-collapse
+          id="data-analysis-card"
+          v-model="data_analysis_visibility"
+          accordion="controls-accordion"
+          role="tabpanel"
+        >
           <DataAnalysisControl @send_confirmation="send_confirmation" />
         </b-collapse>
       </div>
@@ -152,11 +157,12 @@ import { mapState } from "vuex";
 const log = require("electron-log");
 import path from "path";
 import Vue from "vue";
-import { VBPopover, VBToggle, BCollapse } from "bootstrap-vue";
 
+import { VBPopover, VBToggle, BCollapse, BModal } from "bootstrap-vue";
 // Note: Vue automatically prefixes the directive name with 'v-'
 Vue.directive("b-popover", VBPopover);
 Vue.directive("b-toggle", VBToggle);
+Vue.component("BModal", BModal);
 
 export default {
   components: {
@@ -184,6 +190,7 @@ export default {
       data_acquisition_hover: false,
       stim_studio_hover: false,
       request_stored_customer_id: true,
+      da_check: false,
     };
   },
   computed: {
@@ -194,7 +201,9 @@ export default {
       "recordings_list",
       "root_recording_path",
     ]),
-    ...mapState("playback", ["data_analysis_state"]),
+    ...mapState("playback", ["data_analysis_state", "playback_state"]),
+    ...mapState("stimulation", ["stim_play_state"]),
+    ...mapState("flask", ["status_uuid"]),
     data_acquisition_dynamic_class: function () {
       return this.data_acquisition_visibility ? "div__accordian-tabs-visible" : "div__accordian-tabs";
     },
@@ -289,6 +298,10 @@ export default {
       this.data_acquisition_visibility = tab === 0 && !this.data_acquisition_visibility;
       this.stim_studio_visibility = tab === 1 && !this.stim_studio_visibility;
       this.data_analysis_visibility = tab === 2 && !this.data_analysis_visibility;
+    },
+    close_da_check_modal: function (idx) {
+      if (idx === 1) this.handle_tab_visibility(2);
+      this.da_check = false;
     },
   },
 };
