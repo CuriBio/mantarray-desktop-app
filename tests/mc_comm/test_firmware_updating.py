@@ -20,6 +20,7 @@ from mantarray_desktop_app import SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PAYLOAD_INDEX
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
+from mantarray_desktop_app.exceptions import SerialCommCommandProcessingError
 from mantarray_desktop_app.firmware_downloader import call_firmware_download_route
 from mantarray_desktop_app.mc_comm import download_firmware_updates
 from mantarray_desktop_app.mc_comm import get_latest_firmware_versions
@@ -538,8 +539,10 @@ def test_McCommunicationProcess__raises_error_if_begin_firmware_update_command_f
     # send begin firmware update command and make sure error is raised
     invoke_process_run_and_check_errors(mc_process)
     invoke_process_run_and_check_errors(simulator)
-    with pytest.raises(FirmwareUpdateCommandFailedError, match="start_firmware_update"):
+    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
+    assert type(exc_info.value.__cause__) == FirmwareUpdateCommandFailedError
+    assert str(exc_info.value.__cause__) == "start_firmware_update"
 
 
 def test_McCommunicationProcess__raises_error_if_firmware_update_packet_fails(
@@ -588,8 +591,10 @@ def test_McCommunicationProcess__raises_error_if_firmware_update_packet_fails(
         {"command": "add_read_bytes", "read_bytes": bytes(response)}, testing_queue
     )
     invoke_process_run_and_check_errors(simulator)
-    with pytest.raises(FirmwareUpdateCommandFailedError, match="send_firmware_data, packet index: 0"):
+    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
+    assert type(exc_info.value.__cause__) == FirmwareUpdateCommandFailedError
+    assert str(exc_info.value.__cause__) == "send_firmware_data, packet index: 0"
 
 
 def test_McCommunicationProcess__raises_error_if_end_firmware_update_command_fails(
@@ -634,8 +639,11 @@ def test_McCommunicationProcess__raises_error_if_end_firmware_update_command_fai
     # send end of firmware packet and make sure error is raised
     invoke_process_run_and_check_errors(mc_process)
     invoke_process_run_and_check_errors(simulator)
-    with pytest.raises(FirmwareUpdateCommandFailedError, match="end_of_firmware_update"):
+
+    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
+    assert type(exc_info.value.__cause__) == FirmwareUpdateCommandFailedError
+    assert str(exc_info.value.__cause__) == "end_of_firmware_update"
 
 
 @pytest.mark.parametrize(

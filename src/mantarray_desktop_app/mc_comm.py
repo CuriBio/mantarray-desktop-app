@@ -11,6 +11,7 @@ import queue
 from statistics import stdev
 from time import perf_counter
 from time import sleep
+import traceback
 from typing import Any
 from typing import Deque
 from typing import Dict
@@ -92,6 +93,7 @@ from .exceptions import InstrumentFirmwareError
 from .exceptions import InstrumentRebootTimeoutError
 from .exceptions import InvalidCommandFromMainError
 from .exceptions import SamplingPeriodUpdateWhileDataStreamingError
+from .exceptions import SerialCommCommandProcessingError
 from .exceptions import SerialCommCommandResponseTimeoutError
 from .exceptions import SerialCommIncorrectChecksumFromPCError
 from .exceptions import SerialCommPacketRegistrationReadEmptyError
@@ -197,7 +199,7 @@ def _is_simulator(board_connection: Any) -> bool:
     return isinstance(board_connection, MantarrayMcSimulator)
 
 
-# pylint: disable=too-many-instance-attributes
+# TODO remove print_exception in stdlib_utils and then remove patch_print in tests
 class McCommunicationProcess(InstrumentCommProcess):
     """Process that controls communication with the Mantarray Beta 2 Board(s).
 
@@ -334,8 +336,14 @@ class McCommunicationProcess(InstrumentCommProcess):
         super()._teardown_after_loop()
 
     def _report_fatal_error(self, the_err: Exception) -> None:
-        self._error = the_err
-        super()._report_fatal_error(the_err)
+        self._error = (
+            the_err if not isinstance(the_err, SerialCommCommandProcessingError) else the_err.__cause__  # type: ignore
+        )
+        # TODO put the following code into InfiniteProcess._report_fatal_error in stdlib_utils
+        formatted_stack_trace = "".join(traceback.format_exception(None, the_err, the_err.__traceback__))
+        if isinstance(self._fatal_error_reporter, queue.Queue):
+            raise NotImplementedError("The error reporter for InfiniteProcess cannot be a threading queue")
+        self._fatal_error_reporter.put_nowait((the_err, formatted_stack_trace))
 
     def _reset_mag_data_cache(self) -> None:
         self._mag_data_cache_dict = {"raw_bytes": bytearray(0), "num_packets": 0}
@@ -727,6 +735,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 raise SerialCommUntrackedCommandResponseError(
                     f"Packet Type ID: {packet_type}, Packet Body: {str(packet_payload)}"
                 )
+                # TODO make sure the packet type matches the expected packet type from the previous command
             prev_command = self._commands_awaiting_response.popleft()
             if prev_command["command"] == "handshake":
                 status_codes_dict = convert_status_code_bytes_to_dict(response_data)
@@ -993,7 +1002,10 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         # process any other packets
         for other_packet_info in sorted_packet_dict["other_packet_info"]:
-            self._process_comm_from_instrument(*other_packet_info[1:])
+            try:
+                self._process_comm_from_instrument(*other_packet_info[1:])
+            except Exception as e:
+                raise SerialCommCommandProcessingError(*other_packet_info) from e
 
         # create dict and send to file writer if any stream packets were found
         self._handle_mag_data_packets(sorted_packet_dict["magnetometer_stream_info"])
