@@ -17,10 +17,15 @@ import serial
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
-from xem_wrapper import FrontPanelBase
-from xem_wrapper import okCFrontPanel
 
 from .mc_simulator import MantarrayMcSimulator
+
+try:
+    from xem_wrapper import FrontPanelBase
+    from xem_wrapper import okCFrontPanel
+except ImportError:  # no sec
+    FrontPanelBase = "FrontPanelBase"
+    okCFrontPanel = "okCFrontPanel"
 
 
 def _drain_board_queues(

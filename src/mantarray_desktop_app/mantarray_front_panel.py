@@ -2,9 +2,6 @@
 """Classes used for controlling a Mantarray device."""
 import struct
 
-from xem_wrapper import FrontPanel
-from xem_wrapper import FrontPanelBase
-
 from .constants import BARCODE_SCANNER_BOTTOM_WIRE_OUT_ADDRESS
 from .constants import BARCODE_SCANNER_MID_WIRE_OUT_ADDRESS
 from .constants import BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS
@@ -12,6 +9,17 @@ from .constants import BARCODE_SCANNER_TRIGGER_IN_ADDRESS
 from .constants import CLEAR_BARCODE_TRIG_BIT
 from .constants import FIRMWARE_VERSION_WIRE_OUT_ADDRESS
 from .constants import START_BARCODE_SCAN_TRIG_BIT
+
+try:
+    from xem_wrapper import FrontPanel
+    from xem_wrapper import FrontPanelBase
+except ImportError:  # no sec
+
+    class FrontPanelBase:  # type: ignore
+        pass
+
+    class FrontPanel(FrontPanelBase):  # type: ignore
+        pass
 
 
 class MantarrayFrontPanelMixIn:

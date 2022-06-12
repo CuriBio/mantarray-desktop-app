@@ -18,7 +18,11 @@ from immutabledict import immutabledict
 from labware_domain_models import LabwareDefinition
 import numpy as np
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
-from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
+
+try:
+    from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
+except ImportError:
+    DATA_FRAMES_PER_ROUND_ROBIN = 1
 
 CURRENT_SOFTWARE_VERSION = "REPLACETHISWITHVERSIONDURINGBUILD"
 COMPILED_EXE_BUILD_TIMESTAMP = "REPLACETHISWITHTIMESTAMPDURINGBUILD"

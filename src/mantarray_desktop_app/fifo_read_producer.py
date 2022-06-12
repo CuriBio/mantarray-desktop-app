@@ -31,8 +31,6 @@ from typing import Dict
 from scipy import signal
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteThread
-from xem_wrapper import build_header_magic_number_bytes
-from xem_wrapper import HEADER_MAGIC_NUMBER
 
 from .constants import ADC_CH_TO_24_WELL_INDEX
 from .constants import DATA_FRAME_PERIOD
@@ -42,6 +40,12 @@ from .constants import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
 from .constants import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from .constants import ROUND_ROBIN_PERIOD
 from .constants import TIMESTEP_CONVERSION_FACTOR
+
+try:
+    from xem_wrapper import build_header_magic_number_bytes
+    from xem_wrapper import HEADER_MAGIC_NUMBER
+except ImportError:  # no sec
+    pass
 
 
 def _perf_counter_cms() -> int:
