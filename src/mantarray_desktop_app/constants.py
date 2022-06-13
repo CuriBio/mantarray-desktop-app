@@ -386,14 +386,8 @@ SERIAL_COMM_NICKNAME_BYTES_LENGTH = 13
 SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH = 12
 
 # Mappings
-SERIAL_COMM_WELL_IDX_TO_MODULE_ID = immutabledict({well_idx: well_idx + 1 for well_idx in range(24)})
-SERIAL_COMM_MODULE_ID_TO_WELL_IDX = immutabledict(
-    {module_id: well_idx for well_idx, module_id in SERIAL_COMM_WELL_IDX_TO_MODULE_ID.items()}
-)
-
-# Tanner (12/28/21): The following two mappings are only needed due to a hardware issue with the Beta 2.2. They can eventually be removed in a future hardware iteration
 # fmt: off
-STIM_MODULE_ID_TO_WELL_IDX = immutabledict(
+SERIAL_COMM_MODULE_ID_TO_WELL_IDX = immutabledict(
     {
         module_id: well_idx
         for module_id, well_idx in enumerate(
@@ -408,6 +402,12 @@ STIM_MODULE_ID_TO_WELL_IDX = immutabledict(
     }
 )
 # fmt: on
+SERIAL_COMM_WELL_IDX_TO_MODULE_ID = immutabledict(
+    {module_id: well_idx for well_idx, module_id in SERIAL_COMM_MODULE_ID_TO_WELL_IDX.items()}
+)
+
+# Tanner (6/13/22): Stim and mag mappings are the same on the V1 board
+STIM_MODULE_ID_TO_WELL_IDX = SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 STIM_WELL_IDX_TO_MODULE_ID = immutabledict(
     {module_id: well_idx for well_idx, module_id in STIM_MODULE_ID_TO_WELL_IDX.items()}
 )

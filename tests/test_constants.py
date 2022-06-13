@@ -556,10 +556,15 @@ def test_beta_2_mappings():
         "B": {"X": 3, "Y": 4, "Z": 5},
         "C": {"X": 6, "Y": 7, "Z": 8},
     }
-    assert SERIAL_COMM_WELL_IDX_TO_MODULE_ID == {
-        well_idx: module_id for module_id, well_idx in SERIAL_COMM_MODULE_ID_TO_WELL_IDX.items()
+    assert SERIAL_COMM_MODULE_ID_TO_WELL_IDX == {
+        module_id: well_idx
+        for module_id, well_idx in enumerate(
+            [3, 7, 11, 15, 19, 23, 2, 6, 10, 14, 18, 22, 1, 5, 9, 13, 17, 21, 0, 4, 8, 12, 16, 20], 1
+        )
     }
-    assert SERIAL_COMM_MODULE_ID_TO_WELL_IDX == {module_id: module_id - 1 for module_id in range(1, 25)}
+    assert SERIAL_COMM_WELL_IDX_TO_MODULE_ID == {
+        module_id: well_idx for well_idx, module_id in SERIAL_COMM_MODULE_ID_TO_WELL_IDX.items()
+    }
     for well_idx in range(24):
         module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]
         well_idx_from_module_id = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
