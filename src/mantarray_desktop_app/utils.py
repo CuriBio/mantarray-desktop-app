@@ -326,7 +326,7 @@ def _get_timestamp_of_acquisition_sample_index_zero(  # pylint:disable=invalid-n
 def set_this_process_high_priority() -> None:  # pragma: no cover
     p = psutil.Process(os.getpid())
     try:
-        nice_value = psutil.HIGH_PRIORITY_CLASS
+        nice_value = psutil.REALTIME_PRIORITY_CLASS
     except AttributeError:
         nice_value = -10
     p.nice(nice_value)
