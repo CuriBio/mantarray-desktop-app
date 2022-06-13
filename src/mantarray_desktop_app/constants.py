@@ -385,9 +385,32 @@ SERIAL_COMM_METADATA_BYTES_LENGTH = 64
 SERIAL_COMM_NICKNAME_BYTES_LENGTH = 13
 SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH = 12
 
+
 # Mappings
+
 # fmt: off
+SERIAL_COMM_WELL_IDX_TO_MODULE_ID = immutabledict(
+    {
+        well_idx: module_id
+        for well_idx, module_id in enumerate(
+            [
+                4, 3, 2, 1,      # A1 - D1
+                8, 7, 6, 5,      # A2 - D2
+                12, 11, 10, 9,   # A3 - D3
+                16, 15, 14, 13,  # A4 - D4
+                20, 19, 18, 17,  # A5 - D5
+                24, 23, 22, 21   # A6 - D6
+            ]
+        )
+    }
+)
+# fmt: on
 SERIAL_COMM_MODULE_ID_TO_WELL_IDX = immutabledict(
+    {module_id: well_idx for well_idx, module_id in SERIAL_COMM_WELL_IDX_TO_MODULE_ID.items()}
+)
+
+# fmt: off
+STIM_MODULE_ID_TO_WELL_IDX = immutabledict(
     {
         module_id: well_idx
         for module_id, well_idx in enumerate(
@@ -402,14 +425,8 @@ SERIAL_COMM_MODULE_ID_TO_WELL_IDX = immutabledict(
     }
 )
 # fmt: on
-SERIAL_COMM_WELL_IDX_TO_MODULE_ID = immutabledict(
-    {module_id: well_idx for well_idx, module_id in SERIAL_COMM_MODULE_ID_TO_WELL_IDX.items()}
-)
-
-# Tanner (6/13/22): Stim and mag mappings are the same on the V1 board
-STIM_MODULE_ID_TO_WELL_IDX = SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 STIM_WELL_IDX_TO_MODULE_ID = immutabledict(
-    {module_id: well_idx for well_idx, module_id in STIM_MODULE_ID_TO_WELL_IDX.items()}
+    {well_idx: module_id for module_id, well_idx in STIM_MODULE_ID_TO_WELL_IDX.items()}
 )
 
 
