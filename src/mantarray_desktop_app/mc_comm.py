@@ -9,6 +9,7 @@ import logging
 from multiprocessing import Queue
 import queue
 from statistics import stdev
+import struct
 from time import perf_counter
 from time import sleep
 from typing import Any
@@ -538,6 +539,13 @@ class McCommunicationProcess(InstrumentCommProcess):
         elif communication_type == "stimulation":
             if comm_from_main["command"] == "start_stim_checks":
                 packet_type = SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
+                bytes_to_send = struct.pack(
+                    f"<{self._num_wells}?",
+                    *[
+                        SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id] in comm_from_main["well_indices"]
+                        for module_id in range(1, self._num_wells + 1)
+                    ],
+                )
             elif comm_from_main["command"] == "set_protocols":
                 packet_type = SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
                 bytes_to_send = convert_stim_dict_to_bytes(comm_from_main["stim_info"])
@@ -781,11 +789,13 @@ class McCommunicationProcess(InstrumentCommProcess):
             elif prev_command["command"] == "start_stim_checks":
                 stimulator_check_dict = convert_stimulator_check_bytes_to_dict(response_data)
 
-                stimulator_circuit_statuses: List[Optional[str]] = [None] * self._num_wells
-                adc_readings: List[Optional[Tuple[int, int]]] = [None] * self._num_wells
+                stimulator_circuit_statuses: Dict[int, str] = {}
+                adc_readings: Dict[int, Tuple[int, int]] = {}
 
                 for module_id, (adc8, adc9, status_int) in enumerate(zip(*stimulator_check_dict.values()), 1):
                     well_idx = STIM_MODULE_ID_TO_WELL_IDX[module_id]
+                    if well_idx not in prev_command["well_indices"]:
+                        continue
                     status_str = list(StimulatorCircuitStatuses)[status_int + 1].name.lower()
                     stimulator_circuit_statuses[well_idx] = status_str
                     adc_readings[well_idx] = (adc8, adc9)

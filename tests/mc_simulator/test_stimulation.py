@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from random import choice
 from random import randint
+import struct
 
 from mantarray_desktop_app import convert_module_id_to_well_name
 from mantarray_desktop_app import convert_stim_dict_to_bytes
@@ -33,6 +34,7 @@ from ..fixtures_mc_simulator import set_stim_info_and_start_stimulating
 from ..helpers import assert_serial_packet_is_expected
 from ..helpers import get_full_packet_size_from_payload_len
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
+from ..helpers import random_bool
 
 
 __fixtures__ = [fixture_mantarray_mc_simulator, fixture_mantarray_mc_simulator_no_beacon]
@@ -42,9 +44,16 @@ def test_MantarrayMcSimulator__processes_start_stimulator_checks_command(mantarr
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     num_wells = 24
 
+    test_module_ids = [i for i in range(1, num_wells + 1) if random_bool()]
+    if not test_module_ids:
+        # guard against unlikely case where no module IDs were selected
+        test_module_ids = [1]
+
     expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
     start_checks_command = create_data_packet(
-        expected_pc_timestamp, SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
+        expected_pc_timestamp,
+        SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE,
+        struct.pack("<24?", *[module_id in test_module_ids for module_id in range(1, num_wells + 1)]),
     )
     simulator.write(start_checks_command)
 

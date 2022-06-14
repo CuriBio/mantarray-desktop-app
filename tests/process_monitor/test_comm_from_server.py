@@ -292,7 +292,11 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__passe
     test_num_wells = 24
     svd["stimulator_circuit_statuses"] = ["any"] * test_num_wells
 
-    start_stim_checks_command = {"communication_type": "stimulation", "command": "start_stim_checks"}
+    start_stim_checks_command = {
+        "communication_type": "stimulation",
+        "command": "start_stim_checks",
+        "well_indices": [1, 2, 3],
+    }
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
