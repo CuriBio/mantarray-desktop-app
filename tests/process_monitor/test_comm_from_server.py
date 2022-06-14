@@ -290,7 +290,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__passe
     monitor_thread, svd, *_ = test_monitor(test_process_manager)
 
     test_num_wells = 24
-    svd["stimulator_circuit_statuses"] = ["any"] * test_num_wells
+    svd["stimulator_circuit_statuses"] = {}
 
     start_stim_checks_command = {
         "communication_type": "stimulation",
@@ -307,10 +307,9 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__passe
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert (
-        svd["stimulator_circuit_statuses"]
-        == [StimulatorCircuitStatuses.CALCULATING.name.lower()] * test_num_wells
-    )
+    assert svd["stimulator_circuit_statuses"] == {
+        well_idx: StimulatorCircuitStatuses.CALCULATING.name.lower() for well_idx in range(test_num_wells)
+    }
 
     main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)

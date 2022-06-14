@@ -983,13 +983,14 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
 
         # run stimulator checks
-        response = requests.post(f"{get_api_endpoint()}start_stim_checks")
+        response = requests.post(
+            f"{get_api_endpoint()}start_stim_checks", json={"well_indices": list(range(24))}
+        )
         assert response.status_code == 200
         # wait for checks to complete
-        while (
-            shared_values_dict["stimulator_circuit_statuses"]
-            != [StimulatorCircuitStatuses.MEDIA.name.lower()] * 24
-        ):
+        while shared_values_dict["stimulator_circuit_statuses"] != {
+            well_idx: StimulatorCircuitStatuses.MEDIA.name.lower() for well_idx in range(24)
+        }:
             time.sleep(0.5)
 
         # Tanner (10/22/21): Set stimulation protocols and start stimulation

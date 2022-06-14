@@ -887,7 +887,7 @@ def test_send_single_start_managed_acquisition_command__sets_system_status_to_bu
     shared_values_dict["mantarray_serial_number"] = {
         board_idx: RunningFIFOSimulator.default_mantarray_serial_number
     }
-    shared_values_dict["stimulator_circuit_statuses"] = [None] * 24
+    shared_values_dict["stimulator_circuit_statuses"] = {}
 
     comm_to_ok_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     comm_from_ok_queue = (

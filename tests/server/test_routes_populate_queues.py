@@ -666,7 +666,7 @@ def test_send_single_start_managed_acquisition_command__populates_queues(
 
     board_idx = 0
     shared_values_dict["mantarray_serial_number"] = {board_idx: "M02001801"}
-    shared_values_dict["stimulator_circuit_statuses"] = [None] * 24
+    shared_values_dict["stimulator_circuit_statuses"] = {}
 
     response = test_client.get("/start_managed_acquisition")
     assert response.status_code == 200
@@ -1345,9 +1345,9 @@ def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_statu
     expected_status_bool = test_status in ("true", "True")
     test_num_wells = 24
     shared_values_dict["stimulation_running"] = [not expected_status_bool] * test_num_wells
-    shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.name.lower()
-    ] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = {
+        well_idx: StimulatorCircuitStatuses.MEDIA.name.lower() for well_idx in range(test_num_wells)
+    }
 
     response = test_client.post(f"/set_stim_status?running={test_status}")
     assert response.status_code == 200
@@ -1420,7 +1420,7 @@ def test_start_calibration__populates_queue_to_process_monitor_with_correct_comm
     if test_beta_2_mode:
         test_num_wells = 24
         shared_values_dict["stimulation_running"] = [False] * test_num_wells
-        shared_values_dict["stimulator_circuit_statuses"] = [None] * test_num_wells
+        shared_values_dict["stimulator_circuit_statuses"] = {}
 
     response = test_client.get("/start_calibration")
     assert response.status_code == 200
@@ -1444,21 +1444,22 @@ def test_start_stim_checks__populates_queue_to_process_monitor_with_correct_comm
 
     test_num_wells = 24
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
-    shared_values_dict["stimulator_circuit_statuses"] = [None] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = {}
 
     test_well_indices = [i for i in range(test_num_wells) if random_bool()]
     if not test_well_indices:
         # guard against unlikely case where no wells were selected
         test_well_indices = [0]
-    test_well_indices_dict = {"well_indices": test_well_indices}
 
     expected_comm_dict = {
         "communication_type": "stimulation",
         "command": "start_stim_checks",
-        **test_well_indices_dict,
+        "well_indices": test_well_indices,
     }
 
-    response = test_client.post("/start_stim_checks", json=test_well_indices_dict)
+    response = test_client.post(
+        "/start_stim_checks", json={"well_indices": [str(well_idx) for well_idx in test_well_indices]}
+    )
     assert response.status_code == 200
 
     comm_queue = server_manager.get_queue_to_main()

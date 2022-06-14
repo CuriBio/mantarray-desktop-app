@@ -156,7 +156,7 @@ def put_generic_beta_2_start_recording_info_in_dict(shared_values_dict):
     shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [None]
     shared_values_dict["stimulation_running"] = [False] * num_wells
     shared_values_dict["stimulation_info"] = None
-    shared_values_dict["stimulator_circuit_statuses"] = [None] * num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = {}
 
 
 @pytest.fixture(scope="function", name="test_socketio_client")

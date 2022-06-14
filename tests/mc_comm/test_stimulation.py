@@ -104,6 +104,7 @@ def test_McCommunicationProcess__processes_start_stim_checks_command__and_sends_
     invoke_process_run_and_check_errors(mc_process)
     # process command and send response
     invoke_process_run_and_check_errors(simulator)
+    # TODO assert command was sent to simulator with correct info
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(output_queue, 1)
     msg_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
