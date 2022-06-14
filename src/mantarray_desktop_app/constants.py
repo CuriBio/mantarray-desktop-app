@@ -432,3 +432,6 @@ STIM_WELL_IDX_TO_MODULE_ID = immutabledict(
 
 # Calibration
 CALIBRATION_RECORDING_DUR_SECONDS = 30
+
+# Live View Conversion
+MM_PER_MT_Z_AXIS_SENSOR_0 = 1 / 0.075

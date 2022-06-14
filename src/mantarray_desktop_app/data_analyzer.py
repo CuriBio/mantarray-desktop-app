@@ -28,7 +28,6 @@ from pulse3D.compression_cy import compress_filtered_magnetic_data
 from pulse3D.constants import AMPLITUDE_UUID
 from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
 from pulse3D.constants import MEMSIC_CENTER_OFFSET
-from pulse3D.constants import MILLIMETERS_PER_MILLITESLA
 from pulse3D.constants import TWITCH_FREQUENCY_UUID
 from pulse3D.exceptions import PeakDetectionError
 from pulse3D.magnet_finding import fix_dropped_samples
@@ -55,6 +54,7 @@ from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
+from .constants import MM_PER_MT_Z_AXIS_SENSOR_0
 from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
@@ -72,10 +72,10 @@ def calculate_displacement_from_magnetic_flux_density(
 ) -> NDArray[(2, Any), np.float64]:
     """Convert magnetic flux density to displacement.
 
-    Conversion values were obtained 03/09/2021 by Kevin Grey
+    Conversion values were obtained 06/13/2022 by Kevin Gray
 
     Args:
-        magnetic_flux_data: time and mangetic flux density numpy array.
+        magnetic_flux_data: time and magnetic flux density numpy array.
 
     Returns:
         A 2D array of time vs Displacement (mm)
@@ -84,7 +84,7 @@ def calculate_displacement_from_magnetic_flux_density(
     time = magnetic_flux_data[0, :]
 
     # calculate displacement
-    sample_in_mm = sample_in_milliteslas * MILLIMETERS_PER_MILLITESLA
+    sample_in_mm = sample_in_milliteslas * MM_PER_MT_Z_AXIS_SENSOR_0
 
     return np.vstack((time, sample_in_mm)).astype(np.float64)
 
@@ -448,10 +448,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             # filter out any keys that are not well indices
             if not isinstance(key, int):
                 continue
-            first_channel_data = [
-                data_dict["time_indices"],
-                well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL],
-            ]
+            first_channel_data = [data_dict["time_indices"], well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL]]
             self._data_analysis_streams[key][0].emit(first_channel_data)
         self._handle_performance_logging()
 

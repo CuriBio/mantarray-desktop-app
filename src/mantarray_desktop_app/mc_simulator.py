@@ -725,13 +725,13 @@ class MantarrayMcSimulator(InfiniteProcess):
         )
         for module_id in range(1, self._num_wells + 1):
             # add offset of 0 since this is simulated data
-            offset = bytes(SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES)
+            time_offset = bytes(SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES)
             # create data point value
             data_value = self._simulated_data[self._simulated_data_index] * np.uint16(
                 SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id] + 1
             )
             # add data points
-            well_sensor_data = offset + (data_value.tobytes() * SERIAL_COMM_NUM_CHANNELS_PER_SENSOR)
+            well_sensor_data = time_offset + (data_value.tobytes() * SERIAL_COMM_NUM_CHANNELS_PER_SENSOR)
             well_data = well_sensor_data * SERIAL_COMM_NUM_SENSORS_PER_WELL
             magnetometer_data_payload += well_data
         return magnetometer_data_payload
