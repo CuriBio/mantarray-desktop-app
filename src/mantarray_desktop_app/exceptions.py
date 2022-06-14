@@ -191,9 +191,7 @@ class SerialCommInvalidSamplingPeriodError(Exception):
 
 
 class SerialCommCommandProcessingError(Exception):
-    def __init__(self, timestamp: int, packet_type: int, packet_payload: bytearray) -> None:
-        super().__init__(f"Timestamp: {timestamp}, Packet Type: {packet_type}, Payload: {packet_payload}")
-
+    pass
 
 class SamplingPeriodUpdateWhileDataStreamingError(Exception):
     pass

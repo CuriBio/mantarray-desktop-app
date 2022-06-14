@@ -1002,10 +1002,13 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         # process any other packets
         for other_packet_info in sorted_packet_dict["other_packet_info"]:
+            timestamp, packet_type, packet_payload = other_packet_info
             try:
-                self._process_comm_from_instrument(*other_packet_info[1:])
+                self._process_comm_from_instrument(packet_type, packet_payload)
             except Exception as e:
-                raise SerialCommCommandProcessingError(*other_packet_info) from e
+                raise SerialCommCommandProcessingError(
+                    f"Timestamp: {timestamp}, Packet Type: {packet_type}, Payload: {packet_payload}"
+                ) from e
 
         # create dict and send to file writer if any stream packets were found
         self._handle_mag_data_packets(sorted_packet_dict["magnetometer_stream_info"])
