@@ -262,9 +262,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._values_to_share_to_server["stimulation_info"] = communication["stim_info"]
                 self._put_communication_into_instrument_comm_queue(communication)
             elif command == "start_stim_checks":
-                self._values_to_share_to_server["stimulator_circuit_statuses"] = [
-                    StimulatorCircuitStatuses.CALCULATING.name.lower()
-                ] * 24
+                self._values_to_share_to_server["stimulator_circuit_statuses"] = {
+                    well_idx: StimulatorCircuitStatuses.CALCULATING.name.lower()
+                    for well_idx in communication["well_indices"]
+                }
                 self._put_communication_into_instrument_comm_queue(communication)
             else:
                 # Tanner (8/9/21): could make this a custom error if needed

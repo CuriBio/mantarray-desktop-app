@@ -228,9 +228,10 @@ cpdef dict sort_serial_packets(unsigned char [:] read_bytes):
         # check that actual CRC is the expected value. Do this before checking if it is a data packet
         if crc != original_crc:
             # raising error here, so ok to incur python overhead
-            full_data_packet = bytearray(read_bytes[bytes_idx : bytes_idx + PACKET_HEADER_LEN + p.packet_len])
+            packet_end_idx = bytes_idx + PACKET_HEADER_LEN + p.packet_len
+            full_data_packet = bytearray(read_bytes[bytes_idx : packet_end_idx])
             raise SerialCommIncorrectChecksumFromInstrumentError(
-                f"Checksum Received: {original_crc}, Checksum Calculated: {crc}, Full Data Packet: {str(full_data_packet)}"
+                f"Checksum Received: {original_crc}, Checksum Calculated: {crc}, Full Data Packet (bytes {bytes_idx} to {packet_end_idx}): {str(full_data_packet)}"
             )
 
         payload_start_idx = bytes_idx + SERIAL_COMM_PAYLOAD_INDEX_C_INT

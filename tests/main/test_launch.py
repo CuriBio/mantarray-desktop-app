@@ -463,7 +463,7 @@ def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_e
     assert shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] == [None]
     assert shared_values_dict["stimulation_running"] == [False] * expected_num_wells
     assert shared_values_dict["stimulation_info"] is None
-    assert shared_values_dict["stimulator_circuit_statuses"] == [None] * expected_num_wells
+    assert shared_values_dict["stimulator_circuit_statuses"] == {}
     assert "config_settings" in shared_values_dict
 
     # assert log messages were called in correct order

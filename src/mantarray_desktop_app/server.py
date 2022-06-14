@@ -326,8 +326,20 @@ def start_stim_checks() -> Response:
         return Response(status="403 Cannot perform stimulator checks while stimulation is running")
     if _are_stimulator_checks_running():
         return Response(status="304 Stimulator checks already running")
+    try:
+        well_indices = request.get_json()["well_indices"]
+    except Exception:
+        return Response(status="400 Request body missing 'well_indices'")
+    if not well_indices:
+        return Response(status="400 No well indices given")
 
-    response = queue_command_to_main({"communication_type": "stimulation", "command": "start_stim_checks"})
+    response = queue_command_to_main(
+        {
+            "communication_type": "stimulation",
+            "command": "start_stim_checks",
+            "well_indices": [int(well_idx) for well_idx in well_indices],
+        }
+    )
     return response
 
 
@@ -445,25 +457,25 @@ def _is_stimulating_on_any_well() -> bool:
 def _are_stimulator_checks_running() -> bool:
     stimulator_circuit_statuses = _get_values_from_process_monitor()["stimulator_circuit_statuses"]
     return any(
-        status == StimulatorCircuitStatuses.CALCULATING.name.lower() for status in stimulator_circuit_statuses
+        status == StimulatorCircuitStatuses.CALCULATING.name.lower()
+        for status in stimulator_circuit_statuses.values()
     )
 
 
 def _are_initial_stimulator_checks_complete() -> bool:
-    stimulator_circuit_statuses = _get_values_from_process_monitor()["stimulator_circuit_statuses"]
-    return not any(status is None for status in stimulator_circuit_statuses)
+    return bool(_get_values_from_process_monitor()["stimulator_circuit_statuses"])
 
 
 def _are_any_stimulator_circuits_short() -> bool:
     stimulator_circuit_statuses = _get_values_from_process_monitor()["stimulator_circuit_statuses"]
     return any(
-        status == StimulatorCircuitStatuses.SHORT.name.lower() for status in stimulator_circuit_statuses
+        status == StimulatorCircuitStatuses.SHORT.name.lower()
+        for status in stimulator_circuit_statuses.values()
     )
 
 
 @flask_app.route("/set_protocols", methods=["POST"])
 def set_protocols() -> Response:
-    # pylint: disable=too-many-return-statements  # Tanner (8/9/21): lots of error codes that can be returned here
     """Set the stimulation protocols in hardware memory.
 
     Not available for Beta 1 instruments.

@@ -35,6 +35,7 @@ from ..fixtures_mc_simulator import get_random_subprotocol
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
+from ..helpers import random_bool
 
 
 __fixtures__ = [
@@ -81,6 +82,8 @@ def test_McCommunicationProcess__processes_start_stim_checks_command__and_sends_
     )
 
     num_wells = 24
+    test_well_indices = list(range(4))
+    test_well_indices.extend([i for i in range(4, num_wells) if random_bool()])
 
     # set known adc readings in simulator. these first 4 values are hard coded, if this test fails might need to update them
     adc_readings = [(0, 0), (0, 2039), (0, 2049), (1113, 0)]
@@ -89,30 +92,38 @@ def test_McCommunicationProcess__processes_start_stim_checks_command__and_sends_
         {"command": "set_adc_readings", "adc_readings": adc_readings}, testing_queue
     )
     invoke_process_run_and_check_errors(simulator)
+
     # send command
-    start_stim_checks_command = {"communication_type": "stimulation", "command": "start_stim_checks"}
+    start_stim_checks_command = {
+        "communication_type": "stimulation",
+        "command": "start_stim_checks",
+        "well_indices": test_well_indices,
+    }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(start_stim_checks_command), input_queue
     )
     invoke_process_run_and_check_errors(mc_process)
     # process command and send response
     invoke_process_run_and_check_errors(simulator)
-    # make sure that the message sent back to main contains the correct values
-    status_ints = [
-        convert_adc_readings_to_circuit_status(*module_readings) for module_readings in adc_readings
-    ]
-    start_stim_checks_command["stimulator_circuit_statuses"] = [
-        list(StimulatorCircuitStatuses)[status_int + 1].name.lower() for status_int in status_ints
-    ]
-    start_stim_checks_command["adc_readings"] = adc_readings
-
+    # TODO assert command was sent to simulator with correct info
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(output_queue, 1)
     msg_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert (
-        msg_to_main["stimulator_circuit_statuses"] == start_stim_checks_command["stimulator_circuit_statuses"]
-    )
-    assert msg_to_main["adc_readings"] == start_stim_checks_command["adc_readings"]
+
+    # make sure that the message sent back to main contains the correct values
+    stimulator_circuit_statuses = {}
+    for well_idx in test_well_indices:
+        well_readings = adc_readings[well_idx]
+        status_int = convert_adc_readings_to_circuit_status(*well_readings)
+        status = list(StimulatorCircuitStatuses)[status_int + 1].name.lower()
+        stimulator_circuit_statuses[well_idx] = status
+    assert msg_to_main["stimulator_circuit_statuses"] == stimulator_circuit_statuses
+
+    assert msg_to_main["adc_readings"] == {
+        well_idx: adc_reading
+        for well_idx, adc_reading in enumerate(adc_readings)
+        if well_idx in test_well_indices
+    }
 
 
 @freeze_time(datetime.datetime(year=2021, month=10, day=24, hour=13, minute=7, second=23, microsecond=173814))
