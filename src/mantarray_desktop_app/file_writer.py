@@ -471,6 +471,15 @@ class FileWriterProcess(InfiniteProcess):
                     "timepoint_to_stop_recording_at": communication["timepoint_to_stop_recording_at"],
                 }
             )
+        elif command == "update_recording_name":
+            self._process_update_name_command(communication)
+            to_main.put_nowait(
+                {
+                    "communication_type": "command_receipt",
+                    "command": "update_recording_name",
+                    "recording_name": communication["new_name"],
+                }
+            )
         elif command == "stop_managed_acquisition":
             board_idx = 0
             self._data_packet_buffers[board_idx].clear()
@@ -804,12 +813,6 @@ class FileWriterProcess(InfiniteProcess):
             self._to_main_queue.put_nowait(
                 {"communication_type": "file_finalized", "message": "all_finals_finalized"}
             )
-            # after all files are finalized, upload them if necessary
-            if not self._is_recording_calibration:
-                if self._user_settings["auto_upload_on_completion"]:
-                    self._start_new_file_upload()
-                elif self._user_settings["auto_delete_local_files"]:
-                    self._delete_local_files(sub_dir=self._current_recording_dir)
 
     def _process_next_incoming_packet(self) -> None:
         """Process the next incoming packet for that board.
@@ -1255,6 +1258,31 @@ class FileWriterProcess(InfiniteProcess):
             self._to_main_queue.put_nowait(
                 {"communication_type": "update_upload_status", "content": outgoing_msg}
             )
+
+    def _process_update_name_command(self, comm: Dict[str, str]) -> None:
+        # only perform if new name is different from the original default name
+        if self._current_recording_dir == comm["default_name"] != comm["new_name"]:
+            # self._current_recording_dir = comm["new_name"]
+            old_recording_path = os.path.join(self._file_directory, self._current_recording_dir)
+            new_recording_path = os.path.join(self._file_directory, comm["new_name"])
+            # rename directory
+            if os.path.exists(old_recording_path):
+                os.rename(old_recording_path, new_recording_path)
+                self._current_recording_dir = comm["new_name"]
+
+                for filename in os.listdir(new_recording_path):
+                    # replace everything but the well name
+                    new_filename = filename.replace(comm["default_name"], comm["new_name"])
+                    old_file_path = os.path.join(new_recording_path, filename)
+                    new_file_path = os.path.join(new_recording_path, new_filename)
+                    os.rename(old_file_path, new_file_path)
+
+        # after all files are finalized, upload them if necessary
+        if not self._is_recording_calibration:
+            if self._user_settings["auto_upload_on_completion"]:
+                self._start_new_file_upload()
+            elif self._user_settings["auto_delete_local_files"]:
+                self._delete_local_files(sub_dir=self._current_recording_dir)
 
     def _drain_all_queues(self) -> Dict[str, Any]:
         queue_items: Dict[str, Any] = dict()
