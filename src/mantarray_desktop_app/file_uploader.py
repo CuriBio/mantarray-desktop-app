@@ -61,7 +61,6 @@ def get_file_md5(file_path: str) -> str:
 def get_upload_details(
     access_token: str,
     file_name: str,
-    customer_id: str,
     file_md5: str,
     upload_type: str,
 ) -> Dict[Any, Any]:
@@ -70,14 +69,13 @@ def get_upload_details(
     Args:
         access_token: user specific token.
         file_name: zip file name.
-        customer_id: current customer account id for file to upload.
         file_md5: md5 hash.
         upload_type: determines if it's a log file or recording that is being uploaded.
     """
     route = "uploads" if upload_type == "recording" else "logs"
     upload_response = requests.post(
         f"https://{CLOUD_PULSE3D_ENDPOINT}/{route}",
-        json={"filename": file_name, "md5s": file_md5, "customer_id": customer_id},
+        json={"filename": file_name, "md5s": file_md5},
         headers={"Authorization": f"Bearer {access_token}"},
     )
     upload_details: Dict[Any, Any] = upload_response.json()
@@ -137,9 +135,9 @@ class FileUploader(WebWorker):
         file_directory: root recording directory.
         file_name: sub directory for h5 files to create zip file name.
         zipped_recordings_dir: static zipped recording directory to store zip files.
-        customer_id: current customer's account id.
+        customer_id: current user's customer account id.
         user_name: current user's account id.
-        password: current user's account password.
+        password: current user's password.
     """
 
     def __init__(
@@ -180,9 +178,7 @@ class FileUploader(WebWorker):
 
         # upload file
         file_md5 = get_file_md5(zipped_file_path)
-        upload_details = get_upload_details(
-            self.tokens.access, self.file_name, self.customer_id, file_md5, upload_type
-        )
+        upload_details = get_upload_details(self.tokens.access, self.file_name, file_md5, upload_type)
         upload_file_to_s3(zipped_file_path, self.file_name, upload_details)
 
         # nothing else to do if just uploading a log file

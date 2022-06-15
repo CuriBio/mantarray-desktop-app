@@ -77,12 +77,10 @@ def test_get_upload_details__requests_and_returns_upload_details_correctly(
     test_access_token = "token"
     test_file_md5 = "hash"
 
-    actual = get_upload_details(
-        test_access_token, TEST_FILENAME, TEST_CUSTOMER_ID, test_file_md5, upload_type
-    )
+    actual = get_upload_details(test_access_token, TEST_FILENAME, test_file_md5, upload_type)
     mocked_post.assert_called_once_with(
         f"https://{CLOUD_PULSE3D_ENDPOINT}/{expected_route}",
-        json={"filename": TEST_FILENAME, "md5s": test_file_md5, "customer_id": TEST_CUSTOMER_ID},
+        json={"filename": TEST_FILENAME, "md5s": test_file_md5},
         headers={"Authorization": f"Bearer {test_access_token}"},
     )
     assert actual == expected_upload_details
@@ -290,7 +288,6 @@ def test_FileUploader__runs_upload_procedure_correctly_for_recording(
     mocked_get_upload_details.assert_called_once_with(
         expected_access_token,
         expected_zipped_file_name,
-        TEST_CUSTOMER_ID,
         expected_md5,
         RECORDING_UPLOAD_TYPE,
     )
@@ -333,7 +330,7 @@ def test_FileUploader__runs_upload_procedure_correctly_for_log_files(mocker, cre
     mocked_get_tokens.assert_called_once_with(TEST_CUSTOMER_ID, TEST_USER_ID, TEST_PASSWORD)
     mocked_get_file_md5.assert_called_once_with(expected_zipped_file_path)
     mocked_get_upload_details.assert_called_once_with(
-        expected_access_token, expected_zipped_file_name, TEST_CUSTOMER_ID, expected_md5, LOG_UPLOAD_TYPE
+        expected_access_token, expected_zipped_file_name, expected_md5, LOG_UPLOAD_TYPE
     )
     mocked_upload_file.assert_called_once_with(
         expected_zipped_file_path, expected_zipped_file_name, expected_upload_details
