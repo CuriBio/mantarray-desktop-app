@@ -534,10 +534,10 @@ class DataAnalyzerProcess(InfiniteProcess):
 
     def _normalize_beta_2_data_for_well(self, well_idx: int, well_dict: Dict[Any, Any]) -> None:
         if self._well_offsets[well_idx] is None:
-            self._well_offsets[well_idx] = max(well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL])
+            self._well_offsets[well_idx] = min(well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL])
         well_data = fix_dropped_samples(well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL])
         well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL] = (
-            (well_data.astype(np.int32) - self._well_offsets[well_idx]) * -1 + MEMSIC_CENTER_OFFSET
+            (well_data.astype(np.int32) - self._well_offsets[well_idx]) + MEMSIC_CENTER_OFFSET
         ).astype(np.uint16)
 
     def _create_outgoing_beta_1_data(self) -> Dict[str, Any]:

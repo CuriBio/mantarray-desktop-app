@@ -550,7 +550,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 bytes_to_send = struct.pack(
                     f"<{self._num_wells}?",
                     *[
-                        SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id] in comm_from_main["well_indices"]
+                        STIM_MODULE_ID_TO_WELL_IDX[module_id] in comm_from_main["well_indices"]
                         for module_id in range(1, self._num_wells + 1)
                     ],
                 )
