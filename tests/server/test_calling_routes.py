@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import json
+import os
 from random import randint
+import shutil
 import tempfile
 import urllib
 
@@ -399,6 +401,42 @@ def test_set_start_stim_checks__returns_code_and_message_if_checks_are_already_r
     response = test_client.post("/start_stim_checks")
     assert response.status_code == 304
     assert response.status.endswith("Stimulator checks already running") is True
+
+
+def test_update_recording_name__returns_403_if_recording_name_exists(
+    client_and_server_manager_and_shared_values, mocker
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["config_settings"]["recording_directory"] = "/test/recording/directory"
+    mocker.patch.object(os.path, "exists", return_value=True)
+
+    response = test_client.post("/update_recording_name?new_name=new_recording_name&default_name=old_name")
+    assert response.status_code == 403
+
+
+def test_update_recording_name__returns_200_if_recording_name_doesnt_exists(
+    client_and_server_manager_and_shared_values, mocker
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["config_settings"]["recording_directory"] = "/test/recording/directory"
+    mocker.patch.object(os.path, "exists", return_value=False)
+
+    response = test_client.post("/update_recording_name?new_name=new_recording_name&default_name=old_name")
+    assert response.status_code == 200
+
+
+def test_update_recording_name__removes_directory_to_rewrite_if_replace_existing_is_present_in_params(
+    client_and_server_manager_and_shared_values, mocker
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["config_settings"]["recording_directory"] = "/test/recording/directory"
+    shutil_mock = mocker.patch.object(shutil, "rmtree", autospec=True)
+
+    response = test_client.post(
+        "/update_recording_name?new_name=new_recording_name&default_name=old_name&replace_existing=true"
+    )
+    shutil_mock.assert_called_with("/test/recording/directory/new_recording_name")
+    assert response.status_code == 200
 
 
 def test_dev_begin_hardware_script__returns_correct_response(test_client):

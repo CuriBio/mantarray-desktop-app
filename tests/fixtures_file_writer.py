@@ -171,6 +171,13 @@ GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
     }
 )
 
+GENERIC_UPDATE_RECORDING_NAME_COMMAND: Dict[str, str] = {
+    "communication_type": "recording",
+    "command": "update_recording_name",
+    "new_name": "new_recording_name",
+    "default_name": "existing_recording_name",
+}
+
 GENERIC_STOP_RECORDING_COMMAND: Dict[str, Any] = {
     "communication_type": "recording",
     "command": "stop_recording",

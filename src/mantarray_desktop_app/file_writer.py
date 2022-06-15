@@ -1260,9 +1260,9 @@ class FileWriterProcess(InfiniteProcess):
             )
 
     def _process_update_name_command(self, comm: Dict[str, str]) -> None:
+        """Rename recording directory and h5 files to kick off auto upload."""
         # only perform if new name is different from the original default name
         if self._current_recording_dir == comm["default_name"] != comm["new_name"]:
-            # self._current_recording_dir = comm["new_name"]
             old_recording_path = os.path.join(self._file_directory, self._current_recording_dir)
             new_recording_path = os.path.join(self._file_directory, comm["new_name"])
             # rename directory
@@ -1278,11 +1278,10 @@ class FileWriterProcess(InfiniteProcess):
                     os.rename(old_file_path, new_file_path)
 
         # after all files are finalized, upload them if necessary
-        if not self._is_recording_calibration:
-            if self._user_settings["auto_upload_on_completion"]:
-                self._start_new_file_upload()
-            elif self._user_settings["auto_delete_local_files"]:
-                self._delete_local_files(sub_dir=self._current_recording_dir)
+        if self._user_settings["auto_upload_on_completion"]:
+            self._start_new_file_upload()
+        if self._user_settings["auto_delete_local_files"]:
+            self._delete_local_files(sub_dir=self._current_recording_dir)
 
     def _drain_all_queues(self) -> Dict[str, Any]:
         queue_items: Dict[str, Any] = dict()
