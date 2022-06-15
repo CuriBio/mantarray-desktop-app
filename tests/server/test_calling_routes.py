@@ -435,7 +435,7 @@ def test_update_recording_name__removes_directory_to_rewrite_if_replace_existing
     response = test_client.post(
         "/update_recording_name?new_name=new_recording_name&default_name=old_name&replace_existing=true"
     )
-    shutil_mock.assert_called_with("/test/recording/directory/new_recording_name")
+    shutil_mock.assert_called_with(os.path.join("/test/recording/directory", "new_recording_name"))
     assert response.status_code == 200
 
 

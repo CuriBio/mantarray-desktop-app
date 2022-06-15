@@ -647,19 +647,18 @@ def test_FileWriterProcess_process_update_recording_name_command__renames_record
     drain_queue(to_main_queue)
 
 
-def test_FileWriterProcess_process_update_recording_name_command__will_not_rename_if_directory_does_not_exist(
+def test_FileWriterProcess_process_update_recording_name_command__will_not_renamed_if_directory_does_not_exist(
     four_board_file_writer_process, mocker
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     to_main_queue = four_board_file_writer_process["to_main_queue"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    # prevent kicking off upload process
-    mocker.patch.object(file_writer_process, "_start_new_file_upload", autospec=True)
-
     update_recording_name_command = copy.deepcopy(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
     update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
-    update_user_settings_command["auto_upload_on_completion"] = False
+    update_user_settings_command["config_settings"]["auto_upload_on_completion"] = False
+    update_user_settings_command["config_settings"]["auto_delete_local_files"] = True
+
     create_and_close_beta_1_h5_files(four_board_file_writer_process, update_user_settings_command)
     assert file_writer_process.get_stop_recording_timestamps()[0] is not None
     assert file_writer_process._is_finalizing_files_after_recording() is False
@@ -672,9 +671,8 @@ def test_FileWriterProcess_process_update_recording_name_command__will_not_renam
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         update_recording_name_command, from_main_queue
     )
-    invoke_process_run_and_check_errors(file_writer_process)
+    invoke_process_run_and_check_errors(file_writer_process, 1)
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
-
     drain_queue(to_main_queue)
 
 

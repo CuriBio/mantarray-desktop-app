@@ -310,7 +310,6 @@ def test_FileWriterProcess__status_successfully_gets_added_to_main_queue_when_au
 
     update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
     update_user_settings_command["config_settings"]["auto_delete_local_files"] = True
-    update_user_settings_command["config_settings"]["auto_upload_on_completion"] = True
     create_and_close_beta_1_h5_files(
         four_board_file_writer_process,
         update_user_settings_command,

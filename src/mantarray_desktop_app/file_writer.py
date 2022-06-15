@@ -1280,7 +1280,7 @@ class FileWriterProcess(InfiniteProcess):
         # after all files are finalized, upload them if necessary
         if self._user_settings["auto_upload_on_completion"]:
             self._start_new_file_upload()
-        if self._user_settings["auto_delete_local_files"]:
+        elif self._user_settings["auto_delete_local_files"]:
             self._delete_local_files(sub_dir=self._current_recording_dir)
 
     def _drain_all_queues(self) -> Dict[str, Any]:
