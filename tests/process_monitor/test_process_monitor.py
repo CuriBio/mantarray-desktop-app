@@ -40,6 +40,10 @@ from mantarray_desktop_app import UPDATES_COMPLETE_STATE
 from mantarray_desktop_app import UPDATES_NEEDED_STATE
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
+from mantarray_desktop_app.exceptions import InstrumentBadDataError
+from mantarray_desktop_app.exceptions import InstrumentConnectionLostError
+from mantarray_desktop_app.exceptions import InstrumentCreateConnectionError
+from mantarray_desktop_app.exceptions import InstrumentFirmwareError
 from mantarray_desktop_app.server import queue_command_to_instrument_comm
 from mantarray_desktop_app.utils import redact_sensitive_info_from_path
 import numpy as np
@@ -344,9 +348,37 @@ def test_MantarrayProcessesMonitor__passes_update_upload_status_data_to_server(
 
 
 @pytest.mark.parametrize(
+    "test_error",
+    [
+        InstrumentCreateConnectionError,
+        InstrumentConnectionLostError,
+        InstrumentBadDataError,
+        InstrumentFirmwareError,
+    ],
+)
+def test_MantarrayProcessesMonitor__handles_instrument_related_errors_from_instrument_comm_process_correctly(
+    test_error, mocker, test_process_manager_creator, test_monitor
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
+    ic_error_queue = test_process_manager.queue_container().get_instrument_communication_error_queue()
+    queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
+
+    mocker.patch.object(test_process_manager, "hard_stop_and_join_processes", autospec=True)
+
+    error_tuple = (test_error(), "error")
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(error_tuple, ic_error_queue)
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
+    ws_msg = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert ws_msg == {"data_type": "error", "data_json": json.dumps({"error_type": test_error.__name__})}
+
+
+@pytest.mark.parametrize(
     "test_system_status", [DOWNLOADING_UPDATES_STATE, INSTALLING_UPDATES_STATE, "anything else"]
 )
-def test_MantarrayProcessesMonitor__handles_instrument_comm_process_error_correctly(
+def test_MantarrayProcessesMonitor__handles_non_instrument_related_errors_from_instrument_comm_process_correctly(
     test_system_status, mocker, test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)

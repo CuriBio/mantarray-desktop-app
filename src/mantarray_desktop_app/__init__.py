@@ -212,7 +212,6 @@ from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import SamplingPeriodUpdateWhileDataStreamingError
 from .exceptions import ScriptDoesNotContainEndCommandError
 from .exceptions import SerialCommCommandResponseTimeoutError
-from .exceptions import SerialCommHandshakeTimeoutError
 from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from .exceptions import SerialCommIncorrectChecksumFromPCError
 from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
@@ -504,7 +503,6 @@ __all__ = [
     "GOING_DORMANT_HANDSHAKE_TIMEOUT_CODE",
     "SERIAL_COMM_GOING_DORMANT_PACKET_TYPE",
     "SERIAL_COMM_HANDSHAKE_TIMEOUT_SECONDS",
-    "SerialCommHandshakeTimeoutError",
     "convert_status_code_bytes_to_dict",
     "convert_to_timestamp_bytes",
     "get_serial_comm_timestamp",

@@ -55,6 +55,7 @@ from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import UPDATE_ERROR_STATE
 from .constants import UPDATES_COMPLETE_STATE
 from .constants import UPDATES_NEEDED_STATE
+from .exceptions import InstrumentError
 from .exceptions import UnrecognizedCommandFromServerToMainError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
@@ -822,14 +823,22 @@ class MantarrayProcessesMonitor(InfiniteThread):
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.error(msg)
-        if self._values_to_share_to_server["system_status"] in (
+
+        shutdown_server = True
+
+        if process == self._process_manager.get_instrument_process() and isinstance(
+            this_err, InstrumentError
+        ):
+            self._queue_websocket_message(
+                {"data_type": "error", "data_json": json.dumps({"error_type": type(this_err).__name__})}
+            )
+        elif self._values_to_share_to_server["system_status"] in (
             DOWNLOADING_UPDATES_STATE,
             INSTALLING_UPDATES_STATE,
         ):
             self._values_to_share_to_server["system_status"] = UPDATE_ERROR_STATE
             shutdown_server = False
-        else:
-            shutdown_server = True
+
         self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=shutdown_server)
 
     def _hard_stop_and_join_processes_and_log_leftovers(
