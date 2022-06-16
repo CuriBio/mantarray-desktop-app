@@ -160,11 +160,11 @@ class InstrumentConnectionLostError(InstrumentError):
     """Generic exception for errors caused by response timeouts."""
 
 
-class SerialCommStatusBeaconTimeoutError(Exception):
+class SerialCommStatusBeaconTimeoutError(InstrumentConnectionLostError):
     pass
 
 
-class SerialCommCommandResponseTimeoutError(Exception):
+class SerialCommCommandResponseTimeoutError(InstrumentConnectionLostError):
     pass
 
 

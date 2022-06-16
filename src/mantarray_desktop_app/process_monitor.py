@@ -829,8 +829,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
         if process == self._process_manager.get_instrument_process() and isinstance(
             this_err, InstrumentError
         ):
+            this_err_type_mro = type(this_err).mro()
+            instrument_sub_error_class = this_err_type_mro[this_err_type_mro.index(InstrumentError) - 1]
+            instrument_sub_error_name = instrument_sub_error_class.__name__
             self._queue_websocket_message(
-                {"data_type": "error", "data_json": json.dumps({"error_type": type(this_err).__name__})}
+                {"data_type": "error", "data_json": json.dumps({"error_type": instrument_sub_error_name})}
             )
         elif self._values_to_share_to_server["system_status"] in (
             DOWNLOADING_UPDATES_STATE,
