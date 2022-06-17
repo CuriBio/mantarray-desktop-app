@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import math
 import struct
 from typing import Any
 from typing import Dict
@@ -15,6 +16,7 @@ import numpy as np
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import BOOTUP_COUNTER_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
+from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
@@ -104,7 +106,7 @@ def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[Any, Any]:
 
 def convert_metadata_to_bytes(metadata_dict: Dict[UUID, Any]) -> bytes:
     num_wells = 24
-    return (
+    metadata_bytes = (
         bytes([metadata_dict[BOOT_FLAGS_UUID]])
         + bytes(metadata_dict[MANTARRAY_NICKNAME_UUID], encoding="utf-8")
         + bytes(metadata_dict[MANTARRAY_SERIAL_NUMBER_UUID], encoding="ascii")
@@ -112,8 +114,14 @@ def convert_metadata_to_bytes(metadata_dict: Dict[UUID, Any]) -> bytes:
         + convert_semver_str_to_bytes(metadata_dict[CHANNEL_FIRMWARE_VERSION_UUID])
         # this function is only used in the simulator, so always send default status code
         + bytes([SERIAL_COMM_OKAY_CODE] * (num_wells + 2))
-        + bytes(2)
+        + metadata_dict[INITIAL_MAGNET_FINDING_PARAMS]["X"].to_bytes(1, byteorder="little", signed=True)
+        + metadata_dict[INITIAL_MAGNET_FINDING_PARAMS]["Y"].to_bytes(1, byteorder="little", signed=True)
+        + metadata_dict[INITIAL_MAGNET_FINDING_PARAMS]["Z"].to_bytes(1, byteorder="little", signed=True)
+        + metadata_dict[INITIAL_MAGNET_FINDING_PARAMS]["REMN"].to_bytes(2, byteorder="little", signed=True)
     )
+    # append empty bytes so the result length is always a multiple of 32
+    metadata_bytes += bytes(math.ceil(len(metadata_bytes) / 32) * 32 - len(metadata_bytes))
+    return metadata_bytes  # type: ignore
 
 
 def convert_semver_bytes_to_str(semver_bytes: bytes) -> str:

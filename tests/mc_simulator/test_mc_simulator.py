@@ -22,6 +22,7 @@ from mantarray_desktop_app.constants import SERIAL_COMM_BARCODE_FOUND_PACKET_TYP
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
+from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
@@ -65,6 +66,7 @@ def test_MantarrayMcSimulator__class_attributes():
         MANTARRAY_NICKNAME_UUID: MantarrayMcSimulator.default_mantarray_nickname,
         MAIN_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_main_firmware_version,
         CHANNEL_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_channel_firmware_version,
+        INITIAL_MAGNET_FINDING_PARAMS: {"X": 0, "Y": 2, "Z": -5, "REMN": 1200},
     }
     assert MantarrayMcSimulator.global_timer_offset_secs == 2.5
 
@@ -80,10 +82,7 @@ def test_MantarrayMcSimulator__super_is_called_during_init__with_default_logging
     testing_queue = Queue()
     MantarrayMcSimulator(input_queue, output_queue, error_queue, testing_queue)
 
-    mocked_init.assert_called_once_with(
-        error_queue,
-        logging_level=logging.INFO,
-    )
+    mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
 
 
 def test_MantarrayMcSimulator__init__sets_default_metadata_values(
