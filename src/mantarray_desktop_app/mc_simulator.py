@@ -147,6 +147,11 @@ class MantarrayMcSimulator(InfiniteProcess):
         read_timeout_seconds: number of seconds to wait until read is of desired size before returning how ever many bytes have been read. Timeout should be set to 0 except in unit testing scenarios where necessary
     """
 
+    # values for V1 instrument as of 6/17/22
+    initial_magnet_finding_params = immutabledict(
+        {"X": 0, "Y": 2, "Z": -5, "REMN": 1200},
+    )
+
     default_mantarray_nickname = "Mantarray Sim"
     default_mantarray_serial_number = "MA2022001000"
     default_main_firmware_version = "0.0.0"
@@ -160,8 +165,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             MANTARRAY_NICKNAME_UUID: default_mantarray_nickname,
             MAIN_FIRMWARE_VERSION_UUID: default_main_firmware_version,
             CHANNEL_FIRMWARE_VERSION_UUID: default_channel_firmware_version,
-            # values for V1 instrument as of 6/17/22
-            INITIAL_MAGNET_FINDING_PARAMS: {"X": 0, "Y": 2, "Z": -5, "REMN": 1200},
+            INITIAL_MAGNET_FINDING_PARAMS: initial_magnet_finding_params,
         }
     )
     default_adc_reading = 0xFF00

@@ -101,6 +101,12 @@ def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[Any, Any]:
         MAIN_FIRMWARE_VERSION_UUID: convert_semver_bytes_to_str(metadata_bytes[26:29]),
         CHANNEL_FIRMWARE_VERSION_UUID: convert_semver_bytes_to_str(metadata_bytes[29:32]),
         "status_codes_prior_to_reboot": convert_status_code_bytes_to_dict(metadata_bytes[32:58]),
+        INITIAL_MAGNET_FINDING_PARAMS: {
+            "X": int.from_bytes(metadata_bytes[58:59], byteorder="little", signed=True),
+            "Y": int.from_bytes(metadata_bytes[59:60], byteorder="little", signed=True),
+            "Z": int.from_bytes(metadata_bytes[60:61], byteorder="little", signed=True),
+            "REMN": int.from_bytes(metadata_bytes[61:63], byteorder="little", signed=True),
+        },
     }
 
 

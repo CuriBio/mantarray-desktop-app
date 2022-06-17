@@ -32,6 +32,7 @@ from mantarray_desktop_app.serial_comm_utils import convert_adc_readings_to_impe
 import numpy as np
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
+from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
@@ -96,6 +97,7 @@ def test_validate_checksum__returns_false_when_checksum_is_incorrect():
 
 def test_parse_metadata_bytes__returns_expected_value():
     test_status_codes = list(range(SERIAL_COMM_STATUS_CODE_LENGTH_BYTES))
+
     metadata_bytes = (
         bytes([0b10101010])  # boot flags
         + bytes("マンタレ1", encoding="utf-8")  # nickname
@@ -103,6 +105,12 @@ def test_parse_metadata_bytes__returns_expected_value():
         + bytes([0, 1, 2])  # main FW version
         + bytes([255, 255, 255])  # channel FW version
         + bytes(test_status_codes)
+        + MantarrayMcSimulator.initial_magnet_finding_params["X"].to_bytes(1, byteorder="little", signed=True)
+        + MantarrayMcSimulator.initial_magnet_finding_params["Y"].to_bytes(1, byteorder="little", signed=True)
+        + MantarrayMcSimulator.initial_magnet_finding_params["Z"].to_bytes(1, byteorder="little", signed=True)
+        + MantarrayMcSimulator.initial_magnet_finding_params["REMN"].to_bytes(
+            2, byteorder="little", signed=True
+        )
     )
 
     metadata_bytes += bytes(SERIAL_COMM_METADATA_BYTES_LENGTH - len(metadata_bytes))
@@ -117,6 +125,7 @@ def test_parse_metadata_bytes__returns_expected_value():
         MAIN_FIRMWARE_VERSION_UUID: "0.1.2",
         CHANNEL_FIRMWARE_VERSION_UUID: "255.255.255",
         "status_codes_prior_to_reboot": convert_status_code_bytes_to_dict(bytes(test_status_codes)),
+        INITIAL_MAGNET_FINDING_PARAMS: MantarrayMcSimulator.initial_magnet_finding_params,
     }
 
 
