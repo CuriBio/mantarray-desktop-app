@@ -59,6 +59,7 @@ __pycache__/
 # C/C++ libraries
 *.zip
 src/zlib
+src/zlib-1.2.12
 
 # Venv
 .venv/
@@ -87,3 +88,5 @@ analysis/
 .windows_codebuild_cache/
 # config settings
 config/
+.python-version
+pyproject
