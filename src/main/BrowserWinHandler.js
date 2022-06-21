@@ -36,84 +36,67 @@ export default class BrowserWinHandler {
   }
 
   _create() {
-      // In order to get display size to match in windows: https://stackoverflow.com/questions/59385237/electron-window-dimensions-vs-screen-resolution
-      const scale_factor = screen.getPrimaryDisplay().scaleFactor;
-      console.log("Screen size scale factor: " + scale_factor); // allow-log
-      const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-      console.log("Sceen work area width " + width + " height " + height); // allow-log
-      this.options.height = parseInt(this.options.height / scale_factor);
-      console.log(this.options.height);
-      this.options.width = parseInt(this.options.width / scale_factor);
-      console.log(this.options.width);
-      this.options.webPreferences.zoomFactor = this.options.webPreferences.zoomFactor / scale_factor;
+    // In order to get display size to match in windows: https://stackoverflow.com/questions/59385237/electron-window-dimensions-vs-screen-resolution
+    const scale_factor = screen.getPrimaryDisplay().scaleFactor;
+    console.log("Screen size scale factor: " + scale_factor); // allow-log
+    const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+    console.log("Sceen work area width " + width + " height " + height); // allow-log
+    this.options.height = parseInt(this.options.height / scale_factor);
+    this.options.width = parseInt(this.options.width / scale_factor);
+    this.options.webPreferences.zoomFactor = this.options.webPreferences.zoomFactor / scale_factor;
 
-      this.browserWindow = new BrowserWindow({
-        ...this.options,
-        webPreferences: {
-          ...this.options.webPreferences,
-          webSecurity: isProduction, // disable on dev to allow loading local resources
-          nodeIntegration: true, // allow loading modules via the require () function
-          devTools: !process.env.SPECTRON, // disable on e2e test environment
-        },
-      });
-      this.browserWindow.on("closed", () => {
-        // Dereference the window object
-        this.browserWindow = null;
-      });
+    this.browserWindow = new BrowserWindow({
+      ...this.options,
+      webPreferences: {
+        ...this.options.webPreferences,
+        webSecurity: isProduction, // disable on dev to allow loading local resources
+        nodeIntegration: true, // allow loading modules via the require () function
+        devTools: !process.env.SPECTRON, // disable on e2e test environment
+      },
+    });
+    this.browserWindow.on("closed", () => {
+      // Dereference the window object
+      this.browserWindow = null;
+    });
 
-      let close = false;
-      this.browserWindow.on("close", async (e) => {
-        if (!close) {
-          e.preventDefault();
-          this.browserWindow.webContents.send("confirmation_request");
+    let close = false;
+    this.browserWindow.on("close", async (e) => {
+      if (!close) {
+        e.preventDefault();
+        this.browserWindow.webContents.send("confirmation_request");
 
-          try {
-            ipcMain.on("confirmation_response", (e, user_response) => {
-              e.reply("confirmation_response", 200);
-              if (user_response === 1) {
-                close = true;
-                this.browserWindow.close();
-                console.log("user confirmed window closure");
-              } else console.log("user cancelled window closure");
-            });
-          } catch (e) {
-            console.log("error in BrowserWinHandler trying to close");
-          }
+        try {
+          ipcMain.on("confirmation_response", (e, user_response) => {
+            e.reply("confirmation_response", 200);
+            if (user_response === 1) {
+              close = true;
+              this.browserWindow.close();
+              console.log("user confirmed window closure");
+            } else console.log("user cancelled window closure");
+          });
+        } catch (e) {
+          console.log("error in BrowserWinHandler trying to close");
         }
-      });
-
-      this.browserWindow.setContentSize(this.options.width, this.options.height); // Eli (6/20/20): for some odd reason, in Windows the EXE is booting up at slightly smaller dimensions than defined, so seeing if this extra command helps at all
-      // Eli (6/21/20): the position seems to be defaulting to 1,87 instead of the 0,0 supplied in the args, unless this extra method is called
-      this.browserWindow.setPosition(this.options.x, this.options.y);
-      const win_position = this.browserWindow.getPosition();
-      console.log("actual window position: " + win_position); // allow-log
-      try {
-        this._eventEmitter.emit("created");
-      } catch (e) {
-        console.log("the event is here", JSON.stringify(e));
       }
+    });
 
-      ipcMain.once("beta_2_mode_request", (event) => {
-        try {
-          event.reply("beta_2_mode_response", store.get("beta_2_mode"));
-        } catch (e) {
-          console.log("Error in beta_2_mode_request:", JSON.stringify(e), store.get("beta_2_mode"));
-        }
-      });
-      ipcMain.once("stored_customer_id_request", (event) => {
-        try {
-          event.reply("stored_customer_id_response", store.get("customer_id"));
-        } catch (e) {
-          console.log("Error in stored_customer_id_request:", JSON.stringify(e), store.get("customer_id"));
-        }
-      });
-      ipcMain.once("logs_flask_dir_request", (event) => {
-        try {
-          event.reply("logs_flask_dir_response", get_flask_logs_full_path(store));
-        } catch (e) {
-          console.log("Error in logs_flask_dir_request:", JSON.stringify(e), get_flask_logs_full_path(store));
-        }
-      });
+    this.browserWindow.setContentSize(this.options.width, this.options.height); // Eli (6/20/20): for some odd reason, in Windows the EXE is booting up at slightly smaller dimensions than defined, so seeing if this extra command helps at all
+    // Eli (6/21/20): the position seems to be defaulting to 1,87 instead of the 0,0 supplied in the args, unless this extra method is called
+    this.browserWindow.setPosition(this.options.x, this.options.y);
+    const win_position = this.browserWindow.getPosition();
+    console.log("actual window position: " + win_position); // allow-log
+
+    this._eventEmitter.emit("created");
+
+    ipcMain.once("beta_2_mode_request", (event) => {
+      event.reply("beta_2_mode_response", store.get("beta_2_mode"));
+    });
+    ipcMain.once("stored_customer_id_request", (event) => {
+      event.reply("stored_customer_id_response", store.get("customer_id"));
+    });
+    ipcMain.once("logs_flask_dir_request", (event) => {
+      event.reply("logs_flask_dir_response", get_flask_logs_full_path(store));
+    });
   }
 
   _recreate() {

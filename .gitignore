@@ -59,7 +59,7 @@ __pycache__/
 # C/C++ libraries
 *.zip
 src/zlib
-src/zlib-1.2.12
+src/zlib*
 
 # Venv
 .venv/
@@ -89,4 +89,3 @@ analysis/
 # config settings
 config/
 .python-version
-pyproject
