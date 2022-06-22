@@ -12,6 +12,7 @@ from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import create_and_close_beta_1_h5_files
 from ..fixtures_file_writer import fixture_four_board_file_writer_process
+from ..fixtures_file_writer import GENERIC_UPDATE_RECORDING_NAME_COMMAND
 from ..fixtures_file_writer import GENERIC_UPDATE_USER_SETTINGS
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -205,14 +206,20 @@ def test_FileWriterProcess__upload_thread_gets_added_to_container_after_all_file
     four_board_file_writer_process, mocker
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     mocker.patch.object(file_writer.ErrorCatchingThread, "start", autospec=True)
     mocker.patch.object(file_writer.ErrorCatchingThread, "is_alive", autospec=True, return_value=True)
 
+    update_recording_name_command = copy.deepcopy(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
     update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
     update_user_settings_command["config_settings"]["auto_delete_local_files"] = False
     update_user_settings_command["config_settings"]["auto_upload_on_completion"] = True
     create_and_close_beta_1_h5_files(four_board_file_writer_process, update_user_settings_command)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        update_recording_name_command, from_main_queue
+    )
+    invoke_process_run_and_check_errors(file_writer_process)
 
     board_idx = 0
     assert file_writer_process.get_stop_recording_timestamps()[board_idx] is not None
@@ -228,11 +235,14 @@ def test_FileWriterProcess__upload_thread_errors_sent_to_main_correctly(
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     to_main_queue = four_board_file_writer_process["to_main_queue"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     mocked_ect = mocker.patch.object(file_writer, "ErrorCatchingThread", autospec=True)
     mocked_ect.return_value.error = "error"
 
+    update_recording_name_command = copy.deepcopy(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
     update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+
     create_and_close_beta_1_h5_files(four_board_file_writer_process, update_user_settings_command)
     sub_dir_name = file_writer_process.get_sub_dir_name()
 
@@ -240,12 +250,19 @@ def test_FileWriterProcess__upload_thread_errors_sent_to_main_correctly(
     assert file_writer_process.get_stop_recording_timestamps()[board_idx] is not None
     assert file_writer_process._is_finalizing_files_after_recording() is False
 
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        update_recording_name_command, from_main_queue
+    )
+
     # create and process error
     mocked_ect.return_value.is_alive.return_value = False
     invoke_process_run_and_check_errors(file_writer_process)
-    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    confirm_queue_is_eventually_of_size(to_main_queue, 2)
 
+    # get command receipt for updating recording name
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     update_upload_status_msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
     assert update_upload_status_msg["communication_type"] == "update_upload_status"
     update_upload_status_json = json.loads(update_upload_status_msg["content"]["data_json"])
     assert update_upload_status_json["file_name"] == sub_dir_name
@@ -283,6 +300,7 @@ def test_FileWriterProcess__status_successfully_gets_added_to_main_queue_when_au
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     to_main_queue = four_board_file_writer_process["to_main_queue"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     test_well_indices = [10, 20]
 
@@ -292,16 +310,24 @@ def test_FileWriterProcess__status_successfully_gets_added_to_main_queue_when_au
 
     update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
     update_user_settings_command["config_settings"]["auto_delete_local_files"] = True
-    update_user_settings_command["config_settings"]["auto_upload_on_completion"] = True
     create_and_close_beta_1_h5_files(
         four_board_file_writer_process,
         update_user_settings_command,
         active_well_indices=test_well_indices,
     )
+    # send update recording name command to kick off upload thread after all files are finalized
+    update_recording_name_command = copy.deepcopy(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        update_recording_name_command, from_main_queue
+    )
+    assert file_writer_process._is_finalizing_files_after_recording() is False
 
     # stop thread and make sure no errors in message to main
     mocked_ect.return_value.is_alive.return_value = False
     invoke_process_run_and_check_errors(file_writer_process)
+
+    # get command receipt for updating recording name
+    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
     # make sure no errors in message to main
     update_upload_status_msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
