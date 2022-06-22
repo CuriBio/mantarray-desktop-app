@@ -31,12 +31,15 @@ from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures_file_writer import create_and_close_beta_1_h5_files
 from ..fixtures_file_writer import fixture_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_runnable_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_UPDATE_RECORDING_NAME_COMMAND
+from ..fixtures_file_writer import GENERIC_UPDATE_USER_SETTINGS
 from ..fixtures_file_writer import populate_calibration_folder
 from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
@@ -220,6 +223,21 @@ def test_FileWriterProcess__recording_dirs_update_correctly(four_board_file_writ
     assert fw_process._file_directory == expected_new_dir
     assert fw_process._zipped_files_dir == os.path.join(expected_new_dir, "zipped")
     assert fw_process._failed_uploads_dir == os.path.join(expected_new_dir, "failed_uploads")
+
+
+def test_FileWriterProcess__correctly_responds_to_update_recording_name_command(
+    four_board_file_writer_process, mocker
+):
+    fw_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    spied_process_update_recording_name = mocker.spy(fw_process, "_process_update_name_command")
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        GENERIC_UPDATE_RECORDING_NAME_COMMAND, from_main_queue
+    )
+    invoke_process_run_and_check_errors(fw_process)
+
+    spied_process_update_recording_name.assert_called_once()
 
 
 def test_FileWriterProcess__soft_stop_not_allowed_if_command_from_main_still_in_queue(
@@ -594,6 +612,70 @@ def test_FileWriterProcess_hard_stop__calls_close_all_files__when_still_recordin
     spied_close_all_files.assert_called_once()
 
 
+def test_FileWriterProcess_process_update_recording_name_command__renames_recording_dir_and_h5_files_after_all_files_are_closed(
+    four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    spied_rename = mocker.spy(os, "rename")
+    # prevent kicking off upload/delete processes
+    mocker.patch.object(file_writer_process, "_start_new_file_upload", autospec=True)
+
+    update_recording_name_command = copy.deepcopy(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
+    update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+    create_and_close_beta_1_h5_files(four_board_file_writer_process, update_user_settings_command)
+    assert file_writer_process.get_stop_recording_timestamps()[0] is not None
+    assert file_writer_process._is_finalizing_files_after_recording() is False
+
+    # needs to be the same name to pass conditional
+    sub_dir_name = file_writer_process.get_sub_dir_name()
+    update_recording_name_command["default_name"] = sub_dir_name
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        update_recording_name_command, from_main_queue
+    )
+    invoke_process_run_and_check_errors(file_writer_process)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+
+    # called once for directory and once for well A1
+    assert len(spied_rename.call_args_list) == 2
+    new_sub_dir_name = file_writer_process.get_sub_dir_name()
+    assert new_sub_dir_name == update_recording_name_command["new_name"]
+
+    drain_queue(to_main_queue)
+
+
+def test_FileWriterProcess_process_update_recording_name_command__will_not_renamed_if_directory_does_not_exist(
+    four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    update_recording_name_command = copy.deepcopy(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
+    update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+    update_user_settings_command["config_settings"]["auto_upload_on_completion"] = False
+    update_user_settings_command["config_settings"]["auto_delete_local_files"] = True
+
+    create_and_close_beta_1_h5_files(four_board_file_writer_process, update_user_settings_command)
+    assert file_writer_process.get_stop_recording_timestamps()[0] is not None
+    assert file_writer_process._is_finalizing_files_after_recording() is False
+
+    # needs to be the same name to pass conditional
+    sub_dir_name = file_writer_process.get_sub_dir_name()
+    update_recording_name_command["default_name"] = sub_dir_name
+    mocker.patch.object(os.path, "exists", return_value=False)
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        update_recording_name_command, from_main_queue
+    )
+    invoke_process_run_and_check_errors(file_writer_process, 1)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    drain_queue(to_main_queue)
+
+
 def test_FileWriterProcess_hard_stop__closes_all_beta_1_files_after_stop_recording_before_all_files_are_finalized__and_files_can_be_opened_after_process_stops(
     four_board_file_writer_process, mocker
 ):
@@ -749,11 +831,15 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
 
 
 def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_1_files_after_stop_recording(
-    four_board_file_writer_process,
+    four_board_file_writer_process, mocker
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    spied_process_update_name_command = mocker.patch.object(
+        fw_process, "_process_update_name_command", autospec=True
+    )
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND), from_main_queue
@@ -788,10 +874,11 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_1_f
     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
 
-    # check that command is ignored # Tanner (1/12/21): no particular reason this command needs to be update_directory, but it's easy to test if this gets processed
-    expected_new_dir = "dummy_dir"
-    update_dir_command = {"command": "update_directory", "new_directory": expected_new_dir}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(update_dir_command, from_main_queue)
+    # check that command is ignored
+    # Lucy (6/15/22) this is the expected next command after stop recording to rename and kick off upload thread
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        GENERIC_UPDATE_RECORDING_NAME_COMMAND, from_main_queue
+    )
     invoke_process_run_and_check_errors(fw_process)
     confirm_queue_is_eventually_of_size(from_main_queue, 1)
 
@@ -822,7 +909,7 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_1_f
     # now all files should be finalized, confirm command is now processed
     invoke_process_run_and_check_errors(fw_process)
     confirm_queue_is_eventually_empty(from_main_queue)
-    assert fw_process.get_file_directory() == expected_new_dir
+    spied_process_update_name_command.assert_called_once()
 
     # Tanner (3/8/21): Prevent BrokenPipeErrors
     drain_queue(board_queues[0][1])
@@ -837,6 +924,10 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_f
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     to_main_queue = four_board_file_writer_process["to_main_queue"]
+
+    spied_process_update_name_command = mocker.patch.object(
+        fw_process, "_process_update_name_command", autospec=True
+    )
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND), from_main_queue
@@ -867,10 +958,11 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_f
     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
 
-    # check that command is ignored # Tanner (1/12/21): no particular reason this command needs to be update_directory, but it's easy to test if this gets processed
-    expected_new_dir = "dummy_dir"
-    update_dir_command = {"command": "update_directory", "new_directory": expected_new_dir}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(update_dir_command, from_main_queue)
+    # check that command is ignored
+    # Lucy (6/15/22) this is the expected next command after stop recording to rename and kick off upload thread
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        GENERIC_UPDATE_RECORDING_NAME_COMMAND, from_main_queue
+    )
     invoke_process_run_and_check_errors(fw_process)
     confirm_queue_is_eventually_of_size(from_main_queue, 1)
 
@@ -890,7 +982,7 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_f
     # now all files should be finalized, confirm command is now processed
     invoke_process_run_and_check_errors(fw_process)
     confirm_queue_is_eventually_empty(from_main_queue)
-    assert fw_process.get_file_directory() == expected_new_dir
+    spied_process_update_name_command.assert_called_once()
     # also confirm message sent to indicate all files have been finalized
     assert drain_queue(to_main_queue)[-2] == {
         "communication_type": "file_finalized",

@@ -20,6 +20,7 @@ from .fixtures import get_generic_base64_args
 
 @pytest.mark.slow
 @pytest.mark.only_exe
+@pytest.mark.timeout(300)
 def test_exe_can_access_xem_script_and_firmware_folders():
     exe_file_name = "mantarray-flask.exe" if is_system_windows() else "mantarray-flask"
 

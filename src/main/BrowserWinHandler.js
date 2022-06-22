@@ -41,9 +41,9 @@ export default class BrowserWinHandler {
     console.log("Screen size scale factor: " + scale_factor); // allow-log
     const { width, height } = screen.getPrimaryDisplay().workAreaSize;
     console.log("Sceen work area width " + width + " height " + height); // allow-log
-    this.options.height = this.options.height / scale_factor;
-    this.options.width = this.options.width / scale_factor;
-    this.options.webPreferences.zoomFactor = this.options.webPreferences.zoomFactor / scale_factor;
+    this.options.height = parseInt(this.options.height / scale_factor);
+    this.options.width = parseInt(this.options.width / scale_factor);
+    this.options.webPreferences.zoomFactor = parseInt(this.options.webPreferences.zoomFactor / scale_factor);
 
     this.browserWindow = new BrowserWindow({
       ...this.options,

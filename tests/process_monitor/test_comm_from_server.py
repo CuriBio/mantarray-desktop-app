@@ -605,6 +605,32 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
         invoke_process_run_and_check_errors(monitor_thread)
 
 
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__adds_update_recording_name_comm_fw(
+    test_process_manager_creator, test_monitor, mocker, patch_print
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
+
+    server_to_main_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    )
+    main_to_fw_queue = (
+        test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
+    )
+
+    communication = {
+        "communication_type": "recording",
+        "command": "update_recording_name",
+        "new_name": "new_recording_name",
+        "default_name": "old_recording_name",
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    confirm_queue_is_eventually_of_size(main_to_fw_queue, 1)
+    assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == communication
+
+
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop_by_hard_stop_and_join_all_processes(
     test_process_manager_creator, test_monitor, mocker
 ):

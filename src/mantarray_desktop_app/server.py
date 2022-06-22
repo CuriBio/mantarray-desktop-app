@@ -35,6 +35,7 @@ import json
 import logging
 import os
 from queue import Queue
+import shutil
 import threading
 from time import sleep
 from typing import Any
@@ -744,6 +745,37 @@ def stop_recording() -> Response:
         "timepoint_to_stop_recording_at": stop_time_index,
     }
     response = queue_command_to_main(comm_dict)
+    return response
+
+
+@flask_app.route("/update_recording_name", methods=["POST"])
+def update_recording_name() -> Response:
+    """Route updates recording name after stop recording.
+
+    Can be invoked by: curl http://localhost:4567/update_recording_name
+    """
+    recording_dir = _get_values_from_process_monitor()["config_settings"]["recording_directory"]
+    new_recording_name = request.args["new_name"]
+    default_recording_name = request.args["default_name"]
+    dir_path = os.path.join(recording_dir, new_recording_name)
+
+    try:
+        request.args["replace_existing"]  # only gets sent if a user confirmed a rewrite
+    except KeyError:
+        if os.path.exists(dir_path):
+            return Response(status="403 Recording name already exists")
+    else:
+        # remove current recording if choosing to replace
+        shutil.rmtree(dir_path)
+
+    comm = {
+        "communication_type": "recording",
+        "command": "update_recording_name",
+        "new_name": new_recording_name,
+        "default_name": default_recording_name,
+    }
+
+    response = queue_command_to_main(comm)
     return response
 
 

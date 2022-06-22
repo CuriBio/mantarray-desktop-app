@@ -321,6 +321,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     shared_values_dict["adc_offsets"] = communication[
                         "metadata_to_copy_onto_main_file_attributes"
                     ]["adc_offsets"]
+            elif command == "update_recording_name":
+                pass
             else:
                 raise UnrecognizedRecordingCommandError(command)
             main_to_fw_queue.put_nowait(communication)

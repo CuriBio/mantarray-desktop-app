@@ -1798,12 +1798,7 @@ def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
 def test_FileWriterProcess__stop_recording__immediately_finalizes_any_beta_1_files_that_are_ready(
     four_board_file_writer_process, mocker
 ):
-    file_writer_process = four_board_file_writer_process["fw_process"]
-
     test_well_indices = [3, 7, 15]
-
-    # mock to make sure uploads don't actually start
-    mocked_upload = mocker.patch.object(file_writer_process, "_start_new_file_upload", autospec=True)
 
     update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
     update_user_settings_command["config_settings"].update(
@@ -1815,8 +1810,6 @@ def test_FileWriterProcess__stop_recording__immediately_finalizes_any_beta_1_fil
         active_well_indices=test_well_indices,
     )
 
-    mocked_upload.assert_called_once()
-
 
 def test_FileWriterProcess__stop_recording__immediately_finalizes_all_beta_2_files_if_ready(
     four_board_file_writer_process, mocker
@@ -1826,9 +1819,6 @@ def test_FileWriterProcess__stop_recording__immediately_finalizes_all_beta_2_fil
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     to_main_queue = four_board_file_writer_process["to_main_queue"]
-
-    # mock to make sure uploads don't actually start
-    mocked_upload = mocker.patch.object(fw_process, "_start_new_file_upload", autospec=True)
 
     # store new customer settings
     update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
@@ -1871,8 +1861,6 @@ def test_FileWriterProcess__stop_recording__immediately_finalizes_all_beta_2_fil
     # confirm each finalization message, all files finalized, and stop recording receipt are sent
     confirm_queue_is_eventually_of_size(to_main_queue, len(active_well_indices) + 2)
 
-    mocked_upload.assert_called_once()
-
 
 def test_FileWriterProcess__stop_managed_acquisition__finalizes_all_files_if_any_are_still_open(
     four_board_file_writer_process, mocker
@@ -1882,9 +1870,6 @@ def test_FileWriterProcess__stop_managed_acquisition__finalizes_all_files_if_any
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     to_main_queue = four_board_file_writer_process["to_main_queue"]
-
-    # mock to make sure uploads don't actually start
-    mocked_upload = mocker.patch.object(fw_process, "_start_new_file_upload", autospec=True)
 
     # store new customer settings
     update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
@@ -1925,5 +1910,3 @@ def test_FileWriterProcess__stop_managed_acquisition__finalizes_all_files_if_any
     invoke_process_run_and_check_errors(fw_process)
     # confirm each finalization message, all files finalized, and stop recording receipt are sent
     confirm_queue_is_eventually_of_size(to_main_queue, len(active_well_indices) + 2)
-
-    mocked_upload.assert_called_once()
