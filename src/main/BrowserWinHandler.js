@@ -43,7 +43,7 @@ export default class BrowserWinHandler {
     console.log("Sceen work area width " + width + " height " + height); // allow-log
     this.options.height = parseInt(this.options.height / scale_factor);
     this.options.width = parseInt(this.options.width / scale_factor);
-    this.options.webPreferences.zoomFactor = this.options.webPreferences.zoomFactor / scale_factor;
+    this.options.webPreferences.zoomFactor = parseInt(this.options.webPreferences.zoomFactor / scale_factor);
 
     this.browserWindow = new BrowserWindow({
       ...this.options,
