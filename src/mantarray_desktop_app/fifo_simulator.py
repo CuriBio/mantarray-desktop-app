@@ -10,11 +10,6 @@ from typing import Dict
 from typing import Optional
 
 from stdlib_utils import drain_queue
-from xem_wrapper import DATA_FRAME_SIZE_WORDS
-from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
-from xem_wrapper import FrontPanelBase
-from xem_wrapper import FrontPanelSimulator
-from xem_wrapper import OpalKellyBoardNotInitializedError
 
 from .constants import BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS
 from .constants import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
@@ -25,6 +20,17 @@ from .exceptions import AttemptToInitializeFIFOReadsError
 from .fifo_read_producer import FIFOReadProducer
 from .fifo_read_producer import produce_data
 from .mantarray_front_panel import MantarrayFrontPanelMixIn
+
+try:
+    from xem_wrapper import DATA_FRAME_SIZE_WORDS
+    from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
+    from xem_wrapper import FrontPanelBase
+    from xem_wrapper import FrontPanelSimulator
+    from xem_wrapper import OpalKellyBoardNotInitializedError
+except ImportError:  # no sec
+
+    class FrontPanelSimulator:  # type: ignore
+        pass
 
 
 class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):

@@ -45,7 +45,7 @@ from .constants import StimulatorCircuitStatuses
 # Tanner (3/18/21): If/When additional cython is needed to improve serial communication, this file may be worth investigating
 
 
-METADATA_TYPES = immutabledict(
+METADATA_TYPES: immutabledict[UUID, str] = immutabledict(
     {
         MAIN_FIRMWARE_VERSION_UUID: str,
         CHANNEL_FIRMWARE_VERSION_UUID: str,

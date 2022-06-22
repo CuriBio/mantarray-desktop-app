@@ -148,7 +148,7 @@ class MantarrayMcSimulator(InfiniteProcess):
     """
 
     # values for V1 instrument as of 6/17/22
-    initial_magnet_finding_params = immutabledict(
+    initial_magnet_finding_params: immutabledict[str, int] = immutabledict(
         {"X": 0, "Y": 2, "Z": -5, "REMN": 1200},
     )
 
@@ -158,7 +158,7 @@ class MantarrayMcSimulator(InfiniteProcess):
     default_channel_firmware_version = "0.0.0"
     default_plate_barcode = "ML2022001000"
     default_stim_barcode = "MS2022001000"
-    default_metadata_values: Dict[UUID, Any] = immutabledict(
+    default_metadata_values: immutabledict[UUID, Any] = immutabledict(
         {
             BOOT_FLAGS_UUID: 0b00000000,
             MANTARRAY_SERIAL_NUMBER_UUID: default_mantarray_serial_number,

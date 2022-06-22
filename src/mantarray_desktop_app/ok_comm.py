@@ -25,15 +25,6 @@ from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import get_formatted_stack_trace
 from stdlib_utils import put_log_message_into_queue
 from stdlib_utils import resource_path
-from xem_wrapper import check_header
-from xem_wrapper import convert_sample_idx
-from xem_wrapper import convert_wire_value
-from xem_wrapper import DATA_FRAME_SIZE_WORDS
-from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
-from xem_wrapper import FrontPanelBase
-from xem_wrapper import FrontPanelSimulator
-from xem_wrapper import OpalKellyNoDeviceFoundError
-from xem_wrapper import open_board
 
 from .constants import ADC_GAIN_DESCRIPTION_TAG
 from .constants import BARCODE_CONFIRM_CLEAR_WAIT_SECONDS
@@ -65,6 +56,19 @@ from .instrument_comm import InstrumentCommProcess
 from .mantarray_front_panel import MantarrayFrontPanel
 from .utils import _trim_barcode
 from .utils import check_barcode_is_valid
+
+try:
+    from xem_wrapper import check_header
+    from xem_wrapper import convert_sample_idx
+    from xem_wrapper import convert_wire_value
+    from xem_wrapper import DATA_FRAME_SIZE_WORDS
+    from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
+    from xem_wrapper import FrontPanelBase
+    from xem_wrapper import FrontPanelSimulator
+    from xem_wrapper import OpalKellyNoDeviceFoundError
+    from xem_wrapper import open_board
+except ImportError:  # no sec
+    pass
 
 if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement
     from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20): unsure why pylint is unable to recognize cython import...

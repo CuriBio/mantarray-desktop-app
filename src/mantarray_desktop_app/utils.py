@@ -151,7 +151,7 @@ def get_current_software_version() -> str:
         return version
 
 
-def check_barcode_for_errors(barcode: str, barcode_type: Optional[str] = None) -> str:
+def check_barcode_for_errors(barcode: str, barcode_type: str = "") -> str:
     """Return error message if barcode contains an error.
 
     barcode_type kwarg should always be given unless checking a scanned

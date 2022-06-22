@@ -762,7 +762,7 @@ def start_managed_acquisition() -> Response:
     if shared_values_dict["beta_2_mode"] and _are_stimulator_checks_running():
         return Response(status="403 Cannot start managed acquisition while stimulator checks are running")
 
-    response = queue_command_to_main(START_MANAGED_ACQUISITION_COMMUNICATION)
+    response = queue_command_to_main(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     return response
 
 
@@ -774,7 +774,7 @@ def stop_managed_acquisition() -> Response:
 
     `curl http://localhost:4567/stop_managed_acquisition`
     """
-    response = queue_command_to_main(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+    response = queue_command_to_main(dict(STOP_MANAGED_ACQUISITION_COMMUNICATION))
     return response
 
 
@@ -1244,8 +1244,8 @@ class ServerManager:
         # Tanner (8/10/21): not sure if using a lock here is necessary as nothing else accessing this dictionary is using a lock before modifying it
         with self._lock:
             copied_values = deepcopy(self._values_from_process_monitor)
-        immutable_version: Dict[str, Any] = immutabledict(copied_values)
-        return immutable_version
+        immutable_version = immutabledict(copied_values)  # type: ignore
+        return immutable_version  # type: ignore
 
     def get_logging_level(self) -> int:
         return self._logging_level

@@ -141,7 +141,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     self._process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
                 )
                 # need to send stop command to the process the furthest downstream the data path first then move upstream
-                stop_managed_acquisition_comm = dict(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+                stop_managed_acquisition_comm: Dict[str, Any] = dict(STOP_MANAGED_ACQUISITION_COMMUNICATION)
                 stop_managed_acquisition_comm["is_calibration_recording"] = True
                 main_to_fw_queue.put_nowait(stop_managed_acquisition_comm)
                 main_to_ic_queue.put_nowait(stop_managed_acquisition_comm)
