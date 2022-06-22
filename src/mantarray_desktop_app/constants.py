@@ -20,9 +20,14 @@ from labware_domain_models import LabwareDefinition
 import numpy as np
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 
+from .arch_utils import is_cpu_arm
+
+
 try:
     from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 except ImportError:
+    if not is_cpu_arm():
+        raise
     DATA_FRAMES_PER_ROUND_ROBIN = 1
 
 CURRENT_SOFTWARE_VERSION = "REPLACETHISWITHVERSIONDURINGBUILD"

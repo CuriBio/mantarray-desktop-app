@@ -25,6 +25,7 @@ from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import COMPUTER_NAME_HASH_UUID
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
+from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
@@ -1155,6 +1156,9 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
         == expected_plate_barcode
     )
     assert communication["metadata_to_copy_onto_main_file_attributes"][HARDWARE_TEST_RECORDING_UUID] is False
+    assert communication["metadata_to_copy_onto_main_file_attributes"][
+        INITIAL_MAGNET_FINDING_PARAMS_UUID
+    ] == json.dumps(dict(MantarrayMcSimulator.initial_magnet_finding_params))
     # metadata values from instrument
     instrument_metadata = shared_values_dict["instrument_metadata"][0]
     assert (
@@ -1182,7 +1186,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
         communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_IS_FROM_SCANNER_UUID]
         is True
     )
-    assert (  # pylint: disable=duplicate-code
+    assert (
         communication["metadata_to_copy_onto_main_file_attributes"][COMPUTER_NAME_HASH_UUID]
         == GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
             COMPUTER_NAME_HASH_UUID

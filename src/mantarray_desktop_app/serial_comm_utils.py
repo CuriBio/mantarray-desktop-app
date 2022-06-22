@@ -16,7 +16,7 @@ import numpy as np
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import BOOTUP_COUNTER_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
-from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS
+from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
@@ -101,7 +101,7 @@ def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[Any, Any]:
         MAIN_FIRMWARE_VERSION_UUID: convert_semver_bytes_to_str(metadata_bytes[26:29]),
         CHANNEL_FIRMWARE_VERSION_UUID: convert_semver_bytes_to_str(metadata_bytes[29:32]),
         "status_codes_prior_to_reboot": convert_status_code_bytes_to_dict(metadata_bytes[32:58]),
-        INITIAL_MAGNET_FINDING_PARAMS: {
+        INITIAL_MAGNET_FINDING_PARAMS_UUID: {
             "X": int.from_bytes(metadata_bytes[58:59], byteorder="little", signed=True),
             "Y": int.from_bytes(metadata_bytes[59:60], byteorder="little", signed=True),
             "Z": int.from_bytes(metadata_bytes[60:61], byteorder="little", signed=True),
@@ -120,10 +120,12 @@ def convert_metadata_to_bytes(metadata_dict: Dict[UUID, Any]) -> bytes:
         + convert_semver_str_to_bytes(metadata_dict[CHANNEL_FIRMWARE_VERSION_UUID])
         # this function is only used in the simulator, so always send default status code
         + bytes([SERIAL_COMM_OKAY_CODE] * (num_wells + 2))
-        + metadata_dict[INITIAL_MAGNET_FINDING_PARAMS]["X"].to_bytes(1, byteorder="little", signed=True)
-        + metadata_dict[INITIAL_MAGNET_FINDING_PARAMS]["Y"].to_bytes(1, byteorder="little", signed=True)
-        + metadata_dict[INITIAL_MAGNET_FINDING_PARAMS]["Z"].to_bytes(1, byteorder="little", signed=True)
-        + metadata_dict[INITIAL_MAGNET_FINDING_PARAMS]["REMN"].to_bytes(2, byteorder="little", signed=True)
+        + metadata_dict[INITIAL_MAGNET_FINDING_PARAMS_UUID]["X"].to_bytes(1, byteorder="little", signed=True)
+        + metadata_dict[INITIAL_MAGNET_FINDING_PARAMS_UUID]["Y"].to_bytes(1, byteorder="little", signed=True)
+        + metadata_dict[INITIAL_MAGNET_FINDING_PARAMS_UUID]["Z"].to_bytes(1, byteorder="little", signed=True)
+        + metadata_dict[INITIAL_MAGNET_FINDING_PARAMS_UUID]["REMN"].to_bytes(
+            2, byteorder="little", signed=True
+        )
     )
     # append empty bytes so the result length is always a multiple of 32
     metadata_bytes += bytes(math.ceil(len(metadata_bytes) / 32) * 32 - len(metadata_bytes))

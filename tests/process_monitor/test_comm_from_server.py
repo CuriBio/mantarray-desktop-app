@@ -24,6 +24,7 @@ from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.constants import UPDATES_NEEDED_STATE
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
+from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
 from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
@@ -270,6 +271,9 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
             STIMULATION_PROTOCOL_UUID: None,
             CUSTOMER_ACCOUNT_ID_UUID: NOT_APPLICABLE_H5_METADATA,
             USER_ACCOUNT_ID_UUID: NOT_APPLICABLE_H5_METADATA,
+            INITIAL_MAGNET_FINDING_PARAMS_UUID: GENERIC_BETA_2_START_RECORDING_COMMAND[
+                "metadata_to_copy_onto_main_file_attributes"
+            ][INITIAL_MAGNET_FINDING_PARAMS_UUID],
         }
     )
     assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_start_recording_command

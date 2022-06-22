@@ -43,6 +43,7 @@ from pulse3D.constants import COMPUTER_NAME_HASH_UUID
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import FILE_FORMAT_VERSION_METADATA_KEY
 from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
+from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import IS_CALIBRATION_FILE_UUID
 from pulse3D.constants import IS_FILE_ORIGINAL_UNTRIMMED_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
@@ -295,6 +296,12 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
                 bool(this_file.attrs[str(STIM_BARCODE_IS_FROM_SCANNER_UUID)])
                 is start_recording_command["metadata_to_copy_onto_main_file_attributes"][
                     STIM_BARCODE_IS_FROM_SCANNER_UUID
+                ]
+            )
+            assert (
+                this_file.attrs[str(INITIAL_MAGNET_FINDING_PARAMS_UUID)]
+                == start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+                    INITIAL_MAGNET_FINDING_PARAMS_UUID
                 ]
             )
             assert get_time_index_dataset_from_file(this_file).shape == (0,)

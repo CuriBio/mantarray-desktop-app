@@ -3,6 +3,7 @@
 import copy
 import datetime
 import hashlib
+import json
 from multiprocessing import Queue as MPQueue
 import os
 import socket
@@ -37,6 +38,7 @@ from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import COMPUTER_NAME_HASH_UUID
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
+from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
@@ -168,6 +170,9 @@ GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
         + datetime.timedelta(seconds=5),
         STIM_BARCODE_UUID: MantarrayMcSimulator.default_stim_barcode,
         STIM_BARCODE_IS_FROM_SCANNER_UUID: True,
+        INITIAL_MAGNET_FINDING_PARAMS_UUID: json.dumps(
+            dict(MantarrayMcSimulator.initial_magnet_finding_params)
+        ),
     }
 )
 

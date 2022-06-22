@@ -15,8 +15,6 @@ from typing import Optional
 from typing import Union
 from uuid import UUID
 
-from mantarray_desktop_app.file_uploader import FileUploader
-from mantarray_desktop_app.web_api_utils import get_cloud_api_tokens
 import psutil
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import BACKEND_LOG_UUID
@@ -25,6 +23,7 @@ from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import COMPUTER_NAME_HASH_UUID
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
+from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
@@ -60,6 +59,8 @@ from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_VOLTAGE
 from .exceptions import RecordingFolderDoesNotExistError
+from .file_uploader import FileUploader
+from .web_api_utils import get_cloud_api_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -272,6 +273,9 @@ def _create_start_recording_command(
                 TISSUE_SAMPLING_PERIOD_UUID: DEFAULT_SAMPLING_PERIOD,
                 STIMULATION_PROTOCOL_UUID: stim_info_value,
                 UTC_BEGINNING_STIMULATION_UUID: beginning_of_stim_timestamp,
+                INITIAL_MAGNET_FINDING_PARAMS_UUID: json.dumps(
+                    dict(instrument_metadata[INITIAL_MAGNET_FINDING_PARAMS_UUID])
+                ),
             }
         )
         comm_dict["stim_running_statuses"] = shared_values_dict["stimulation_running"]

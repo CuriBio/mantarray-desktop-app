@@ -32,6 +32,7 @@ from scipy import signal
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteThread
 
+from .arch_utils import is_cpu_arm
 from .constants import ADC_CH_TO_24_WELL_INDEX
 from .constants import DATA_FRAME_PERIOD
 from .constants import FIFO_READ_PRODUCER_DATA_OFFSET
@@ -45,7 +46,8 @@ try:
     from xem_wrapper import build_header_magic_number_bytes
     from xem_wrapper import HEADER_MAGIC_NUMBER
 except ImportError:  # no sec
-    pass
+    if not is_cpu_arm():
+        raise
 
 
 def _perf_counter_cms() -> int:

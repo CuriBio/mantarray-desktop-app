@@ -32,7 +32,7 @@ from mantarray_desktop_app.serial_comm_utils import convert_adc_readings_to_impe
 import numpy as np
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
-from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS
+from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
@@ -125,7 +125,7 @@ def test_parse_metadata_bytes__returns_expected_value():
         MAIN_FIRMWARE_VERSION_UUID: "0.1.2",
         CHANNEL_FIRMWARE_VERSION_UUID: "255.255.255",
         "status_codes_prior_to_reboot": convert_status_code_bytes_to_dict(bytes(test_status_codes)),
-        INITIAL_MAGNET_FINDING_PARAMS: MantarrayMcSimulator.initial_magnet_finding_params,
+        INITIAL_MAGNET_FINDING_PARAMS_UUID: MantarrayMcSimulator.initial_magnet_finding_params,
     }
 
 

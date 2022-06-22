@@ -72,6 +72,7 @@ from pulse3D.constants import COMPUTER_NAME_HASH_UUID
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import FILE_FORMAT_VERSION_METADATA_KEY
 from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
+from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import IS_FILE_ORIGINAL_UNTRIMMED_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
@@ -1232,6 +1233,12 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                     bool(this_file.attrs[str(STIM_BARCODE_IS_FROM_SCANNER_UUID)])
                     is GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
                         STIM_BARCODE_IS_FROM_SCANNER_UUID
+                    ]
+                )
+                assert (
+                    this_file.attrs[str(INITIAL_MAGNET_FINDING_PARAMS_UUID)]
+                    == GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+                        INITIAL_MAGNET_FINDING_PARAMS_UUID
                     ]
                 )
                 # test recorded magnetometer data

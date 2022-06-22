@@ -26,6 +26,7 @@ from stdlib_utils import get_formatted_stack_trace
 from stdlib_utils import put_log_message_into_queue
 from stdlib_utils import resource_path
 
+from .arch_utils import is_cpu_arm
 from .constants import ADC_GAIN_DESCRIPTION_TAG
 from .constants import BARCODE_CONFIRM_CLEAR_WAIT_SECONDS
 from .constants import BARCODE_GET_SCAN_WAIT_SECONDS
@@ -68,6 +69,9 @@ try:
     from xem_wrapper import OpalKellyNoDeviceFoundError
     from xem_wrapper import open_board
 except ImportError:  # no sec
+    if not is_cpu_arm():
+        raise
+
     pass
 
 if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement

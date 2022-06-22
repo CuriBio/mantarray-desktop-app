@@ -26,7 +26,7 @@ from nptyping import NDArray
 import numpy as np
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
-from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS
+from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
@@ -165,7 +165,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             MANTARRAY_NICKNAME_UUID: default_mantarray_nickname,
             MAIN_FIRMWARE_VERSION_UUID: default_main_firmware_version,
             CHANNEL_FIRMWARE_VERSION_UUID: default_channel_firmware_version,
-            INITIAL_MAGNET_FINDING_PARAMS: initial_magnet_finding_params,
+            INITIAL_MAGNET_FINDING_PARAMS_UUID: initial_magnet_finding_params,
         }
     )
     default_adc_reading = 0xFF00

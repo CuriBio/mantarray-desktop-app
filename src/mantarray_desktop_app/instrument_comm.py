@@ -18,12 +18,15 @@ from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
 
+from .arch_utils import is_cpu_arm
 from .mc_simulator import MantarrayMcSimulator
 
 try:
     from xem_wrapper import FrontPanelBase
     from xem_wrapper import okCFrontPanel
 except ImportError:  # no sec
+    if not is_cpu_arm():
+        raise
     FrontPanelBase = "FrontPanelBase"
     okCFrontPanel = "okCFrontPanel"
 

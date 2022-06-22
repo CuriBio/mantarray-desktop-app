@@ -2,6 +2,7 @@
 """Classes used for controlling a Mantarray device."""
 import struct
 
+from .arch_utils import is_cpu_arm
 from .constants import BARCODE_SCANNER_BOTTOM_WIRE_OUT_ADDRESS
 from .constants import BARCODE_SCANNER_MID_WIRE_OUT_ADDRESS
 from .constants import BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS
@@ -14,6 +15,8 @@ try:
     from xem_wrapper import FrontPanel
     from xem_wrapper import FrontPanelBase
 except ImportError:  # no sec
+    if not is_cpu_arm():
+        raise
 
     class FrontPanelBase:  # type: ignore
         pass

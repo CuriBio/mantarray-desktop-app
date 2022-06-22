@@ -30,7 +30,8 @@ try:
 except ImportError:  # no sec
 
     class FrontPanelSimulator:  # type: ignore
-        pass
+        # Tanner (6/21/22): only adding these values so tests will run
+        default_xem_serial_number = "XEM123"
 
 
 class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
