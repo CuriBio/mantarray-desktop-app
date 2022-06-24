@@ -145,7 +145,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 main_to_fw_queue.put_nowait(stop_managed_acquisition_comm)
                 main_to_ic_queue.put_nowait(stop_managed_acquisition_comm)
             #if list of corrupt files is not empty (or None) then send request to show this to user.
-            elif communication.get("corrupt_files",None) != None:
+            elif communication.get("corrupt_files",None) is not None:
                 corrupt_files = communication.get("corrupt_files",None)
                 self._queue_websocket_message(
                     {

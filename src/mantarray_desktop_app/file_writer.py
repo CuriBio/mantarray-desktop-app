@@ -814,7 +814,7 @@ class FileWriterProcess(InfiniteProcess):
                 enc = "ANSI"
                 hgg = open(file_name,"r",encoding=enc)
                 hgg.read()
-            except Exception as e:
+            except Exception:
                 list_of_corrupt_files.append(file_name)
 
             self._to_main_queue.put_nowait({"communication_type": "file_finalized", "file_path": file_name})
@@ -822,10 +822,10 @@ class FileWriterProcess(InfiniteProcess):
         # if no files open anymore, then send message to main indicating that all files have been finalized
         if len(self._open_files[0]) == 0:
             #empty list returns None instead of []
-            list_of_corrupt_files = None if len(list_of_corrupt_files) == 0 else list_of_corrupt_files
+            corrupt_files_present = None if len(list_of_corrupt_files) == 0 else list
 
             self._to_main_queue.put_nowait(
-                {"communication_type": "file_finalized", "message": "all_finals_finalized","corrupt_files":list_of_corrupt_files}
+                {"communication_type": "file_finalized", "message": "all_finals_finalized","corrupt_files":corrupt_files_present}
             )
 
     def _process_next_incoming_packet(self) -> None:
