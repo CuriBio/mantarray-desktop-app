@@ -1276,7 +1276,7 @@ class ServerManager:
         # Tanner (8/10/21): not sure if using a lock here is necessary as nothing else accessing this dictionary is using a lock before modifying it
         with self._lock:
             copied_values = deepcopy(self._values_from_process_monitor)
-        immutable_version = immutabledict(copied_values)
+        immutable_version = immutabledict(copied_values)  # type: ignore
         return immutable_version  # type: ignore
 
     def get_logging_level(self) -> int:

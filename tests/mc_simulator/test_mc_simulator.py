@@ -54,6 +54,7 @@ __fixtures__ = [
 
 
 def test_MantarrayMcSimulator__class_attributes():
+    assert MantarrayMcSimulator.initial_magnet_finding_params == {"X": 0, "Y": 2, "Z": -5, "REMN": 1200}
     assert MantarrayMcSimulator.default_mantarray_nickname == "Mantarray Sim"
     assert MantarrayMcSimulator.default_mantarray_serial_number == "MA2022001000"
     assert MantarrayMcSimulator.default_main_firmware_version == "0.0.0"
@@ -66,7 +67,7 @@ def test_MantarrayMcSimulator__class_attributes():
         MANTARRAY_NICKNAME_UUID: MantarrayMcSimulator.default_mantarray_nickname,
         MAIN_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_main_firmware_version,
         CHANNEL_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_channel_firmware_version,
-        INITIAL_MAGNET_FINDING_PARAMS_UUID: {"X": 0, "Y": 2, "Z": -5, "REMN": 1200},
+        INITIAL_MAGNET_FINDING_PARAMS_UUID: MantarrayMcSimulator.initial_magnet_finding_params,
     }
     assert MantarrayMcSimulator.global_timer_offset_secs == 2.5
 

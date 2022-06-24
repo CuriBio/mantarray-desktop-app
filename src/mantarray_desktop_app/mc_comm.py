@@ -2,7 +2,6 @@
 """Process controlling communication with Mantarray Microcontroller."""
 from __future__ import annotations
 
-from collections import deque
 import copy
 import datetime
 import logging
@@ -14,7 +13,6 @@ from time import perf_counter
 from time import sleep
 import traceback
 from typing import Any
-from typing import Deque
 from typing import Dict
 from typing import FrozenSet
 from typing import List
@@ -120,6 +118,7 @@ from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import get_serial_comm_timestamp
 from .serial_comm_utils import parse_metadata_bytes
 from .utils import check_barcode_is_valid
+from .utils import CommandTracker
 from .utils import set_this_process_high_priority
 from .worker_thread import ErrorCatchingThread
 
@@ -214,17 +213,15 @@ class McCommunicationProcess(InstrumentCommProcess):
         super().__init__(*args, **kwargs)
         self._error: Optional[Exception] = None
         self._in_simulation_mode = False
-        self._simulator_error_queues: List[
-            Optional[Queue[Tuple[Exception, str]]]  # pylint: disable=unsubscriptable-object
-        ] = [None] * len(self._board_queues)
+        self._simulator_error_queues: List[Optional[Queue[Tuple[Exception, str]]]] = [None] * len(
+            self._board_queues
+        )
         self._num_wells = 24
         self._is_registered_with_serial_comm: List[bool] = [False] * len(self._board_queues)
         self._auto_get_metadata = False
         self._time_of_last_handshake_secs: Optional[float] = None
         self._time_of_last_beacon_secs: Optional[float] = None
-        self._commands_awaiting_response: Deque[  # pylint: disable=unsubscriptable-object
-            Dict[str, Any]
-        ] = deque()
+        self._commands_awaiting_response = CommandTracker()
         self._hardware_test_mode = hardware_test_mode
         # reboot values
         self._is_setting_nickname = False
@@ -655,11 +652,11 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         if packet_type is not None:
             self._send_data_packet(board_idx, packet_type, bytes_to_send)
-            self._add_command_to_track(comm_from_main)
+            self._add_command_to_track(packet_type, comm_from_main)
 
-    def _add_command_to_track(self, command_dict: Dict[str, Any]) -> None:
+    def _add_command_to_track(self, packet_type: int, command_dict: Dict[str, Any]) -> None:
         command_dict["timepoint"] = perf_counter()
-        self._commands_awaiting_response.append(command_dict)
+        self._commands_awaiting_response.add(packet_type, command_dict)
 
     def _handle_firmware_update(self) -> None:
         board_idx = 0
@@ -700,7 +697,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES - 1 :
             ]
         self._send_data_packet(board_idx, packet_type, bytes_to_send)
-        self._add_command_to_track(command_dict)
+        self._add_command_to_track(packet_type, command_dict)
 
     def _handle_sending_handshake(self) -> None:
         board_idx = 0
@@ -720,7 +717,7 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _send_handshake(self, board_idx: int) -> None:
         self._time_of_last_handshake_secs = perf_counter()
         self._send_data_packet(board_idx, SERIAL_COMM_HANDSHAKE_PACKET_TYPE)
-        self._add_command_to_track({"command": "handshake"})
+        self._add_command_to_track(SERIAL_COMM_HANDSHAKE_PACKET_TYPE, {"command": "handshake"})
 
     def _process_comm_from_instrument(self, packet_type: int, packet_payload: bytes) -> None:
         if packet_type == SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE:
@@ -739,12 +736,13 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise FirmwareGoingDormantError(going_dormant_reason)
         elif packet_type in COMMAND_PACKET_TYPES:
             response_data = packet_payload
-            if not self._commands_awaiting_response:
+            try:
+                prev_command = self._commands_awaiting_response.pop(packet_type)
+            except ValueError:
                 raise SerialCommUntrackedCommandResponseError(
                     f"Packet Type ID: {packet_type}, Packet Body: {str(packet_payload)}"
                 )
                 # TODO make sure the packet type matches the expected packet type from the previous command
-            prev_command = self._commands_awaiting_response.popleft()
             if prev_command["command"] == "handshake":
                 status_codes_dict = convert_status_code_bytes_to_dict(response_data)
                 self._handle_status_codes(status_codes_dict, "Handshake Response")
@@ -922,7 +920,10 @@ class McCommunicationProcess(InstrumentCommProcess):
                 SERIAL_COMM_GET_METADATA_PACKET_TYPE,
                 convert_to_timestamp_bytes(get_serial_comm_timestamp()),
             )
-            self._add_command_to_track({"communication_type": "metadata_comm", "command": "get_metadata"})
+            self._add_command_to_track(
+                SERIAL_COMM_GET_METADATA_PACKET_TYPE,
+                {"communication_type": "metadata_comm", "command": "get_metadata"},
+            )
             self._auto_get_metadata = False
 
     def _register_magic_word(self, board_idx: int) -> None:
@@ -1153,9 +1154,10 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise SerialCommStatusBeaconTimeoutError()
 
     def _handle_command_tracking(self) -> None:
-        if not self._commands_awaiting_response:
+        try:
+            oldest_command = self._commands_awaiting_response.oldest()
+        except IndexError:
             return
-        oldest_command = self._commands_awaiting_response[0]
         secs_since_command_sent = _get_secs_since_command_sent(oldest_command["timepoint"])
         if secs_since_command_sent >= SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS:
             raise SerialCommCommandResponseTimeoutError(oldest_command["command"])

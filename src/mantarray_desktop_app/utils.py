@@ -2,6 +2,8 @@
 """Misc utility functions."""
 from __future__ import annotations
 
+from collections import defaultdict
+from collections import deque
 import datetime
 import json
 import logging
@@ -9,6 +11,7 @@ import os
 import re
 import tempfile
 from typing import Any
+from typing import Deque
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -63,6 +66,36 @@ from .file_uploader import FileUploader
 from .web_api_utils import get_cloud_api_tokens
 
 logger = logging.getLogger(__name__)
+
+
+class CommandTracker:
+    def __init__(self) -> None:
+        self._command_order: Deque[int] = deque()
+        self._command_mapping: Dict[int, Deque[Dict[str, Any]]] = defaultdict(deque)
+
+    def add(self, packet_type: int, command_dict: Dict[str, Any]) -> None:
+        self._command_order.append(packet_type)
+        self._command_mapping[packet_type].append(command_dict)
+
+    def oldest(self) -> Dict[str, Any]:
+        try:
+            packet_type_of_oldest = self._command_order[0]
+        except IndexError:
+            raise IndexError("tracker is empty")
+        return self._command_mapping[packet_type_of_oldest][0]
+
+    def pop(self, packet_type: int) -> Dict[str, Any]:
+        try:
+            self._command_order.remove(packet_type)
+        except ValueError:
+            raise ValueError(f"No commands of packet type: {packet_type}")
+        command = self._command_mapping[packet_type].popleft()
+        if not self._command_mapping[packet_type]:
+            del self._command_mapping[packet_type]
+        return command
+
+    def __bool__(self) -> bool:
+        return bool(self._command_order)
 
 
 def validate_settings(settings_dict: Dict[str, Any]) -> None:

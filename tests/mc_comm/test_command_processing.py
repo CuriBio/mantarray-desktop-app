@@ -11,10 +11,12 @@ from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import UnrecognizedCommandFromMainToMcCommError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.data_parsing_cy import sort_serial_packets
 from mantarray_desktop_app.firmware_downloader import download_firmware_updates
 from mantarray_desktop_app.firmware_downloader import get_latest_firmware_versions
 from mantarray_desktop_app.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app.serial_comm_utils import convert_status_code_bytes_to_dict
+from mantarray_desktop_app.serial_comm_utils import create_data_packet
 from mantarray_desktop_app.worker_thread import ErrorCatchingThread
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 import pytest
@@ -236,6 +238,49 @@ def test_McCommunicationProcess__processes_command_response_when_packet_received
     # confirm command response is received and data sent back to main
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(output_queue, 1)
+
+
+def test_McCommunicationProcess__processes_command_responses_from_two_different_packet_types_out_of_order(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
+    input_queue, output_queue = board_queues[0][:2]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+    testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+
+    # mock so no data packets are sent
+    mocker.patch.object(mc_simulator, "_get_us_since_last_data_packet", autospec=True, return_value=0)
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+
+    # send two commands
+    test_command = {"communication_type": "metadata_comm", "command": "get_metadata"}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, input_queue)
+    invoke_process_run_and_check_errors(mc_process)
+    test_command = {"communication_type": "acquisition_manager", "command": "start_managed_acquisition"}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, input_queue)
+    invoke_process_run_and_check_errors(mc_process)
+
+    # process both commands
+    invoke_process_run_and_check_errors(simulator, num_iterations=2)
+    # reorder command responses and add them back to simulator's available data
+    sorted_packet_dict = sort_serial_packets(bytearray(simulator.read_all()))
+    reordered_response_packet_bytes = create_data_packet(
+        *sorted_packet_dict["other_packet_info"][1]
+    ) + create_data_packet(*sorted_packet_dict["other_packet_info"][0])
+    test_command = {"command": "add_read_bytes", "read_bytes": reordered_response_packet_bytes}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, testing_queue)
+    invoke_process_run_and_check_errors(simulator)
+
+    # confirm command responses are processed without issue and msgs are sent back to main
+    invoke_process_run_and_check_errors(mc_process)
+
+    confirm_queue_is_eventually_of_size(output_queue, 2)
+    assert output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)["command"] == "start_managed_acquisition"
+    assert output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)["command"] == "get_metadata"
 
 
 def test_McCommunicationProcess__processes_reboot_command(
