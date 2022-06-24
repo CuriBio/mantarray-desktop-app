@@ -144,6 +144,15 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 stop_managed_acquisition_comm["is_calibration_recording"] = True
                 main_to_fw_queue.put_nowait(stop_managed_acquisition_comm)
                 main_to_ic_queue.put_nowait(stop_managed_acquisition_comm)
+            #if list of corrupt files is not empty (or None) then send request to show this to user.
+            elif communication.get("corrupt_files",None) != None:
+                corrupt_files = communication.get("corrupt_files",None)
+                self._queue_websocket_message(
+                    {
+                        "data_type": "corrupt_files_alert",
+                        "data_json": json.dumps({"corrupt_files_found":corrupt_files}),
+                    }
+                )
 
         # Tanner (12/13/21): redact file/folder path after handling comm in case the actual file path is needed
         for sensitive_field in ("file_path", "file_folder"):

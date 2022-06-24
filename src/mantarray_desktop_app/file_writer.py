@@ -796,6 +796,8 @@ class FileWriterProcess(InfiniteProcess):
         if len(self._open_files[0]) == 0:
             return
 
+        list_of_corrupt_files = []# keeps track of all files unable to be open and read
+
         for this_well_idx in list(
             self._open_files[0].keys()
         ):  # make a copy of the keys since they may be deleted during the run
@@ -806,12 +808,24 @@ class FileWriterProcess(InfiniteProcess):
             # grab filename before closing h5 file otherwise it will error
             file_name = this_file.filename
             this_file.close()
+
+            #after h5 close, reopen them and attempt to read. If not possible then add file to list
+            try:
+                enc = "ANSI"
+                hgg = open(file_name,"r",encoding=enc)
+                hgg.read()
+            except Exception as e:
+                list_of_corrupt_files.append(file_name)
+
             self._to_main_queue.put_nowait({"communication_type": "file_finalized", "file_path": file_name})
             del self._open_files[0][this_well_idx]
         # if no files open anymore, then send message to main indicating that all files have been finalized
         if len(self._open_files[0]) == 0:
+            #empty list returns None instead of []
+            list_of_corrupt_files = None if len(list_of_corrupt_files) == 0 else list_of_corrupt_files
+
             self._to_main_queue.put_nowait(
-                {"communication_type": "file_finalized", "message": "all_finals_finalized"}
+                {"communication_type": "file_finalized", "message": "all_finals_finalized","corrupt_files":list_of_corrupt_files}
             )
 
     def _process_next_incoming_packet(self) -> None:
