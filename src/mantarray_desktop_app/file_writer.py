@@ -812,8 +812,9 @@ class FileWriterProcess(InfiniteProcess):
             #after h5 close, reopen them and attempt to read. If not possible then add file to list
             try:
                 enc = "ANSI"
-                hgg = open(file_name,"r",encoding=enc)
-                hgg.read()
+                file = open(file_name,"r",encoding=enc)
+                file.read()
+                file.close()
             except Exception:
                 list_of_corrupt_files.append(file_name)
 
