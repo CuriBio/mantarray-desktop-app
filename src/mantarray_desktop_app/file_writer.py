@@ -821,8 +821,8 @@ class FileWriterProcess(InfiniteProcess):
             del self._open_files[0][this_well_idx]
         # if no files open anymore, then send message to main indicating that all files have been finalized
         if len(self._open_files[0]) == 0:
-            #empty list returns None instead of []
-            corrupt_files_present = None if len(list_of_corrupt_files) == 0 else list
+            #if empty list returns None instead of []
+            corrupt_files_present = None if len(list_of_corrupt_files) == 0 else list_of_corrupt_files
 
             self._to_main_queue.put_nowait(
                 {"communication_type": "file_finalized", "message": "all_finals_finalized"}
