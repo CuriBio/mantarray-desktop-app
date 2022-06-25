@@ -825,8 +825,9 @@ class FileWriterProcess(InfiniteProcess):
             corrupt_files_present = None if len(list_of_corrupt_files) == 0 else list
 
             self._to_main_queue.put_nowait(
-                {"communication_type": "file_finalized", "message": "all_finals_finalized","corrupt_files":corrupt_files_present}
+                {"communication_type": "file_finalized", "message": "all_finals_finalized"}
             )
+            self._to_main_queue.put_nowait({"communication_type": "corrupt_file_detected","corrupt_files":corrupt_files_present})
 
     def _process_next_incoming_packet(self) -> None:
         """Process the next incoming packet for that board.

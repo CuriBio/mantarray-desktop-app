@@ -89,7 +89,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self,
         values_to_share_to_server: Dict[str, Any],
         process_manager: MantarrayProcessesManager,
-        fatal_error_reporter: queue.Queue[str],  # pylint: disable=unsubscriptable-object
+        fatal_error_reporter: queue.Queue[
+            str
+        ],  # pylint: disable=unsubscriptable-object
         the_lock: threading.Lock,
         boot_up_after_processes_start: bool = False,
         load_firmware_file: bool = True,
@@ -119,7 +121,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
             process_manager.queue_container().get_communication_queue_from_file_writer_to_main()
         )
         try:
-            communication = file_writer_to_main.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+            communication = file_writer_to_main.get(
+                timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+            )
         except queue.Empty:
             return
 
@@ -133,24 +137,27 @@ class MantarrayProcessesMonitor(InfiniteThread):
             ):
                 self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
                 # stop managed acquisition
-                main_to_ic_queue = (
-                    self._process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+                main_to_ic_queue = self._process_manager.queue_container().get_communication_to_instrument_comm_queue(
+                    0
                 )
                 main_to_fw_queue = (
                     self._process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
                 )
                 # need to send stop command to the process the furthest downstream the data path first then move upstream
-                stop_managed_acquisition_comm = dict(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+                stop_managed_acquisition_comm = dict(
+                    STOP_MANAGED_ACQUISITION_COMMUNICATION
+                )
                 stop_managed_acquisition_comm["is_calibration_recording"] = True
                 main_to_fw_queue.put_nowait(stop_managed_acquisition_comm)
                 main_to_ic_queue.put_nowait(stop_managed_acquisition_comm)
-            #if list of corrupt files is not empty (or None) then send request to show this to user.
-            elif communication.get("corrupt_files",None) is not None:
-                corrupt_files = communication.get("corrupt_files",None)
+        elif communication_type == "corrupt_file_detected":
+            # if list of corrupt files is not empty (or None) then send request to show this to user.
+            if communication.get("corrupt_files", None) is not None:
+                corrupt_files = communication.get("corrupt_files", None)
                 self._queue_websocket_message(
                     {
                         "data_type": "corrupt_files_alert",
-                        "data_json": json.dumps({"corrupt_files_found":corrupt_files}),
+                        "data_json": json.dumps({"corrupt_files_found": corrupt_files}),
                     }
                 )
 
@@ -161,7 +168,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     communication[sensitive_field]
                 )
         # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
-        msg = f"Communication from the File Writer: {communication}".replace(r"\\", "\\")
+        msg = f"Communication from the File Writer: {communication}".replace(
+            r"\\", "\\"
+        )
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.info(msg)
@@ -169,9 +178,13 @@ class MantarrayProcessesMonitor(InfiniteThread):
     def _check_and_handle_server_to_main_queue(self) -> None:
         # pylint: disable=too-many-branches, too-many-statements  # Tanner (4/23/21): temporarily need to add more than the allowed number of branches in order to support Beta 1 mode during transition to Beta 2 mode
         process_manager = self._process_manager
-        to_main_queue = process_manager.queue_container().get_communication_queue_from_server_to_main()
+        to_main_queue = (
+            process_manager.queue_container().get_communication_queue_from_server_to_main()
+        )
         try:
-            communication = to_main_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+            communication = to_main_queue.get(
+                timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+            )
         except queue.Empty:
             return
 
@@ -179,7 +192,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
         if "mantarray_nickname" in communication:
             # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
             comm_copy = copy.deepcopy(communication)
-            comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
+            comm_copy["mantarray_nickname"] = get_redacted_string(
+                len(comm_copy["mantarray_nickname"])
+            )
             msg = f"Communication from the Server: {comm_copy}"
         elif "update_user_settings" == communication["communication_type"]:
             comm_copy = copy.deepcopy(communication)
@@ -198,23 +213,33 @@ class MantarrayProcessesMonitor(InfiniteThread):
             if command == "set_mantarray_nickname":
                 if "mantarray_nickname" not in shared_values_dict:
                     shared_values_dict["mantarray_nickname"] = dict()
-                shared_values_dict["mantarray_nickname"][0] = communication["mantarray_nickname"]
+                shared_values_dict["mantarray_nickname"][0] = communication[
+                    "mantarray_nickname"
+                ]
             elif command == "set_mantarray_serial_number":
                 if "mantarray_serial_number" not in shared_values_dict:
                     shared_values_dict["mantarray_serial_number"] = dict()
-                shared_values_dict["mantarray_serial_number"][0] = communication["mantarray_serial_number"]
+                shared_values_dict["mantarray_serial_number"][0] = communication[
+                    "mantarray_serial_number"
+                ]
             else:
                 raise UnrecognizedMantarrayNamingCommandError(command)
             self._put_communication_into_instrument_comm_queue(communication)
         elif communication_type == "shutdown":
             command = communication["command"]
             if command == "hard_stop":
-                self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=False, error=False)
-                upload_log_files_to_s3(self._values_to_share_to_server["config_settings"])
+                self._hard_stop_and_join_processes_and_log_leftovers(
+                    shutdown_server=False, error=False
+                )
+                upload_log_files_to_s3(
+                    self._values_to_share_to_server["config_settings"]
+                )
             elif command == "shutdown_server":
                 self._process_manager.shutdown_server()
             else:
-                raise NotImplementedError(f"Unrecognized shutdown command from Server: {command}")
+                raise NotImplementedError(
+                    f"Unrecognized shutdown command from Server: {command}"
+                )
         elif communication_type == "update_user_settings":
             new_values = communication["content"]
             if new_recording_directory := new_values.get("recording_directory"):
@@ -222,11 +247,18 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
                 )
                 to_file_writer_queue.put_nowait(
-                    {"command": "update_directory", "new_directory": new_recording_directory}
+                    {
+                        "command": "update_directory",
+                        "new_directory": new_recording_directory,
+                    }
                 )
 
-                scrubbed_recordings_dir = redact_sensitive_info_from_path(new_recording_directory)
-                logger.info(f"Using directory for recording files: {scrubbed_recordings_dir}")
+                scrubbed_recordings_dir = redact_sensitive_info_from_path(
+                    new_recording_directory
+                )
+                logger.info(
+                    f"Using directory for recording files: {scrubbed_recordings_dir}"
+                )
             if "customer_id" in new_values:
                 # TODO Tanner (5/5/22): should probably combine this with config_settings
                 shared_values_dict["user_creds"] = {
@@ -253,22 +285,30 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._queue_websocket_message(
                 {
                     "data_type": "sw_update",
-                    "data_json": json.dumps({"software_update_available": software_update_available}),
+                    "data_json": json.dumps(
+                        {"software_update_available": software_update_available}
+                    ),
                 }
             )
         elif communication_type == "firmware_update_confirmation":
-            shared_values_dict["firmware_update_accepted"] = communication["update_accepted"]
+            shared_values_dict["firmware_update_accepted"] = communication[
+                "update_accepted"
+            ]
         elif communication_type == "stimulation":
             command = communication["command"]
             if command == "set_stim_status":
                 self._put_communication_into_instrument_comm_queue(
                     {
                         "communication_type": communication_type,
-                        "command": "start_stimulation" if communication["status"] else "stop_stimulation",
+                        "command": "start_stimulation"
+                        if communication["status"]
+                        else "stop_stimulation",
                     }
                 )
             elif command == "set_protocols":
-                self._values_to_share_to_server["stimulation_info"] = communication["stim_info"]
+                self._values_to_share_to_server["stimulation_info"] = communication[
+                    "stim_info"
+                ]
                 self._put_communication_into_instrument_comm_queue(communication)
             elif command == "start_stim_checks":
                 self._values_to_share_to_server["stimulator_circuit_statuses"] = [
@@ -277,31 +317,40 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._put_communication_into_instrument_comm_queue(communication)
             else:
                 # Tanner (8/9/21): could make this a custom error if needed
-                raise NotImplementedError(f"Unrecognized stimulation command from Server: {command}")
+                raise NotImplementedError(
+                    f"Unrecognized stimulation command from Server: {command}"
+                )
         elif communication_type == "xem_scripts":
             # Tanner (12/28/20): start_calibration is the only xem_scripts command that will come from server (called directly from /start_calibration). This comm type will be removed/replaced in beta 2 so not adding handling for unrecognized command.
             if shared_values_dict["beta_2_mode"]:
-                raise NotImplementedError("XEM scripts cannot be run when in Beta 2 mode")
+                raise NotImplementedError(
+                    "XEM scripts cannot be run when in Beta 2 mode"
+                )
             shared_values_dict["system_status"] = CALIBRATING_STATE
             self._put_communication_into_instrument_comm_queue(communication)
         elif communication_type == "calibration":
             # Tanner (12/10/21): run_calibration is currently the only calibration command
             shared_values_dict["system_status"] = CALIBRATING_STATE
             self._put_communication_into_instrument_comm_queue(
-                {"communication_type": "acquisition_manager", "command": "start_managed_acquisition"}
+                {
+                    "communication_type": "acquisition_manager",
+                    "command": "start_managed_acquisition",
+                }
             )
 
             # Tanner (12/10/21): set this manually here since a start_managed_acquisition command response has not been received yet
             shared_values_dict_copy = copy.deepcopy(shared_values_dict)
-            shared_values_dict_copy["utc_timestamps_of_beginning_of_data_acquisition"] = [
-                datetime.datetime.utcnow()
-            ]
+            shared_values_dict_copy[
+                "utc_timestamps_of_beginning_of_data_acquisition"
+            ] = [datetime.datetime.utcnow()]
 
             main_to_fw_queue = (
                 self._process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
             )
             main_to_fw_queue.put_nowait(
-                _create_start_recording_command(shared_values_dict_copy, is_calibration_recording=True)
+                _create_start_recording_command(
+                    shared_values_dict_copy, is_calibration_recording=True
+                )
             )
             main_to_fw_queue.put_nowait(
                 {
@@ -322,8 +371,12 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
             elif command == "start_recording":
                 shared_values_dict["system_status"] = RECORDING_STATE
-                is_hardware_test_recording = communication.get("is_hardware_test_recording", False)
-                shared_values_dict["is_hardware_test_recording"] = is_hardware_test_recording
+                is_hardware_test_recording = communication.get(
+                    "is_hardware_test_recording", False
+                )
+                shared_values_dict[
+                    "is_hardware_test_recording"
+                ] = is_hardware_test_recording
                 if is_hardware_test_recording:
                     shared_values_dict["adc_offsets"] = communication[
                         "metadata_to_copy_onto_main_file_attributes"
@@ -343,8 +396,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     f"Invalid command: {command} for communication_type: {communication_type}"
                 )
         elif communication_type == "acquisition_manager":
-            main_to_ic_queue = (
-                self._process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+            main_to_ic_queue = self._process_manager.queue_container().get_communication_to_instrument_comm_queue(
+                0
             )
             main_to_da_queue = (
                 self._process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
@@ -373,9 +426,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 )
                 main_to_da_queue.put_nowait(communication)
 
-    def _put_communication_into_instrument_comm_queue(self, communication: Dict[str, Any]) -> None:
-        main_to_instrument_comm_queue = (
-            self._process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+    def _put_communication_into_instrument_comm_queue(
+        self, communication: Dict[str, Any]
+    ) -> None:
+        main_to_instrument_comm_queue = self._process_manager.queue_container().get_communication_to_instrument_comm_queue(
+            0
         )
         main_to_instrument_comm_queue.put_nowait(communication)
 
@@ -386,7 +441,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
             process_manager.queue_container().get_communication_queue_from_data_analyzer_to_main()
         )
         try:
-            communication = data_analyzer_to_main.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+            communication = data_analyzer_to_main.get(
+                timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+            )
         except queue.Empty:
             return
 
@@ -400,7 +457,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
             if self._values_to_share_to_server["system_status"] == BUFFERING_STATE:
                 self._data_dump_buffer_size += 1
                 if self._data_dump_buffer_size == 2:
-                    self._values_to_share_to_server["system_status"] = LIVE_VIEW_ACTIVE_STATE
+                    self._values_to_share_to_server[
+                        "system_status"
+                    ] = LIVE_VIEW_ACTIVE_STATE
         elif communication_type == "mag_analysis_complete":
             self._queue_websocket_message(communication["content"])
         elif communication_type == "acquisition_manager":
@@ -414,9 +473,15 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 drain_queue(da_data_out_queue)
 
     def _check_and_handle_data_analyzer_data_out_queue(self) -> None:
-        da_data_out_queue = self._process_manager.queue_container().get_data_analyzer_board_queues()[0][1]
+        da_data_out_queue = (
+            self._process_manager.queue_container().get_data_analyzer_board_queues()[0][
+                1
+            ]
+        )
         try:
-            outgoing_data_json = da_data_out_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+            outgoing_data_json = da_data_out_queue.get(
+                timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+            )
         except queue.Empty:
             return
         self._queue_websocket_message(outgoing_data_json)
@@ -425,19 +490,28 @@ class MantarrayProcessesMonitor(InfiniteThread):
         # pylint: disable=too-many-branches,too-many-statements  # TODO Tanner (10/25/21): refactor this into smaller methods
         process_manager = self._process_manager
         board_idx = 0
-        instrument_comm_to_main = (
-            process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(board_idx)
+        instrument_comm_to_main = process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(
+            board_idx
         )
         try:
-            communication = instrument_comm_to_main.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+            communication = instrument_comm_to_main.get(
+                timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+            )
         except queue.Empty:
             return
 
         if "bit_file_name" in communication:
-            communication["bit_file_name"] = redact_sensitive_info_from_path(communication["bit_file_name"])
+            communication["bit_file_name"] = redact_sensitive_info_from_path(
+                communication["bit_file_name"]
+            )
         if "response" in communication:
-            if communication["response"] is not None and "bit_file_name" in communication["response"]:
-                communication["response"]["bit_file_name"] = redact_sensitive_info_from_path(
+            if (
+                communication["response"] is not None
+                and "bit_file_name" in communication["response"]
+            ):
+                communication["response"][
+                    "bit_file_name"
+                ] = redact_sensitive_info_from_path(
                     communication["response"]["bit_file_name"]
                 )
 
@@ -445,7 +519,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
         if "mantarray_nickname" in communication:
             # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
             comm_copy = copy.deepcopy(communication)
-            comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
+            comm_copy["mantarray_nickname"] = get_redacted_string(
+                len(comm_copy["mantarray_nickname"])
+            )
             msg = f"Communication from the Instrument Controller: {comm_copy}"
         else:
             # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
@@ -460,9 +536,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         if communication_type == "acquisition_manager":
             if command == "start_managed_acquisition":
-                self._values_to_share_to_server["utc_timestamps_of_beginning_of_data_acquisition"] = [
-                    communication["timestamp"]
-                ]
+                self._values_to_share_to_server[
+                    "utc_timestamps_of_beginning_of_data_acquisition"
+                ] = [communication["timestamp"]]
             elif command == "stop_managed_acquisition":
                 if not communication.get("is_calibration_recording", False):
                     self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
@@ -473,38 +549,53 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 )
         elif communication_type == "stimulation":
             if command == "start_stimulation":
-                self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [
-                    communication["timestamp"]
-                ]
+                self._values_to_share_to_server[
+                    "utc_timestamps_of_beginning_of_stimulation"
+                ] = [communication["timestamp"]]
                 stim_running_list = [False] * 24
-                protocol_assignments = self._values_to_share_to_server["stimulation_info"][
-                    "protocol_assignments"
-                ]
+                protocol_assignments = self._values_to_share_to_server[
+                    "stimulation_info"
+                ]["protocol_assignments"]
                 for well_name, assignment in protocol_assignments.items():
                     if not assignment:
                         continue
-                    well_idx = GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
+                    well_idx = GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(
+                        well_name
+                    )
                     stim_running_list[well_idx] = True
-                self._values_to_share_to_server["stimulation_running"] = stim_running_list
+                self._values_to_share_to_server[
+                    "stimulation_running"
+                ] = stim_running_list
             elif command == "stop_stimulation":
-                self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [None]
+                self._values_to_share_to_server[
+                    "utc_timestamps_of_beginning_of_stimulation"
+                ] = [None]
                 self._values_to_share_to_server["stimulation_running"] = [False] * 24
             elif command == "status_update":
                 # ignore stim status updates if stim was already stopped manually
                 for well_idx in communication["wells_done_stimulating"]:
-                    self._values_to_share_to_server["stimulation_running"][well_idx] = False
+                    self._values_to_share_to_server["stimulation_running"][
+                        well_idx
+                    ] = False
                 if not any(self._values_to_share_to_server["stimulation_running"]):
-                    self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [None]
+                    self._values_to_share_to_server[
+                        "utc_timestamps_of_beginning_of_stimulation"
+                    ] = [None]
             elif command == "start_stim_checks":
                 key = "stimulator_circuit_statuses"
                 stimulator_circuit_statuses = communication[key]
                 self._values_to_share_to_server[key] = stimulator_circuit_statuses
                 self._queue_websocket_message(
-                    {"data_type": key, "data_json": json.dumps(stimulator_circuit_statuses)}
+                    {
+                        "data_type": key,
+                        "data_json": json.dumps(stimulator_circuit_statuses),
+                    }
                 )
         elif communication_type == "board_connection_status_change":
             board_idx = communication["board_index"]
-            self._values_to_share_to_server["in_simulation_mode"] = not communication["is_connected"]
+            self._values_to_share_to_server["in_simulation_mode"] = not communication[
+                "is_connected"
+            ]
             if self._values_to_share_to_server["beta_2_mode"]:
                 return  # Tanner (4/25/21): Beta 2 Mantarray Instrument cannot send these values until the board is completely initialized, so just returning here
             self._values_to_share_to_server["mantarray_serial_number"] = {
@@ -526,12 +617,16 @@ class MantarrayProcessesMonitor(InfiniteThread):
             }
         elif communication_type == "xem_scripts":
             if "status_update" in communication:
-                self._values_to_share_to_server["system_status"] = communication["status_update"]
+                self._values_to_share_to_server["system_status"] = communication[
+                    "status_update"
+                ]
                 if communication["status_update"] == CALIBRATION_NEEDED_STATE:
                     self._send_enable_sw_auto_install_message()
             if "adc_gain" in communication:
                 self._values_to_share_to_server["adc_gain"] = communication["adc_gain"]
-            if ADC_OFFSET_DESCRIPTION_TAG in (description := communication.get("description", "")):
+            if ADC_OFFSET_DESCRIPTION_TAG in (
+                description := communication.get("description", "")
+            ):
                 parsed_description = description.split("__")
                 adc_index = int(parsed_description[1][-1])
                 ch_index = int(parsed_description[2][-1])
@@ -539,16 +634,26 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._add_offset_to_shared_dict(adc_index, ch_index, offset_val)
         elif communication_type == "barcode_comm":
             barcode = communication["barcode"]
-            if not self._values_to_share_to_server["beta_2_mode"] and len(barcode) == BARCODE_LEN:
+            if (
+                not self._values_to_share_to_server["beta_2_mode"]
+                and len(barcode) == BARCODE_LEN
+            ):
                 # Tanner (1/27/21): invalid barcodes will be sent untrimmed from ok_comm so the full string is logged, so trimming them here in order to always send trimmed barcodes to frontend.
                 barcode = _trim_barcode(barcode)
             if "barcodes" not in self._values_to_share_to_server:
                 self._values_to_share_to_server["barcodes"] = dict()
             board_idx = communication["board_idx"]
-            barcode_type = "stim_barcode" if barcode.startswith("MS") else "plate_barcode"
+            barcode_type = (
+                "stim_barcode" if barcode.startswith("MS") else "plate_barcode"
+            )
             if board_idx not in self._values_to_share_to_server["barcodes"]:
                 self._values_to_share_to_server["barcodes"][board_idx] = dict()
-            elif self._values_to_share_to_server["barcodes"][board_idx].get(barcode_type, None) == barcode:
+            elif (
+                self._values_to_share_to_server["barcodes"][board_idx].get(
+                    barcode_type, None
+                )
+                == barcode
+            ):
                 return
             # TODO Tanner (2/7/22): consider removing barcode_status after Beta 1 mode phased out
             valid = communication.get("valid", None)
@@ -560,12 +665,22 @@ class MantarrayProcessesMonitor(InfiniteThread):
             else:
                 barcode_status = BARCODE_INVALID_UUID
 
-            board_barcode_dict = {barcode_type: barcode, "barcode_status": barcode_status}
-            self._values_to_share_to_server["barcodes"][board_idx].update(board_barcode_dict)
+            board_barcode_dict = {
+                barcode_type: barcode,
+                "barcode_status": barcode_status,
+            }
+            self._values_to_share_to_server["barcodes"][board_idx].update(
+                board_barcode_dict
+            )
             # send message to FE
             barcode_dict_copy = copy.deepcopy(board_barcode_dict)
-            barcode_dict_copy["barcode_status"] = str(barcode_dict_copy["barcode_status"])
-            barcode_update_message = {"data_type": "barcode", "data_json": json.dumps(barcode_dict_copy)}
+            barcode_dict_copy["barcode_status"] = str(
+                barcode_dict_copy["barcode_status"]
+            )
+            barcode_update_message = {
+                "data_type": "barcode",
+                "data_json": json.dumps(barcode_dict_copy),
+            }
             self._queue_websocket_message(barcode_update_message)
         elif communication_type == "metadata_comm":
             board_idx = communication["board_index"]
@@ -573,7 +688,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
             for key in list(communication["metadata"].keys()):
                 if not isinstance(key, uuid.UUID):
                     communication["metadata"].pop(key)
-            self._values_to_share_to_server["instrument_metadata"] = {board_idx: communication["metadata"]}
+            self._values_to_share_to_server["instrument_metadata"] = {
+                board_idx: communication["metadata"]
+            }
             # TODO Tanner (4/23/21): eventually these three following values won't need their own fields as they will be accessible through the above entry in shared_values_dict. Need to keep these until Beta 1 is phased out though
             self._values_to_share_to_server["main_firmware_version"] = {
                 board_idx: communication["metadata"][MAIN_FIRMWARE_VERSION_UUID]
@@ -587,32 +704,41 @@ class MantarrayProcessesMonitor(InfiniteThread):
         elif communication_type == "firmware_update":
             if command == "get_latest_firmware_versions":
                 if "error" in communication:
-                    self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
+                    self._values_to_share_to_server[
+                        "system_status"
+                    ] = CALIBRATION_NEEDED_STATE
                 else:
                     required_sw_for_fw = communication["latest_versions"]["sw"]
                     latest_main_fw = communication["latest_versions"]["main-fw"]
                     latest_channel_fw = communication["latest_versions"]["channel-fw"]
                     min_sw_version_unavailable = _compare_semver(
-                        required_sw_for_fw, self._values_to_share_to_server["latest_software_version"]
+                        required_sw_for_fw,
+                        self._values_to_share_to_server["latest_software_version"],
                     )
                     main_fw_update_needed = _compare_semver(
                         latest_main_fw,
-                        self._values_to_share_to_server["instrument_metadata"][board_idx][
-                            MAIN_FIRMWARE_VERSION_UUID
-                        ],
+                        self._values_to_share_to_server["instrument_metadata"][
+                            board_idx
+                        ][MAIN_FIRMWARE_VERSION_UUID],
                     )
                     channel_fw_update_needed = _compare_semver(
                         latest_channel_fw,
-                        self._values_to_share_to_server["instrument_metadata"][board_idx][
-                            CHANNEL_FIRMWARE_VERSION_UUID
-                        ],
+                        self._values_to_share_to_server["instrument_metadata"][
+                            board_idx
+                        ][CHANNEL_FIRMWARE_VERSION_UUID],
                     )
-                    if (main_fw_update_needed or channel_fw_update_needed) and not min_sw_version_unavailable:
+                    if (
+                        main_fw_update_needed or channel_fw_update_needed
+                    ) and not min_sw_version_unavailable:
                         self._values_to_share_to_server["firmware_updates_needed"] = {
                             "main": latest_main_fw if main_fw_update_needed else None,
-                            "channel": latest_channel_fw if channel_fw_update_needed else None,
+                            "channel": latest_channel_fw
+                            if channel_fw_update_needed
+                            else None,
                         }
-                        self._values_to_share_to_server["system_status"] = UPDATES_NEEDED_STATE
+                        self._values_to_share_to_server[
+                            "system_status"
+                        ] = UPDATES_NEEDED_STATE
                         self._queue_websocket_message(
                             {
                                 "data_type": "fw_update",
@@ -627,22 +753,26 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     else:
                         # if no updates found, enable auto install of SW update and switch to calibration needed state
                         self._send_enable_sw_auto_install_message()
-                        self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
+                        self._values_to_share_to_server[
+                            "system_status"
+                        ] = CALIBRATION_NEEDED_STATE
             elif command == "download_firmware_updates":
                 if "error" in communication:
-                    self._values_to_share_to_server["system_status"] = UPDATE_ERROR_STATE
+                    self._values_to_share_to_server[
+                        "system_status"
+                    ] = UPDATE_ERROR_STATE
                 else:
-                    self._values_to_share_to_server["system_status"] = INSTALLING_UPDATES_STATE
-                    to_instrument_comm_queue = (
-                        self._process_manager.queue_container().get_communication_to_instrument_comm_queue(
-                            board_idx
-                        )
+                    self._values_to_share_to_server[
+                        "system_status"
+                    ] = INSTALLING_UPDATES_STATE
+                    to_instrument_comm_queue = self._process_manager.queue_container().get_communication_to_instrument_comm_queue(
+                        board_idx
                     )
                     # Tanner (1/13/22): send both firmware update commands at once, and make sure channel is sent first. If both are sent, the second will be ignored until the first install completes
                     for firmware_type in ("channel", "main"):
-                        new_version = self._values_to_share_to_server["firmware_updates_needed"][
-                            firmware_type
-                        ]
+                        new_version = self._values_to_share_to_server[
+                            "firmware_updates_needed"
+                        ][firmware_type]
                         if new_version is not None:
                             to_instrument_comm_queue.put_nowait(
                                 {
@@ -653,28 +783,43 @@ class MantarrayProcessesMonitor(InfiniteThread):
                             )
             elif command == "update_completed":
                 firmware_type = communication["firmware_type"]
-                self._values_to_share_to_server["firmware_updates_needed"][firmware_type] = None
+                self._values_to_share_to_server["firmware_updates_needed"][
+                    firmware_type
+                ] = None
                 if all(
-                    val is None for val in self._values_to_share_to_server["firmware_updates_needed"].values()
+                    val is None
+                    for val in self._values_to_share_to_server[
+                        "firmware_updates_needed"
+                    ].values()
                 ):
                     self._send_enable_sw_auto_install_message()
-                    self._values_to_share_to_server["system_status"] = UPDATES_COMPLETE_STATE
+                    self._values_to_share_to_server[
+                        "system_status"
+                    ] = UPDATES_COMPLETE_STATE
 
     def _start_firmware_update(self) -> None:
         self._values_to_share_to_server["system_status"] = DOWNLOADING_UPDATES_STATE
         board_idx = 0
-        to_instrument_comm_queue = (
-            self._process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
+        to_instrument_comm_queue = self._process_manager.queue_container().get_communication_to_instrument_comm_queue(
+            board_idx
         )
         to_instrument_comm_queue.put_nowait(
             {
                 "communication_type": "firmware_update",
                 "command": "download_firmware_updates",
-                "main": self._values_to_share_to_server["firmware_updates_needed"]["main"],
-                "channel": self._values_to_share_to_server["firmware_updates_needed"]["channel"],
-                "customer_id": self._values_to_share_to_server["user_creds"]["customer_id"],
+                "main": self._values_to_share_to_server["firmware_updates_needed"][
+                    "main"
+                ],
+                "channel": self._values_to_share_to_server["firmware_updates_needed"][
+                    "channel"
+                ],
+                "customer_id": self._values_to_share_to_server["user_creds"][
+                    "customer_id"
+                ],
                 "username": self._values_to_share_to_server["user_creds"]["user_name"],
-                "password": self._values_to_share_to_server["user_creds"]["user_password"],
+                "password": self._values_to_share_to_server["user_creds"][
+                    "user_password"
+                ],
             }
         )
 
@@ -699,23 +844,35 @@ class MantarrayProcessesMonitor(InfiniteThread):
             ),
         ):
             try:
-                communication = iter_error_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+                communication = iter_error_queue.get(
+                    timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
+                )
             except queue.Empty:
                 continue
             self._handle_error_in_subprocess(iter_process, communication)
 
         # make sure system status is up to date
-        if self._values_to_share_to_server["system_status"] == SERVER_INITIALIZING_STATE:
+        if (
+            self._values_to_share_to_server["system_status"]
+            == SERVER_INITIALIZING_STATE
+        ):
             self._check_subprocess_start_up_statuses()
         elif self._values_to_share_to_server["system_status"] == SERVER_READY_STATE:
             if self._values_to_share_to_server["beta_2_mode"]:
-                self._values_to_share_to_server["system_status"] = INSTRUMENT_INITIALIZING_STATE
+                self._values_to_share_to_server[
+                    "system_status"
+                ] = INSTRUMENT_INITIALIZING_STATE
             elif self._boot_up_after_processes_start:
-                self._values_to_share_to_server["system_status"] = INSTRUMENT_INITIALIZING_STATE
-                process_manager.boot_up_instrument(load_firmware_file=self._load_firmware_file)
+                self._values_to_share_to_server[
+                    "system_status"
+                ] = INSTRUMENT_INITIALIZING_STATE
+                process_manager.boot_up_instrument(
+                    load_firmware_file=self._load_firmware_file
+                )
         elif (
             self._values_to_share_to_server["beta_2_mode"]
-            and self._values_to_share_to_server["system_status"] == INSTRUMENT_INITIALIZING_STATE
+            and self._values_to_share_to_server["system_status"]
+            == INSTRUMENT_INITIALIZING_STATE
         ):
             if (
                 "in_simulation_mode" not in self._values_to_share_to_server
@@ -723,17 +880,19 @@ class MantarrayProcessesMonitor(InfiniteThread):
             ):
                 pass  # need to wait for these values before proceeding with state transition
             elif self._values_to_share_to_server["in_simulation_mode"]:
-                self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
+                self._values_to_share_to_server[
+                    "system_status"
+                ] = CALIBRATION_NEEDED_STATE
             elif self._values_to_share_to_server["latest_software_version"] is not None:
-                self._values_to_share_to_server["system_status"] = CHECKING_FOR_UPDATES_STATE
+                self._values_to_share_to_server[
+                    "system_status"
+                ] = CHECKING_FOR_UPDATES_STATE
                 # send command to instrument comm process to check for firmware updates
-                serial_number = self._values_to_share_to_server["instrument_metadata"][board_idx][
-                    MANTARRAY_SERIAL_NUMBER_UUID
-                ]
-                to_instrument_comm_queue = (
-                    self._process_manager.queue_container().get_communication_to_instrument_comm_queue(
-                        board_idx
-                    )
+                serial_number = self._values_to_share_to_server["instrument_metadata"][
+                    board_idx
+                ][MANTARRAY_SERIAL_NUMBER_UUID]
+                to_instrument_comm_queue = self._process_manager.queue_container().get_communication_to_instrument_comm_queue(
+                    board_idx
                 )
                 to_instrument_comm_queue.put_nowait(
                     {
@@ -754,7 +913,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     self._values_to_share_to_server["user_creds"] = {}
                     self._send_user_creds_prompt_message()
             else:
-                self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
+                self._values_to_share_to_server[
+                    "system_status"
+                ] = CALIBRATION_NEEDED_STATE
 
         # check/handle comm from the server and each subprocess
         self._check_and_handle_instrument_comm_to_main_queue()
@@ -779,11 +940,17 @@ class MantarrayProcessesMonitor(InfiniteThread):
         if not self._values_to_share_to_server["beta_2_mode"]:
             if self._last_barcode_clear_time is None:
                 self._last_barcode_clear_time = _get_barcode_clear_time()
-            if _get_dur_since_last_barcode_clear(self._last_barcode_clear_time) >= BARCODE_POLL_PERIOD:
-                to_instrument_comm = (
-                    process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
+            if (
+                _get_dur_since_last_barcode_clear(self._last_barcode_clear_time)
+                >= BARCODE_POLL_PERIOD
+            ):
+                to_instrument_comm = process_manager.queue_container().get_communication_to_instrument_comm_queue(
+                    board_idx
                 )
-                barcode_poll_comm = {"communication_type": "barcode_comm", "command": "start_scan"}
+                barcode_poll_comm = {
+                    "communication_type": "barcode_comm",
+                    "command": "start_scan",
+                }
                 to_instrument_comm.put_nowait(barcode_poll_comm)
                 self._last_barcode_clear_time = _get_barcode_clear_time()
 
@@ -793,7 +960,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
         if process_manager.are_subprocess_start_ups_complete():
             shared_values_dict["system_status"] = SERVER_READY_STATE
 
-    def _add_offset_to_shared_dict(self, adc_index: int, ch_index: int, offset_val: int) -> None:
+    def _add_offset_to_shared_dict(
+        self, adc_index: int, ch_index: int, offset_val: int
+    ) -> None:
         if "adc_offsets" not in self._values_to_share_to_server:
             self._values_to_share_to_server["adc_offsets"] = dict()
         adc_offsets = self._values_to_share_to_server["adc_offsets"]
@@ -810,16 +979,24 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
     def _send_user_creds_prompt_message(self) -> None:
         self._queue_websocket_message(
-            {"data_type": "prompt_user_input", "data_json": json.dumps({"input_type": "user_creds"})}
+            {
+                "data_type": "prompt_user_input",
+                "data_json": json.dumps({"input_type": "user_creds"}),
+            }
         )
 
     def _send_enable_sw_auto_install_message(self) -> None:
         self._queue_websocket_message(
-            {"data_type": "sw_update", "data_json": json.dumps({"allow_software_update": True})}
+            {
+                "data_type": "sw_update",
+                "data_json": json.dumps({"allow_software_update": True}),
+            }
         )
 
     def _queue_websocket_message(self, message_dict: Dict[str, Any]) -> None:
-        data_to_server_queue = self._process_manager.queue_container().get_data_queue_to_server()
+        data_to_server_queue = (
+            self._process_manager.queue_container().get_data_queue_to_server()
+        )
         data_to_server_queue.put_nowait(message_dict)
 
     def _handle_error_in_subprocess(
@@ -840,12 +1017,16 @@ class MantarrayProcessesMonitor(InfiniteThread):
             shutdown_server = False
         else:
             shutdown_server = True
-        self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=shutdown_server)
+        self._hard_stop_and_join_processes_and_log_leftovers(
+            shutdown_server=shutdown_server
+        )
 
     def _hard_stop_and_join_processes_and_log_leftovers(
         self, shutdown_server: bool = True, error: bool = True
     ) -> None:
-        process_items = self._process_manager.hard_stop_and_join_processes(shutdown_server=shutdown_server)
+        process_items = self._process_manager.hard_stop_and_join_processes(
+            shutdown_server=shutdown_server
+        )
         msg = f"Remaining items in process queues: {process_items}".replace(r"\\", "\\")
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
