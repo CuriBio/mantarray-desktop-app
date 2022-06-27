@@ -782,7 +782,8 @@ def test_FileWriterProcess__closes_the_files_and_sends_communication_to_main_whe
     assert actual_data[3] == 6
     assert actual_data[9] == 18
 
-    assert spied_h5_close.call_count == 1
+    # corruption check closes file for a second time
+    assert spied_h5_close.call_count == 2
 
     finalization_msg = msgs_to_main[0]
     assert finalization_msg["communication_type"] == "file_finalized"

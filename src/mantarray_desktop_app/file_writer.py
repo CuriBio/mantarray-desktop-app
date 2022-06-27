@@ -811,24 +811,21 @@ class FileWriterProcess(InfiniteProcess):
 
             #after h5 close, reopen them and attempt to read. If not possible then add file to list
             try:
-                enc = "ANSI"
-                file = open(file_name,"r",encoding=enc)
-                file.read()
-                file.close()
-            except Exception:
+                with h5py.File(file_name, "r") as h5_file:
+                    pass# if file opens, then there is no corruption
+            except:
                 list_of_corrupt_files.append(file_name)
 
             self._to_main_queue.put_nowait({"communication_type": "file_finalized", "file_path": file_name})
             del self._open_files[0][this_well_idx]
         # if no files open anymore, then send message to main indicating that all files have been finalized
         if len(self._open_files[0]) == 0:
-            #if empty list returns None instead of []
-            corrupt_files_present = None if len(list_of_corrupt_files) == 0 else list_of_corrupt_files
-
             self._to_main_queue.put_nowait(
                 {"communication_type": "file_finalized", "message": "all_finals_finalized"}
             )
-            self._to_main_queue.put_nowait({"communication_type": "corrupt_file_detected","corrupt_files":corrupt_files_present})
+            # if corrupt files present then send message to main
+            if list_of_corrupt_files:
+                self._to_main_queue.put_nowait({"communication_type": "corrupt_file_detected","corrupt_files":list_of_corrupt_files})
 
     def _process_next_incoming_packet(self) -> None:
         """Process the next incoming packet for that board.
