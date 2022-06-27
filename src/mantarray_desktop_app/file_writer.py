@@ -796,7 +796,7 @@ class FileWriterProcess(InfiniteProcess):
         if len(self._open_files[0]) == 0:
             return
 
-        list_of_corrupt_files = []# keeps track of all files unable to be open and read
+        list_of_corrupt_files = []  # keeps track of all files unable to be open and read
 
         for this_well_idx in list(
             self._open_files[0].keys()
@@ -809,11 +809,11 @@ class FileWriterProcess(InfiniteProcess):
             file_name = this_file.filename
             this_file.close()
 
-            #after h5 close, reopen them and attempt to read. If not possible then add file to list
+            # after h5 close, reopen them and attempt to read. If not possible then add file to list
             try:
-                with h5py.File(file_name, "r") as h5_file:
-                    pass# if file opens, then there is no corruption
-            except:
+                with h5py.File(file_name, "r"):
+                    pass  # if file opens, then there is no corruption
+            except Exception:
                 list_of_corrupt_files.append(file_name)
 
             self._to_main_queue.put_nowait({"communication_type": "file_finalized", "file_path": file_name})
@@ -825,7 +825,9 @@ class FileWriterProcess(InfiniteProcess):
             )
             # if corrupt files present then send message to main
             if list_of_corrupt_files:
-                self._to_main_queue.put_nowait({"communication_type": "corrupt_file_detected","corrupt_files":list_of_corrupt_files})
+                self._to_main_queue.put_nowait(
+                    {"communication_type": "corrupt_file_detected", "corrupt_files": list_of_corrupt_files}
+                )
 
     def _process_next_incoming_packet(self) -> None:
         """Process the next incoming packet for that board.
