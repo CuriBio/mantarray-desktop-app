@@ -3,7 +3,6 @@ import copy
 import datetime
 import logging
 from random import randint
-from statistics import stdev
 
 from freezegun import freeze_time
 from mantarray_desktop_app import create_data_packet
@@ -26,6 +25,7 @@ from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from mantarray_desktop_app.exceptions import SerialCommCommandProcessingError
 import numpy as np
 import pytest
+from stdlib_utils import create_metrics_stats
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -823,12 +823,7 @@ def test_McCommunicationProcess__updates_performance_metrics_after_parsing_data(
         ("mag_data_parsing_duration", expected_parse_durs),
         ("num_mag_packets_parsed", expected_num_packets_parsed),
     ):
-        assert actual[name] == {
-            "max": max(mc_measurements),
-            "min": min(mc_measurements),
-            "stdev": round(stdev(mc_measurements), 6),
-            "mean": round(sum(mc_measurements) / len(mc_measurements), 6),
-        }, name
+        assert actual[name] == create_metrics_stats(mc_measurements), name
     # values created in parent class
     assert "idle_iteration_time_ns" not in actual
     assert "start_timepoint_of_measurements" not in actual

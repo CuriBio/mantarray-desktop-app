@@ -10,7 +10,6 @@ from multiprocessing import queues as mpqueues
 import os
 import queue
 import shutil
-from statistics import stdev
 import tempfile
 from time import perf_counter
 from typing import Any
@@ -41,6 +40,7 @@ from pulse3D.transforms import calculate_displacement_from_voltage
 from pulse3D.transforms import calculate_force_from_displacement
 from pulse3D.transforms import calculate_voltage_from_gmr
 from pulse3D.transforms import create_filter
+from stdlib_utils import create_metrics_stats
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
@@ -662,12 +662,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             Union[int, float]
         ]  # Tanner (5/28/20): This type annotation is necessary for mypy to not incorrectly type this variable
         for name, da_measurements in name_measurement_list:
-            performance_metrics[name] = {
-                "max": max(da_measurements),
-                "min": min(da_measurements),
-                "stdev": round(stdev(da_measurements), 6),
-                "mean": round(sum(da_measurements) / len(da_measurements), 6),
-            }
+            performance_metrics[name] = create_metrics_stats(da_measurements)
         put_log_message_into_queue(
             logging.INFO,
             performance_metrics,

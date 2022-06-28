@@ -12,7 +12,6 @@ from multiprocessing import queues as mpqueues
 import os
 import queue
 import shutil
-from statistics import stdev
 import tempfile
 import time
 from typing import Any
@@ -57,6 +56,7 @@ from pulse3D.constants import WELL_INDEX_UUID
 from pulse3D.constants import WELL_NAME_UUID
 from pulse3D.constants import WELL_ROW_UUID
 from pulse3D.plate_recording import MantarrayH5FileCreator
+from stdlib_utils import create_metrics_stats
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
@@ -1131,12 +1131,7 @@ class FileWriterProcess(InfiniteProcess):
                 ("num_recorded_data_points_metrics", self._num_recorded_points),
                 ("recording_duration_metrics", self._recording_durations),
             ):
-                performance_metrics[name] = {
-                    "max": max(fw_measurements),
-                    "min": min(fw_measurements),
-                    "stdev": round(stdev(fw_measurements), 6),
-                    "mean": round(sum(fw_measurements) / len(fw_measurements), 6),
-                }
+                performance_metrics[name] = create_metrics_stats(fw_measurements)
 
         put_log_message_into_queue(
             logging.INFO,

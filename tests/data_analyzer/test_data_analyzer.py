@@ -3,7 +3,6 @@ import copy
 import logging
 from multiprocessing import Queue
 import random
-from statistics import stdev
 import tempfile
 import time
 
@@ -16,6 +15,7 @@ from mantarray_desktop_app.constants import DEFAULT_SAMPLING_PERIOD
 import numpy as np
 from pulse3D.exceptions import PeakDetectionError
 import pytest
+from stdlib_utils import create_metrics_stats
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -232,23 +232,13 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_1_dat
     actual = actual["message"]
     assert actual["communication_type"] == "performance_metrics"
     assert actual["data_creation_duration"] == expected_data_creation_durs[-1]
-    assert actual["data_creation_duration_metrics"] == {
-        "max": max(expected_data_creation_durs),
-        "min": min(expected_data_creation_durs),
-        "stdev": round(stdev(expected_data_creation_durs), 6),
-        "mean": round(sum(expected_data_creation_durs) / len(expected_data_creation_durs), 6),
-    }
+    assert actual["data_creation_duration_metrics"] == create_metrics_stats(expected_data_creation_durs)
     assert "start_timepoint_of_measurements" not in actual
     assert "idle_iteration_time_ns" not in actual
     num_longest_iterations = da_process.num_longest_iterations
     assert actual["longest_iterations"] == expected_longest_iterations[-num_longest_iterations:]
     assert actual["percent_use"] == expected_latest_percent_use
-    assert actual["percent_use_metrics"] == {
-        "max": max(expected_percent_use_vals),
-        "min": min(expected_percent_use_vals),
-        "stdev": round(stdev(expected_percent_use_vals), 6),
-        "mean": round(sum(expected_percent_use_vals) / len(expected_percent_use_vals), 6),
-    }
+    assert actual["percent_use_metrics"] == create_metrics_stats(expected_percent_use_vals)
 
 
 def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_data(
@@ -314,18 +304,8 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_dat
     actual = drain_queue(to_main_queue)[-1]["message"]
     assert actual["communication_type"] == "performance_metrics"
     assert actual["data_creation_duration"] == expected_data_creation_durs[-1]
-    assert actual["data_creation_duration_metrics"] == {
-        "max": max(expected_data_creation_durs),
-        "min": min(expected_data_creation_durs),
-        "stdev": round(stdev(expected_data_creation_durs), 6),
-        "mean": round(sum(expected_data_creation_durs) / len(expected_data_creation_durs), 6),
-    }
-    assert actual["data_analysis_duration_metrics"] == {
-        "max": max(expected_data_analysis_durs),
-        "min": min(expected_data_analysis_durs),
-        "stdev": round(stdev(expected_data_analysis_durs), 6),
-        "mean": round(sum(expected_data_analysis_durs) / len(expected_data_analysis_durs), 6),
-    }
+    assert actual["data_creation_duration_metrics"] == create_metrics_stats(expected_data_creation_durs)
+    assert actual["data_analysis_duration_metrics"] == create_metrics_stats(expected_data_analysis_durs)
     # values created in parent class
     assert "start_timepoint_of_measurements" not in actual
     assert "idle_iteration_time_ns" not in actual

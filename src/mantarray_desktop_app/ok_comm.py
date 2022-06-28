@@ -10,7 +10,6 @@ import math
 from multiprocessing import Queue
 import os
 import queue
-from statistics import stdev
 import struct
 import time
 from time import sleep
@@ -21,6 +20,7 @@ from typing import Optional
 from typing import Union
 
 import numpy as np
+from stdlib_utils import create_metrics_stats
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import get_formatted_stack_trace
 from stdlib_utils import put_log_message_into_queue
@@ -964,10 +964,5 @@ class OkCommunicationProcess(InstrumentCommProcess):
                 self._durations_between_acquisition,
             ),
         ):
-            performance_metrics[name] = {
-                "max": max(okc_measurements),
-                "min": min(okc_measurements),
-                "stdev": round(stdev(okc_measurements), 6),
-                "mean": round(sum(okc_measurements) / len(okc_measurements), 6),
-            }
+            performance_metrics[name] = create_metrics_stats(okc_measurements)
         self._send_performance_metrics(performance_metrics)

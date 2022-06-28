@@ -7,7 +7,6 @@ import datetime
 import logging
 from multiprocessing import Queue
 import queue
-from statistics import stdev
 import struct
 from time import perf_counter
 from time import sleep
@@ -27,6 +26,7 @@ import numpy as np
 from pulse3D.constants import DATETIME_STR_FORMAT
 import serial
 import serial.tools.list_ports as list_ports
+from stdlib_utils import create_metrics_stats
 from stdlib_utils import put_log_message_into_queue
 
 from .constants import DEFAULT_SAMPLING_PERIOD
@@ -1250,10 +1250,5 @@ class McCommunicationProcess(InstrumentCommProcess):
         for metric_name, metric_values in self._performance_tracking_values.items():
             performance_metrics[metric_name] = None
             if len(metric_values) > 2:
-                performance_metrics[metric_name] = {
-                    "max": max(metric_values),
-                    "min": min(metric_values),
-                    "stdev": round(stdev(metric_values), 6),
-                    "mean": round(sum(metric_values) / len(metric_values), 6),
-                }
+                performance_metrics[metric_name] = create_metrics_stats(metric_values)
         self._send_performance_metrics(performance_metrics)

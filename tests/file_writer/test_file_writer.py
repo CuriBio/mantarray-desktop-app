@@ -3,7 +3,6 @@ import copy
 import logging
 from multiprocessing import Queue
 import os
-from statistics import stdev
 import tempfile
 import time
 
@@ -25,6 +24,7 @@ import numpy as np
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
 import pytest
+from stdlib_utils import create_metrics_stats
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -392,12 +392,7 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
 
     assert actual["communication_type"] == "performance_metrics"
     assert actual["percent_use"] == expected_latest_percent_use
-    assert actual["percent_use_metrics"] == {
-        "max": max(expected_percent_use_values),
-        "min": min(expected_percent_use_values),
-        "stdev": round(stdev(expected_percent_use_values), 6),
-        "mean": round(sum(expected_percent_use_values) / len(expected_percent_use_values), 6),
-    }
+    assert actual["percent_use_metrics"] == create_metrics_stats(expected_percent_use_values)
     num_longest_iterations = file_writer_process.num_longest_iterations
     assert actual["longest_iterations"] == expected_longest_iterations[-num_longest_iterations:]
     assert "idle_iteration_time_ns" not in actual
@@ -483,18 +478,8 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_correctly(
     assert (
         "num_recorded_data_points_metrics" in actual
     ), f"Message did not contain key: 'num_recorded_data_points_metrics', Full message dict: {actual}"
-    assert actual["num_recorded_data_points_metrics"] == {
-        "max": max(num_points_list),
-        "min": min(num_points_list),
-        "stdev": round(stdev(num_points_list), 6),
-        "mean": round(sum(num_points_list) / len(num_points_list), 6),
-    }
-    assert actual["recording_duration_metrics"] == {
-        "max": max(expected_recording_durations),
-        "min": min(expected_recording_durations),
-        "stdev": round(stdev(expected_recording_durations), 6),
-        "mean": round(sum(expected_recording_durations) / len(expected_recording_durations), 6),
-    }
+    assert actual["num_recorded_data_points_metrics"] == create_metrics_stats(num_points_list)
+    assert actual["recording_duration_metrics"] == create_metrics_stats(expected_recording_durations)
 
     # Tanner (3/8/21): Prevent BrokenPipeErrors
     drain_queue(board_queues[0][1])
