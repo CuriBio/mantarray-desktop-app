@@ -458,7 +458,8 @@ class McCommunicationProcess(InstrumentCommProcess):
             and not self._is_waiting_for_reboot
         ):
             self._process_next_communication_from_main()
-            self._handle_sending_handshake()
+
+        self._handle_sending_handshake()
 
         board_idx = 0
         if not self._is_registered_with_serial_comm[board_idx]:
@@ -717,7 +718,8 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _send_handshake(self, board_idx: int) -> None:
         self._time_of_last_handshake_secs = perf_counter()
         self._send_data_packet(board_idx, SERIAL_COMM_HANDSHAKE_PACKET_TYPE)
-        self._add_command_to_track(SERIAL_COMM_HANDSHAKE_PACKET_TYPE, {"command": "handshake"})
+        allow_miss = self._is_waiting_for_reboot or self._is_updating_firmware or self._is_setting_nickname
+        self._add_command_to_track(SERIAL_COMM_HANDSHAKE_PACKET_TYPE, {"command": "handshake", "allow_miss": allow_miss})
 
     def _process_comm_from_instrument(self, packet_type: int, packet_payload: bytes) -> None:
         if packet_type == SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE:
@@ -1160,7 +1162,12 @@ class McCommunicationProcess(InstrumentCommProcess):
             return
         secs_since_command_sent = _get_secs_since_command_sent(oldest_command["timepoint"])
         if secs_since_command_sent >= SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS:
-            raise SerialCommCommandResponseTimeoutError(oldest_command["command"])
+            command = oldest_command["command"]
+            if command == "handshake" and oldest_command["allow_miss"]:  # TODO unit test
+                # if this command was a handshake sent while the instrument was rebooting then don't raise error
+                # TODO pop oldest command
+                return
+            raise SerialCommCommandResponseTimeoutError(command)
 
     def _check_reboot_status(self) -> None:
         if self._time_of_reboot_start is None:
