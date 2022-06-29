@@ -33,7 +33,7 @@ def test_CommandTracker_pop__raises_correct_error_when_packet_type_not_present__
 
 
 def test_CommandTracker_oldest__raises_correct_error_when_empty__no_commands_ever_added():
-    with pytest.raises(IndexError, match="tracker is empty"):
+    with pytest.raises(IndexError, match="Tracker is empty"):
         CommandTracker().oldest()
 
 

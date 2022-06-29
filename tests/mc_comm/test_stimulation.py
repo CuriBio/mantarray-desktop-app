@@ -13,7 +13,6 @@ from mantarray_desktop_app import StimulationProtocolUpdateWhileStimulatingError
 from mantarray_desktop_app import StimulationStatusUpdateFailedError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
-from mantarray_desktop_app.exceptions import SerialCommCommandProcessingError
 from mantarray_desktop_app.serial_comm_utils import convert_adc_readings_to_circuit_status
 import numpy as np
 import pytest
@@ -235,9 +234,8 @@ def test_McCommunicationProcess__raises_error_if_set_protocols_command_fails(
     bad_stim_info["protocols"][0]["subprotocols"].extend(
         [get_null_subprotocol(19000)] * STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
     )
-    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
+    with pytest.raises(StimulationProtocolUpdateFailedError):
         set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, bad_stim_info)
-    assert type(exc_info.value.__cause__) == StimulationProtocolUpdateFailedError
 
 
 def test_McCommunicationProcess__raises_error_if_start_stim_command_fails(
@@ -256,10 +254,8 @@ def test_McCommunicationProcess__raises_error_if_start_stim_command_fails(
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_stim_command, input_queue)
     invoke_process_run_and_check_errors(mc_process)
     invoke_process_run_and_check_errors(simulator)
-    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
+    with pytest.raises(StimulationStatusUpdateFailedError, match="start_stimulation"):
         invoke_process_run_and_check_errors(mc_process)
-    assert type(exc_info.value.__cause__) == StimulationStatusUpdateFailedError
-    assert str(exc_info.value.__cause__) == "start_stimulation"
 
 
 def test_McCommunicationProcess__raises_error_if_stop_stim_command_fails(
@@ -278,10 +274,8 @@ def test_McCommunicationProcess__raises_error_if_stop_stim_command_fails(
     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_stim_command, input_queue)
     invoke_process_run_and_check_errors(mc_process)
     invoke_process_run_and_check_errors(simulator)
-    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
+    with pytest.raises(StimulationStatusUpdateFailedError, match="stop_stimulation"):
         invoke_process_run_and_check_errors(mc_process)
-    assert type(exc_info.value.__cause__) == StimulationStatusUpdateFailedError
-    assert str(exc_info.value.__cause__) == "stop_stimulation"
 
 
 def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument__stim_completing_before_data_stream_starts(

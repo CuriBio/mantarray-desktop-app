@@ -80,18 +80,22 @@ class CommandTracker:
     def oldest(self) -> Dict[str, Any]:
         try:
             packet_type_of_oldest = self._command_order[0]
-        except IndexError:
-            raise IndexError("tracker is empty")
+        except IndexError as e:
+            raise IndexError("Tracker is empty") from e
+
         return self._command_mapping[packet_type_of_oldest][0]
 
     def pop(self, packet_type: int) -> Dict[str, Any]:
         try:
             self._command_order.remove(packet_type)
-        except ValueError:
-            raise ValueError(f"No commands of packet type: {packet_type}")
+        except ValueError as e:
+            raise ValueError(f"No commands of packet type: {packet_type}") from e
+
         command = self._command_mapping[packet_type].popleft()
+
         if not self._command_mapping[packet_type]:
             del self._command_mapping[packet_type]
+
         return command
 
     def __bool__(self) -> bool:

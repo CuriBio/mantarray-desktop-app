@@ -9,7 +9,6 @@ from mantarray_desktop_app import MAX_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_BAUD_RATE
-from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_FULL_PACKET_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES
@@ -357,42 +356,6 @@ def test_McCommunicationProcess__waits_until_instrument_is_done_rebooting_to_sen
     # confirm message was sent back to main
     to_main_items = drain_queue(output_queue)
     assert to_main_items[-1]["command"] == "get_metadata"
-
-
-def test_McCommunicationProcess__does_not_send_handshakes_while_instrument_is_rebooting(
-    four_board_mc_comm_process, mantarray_mc_simulator, mocker
-):
-    mc_process = four_board_mc_comm_process["mc_process"]
-    board_queues = four_board_mc_comm_process["board_queues"]
-    input_queue = board_queues[0][0]
-    simulator = mantarray_mc_simulator["simulator"]
-    set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator)
-
-    mocker.patch.object(
-        mc_simulator,
-        "_get_secs_since_reboot_command",
-        side_effect=[AVERAGE_MC_REBOOT_DURATION_SECONDS],
-        autospec=True,
-    )
-    mocker.patch.object(
-        mc_comm,
-        "_get_secs_since_last_handshake",
-        autospec=True,
-        side_effect=[0, SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS],
-    )
-    reboot_command = {"communication_type": "to_instrument", "command": "reboot"}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        copy.deepcopy(reboot_command), input_queue
-    )
-
-    spied_write = mocker.spy(simulator, "write")
-    # run mc_process to send reboot command and simulator to start reboot
-    invoke_process_run_and_check_errors(mc_process)
-    assert spied_write.call_count == 1
-    invoke_process_run_and_check_errors(simulator)
-    # run mc_process once and confirm that the handshake was not sent
-    invoke_process_run_and_check_errors(mc_process)
-    assert spied_write.call_count == 1
 
 
 def test_McCommunicationProcess__does_not_check_for_overdue_status_beacons_after_reboot_command_is_sent(

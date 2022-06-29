@@ -15,12 +15,10 @@ from mantarray_desktop_app import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PAYLOAD_INDEX
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
-from mantarray_desktop_app.exceptions import SerialCommCommandProcessingError
 from mantarray_desktop_app.firmware_downloader import call_firmware_download_route
 from mantarray_desktop_app.mc_comm import download_firmware_updates
 from mantarray_desktop_app.mc_comm import get_latest_firmware_versions
@@ -357,11 +355,8 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
     from_main_queue, to_main_queue = four_board_mc_comm_process["board_queues"][0][:2]
     simulator = mantarray_mc_simulator["simulator"]
 
-    spied_send_handshake = mocker.spy(mc_process, "_send_handshake")
     # mock so no handshakes are sent
-    mocked_get_secs_since_handshake = mocker.patch.object(
-        mc_comm, "_get_secs_since_last_handshake", autospec=True, return_value=0
-    )
+    mocker.patch.object(mc_comm, "_get_secs_since_last_handshake", autospec=True, return_value=0)
     # set this value to anything other than None so mc_process thinks the first handshake has already been sent
     mc_process._time_of_last_handshake_secs = 0
     # mock so no beacons are sent
@@ -405,10 +400,6 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
     # confirm that only a single item is in queue
     confirm_queue_is_eventually_of_size(from_main_queue, 1)
 
-    spied_send_handshake.assert_not_called()
-    # mock so that handshake is ready to be sent
-    mocked_get_secs_since_handshake.return_value = SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
-
     spied_send_packet = mocker.spy(mc_process, "_send_data_packet")
 
     # send firmware bytes to instrument
@@ -430,7 +421,6 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
             "firmware_type": firmware_type,
             "packet_index": packet_idx,
         }
-    spied_send_handshake.assert_not_called()
 
     # send and process end of firmware update packet
     invoke_process_run_and_check_errors(mc_process)
@@ -446,9 +436,6 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
     # make sure reboot has begun
     assert simulator.is_rebooting() is True
 
-    # make sure handshake still hasn't been sent
-    invoke_process_run_and_check_errors(mc_process)
-    spied_send_handshake.assert_not_called()
     # make sure status beacon timeout is ignored
     mocked_get_secs_since_beacon = mocker.patch.object(
         mc_comm,
@@ -482,23 +469,16 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
         "firmware_type": firmware_type,
     }
 
-    # make sure handshake still hasn't been sent
-    invoke_process_run_and_check_errors(mc_process)
-    spied_send_handshake.assert_not_called()
-
     # save current status beacon timepoint for assertion later
     prev_time_of_last_beacon = mc_process._time_of_last_beacon_secs
 
     # complete reboot and and acknowledge reboot completion
     mocked_get_secs_since_beacon.return_value = SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
     invoke_process_run_and_check_errors(simulator)
-    invoke_process_run_and_check_errors(mc_process)
+    invoke_process_run_and_check_errors(mc_process, num_iterations=2)
 
     # make sure status beacon tracking timepoint was updated
     assert mc_process._time_of_last_beacon_secs > prev_time_of_last_beacon
-    # make sure handshakes are now sent
-    invoke_process_run_and_check_errors(mc_process)
-    spied_send_handshake.assert_called_once()
     # make sure command from main was processed
     confirm_queue_is_eventually_empty(from_main_queue)
 
@@ -539,10 +519,8 @@ def test_McCommunicationProcess__raises_error_if_begin_firmware_update_command_f
     # send begin firmware update command and make sure error is raised
     invoke_process_run_and_check_errors(mc_process)
     invoke_process_run_and_check_errors(simulator)
-    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
+    with pytest.raises(FirmwareUpdateCommandFailedError, match="start_firmware_update"):
         invoke_process_run_and_check_errors(mc_process)
-    assert type(exc_info.value.__cause__) == FirmwareUpdateCommandFailedError
-    assert str(exc_info.value.__cause__) == "start_firmware_update"
 
 
 def test_McCommunicationProcess__raises_error_if_firmware_update_packet_fails(
@@ -591,10 +569,8 @@ def test_McCommunicationProcess__raises_error_if_firmware_update_packet_fails(
         {"command": "add_read_bytes", "read_bytes": bytes(response)}, testing_queue
     )
     invoke_process_run_and_check_errors(simulator)
-    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
+    with pytest.raises(FirmwareUpdateCommandFailedError, match="send_firmware_data, packet index: 0"):
         invoke_process_run_and_check_errors(mc_process)
-    assert type(exc_info.value.__cause__) == FirmwareUpdateCommandFailedError
-    assert str(exc_info.value.__cause__) == "send_firmware_data, packet index: 0"
 
 
 def test_McCommunicationProcess__raises_error_if_end_firmware_update_command_fails(
@@ -640,10 +616,8 @@ def test_McCommunicationProcess__raises_error_if_end_firmware_update_command_fai
     invoke_process_run_and_check_errors(mc_process)
     invoke_process_run_and_check_errors(simulator)
 
-    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
+    with pytest.raises(FirmwareUpdateCommandFailedError, match="end_of_firmware_update"):
         invoke_process_run_and_check_errors(mc_process)
-    assert type(exc_info.value.__cause__) == FirmwareUpdateCommandFailedError
-    assert str(exc_info.value.__cause__) == "end_of_firmware_update"
 
 
 @pytest.mark.parametrize(

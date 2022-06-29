@@ -126,7 +126,6 @@ from .worker_thread import ErrorCatchingThread
 COMMAND_PACKET_TYPES = frozenset(
     [
         SERIAL_COMM_REBOOT_PACKET_TYPE,
-        SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
         SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
         SERIAL_COMM_START_STIM_PACKET_TYPE,
         SERIAL_COMM_STOP_STIM_PACKET_TYPE,
@@ -447,6 +446,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         8. If rebooting or waiting for firmware update to complete, make sure that the reboot has not taken longer than the max allowed reboot time.
         9. Check on the status of any worker threads.
         """
+        board_idx = 0
+
         if self._in_simulation_mode:
             if self._check_simulator_error():
                 self.stop()
@@ -461,13 +462,14 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         self._handle_sending_handshake()
 
-        board_idx = 0
         if not self._is_registered_with_serial_comm[board_idx]:
             self._register_magic_word(board_idx)
         else:
             self._handle_data_stream()
 
-            if self._is_data_streaming or self._is_stimulating:
+            if (
+                self._is_data_streaming or self._is_stimulating
+            ):  # TODO and logging.DEBUG >= self._logging_level
                 # handle performance logging if ready
                 self._iterations_since_last_logging[board_idx] += 1
                 if self._iterations_since_last_logging[board_idx] > self._iterations_per_logging_cycle:
@@ -704,12 +706,11 @@ class McCommunicationProcess(InstrumentCommProcess):
         board_idx = 0
         if self._board_connections[board_idx] is None:
             return
-        if not self._has_initial_handshake_been_sent():
-            self._send_handshake(board_idx)
-            return
-        seconds_elapsed = _get_secs_since_last_handshake(self._time_of_last_handshake_secs)  # type: ignore
-        if seconds_elapsed >= SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS:
-            self._send_handshake(board_idx)
+        if self._has_initial_handshake_been_sent():
+            seconds_elapsed = _get_secs_since_last_handshake(self._time_of_last_handshake_secs)  # type: ignore
+            if seconds_elapsed < SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS:
+                return
+        self._send_handshake(board_idx)
 
     def _has_initial_handshake_been_sent(self) -> bool:
         # Extracting this into its own method to make mocking in tests easier
@@ -718,8 +719,6 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _send_handshake(self, board_idx: int) -> None:
         self._time_of_last_handshake_secs = perf_counter()
         self._send_data_packet(board_idx, SERIAL_COMM_HANDSHAKE_PACKET_TYPE)
-        allow_miss = self._is_waiting_for_reboot or self._is_updating_firmware or self._is_setting_nickname
-        self._add_command_to_track(SERIAL_COMM_HANDSHAKE_PACKET_TYPE, {"command": "handshake", "allow_miss": allow_miss})
 
     def _process_comm_from_instrument(self, packet_type: int, packet_payload: bytes) -> None:
         if packet_type == SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE:
@@ -727,8 +726,12 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise SerialCommIncorrectChecksumFromPCError(returned_packet)
 
         board_idx = 0
+
         if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
             self._process_status_beacon(packet_payload)
+        elif packet_type == SERIAL_COMM_HANDSHAKE_PACKET_TYPE:
+            status_codes_dict = convert_status_code_bytes_to_dict(packet_payload)
+            self._handle_status_codes(status_codes_dict, "Handshake Response")
         elif packet_type == SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE:
             raise NotImplementedError(
                 "Should never receive magnetometer data packets when not streaming data"
@@ -737,18 +740,14 @@ class McCommunicationProcess(InstrumentCommProcess):
             going_dormant_reason = packet_payload[0]
             raise FirmwareGoingDormantError(going_dormant_reason)
         elif packet_type in COMMAND_PACKET_TYPES:
-            response_data = packet_payload
             try:
                 prev_command = self._commands_awaiting_response.pop(packet_type)
             except ValueError:
                 raise SerialCommUntrackedCommandResponseError(
                     f"Packet Type ID: {packet_type}, Packet Body: {str(packet_payload)}"
                 )
-                # TODO make sure the packet type matches the expected packet type from the previous command
-            if prev_command["command"] == "handshake":
-                status_codes_dict = convert_status_code_bytes_to_dict(response_data)
-                self._handle_status_codes(status_codes_dict, "Handshake Response")
-                return
+
+            response_data = packet_payload
             if prev_command["command"] == "get_metadata":
                 prev_command["board_index"] = board_idx
                 prev_command["metadata"] = parse_metadata_bytes(response_data)
@@ -1018,6 +1017,17 @@ class McCommunicationProcess(InstrumentCommProcess):
             timestamp, packet_type, packet_payload = other_packet_info
             try:
                 self._process_comm_from_instrument(packet_type, packet_payload)
+            except (
+                FirmwareGoingDormantError,
+                SerialCommUntrackedCommandResponseError,
+                SerialCommIncorrectChecksumFromPCError,
+                InstrumentDataStreamingAlreadyStartedError,
+                InstrumentDataStreamingAlreadyStoppedError,
+                StimulationProtocolUpdateFailedError,
+                StimulationStatusUpdateFailedError,
+                FirmwareUpdateCommandFailedError,
+            ):
+                raise  # TODO unit test
             except Exception as e:
                 raise SerialCommCommandProcessingError(
                     f"Timestamp: {timestamp}, Packet Type: {packet_type}, Payload: {packet_payload}"
@@ -1160,14 +1170,10 @@ class McCommunicationProcess(InstrumentCommProcess):
             oldest_command = self._commands_awaiting_response.oldest()
         except IndexError:
             return
+
         secs_since_command_sent = _get_secs_since_command_sent(oldest_command["timepoint"])
         if secs_since_command_sent >= SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS:
-            command = oldest_command["command"]
-            if command == "handshake" and oldest_command["allow_miss"]:  # TODO unit test
-                # if this command was a handshake sent while the instrument was rebooting then don't raise error
-                # TODO pop oldest command
-                return
-            raise SerialCommCommandResponseTimeoutError(command)
+            raise SerialCommCommandResponseTimeoutError(oldest_command["command"])
 
     def _check_reboot_status(self) -> None:
         if self._time_of_reboot_start is None:
