@@ -298,8 +298,14 @@ class FileWriterProcess(InfiniteProcess):
             PERFOMANCE_LOGGING_PERIOD_SECS / self._minimum_iteration_duration_seconds
         )
         self._iterations_since_last_logging = 0
-        self._num_recorded_points: List[int] = list()
-        self._recording_durations: List[float] = list()
+        self._num_recorded_points: List[int]
+        self._recording_durations: List[float]
+        self._reset_performance_tracking_values()
+
+    def _reset_performance_tracking_values(self) -> None:
+        self._reset_performance_measurements()
+        self._num_recorded_points = list()
+        self._recording_durations = list()
 
     @property
     def _file_directory(self) -> str:
@@ -1117,28 +1123,30 @@ class FileWriterProcess(InfiniteProcess):
             well_buffers[1].clear()
 
     def _handle_performance_logging(self) -> None:
-        performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
-        performance_tracker = self.reset_performance_tracker()
-        performance_metrics["percent_use"] = performance_tracker["percent_use"]
-        performance_metrics["longest_iterations"] = sorted(performance_tracker["longest_iterations"])
-        if len(self._percent_use_values) > 1:
-            performance_metrics["percent_use_metrics"] = self.get_percent_use_metrics()
-        if len(self._num_recorded_points) > 1 and len(self._recording_durations) > 1:
-            fw_measurements: List[
-                Union[int, float]
-            ]  # Tanner (5/28/20): This type annotation and the 'ignore' on the following line are necessary for mypy to not incorrectly type this variable
-            for name, fw_measurements in (  # type: ignore
-                ("num_recorded_data_points_metrics", self._num_recorded_points),
-                ("recording_duration_metrics", self._recording_durations),
-            ):
-                performance_metrics[name] = create_metrics_stats(fw_measurements)
+        if logging.DEBUG >= self._logging_level:
+            performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
+            performance_tracker = self.reset_performance_tracker()
+            performance_metrics["percent_use"] = performance_tracker["percent_use"]
+            performance_metrics["longest_iterations"] = sorted(performance_tracker["longest_iterations"])
+            if len(self._percent_use_values) > 1:
+                performance_metrics["percent_use_metrics"] = self.get_percent_use_metrics()
+            if len(self._num_recorded_points) > 1 and len(self._recording_durations) > 1:
+                fw_measurements: List[
+                    Union[int, float]
+                ]  # Tanner (5/28/20): This type annotation and the 'ignore' on the following line are necessary for mypy to not incorrectly type this variable
+                for name, fw_measurements in (  # type: ignore
+                    ("num_recorded_data_points_metrics", self._num_recorded_points),
+                    ("recording_duration_metrics", self._recording_durations),
+                ):
+                    performance_metrics[name] = create_metrics_stats(fw_measurements)
 
-        put_log_message_into_queue(
-            logging.INFO,
-            performance_metrics,
-            self._to_main_queue,
-            self.get_logging_level(),
-        )
+            put_log_message_into_queue(
+                logging.INFO,
+                performance_metrics,
+                self._to_main_queue,
+                self.get_logging_level(),
+            )
+        self._reset_performance_tracking_values()
 
     def _start_new_file_upload(self) -> None:
         """Upload file recordings to the cloud.

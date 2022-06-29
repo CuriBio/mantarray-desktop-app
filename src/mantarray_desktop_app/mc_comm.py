@@ -349,6 +349,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._stim_status_buffers = {well_idx: [[], []] for well_idx in range(self._num_wells)}
 
     def _reset_performance_tracking_values(self) -> None:
+        self._reset_performance_measurements()
         self._performance_tracking_values = {
             key: list()
             for key in (
@@ -467,9 +468,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         else:
             self._handle_data_stream()
 
-            if (
-                self._is_data_streaming or self._is_stimulating
-            ):  # TODO and logging.DEBUG >= self._logging_level
+            if self._is_data_streaming or self._is_stimulating:
                 # handle performance logging if ready
                 self._iterations_since_last_logging[board_idx] += 1
                 if self._iterations_since_last_logging[board_idx] > self._iterations_per_logging_cycle:
@@ -1259,9 +1258,11 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._performance_tracking_values[metric_name].append(metric_value)
 
     def _handle_performance_logging(self) -> None:
-        performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
-        for metric_name, metric_values in self._performance_tracking_values.items():
-            performance_metrics[metric_name] = None
-            if len(metric_values) > 2:
-                performance_metrics[metric_name] = create_metrics_stats(metric_values)
-        self._send_performance_metrics(performance_metrics)
+        if logging.DEBUG >= self._logging_level:
+            performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
+            for metric_name, metric_values in self._performance_tracking_values.items():
+                performance_metrics[metric_name] = None
+                if len(metric_values) > 2:
+                    performance_metrics[metric_name] = create_metrics_stats(metric_values)
+            self._send_performance_metrics(performance_metrics)
+        self._reset_performance_tracking_values()

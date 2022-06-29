@@ -247,9 +247,6 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._board_queues = the_board_queues
         self._comm_from_main_queue = comm_from_main_queue
         self._comm_to_main_queue = comm_to_main_queue
-        # performance tracking values
-        self._outgoing_data_creation_durations: List[float] = list()
-        self._data_analysis_durations: List[float] = list()
         # data streaming values
         self._end_of_data_stream_reached: List[Optional[bool]] = [False] * len(self._board_queues)
         self._data_buffer: Dict[int, Dict[str, Any]] = dict()
@@ -271,6 +268,15 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._mag_analysis_active_thread: Optional[Any] = dict()
         self._mag_analysis_output_dir: str = mag_analysis_output_dir
         self._mag_analysis_thread_list: List[str] = list()
+        # performance tracking values
+        self._outgoing_data_creation_durations: List[float]
+        self._data_analysis_durations: List[float]
+        self._reset_performance_tracking_values()
+
+    def _reset_performance_tracking_values(self) -> None:
+        self._reset_performance_measurements()
+        self._outgoing_data_creation_durations = list()
+        self._data_analysis_durations = list()
 
     def _check_dirs(self) -> None:
         if not os.path.isdir(self._mag_analysis_output_dir):
@@ -634,41 +640,37 @@ class DataAnalyzerProcess(InfiniteProcess):
                 self._mag_analysis_thread_list = list()
 
     def _handle_performance_logging(self) -> None:
-        performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
-        tracker = self.reset_performance_tracker()
-        performance_metrics["longest_iterations"] = sorted(tracker["longest_iterations"])
-        performance_metrics["percent_use"] = tracker["percent_use"]
-        performance_metrics["data_creation_duration"] = self._outgoing_data_creation_durations[-1]
+        if logging.DEBUG >= self._logging_level:
+            performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
+            tracker = self.reset_performance_tracker()
+            performance_metrics["longest_iterations"] = sorted(tracker["longest_iterations"])
+            performance_metrics["percent_use"] = tracker["percent_use"]
+            performance_metrics["data_creation_duration"] = self._outgoing_data_creation_durations[-1]
 
-        if len(self._percent_use_values) > 1:
-            performance_metrics["percent_use_metrics"] = self.get_percent_use_metrics()
-        name_measurement_list = list()
-        if len(self._outgoing_data_creation_durations) > 1:
-            name_measurement_list.append(
-                (
-                    "data_creation_duration_metrics",
-                    self._outgoing_data_creation_durations,
+            if len(self._percent_use_values) > 1:
+                performance_metrics["percent_use_metrics"] = self.get_percent_use_metrics()
+            name_measurement_list = list()
+            if len(self._outgoing_data_creation_durations) > 1:
+                name_measurement_list.append(
+                    ("data_creation_duration_metrics", self._outgoing_data_creation_durations)
                 )
-            )
-        if len(self._data_analysis_durations) > 1:
-            name_measurement_list.append(
-                (
-                    "data_analysis_duration_metrics",
-                    self._data_analysis_durations,
+            if len(self._data_analysis_durations) > 1:
+                name_measurement_list.append(
+                    ("data_analysis_duration_metrics", self._data_analysis_durations)
                 )
-            )
 
-        da_measurements: List[
-            Union[int, float]
-        ]  # Tanner (5/28/20): This type annotation is necessary for mypy to not incorrectly type this variable
-        for name, da_measurements in name_measurement_list:
-            performance_metrics[name] = create_metrics_stats(da_measurements)
-        put_log_message_into_queue(
-            logging.INFO,
-            performance_metrics,
-            self._comm_to_main_queue,
-            self.get_logging_level(),
-        )
+            da_measurements: List[
+                Union[int, float]
+            ]  # Tanner (5/28/20): This type annotation is necessary for mypy to not incorrectly type this variable
+            for name, da_measurements in name_measurement_list:
+                performance_metrics[name] = create_metrics_stats(da_measurements)
+            put_log_message_into_queue(
+                logging.INFO,
+                performance_metrics,
+                self._comm_to_main_queue,
+                self.get_logging_level(),
+            )
+        self._reset_performance_tracking_values()
 
     def _dump_data_into_queue(self, outgoing_data: Dict[str, Any]) -> None:
         timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
