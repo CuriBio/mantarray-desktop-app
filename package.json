@@ -10,7 +10,7 @@
     "type": "git",
     "url": "https://github.com/CuriBio/mantarray-desktop-app.git"
   },
-  "homepage": "http://www.curiobio.com",
+  "homepage": "http://www.curibio.com",
   "private": false,
   "license": "MIT",
   "main": "./dist/main/index.js",
