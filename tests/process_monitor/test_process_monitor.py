@@ -1938,3 +1938,30 @@ def test_MantarrayProcessesMonitor__passes_stim_status_check_results_from_mc_com
         "data_type": "stimulator_circuit_statuses",
         "data_json": json.dumps(stim_check_results),
     }
+
+
+def test_MantarrayProcessesMonitor__passes_corrupt_file_message_from_file_writer_to_websocket_queue(
+    test_monitor, test_process_manager_creator
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
+
+    file_writer_to_main = (
+        test_process_manager.queue_container().get_communication_queue_from_file_writer_to_main()
+    )
+    queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
+
+    test_corrupt_files = ["test_file_A1", "test_file_C4"]
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"communication_type": "corrupt_file_detected", "corrupt_files": test_corrupt_files},
+        file_writer_to_main,
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
+
+    ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert ws_message == {
+        "data_type": "corrupt_files_alert",
+        "data_json": json.dumps({"corrupt_files_found": test_corrupt_files}),
+    }
