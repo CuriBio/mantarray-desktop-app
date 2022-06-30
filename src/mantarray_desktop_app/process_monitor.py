@@ -145,6 +145,14 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 stop_managed_acquisition_comm["is_calibration_recording"] = True
                 main_to_fw_queue.put_nowait(stop_managed_acquisition_comm)
                 main_to_ic_queue.put_nowait(stop_managed_acquisition_comm)
+        elif communication_type == "corrupt_file_detected":
+            corrupt_files = communication["corrupt_files"]
+            self._queue_websocket_message(
+                {
+                    "data_type": "corrupt_files_alert",
+                    "data_json": json.dumps({"corrupt_files_found": corrupt_files}),
+                }
+            )
 
         # Tanner (12/13/21): redact file/folder path after handling comm in case the actual file path is needed
         for sensitive_field in ("file_path", "file_folder"):
@@ -214,7 +222,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
                 )
                 to_file_writer_queue.put_nowait(
-                    {"command": "update_directory", "new_directory": new_recording_directory}
+                    {
+                        "command": "update_directory",
+                        "new_directory": new_recording_directory,
+                    }
                 )
 
                 scrubbed_recordings_dir = redact_sensitive_info_from_path(new_recording_directory)
@@ -281,7 +292,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
             # Tanner (12/10/21): run_calibration is currently the only calibration command
             shared_values_dict["system_status"] = CALIBRATING_STATE
             self._put_communication_into_instrument_comm_queue(
-                {"communication_type": "acquisition_manager", "command": "start_managed_acquisition"}
+                {
+                    "communication_type": "acquisition_manager",
+                    "command": "start_managed_acquisition",
+                }
             )
 
             # Tanner (12/10/21): set this manually here since a start_managed_acquisition command response has not been received yet
@@ -500,7 +514,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 stimulator_circuit_statuses = communication[key]
                 self._values_to_share_to_server[key] = stimulator_circuit_statuses
                 self._queue_websocket_message(
-                    {"data_type": key, "data_json": json.dumps(stimulator_circuit_statuses)}
+                    {
+                        "data_type": key,
+                        "data_json": json.dumps(stimulator_circuit_statuses),
+                    }
                 )
         elif communication_type == "board_connection_status_change":
             board_idx = communication["board_index"]
@@ -560,12 +577,18 @@ class MantarrayProcessesMonitor(InfiniteThread):
             else:
                 barcode_status = BARCODE_INVALID_UUID
 
-            board_barcode_dict = {barcode_type: barcode, "barcode_status": barcode_status}
+            board_barcode_dict = {
+                barcode_type: barcode,
+                "barcode_status": barcode_status,
+            }
             self._values_to_share_to_server["barcodes"][board_idx].update(board_barcode_dict)
             # send message to FE
             barcode_dict_copy = copy.deepcopy(board_barcode_dict)
             barcode_dict_copy["barcode_status"] = str(barcode_dict_copy["barcode_status"])
-            barcode_update_message = {"data_type": "barcode", "data_json": json.dumps(barcode_dict_copy)}
+            barcode_update_message = {
+                "data_type": "barcode",
+                "data_json": json.dumps(barcode_dict_copy),
+            }
             self._queue_websocket_message(barcode_update_message)
         elif communication_type == "metadata_comm":
             board_idx = communication["board_index"]
@@ -593,7 +616,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     latest_main_fw = communication["latest_versions"]["main-fw"]
                     latest_channel_fw = communication["latest_versions"]["channel-fw"]
                     min_sw_version_unavailable = _compare_semver(
-                        required_sw_for_fw, self._values_to_share_to_server["latest_software_version"]
+                        required_sw_for_fw,
+                        self._values_to_share_to_server["latest_software_version"],
                     )
                     main_fw_update_needed = _compare_semver(
                         latest_main_fw,
@@ -783,7 +807,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 to_instrument_comm = (
                     process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
                 )
-                barcode_poll_comm = {"communication_type": "barcode_comm", "command": "start_scan"}
+                barcode_poll_comm = {
+                    "communication_type": "barcode_comm",
+                    "command": "start_scan",
+                }
                 to_instrument_comm.put_nowait(barcode_poll_comm)
                 self._last_barcode_clear_time = _get_barcode_clear_time()
 
@@ -810,12 +837,18 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
     def _send_user_creds_prompt_message(self) -> None:
         self._queue_websocket_message(
-            {"data_type": "prompt_user_input", "data_json": json.dumps({"input_type": "user_creds"})}
+            {
+                "data_type": "prompt_user_input",
+                "data_json": json.dumps({"input_type": "user_creds"}),
+            }
         )
 
     def _send_enable_sw_auto_install_message(self) -> None:
         self._queue_websocket_message(
-            {"data_type": "sw_update", "data_json": json.dumps({"allow_software_update": True})}
+            {
+                "data_type": "sw_update",
+                "data_json": json.dumps({"allow_software_update": True}),
+            }
         )
 
     def _queue_websocket_message(self, message_dict: Dict[str, Any]) -> None:
