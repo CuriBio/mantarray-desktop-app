@@ -851,11 +851,13 @@ def test_MantarrayProcessesMonitor__sets_in_simulation_mode_after_connection__in
     assert shared_values_dict["in_simulation_mode"] is True
 
 
-def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm(
-    test_monitor, test_process_manager_creator
+def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm__and_redacts_nickname_from_log_message(
+    test_monitor, test_process_manager_creator, mocker
 ):
     test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+
+    spied_info = mocker.spy(process_monitor.logger, "info")
 
     board_idx = 0
     instrument_comm_to_main_queue = (
@@ -888,6 +890,9 @@ def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm
     assert (
         shared_values_dict["instrument_metadata"][board_idx] == MantarrayMcSimulator.default_metadata_values
     )
+
+    for call_args in spied_info.call_args_list:
+        assert MantarrayMcSimulator.default_mantarray_nickname not in call_args[0][0]
 
 
 def test_MantarrayProcessesMonitor__does_not_switch_from_INSTRUMENT_INITIALIZING_STATE__in_beta_2_mode_if_required_values_are_not_set(
