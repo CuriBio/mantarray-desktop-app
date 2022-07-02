@@ -7,45 +7,46 @@ const { ElectronLauncher } = require("@xpda-dev/electron-launcher");
 const { ElectronBuilder } = require("@xpda-dev/electron-builder");
 const { Webpack } = require("@xpda-dev/webpack-step");
 const resourcesPath = require("./resources-path-provider");
-const { DIST_DIR, MAIN_PROCESS_DIR, SERVER_HOST, SERVER_PORT } = require("./config");
-const NuxtApp = require("./renderer/NuxtApp");
+const { DIST_DIR, MAIN_PROCESS_DIR, SERVER_HOST, SERVER_PORT } = require(path.join(__dirname, "config"));
+const NuxtApp = require(path.join(__dirname, "renderer", "NuxtApp"));
 
 const isDev = process.env.NODE_ENV === "development";
+const channel = process.env.RELEASE_CHANNEL;
 
-const electronLogger = new Logger("Electron", "teal");
-electronLogger.ignore((text) => text.includes("nhdogjmejiglipccpnnnanhbledajbpd")); // Clear vue devtools errors
+const build_electron = !(process.env.SUPPRESS_ELECTRON_BUILD === "true");
+
+async function just_build_nuxt() {
+  await webpackMain.build(isDev);
+  await nuxt.build(isDev);
+  process.exit(0);
+}
 
 const launcher = new ElectronLauncher({
-  logger: electronLogger,
   electronPath: electron,
-  entryFile: path.join(DIST_DIR, "main/index.js"),
+  entryFile: path.join(DIST_DIR, "main", "index.js"),
+  electronOptions: process.argv.slice(2),
 });
 
-function hasConfigArgument(array) {
-  for (const el of array) if (el === "--config" || el === "-c") return true;
-  return false;
-}
-const argumentsArray = process.argv.slice(2);
-if (!hasConfigArgument(argumentsArray)) argumentsArray.push("--config", "builder.config.js");
+let builder_config_path = path.join(__dirname, "..", "electron-builder-config", `${channel}.yaml`);
 
 const builder = new ElectronBuilder({
-  processArgv: argumentsArray,
+  processArgv: ["--config", builder_config_path, "--publish", "never"],
 });
 
 const webpackConfig = Webpack.getBaseConfig({
-  entry: isDev
-    ? path.join(MAIN_PROCESS_DIR, "boot/index.dev.js")
-    : path.join(MAIN_PROCESS_DIR, "boot/index.prod.js"),
+  entry: isDev ? path.join(MAIN_PROCESS_DIR, "index.dev.js") : path.join(MAIN_PROCESS_DIR, "index.js"),
   output: {
     filename: "index.js",
     path: path.join(DIST_DIR, "main"),
   },
   plugins: [
     new webpack.DefinePlugin({
-      "process.resourcesPath": resourcesPath.mainProcess(),
+      INCLUDE_RESOURCES_PATH: resourcesPath.mainProcess(),
       "process.env.DEV_SERVER_URL": `'${SERVER_HOST}:${SERVER_PORT}'`,
     }),
+    // new webpack.IgnorePlugin(/\.(css|less)$/),
   ],
+  devtool: "sourcemap",
 });
 
 const webpackMain = new Webpack({
@@ -64,4 +65,13 @@ const pipe = new Pipeline({
   builder,
 });
 
-pipe.run();
+if (build_electron) {
+  pipe.run();
+} else {
+  console.log(
+    // allow-log
+    "Nuxt will be built in Production mode, but the full Electron App will not be compiled"
+  );
+
+  just_build_nuxt();
+}
