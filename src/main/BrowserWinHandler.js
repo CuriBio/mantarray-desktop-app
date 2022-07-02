@@ -1,7 +1,9 @@
+/* eslint-disable */
 import { EventEmitter } from "events";
-import { BrowserWindow, app, screen, ipcMain, globalShortcut } from "electron";
-import main_utils from "./utils.js"; // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
+import { BrowserWindow, app, screen, ipcMain } from "electron";
 const isProduction = process.env.NODE_ENV === "production";
+
+import main_utils from "./utils.js"; // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
 
 const create_store = main_utils.create_store;
 let store = create_store();
@@ -9,8 +11,8 @@ const get_flask_logs_full_path = main_utils.get_flask_logs_full_path;
 
 export default class BrowserWinHandler {
   /**
-   * @param {object} [options]  - browser window options
-   * @param {boolean} [allowRecreate] - allows constructor to be recreated
+   * @param [options] {object} - browser window options
+   * @param [allowRecreate] {boolean}
    */
   constructor(options, allowRecreate = true) {
     this._eventEmitter = new EventEmitter();
@@ -24,10 +26,13 @@ export default class BrowserWinHandler {
     // This method will be called when Electron has finished
     // initialization and is ready to create browser windows.
     // Some APIs can only be used after this event occurs.
-    app.on("ready", () => {
-      this._create();
-      console.log("ready in winhandler after _create");
-    });
+    if (app.isReady()) this._create();
+    else {
+      app.once("ready", () => {
+        this._create();
+        console.log("ready in winhandler after _create");
+      });
+    }
 
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
@@ -51,6 +56,7 @@ export default class BrowserWinHandler {
         ...this.options.webPreferences,
         webSecurity: isProduction, // disable on dev to allow loading local resources
         nodeIntegration: true, // allow loading modules via the require () function
+        contextIsolation: false, // https://github.com/electron/electron/issues/18037#issuecomment-806320028
         devTools: !process.env.SPECTRON, // disable on e2e test environment
       },
     });
@@ -113,14 +119,22 @@ export default class BrowserWinHandler {
    * @param callback {onReadyCallback}
    */
   onCreated(callback) {
+    if (this.browserWindow !== null) return callback(this.browserWindow);
     this._eventEmitter.once("created", () => {
       callback(this.browserWindow);
     });
   }
 
+  // async loadPage(pagePath) {
+  //   if (!this.browserWindow) return Promise.reject(new Error('The page could not be loaded before win \'created\' event'))
+  //   const serverUrl = isDev ? DEV_SERVER_URL : 'app://./index.html'
+  //   const fullPath = serverUrl + '#' + pagePath;
+  //   await this.browserWindow.loadURL(fullPath)
+  // }
+
   /**
    *
-   * @return {Promise<BrowserWindow>}
+   * @returns {Promise<BrowserWindow>}
    */
   created() {
     return new Promise((resolve) => {
@@ -130,23 +144,3 @@ export default class BrowserWinHandler {
     });
   }
 }
-
-// const response = await axios.get('http://localhost:4567/system_status');
-// if (response.data.ui_status_code !== '009301eb') {
-//   const options = {
-//     type: 'warning',
-//     buttons: ['Yes', 'Cancel'],
-//     defaultId: 0,
-//     message: 'Operations are still in progress.',
-//     detail: 'Are you sure you want to quit?',
-//     cancelId: 1,
-//     noLink: true,
-//     normalizeAccessKeys: true,
-//   };
-//   const user_response = dialog.showMessageBoxSync(options);
-//   if (user_response === 0) {
-//     close = true;
-//     this.browserWindow.close();
-//     console.log('user cancelled window close');
-//   }
-// }
