@@ -9,6 +9,7 @@ from typing import Dict
 import zipfile
 
 from mantarray_desktop_app.exceptions import CloudAnalysisJobFailedError
+from mantarray_desktop_app.exceptions import PresignedUploadFailedError
 import requests
 
 from .constants import CLOUD_PULSE3D_ENDPOINT
@@ -72,13 +73,14 @@ def get_upload_details(
         file_md5: md5 hash.
         upload_type: determines if it's a log file or recording that is being uploaded.
     """
+    # Tanner (7/5/22): sending mantarray as upload type for both kinds of uploads for now
     route = "uploads" if upload_type == "recording" else "logs"
-    upload_response = requests.post(
+    response = requests.post(
         f"https://{CLOUD_PULSE3D_ENDPOINT}/{route}",
-        json={"filename": file_name, "md5s": file_md5},
+        json={"filename": file_name, "md5s": file_md5, "upload_type": "mantarray"},
         headers={"Authorization": f"Bearer {access_token}"},
     )
-    upload_details: Dict[Any, Any] = upload_response.json()
+    upload_details: Dict[Any, Any] = response.json()
     return upload_details
 
 
@@ -92,7 +94,13 @@ def upload_file_to_s3(file_path: str, file_name: str, upload_details: Dict[Any, 
     """
     with open(file_path, "rb") as file_to_upload:
         files = {"file": (file_name, file_to_upload)}
-        requests.post(upload_details["params"]["url"], data=upload_details["params"]["fields"], files=files)
+        response = requests.post(
+            upload_details["params"]["url"], data=upload_details["params"]["fields"], files=files
+        )
+
+    # TODO unit test this
+    if response.status_code != 204:
+        raise PresignedUploadFailedError(f"{response.status_code}, {response.reason}")
 
 
 def start_analysis(access_token: str, upload_id: str) -> str:
@@ -104,12 +112,12 @@ def start_analysis(access_token: str, upload_id: str) -> str:
     Returns:
         The ID of the job created to run analysis on the uploaded file
     """
-    jobs_response = requests.post(
+    response = requests.post(
         f"https://{CLOUD_PULSE3D_ENDPOINT}/jobs",
         json={"upload_id": upload_id},
         headers={"Authorization": f"Bearer {access_token}"},
     )
-    jobs_id: str = jobs_response.json()["id"]
+    jobs_id: str = response.json()["id"]
     return jobs_id
 
 
@@ -120,12 +128,12 @@ def download_analysis_from_s3(presigned_url: str, file_name: str) -> None:
         presigned_url: URL to get s3 analysis.
         file_name: file name to write to locally.
     """
-    download_response = requests.get(presigned_url)
+    response = requests.get(presigned_url)
     file_name_no_ext = os.path.splitext(file_name)[0]
     download_file_path = os.path.join(os.path.expanduser("~"), "downloads", f"{file_name_no_ext}.xlsx")
 
     with open(download_file_path, "wb") as content:
-        content.write(download_response.content)
+        content.write(response.content)
 
 
 class FileUploader(WebWorker):
@@ -203,9 +211,14 @@ class FileUploader(WebWorker):
             )
         )
 
+        # TODO unit test this
+
+        if error := response.json().get("error"):
+            raise CloudAnalysisJobFailedError(error)
+
         job_dict: Dict[str, str] = response.json()["jobs"][0]
 
-        if error := job_dict.get("error"):
-            raise CloudAnalysisJobFailedError(error)
+        if error_info := job_dict.get("error_info"):
+            raise CloudAnalysisJobFailedError(error_info)
 
         return job_dict

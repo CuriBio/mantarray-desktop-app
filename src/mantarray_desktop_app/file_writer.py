@@ -1280,20 +1280,27 @@ class FileWriterProcess(InfiniteProcess):
     def _process_update_name_command(self, comm: Dict[str, str]) -> None:
         """Rename recording directory and h5 files to kick off auto upload."""
         # only perform if new name is different from the original default name
-        if self._current_recording_dir == comm["default_name"] != comm["new_name"]:
-            old_recording_path = os.path.join(self._file_directory, self._current_recording_dir)
-            new_recording_path = os.path.join(self._file_directory, comm["new_name"])
-            # rename directory
-            if os.path.exists(old_recording_path):
-                os.rename(old_recording_path, new_recording_path)
-                self._current_recording_dir = comm["new_name"]
 
-                for filename in os.listdir(new_recording_path):
-                    # replace everything but the well name
-                    new_filename = filename.replace(comm["default_name"], comm["new_name"])
-                    old_file_path = os.path.join(new_recording_path, filename)
-                    new_file_path = os.path.join(new_recording_path, new_filename)
-                    os.rename(old_file_path, new_file_path)
+        # TODO update unit tests for this
+        if self._current_recording_dir == comm["default_name"] != comm["new_name"]:
+            new_recording_path = os.path.join(self._file_directory, comm["new_name"])
+            if os.path.exists(new_recording_path):
+                # remove current recording if it already exists
+                shutil.rmtree(new_recording_path)
+
+            old_recording_path = os.path.join(self._file_directory, self._current_recording_dir)
+            # if os.path.exists(old_recording_path):
+
+            # rename directory
+            os.rename(old_recording_path, new_recording_path)
+            self._current_recording_dir = comm["new_name"]
+
+            for filename in os.listdir(new_recording_path):
+                # replace everything but the well name
+                new_filename = filename.replace(comm["default_name"], comm["new_name"])
+                old_file_path = os.path.join(new_recording_path, filename)
+                new_file_path = os.path.join(new_recording_path, new_filename)
+                os.rename(old_file_path, new_file_path)
 
         # after all files are finalized, upload them if necessary
         if self._user_settings["auto_upload_on_completion"]:

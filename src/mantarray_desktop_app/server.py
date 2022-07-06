@@ -35,7 +35,6 @@ import json
 import logging
 import os
 from queue import Queue
-import shutil
 import threading
 from time import sleep
 from typing import Any
@@ -759,14 +758,10 @@ def update_recording_name() -> Response:
     default_recording_name = request.args["default_name"]
     dir_path = os.path.join(recording_dir, new_recording_name)
 
-    try:
-        request.args["replace_existing"]  # only gets sent if a user confirmed a rewrite
-    except KeyError:
-        if os.path.exists(dir_path):
-            return Response(status="403 Recording name already exists")
-    else:
-        # remove current recording if choosing to replace
-        shutil.rmtree(dir_path)
+    # TODO update unit tests for this route
+
+    if not request.args.get("replace_existing") and os.path.exists(dir_path):
+        return Response(status="403 Recording name already exists")
 
     comm = {
         "communication_type": "recording",
