@@ -151,7 +151,7 @@ def get_current_software_version() -> str:
         return version
 
 
-def check_barcode_for_errors(barcode: str, barcode_type: Optional[str] = None) -> str:
+def check_barcode_for_errors(barcode: str, is_beta2_mode: bool, barcode_type: Optional[str] = None) -> str:
     """Return error message if barcode contains an error.
 
     barcode_type kwarg should always be given unless checking a scanned
@@ -162,12 +162,41 @@ def check_barcode_for_errors(barcode: str, barcode_type: Optional[str] = None) -
     header = barcode[:2]
     if header not in BARCODE_HEADERS.get(barcode_type, ALL_VALID_BARCODE_HEADERS):
         return f"barcode contains invalid header: '{header}'"
+    if barcode.__contains__("-"):
+        _check_new_barcode(barcode, is_beta2_mode)
+    else:
+        _check_old_barcode(barcode)
+    return ""
+
+
+def _check_new_barcode(barcode: str, is_beta2_mode: bool) -> str:
+    # check if barcode is numeric
+    if not (barcode[2:10] + barcode[11]).isnumeric():
+        return f"barcode contains invalid char :'{barcode[2:10] + barcode[11]}'"
+    # check that dash is in correct index
+    if barcode[10] != "-":
+        return f"no dash at index 10, instead : '{barcode[10]}'"
+    # check year is 2022 or later
+    if int(barcode[2:4]) < 22:
+        return f"year is before 2022: '{barcode[2:4]}'"
+    # check that day is a valid number
+    if not 1 < int(barcode[4:7]) < 366:
+        return f"day is not valid: '{barcode[4:7]}'"
+    # check experiment id is valid
+    if not 0 <= int(barcode[7:10]) < 300:
+        return f"experiment id is not valid: '{barcode[7:10]}'"
+    # check if beta mode matches the last digit
+    if (is_beta2_mode and barcode[-1] != 2) or (is_beta2_mode and barcode[-1] != 1):
+        return f"beta mode does not match last digit: 'beta 2 mode : {is_beta2_mode} and last digit {barcode[-1]}'"
+
+
+def _check_old_barcode(barcode: str) -> str:
     for char in barcode[2:]:
         if not char.isnumeric():
             return f"barcode contains invalid character: '{char}'"
     if int(barcode[2:6]) < 2021:
         return f"barcode contains invalid year: '{barcode[2:6]}'"
-    if int(barcode[6:9]) < 1 or int(barcode[6:9]) > 366:
+    if not 1 < int(barcode[6:9]) < 366:
         return f"barcode contains invalid Julian date: '{barcode[6:9]}'"
     return ""
 

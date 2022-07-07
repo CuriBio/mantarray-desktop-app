@@ -628,7 +628,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
                 raise BarcodeScannerNotRespondingError()
 
             trimmed_barcode = _trim_barcode(barcode)
-            if check_barcode_is_valid(trimmed_barcode):
+            if check_barcode_is_valid(trimmed_barcode, False):
                 self._send_barcode_to_main(board_idx, trimmed_barcode, True)
                 return
             if scan_attempt == 1:

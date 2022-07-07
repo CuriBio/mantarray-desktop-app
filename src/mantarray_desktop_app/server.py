@@ -638,7 +638,7 @@ def start_recording() -> Response:
     # validate params separately
     for barcode_type in barcodes_to_check:
         barcode = request.args[barcode_type]
-        error_message = check_barcode_for_errors(barcode, barcode_type)
+        error_message = check_barcode_for_errors(barcode, shared_values_dict["beta_2_mode"], barcode_type)
         if error_message:
             barcode_label = barcode_type.split("_")[0].title()
             return Response(status=f"400 {barcode_label} {error_message}")
