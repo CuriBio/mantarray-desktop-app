@@ -173,9 +173,6 @@ def _check_new_barcode(barcode: str, beta2_mode: bool) -> str:
     # check if barcode is numeric
     if not (barcode[2:10] + barcode[-1]).isnumeric():
         return "barcode contains invalid char"
-    # check that dash is in correct index
-    if barcode[10] != "-":
-        return f"no dash at index 10, instead : '{barcode[10]}'"
     # check year is 2022 or later
     if int(barcode[2:4]) < 22:
         return f"year is before 2022: '{barcode[2:4]}'"
