@@ -118,7 +118,6 @@ GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
         USER_ACCOUNT_ID_UUID: CURI_BIO_USER_ACCOUNT_ID,
         SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
         SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
-        PLATE_BARCODE_UUID: MantarrayMcSimulator.default_plate_barcode,  # this will work for beta 1 as well
         BACKEND_LOG_UUID: uuid.UUID("9a3d03f2-1f5a-4ecd-b843-0dc9ecde5f67"),
         COMPUTER_NAME_HASH_UUID: hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest(),
         PLATE_BARCODE_IS_FROM_SCANNER_UUID: True,
@@ -132,6 +131,7 @@ GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
             "metadata_to_copy_onto_main_file_attributes"
         ][UTC_BEGINNING_DATA_ACQUISTION_UUID]
         + datetime.timedelta(seconds=(298518 * 125 / CENTIMILLISECONDS_PER_SECOND)),
+        PLATE_BARCODE_UUID: RunningFIFOSimulator.default_barcode,
         MAIN_FIRMWARE_VERSION_UUID: RunningFIFOSimulator.default_firmware_version,
         SLEEP_FIRMWARE_VERSION_UUID: "0.0.0",
         MANTARRAY_SERIAL_NUMBER_UUID: RunningFIFOSimulator.default_mantarray_serial_number,
@@ -155,6 +155,7 @@ GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
             "metadata_to_copy_onto_main_file_attributes"
         ][UTC_BEGINNING_DATA_ACQUISTION_UUID]
         + datetime.timedelta(seconds=(298518 * 125 / MICRO_TO_BASE_CONVERSION)),
+        PLATE_BARCODE_UUID: MantarrayMcSimulator.default_plate_barcode,
         MAIN_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_main_firmware_version,
         CHANNEL_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_channel_firmware_version,
         MANTARRAY_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_mantarray_serial_number,
