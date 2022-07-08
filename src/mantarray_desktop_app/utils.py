@@ -151,7 +151,7 @@ def get_current_software_version() -> str:
         return version
 
 
-def check_barcode_for_errors(barcode: str, is_beta2_mode: bool, barcode_type: Optional[str] = None) -> str:
+def check_barcode_for_errors(barcode: str, beta2_mode: bool, barcode_type: Optional[str] = None) -> str:
     """Return error message if barcode contains an error.
 
     barcode_type kwarg should always be given unless checking a scanned
@@ -162,14 +162,14 @@ def check_barcode_for_errors(barcode: str, is_beta2_mode: bool, barcode_type: Op
     header = barcode[:2]
     if header not in BARCODE_HEADERS.get(barcode_type, ALL_VALID_BARCODE_HEADERS):
         return f"barcode contains invalid header: '{header}'"
-    if barcode.__contains__("-"):
-        _check_new_barcode(barcode, is_beta2_mode)
+    if "-" in barcode:
+        _check_new_barcode(barcode, beta2_mode)
     else:
         _check_old_barcode(barcode)
     return ""
 
 
-def _check_new_barcode(barcode: str, is_beta2_mode: bool) -> str:
+def _check_new_barcode(barcode: str, beta2_mode: bool) -> str:
     # check if barcode is numeric
     if not (barcode[2:10] + barcode[11]).isnumeric():
         return f"barcode contains invalid char :'{barcode[2:10] + barcode[11]}'"
@@ -186,8 +186,10 @@ def _check_new_barcode(barcode: str, is_beta2_mode: bool) -> str:
     if not 0 <= int(barcode[7:10]) < 300:
         return f"experiment id is not valid: '{barcode[7:10]}'"
     # check if beta mode matches the last digit
-    if (is_beta2_mode and barcode[-1] != 2) or (is_beta2_mode and barcode[-1] != 1):
-        return f"beta mode does not match last digit: 'beta 2 mode : {is_beta2_mode} and last digit {barcode[-1]}'"
+    if (beta2_mode and barcode[-1] != 2) or (beta2_mode and barcode[-1] != 1):
+        return (
+            f"beta mode does not match last digit: 'beta 2 mode : {beta2_mode} and last digit {barcode[-1]}'"
+        )
     return ""
 
 
