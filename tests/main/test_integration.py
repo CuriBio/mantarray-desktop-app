@@ -493,10 +493,8 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
 
-        # Tanner (12/29/20): Use new barcode for second set of recordings
-        expected_plate_barcode_2 = (
-            expected_plate_barcode_1[:-1] + "2"
-        )  # change last char of default barcode from '1' to '2'
+        # Tanner (12/29/20): Use new barcode for second set of recordings, change last char of default barcode from '1' to '2'
+        expected_plate_barcode_2 = expected_plate_barcode_1[:-1] + "2"
         # Tanner (12/30/20): Start recording with barcode2 to create second set of files. Use known timepoint a just after end of first set of data
         expected_start_index_2 = expected_stop_index_1 + 1
         start_recording_params_2 = {
@@ -642,8 +640,8 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                         ][COMPUTER_NAME_HASH_UUID]
                     )
                     assert this_file.attrs[str(PLATE_BARCODE_UUID)] == expected_plate_barcode_1
-                    # Tanner (1/12/21): The barcode used for testing (which is passed to start_recording route) is different than the simulator's barcode (the one that is 'scanned' in this test), so this should result to False
-                    assert bool(this_file.attrs[str(PLATE_BARCODE_IS_FROM_SCANNER_UUID)]) is False
+                    # Tanner (1/12/21): The barcode used for testing (which is passed to start_recording route) is the same as the simulator's barcode (the one that is 'scanned' in this test), so this should result to True
+                    assert bool(this_file.attrs[str(PLATE_BARCODE_IS_FROM_SCANNER_UUID)]) is True
 
         # Tanner (12/30/20): test second recording (only make sure it contains waveform data)
         for row_idx in range(4):
@@ -1065,8 +1063,8 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         assert stimulation_running_status_eventually_equals(True, 4) is True
 
-        # Tanner (6/1/21): Use new barcode for second set of recordings, change last char of default barcode from '1' to '2'
-        expected_plate_barcode_2 = expected_plate_barcode_1[:-1] + "2"
+        # Tanner (6/1/21): Use new barcode for second set of recordings, change experiment code from '000' to '001'
+        expected_plate_barcode_2 = expected_plate_barcode_1.replace("000", "001")
         # Tanner (5/25/21): Start at a different timepoint to create a different timestamp in the names of the second set of files
         expected_start_index_2 = (
             MICRO_TO_BASE_CONVERSION + NUM_INITIAL_PACKETS_TO_DROP * DEFAULT_SAMPLING_PERIOD
