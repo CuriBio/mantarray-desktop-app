@@ -501,6 +501,64 @@ def test_OkCommunicationProcess__sends_correct_values_to_main_for_invalid_second
     assert mocked_get.call_count == 4
 
 
+def test_OkCommunicationProcess__sends_correct_values_to_main_for_invalid_second_barcode_new_scheme_read__and_scan_process_ends(
+    four_board_comm_process, mocker, test_barcode_simulator
+):
+    expected_barcode = "M*22123199-2"
+
+    mocker.patch.object(
+        ok_comm,
+        "_get_dur_since_barcode_clear",
+        autospec=True,
+        side_effect=[
+            BARCODE_CONFIRM_CLEAR_WAIT_SECONDS,
+            BARCODE_GET_SCAN_WAIT_SECONDS,
+            BARCODE_CONFIRM_CLEAR_WAIT_SECONDS,
+            BARCODE_GET_SCAN_WAIT_SECONDS,
+        ],
+    )
+    # Tanner (12/7/20): mock this so we can make assertions on what's in the queue more easily
+    mocker.patch.object(ok_comm, "put_log_message_into_queue", autospec=True)
+
+    ok_process = four_board_comm_process["ok_process"]
+    board_queues = four_board_comm_process["board_queues"]
+    input_queue = board_queues[0][0]
+    to_main_queue = board_queues[0][1]
+
+    simulator, mocked_get = test_barcode_simulator(
+        [
+            CLEARED_BARCODE_VALUE,
+            INVALID_BARCODE,
+            CLEARED_BARCODE_VALUE,
+            expected_barcode,
+        ],
+    )
+    ok_process.set_board_connection(0, simulator)
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        RUN_BARCODE_SCAN_COMMUNICATION, input_queue
+    )
+
+    invoke_process_run_and_check_errors(ok_process, num_iterations=3)
+    confirm_queue_is_eventually_empty(to_main_queue)
+
+    invoke_process_run_and_check_errors(ok_process)
+    assert mocked_get.call_count == 4
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+
+    expected_barcode_comm = {
+        "communication_type": "barcode_comm",
+        "barcode": expected_barcode,
+        "board_idx": 0,
+        "valid": False,
+    }
+    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual == expected_barcode_comm
+
+    invoke_process_run_and_check_errors(ok_process)
+    assert mocked_get.call_count == 4
+
+
 def test_OkCommunicationProcess__sends_correct_values_to_main_when_no_valid_barcode_detected__and_scan_process_ends(
     four_board_comm_process, mocker, test_barcode_simulator
 ):

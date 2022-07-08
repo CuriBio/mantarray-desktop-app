@@ -157,23 +157,22 @@ def check_barcode_for_errors(barcode: str, beta2_mode: bool, barcode_type: Optio
     barcode_type kwarg should always be given unless checking a scanned
     barcode value.
     """
-    #if len(barcode) != BARCODE_LEN:
-    #    return "barcode is incorrect length"
-    #header = barcode[:2]
-    #if header not in BARCODE_HEADERS.get(barcode_type, ALL_VALID_BARCODE_HEADERS):
-    #    return f"barcode contains invalid header: '{header}'"
-    #barcode_check_err  = ""
-    #if "-" in barcode:
-    #    barcode_check_err = _check_new_barcode(barcode, beta2_mode)
-    #else:
-    #    barcode_check_err = _check_old_barcode(barcode)
-    return barcode
+    if len(barcode) != BARCODE_LEN:
+        return "barcode is incorrect length"
+    header = barcode[:2]
+    if header not in BARCODE_HEADERS.get(barcode_type, ALL_VALID_BARCODE_HEADERS):
+        return f"barcode contains invalid header: '{header}'"
+    if "-" in barcode:
+        barcode_check_err = _check_new_barcode(barcode, beta2_mode)
+    else:
+        barcode_check_err = _check_old_barcode(barcode)
+    return barcode_check_err
 
 
 def _check_new_barcode(barcode: str, beta2_mode: bool) -> str:
     # check if barcode is numeric
     if not (barcode[2:10] + barcode[-1]).isnumeric():
-        return f"barcode contains invalid char :'{barcode[2:10] + barcode[11]}'"
+        return "barcode contains invalid char"
     # check that dash is in correct index
     if barcode[10] != "-":
         return f"no dash at index 10, instead : '{barcode[10]}'"
@@ -181,16 +180,14 @@ def _check_new_barcode(barcode: str, beta2_mode: bool) -> str:
     if int(barcode[2:4]) < 22:
         return f"year is before 2022: '{barcode[2:4]}'"
     # check that day is a valid number
-    if not 1 < int(barcode[4:7]) < 366:
+    if not 0 < int(barcode[4:7]) < 366:
         return f"day is not valid: '{barcode[4:7]}'"
     # check experiment id is valid
     if not 0 <= int(barcode[7:10]) < 300:
         return f"experiment id is not valid: '{barcode[7:10]}'"
     # check if beta mode matches the last digit
-    if (beta2_mode and int(barcode[-1]) != 2) or (beta2_mode and int(barcode[-1]) != 1):
-        return (
-            f"beta mode does not match last digit: 'beta 2 mode : {beta2_mode} and last digit {barcode[-1]}'"
-        )
+    if (beta2_mode and int(barcode[-1]) != 2) or (not beta2_mode and int(barcode[-1]) != 1):
+        return "incorrect last digit"
     return ""
 
 
@@ -200,13 +197,13 @@ def _check_old_barcode(barcode: str) -> str:
             return f"barcode contains invalid character: '{char}'"
     if int(barcode[2:6]) < 2021:
         return f"barcode contains invalid year: '{barcode[2:6]}'"
-    if not 1 < int(barcode[6:9]) < 366:
+    if not 0 < int(barcode[6:9]) < 366:
         return f"barcode contains invalid Julian date: '{barcode[6:9]}'"
     return ""
 
 
-def check_barcode_is_valid(barcode: str) -> bool:
-    error_msg = check_barcode_for_errors(barcode)
+def check_barcode_is_valid(barcode: str, mode: bool) -> bool:
+    error_msg = check_barcode_for_errors(barcode, mode)
     return error_msg == ""
 
 
