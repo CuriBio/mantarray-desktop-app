@@ -157,21 +157,22 @@ def check_barcode_for_errors(barcode: str, beta2_mode: bool, barcode_type: Optio
     barcode_type kwarg should always be given unless checking a scanned
     barcode value.
     """
-    if len(barcode) != BARCODE_LEN:
-        return "barcode is incorrect length"
-    header = barcode[:2]
-    if header not in BARCODE_HEADERS.get(barcode_type, ALL_VALID_BARCODE_HEADERS):
-        return f"barcode contains invalid header: '{header}'"
-    if "-" in barcode:
-        _check_new_barcode(barcode, beta2_mode)
-    else:
-        _check_old_barcode(barcode)
-    return ""
+    #if len(barcode) != BARCODE_LEN:
+    #    return "barcode is incorrect length"
+    #header = barcode[:2]
+    #if header not in BARCODE_HEADERS.get(barcode_type, ALL_VALID_BARCODE_HEADERS):
+    #    return f"barcode contains invalid header: '{header}'"
+    #barcode_check_err  = ""
+    #if "-" in barcode:
+    #    barcode_check_err = _check_new_barcode(barcode, beta2_mode)
+    #else:
+    #    barcode_check_err = _check_old_barcode(barcode)
+    return barcode
 
 
 def _check_new_barcode(barcode: str, beta2_mode: bool) -> str:
     # check if barcode is numeric
-    if not (barcode[2:10] + barcode[11]).isnumeric():
+    if not (barcode[2:10] + barcode[-1]).isnumeric():
         return f"barcode contains invalid char :'{barcode[2:10] + barcode[11]}'"
     # check that dash is in correct index
     if barcode[10] != "-":
@@ -186,7 +187,7 @@ def _check_new_barcode(barcode: str, beta2_mode: bool) -> str:
     if not 0 <= int(barcode[7:10]) < 300:
         return f"experiment id is not valid: '{barcode[7:10]}'"
     # check if beta mode matches the last digit
-    if (beta2_mode and barcode[-1] != 2) or (beta2_mode and barcode[-1] != 1):
+    if (beta2_mode and int(barcode[-1]) != 2) or (beta2_mode and int(barcode[-1]) != 1):
         return (
             f"beta mode does not match last digit: 'beta 2 mode : {beta2_mode} and last digit {barcode[-1]}'"
         )
