@@ -188,6 +188,7 @@ def _check_new_barcode(barcode: str, is_beta2_mode: bool) -> str:
     # check if beta mode matches the last digit
     if (is_beta2_mode and barcode[-1] != 2) or (is_beta2_mode and barcode[-1] != 1):
         return f"beta mode does not match last digit: 'beta 2 mode : {is_beta2_mode} and last digit {barcode[-1]}'"
+    return ""
 
 
 def _check_old_barcode(barcode: str) -> str:
