@@ -724,6 +724,81 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
 @pytest.mark.parametrize(
     "test_barcode,expected_error_message",
     [
+        ("ML222123199-1", "barcode is incorrect length"),
+        ("ML222-1", "barcode is incorrect length"),
+        ("MA22123199-1", "barcode contains invalid header: 'MA'"),
+        ("MB22123199-1", "barcode contains invalid header: 'MB'"),
+        ("ME22123199-1", "barcode contains invalid header: 'ME'"),
+        ("ML221$3199-1", "barcode contains invalid char"),
+        ("ML20123199-1", "year is before 2022: '20'"),
+        ("ML22444199-1", "day is not valid: '444'"),
+        ("ML22123999-1", "experiment id is not valid: '999'"),
+        ("ML22123199-2", "incorrect last digit"),
+    ],
+)
+def test_start_recording__returns_error_code_and_message_if_new_barcode_beta1_mode_scheme_is_invalid(
+    test_barcode,
+    expected_error_message,
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = False
+
+    shared_values_dict["stimulation_running"] = [True] * 24
+
+    barcodes = {
+        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
+    }
+
+    barcodes["plate_barcode"] = test_barcode
+
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
+    assert response.status_code == 400
+    assert response.status.endswith(f"Plate {expected_error_message}") is True
+
+
+@pytest.mark.parametrize("test_barcode_type", ["Stim", "Plate"])
+@pytest.mark.parametrize(
+    "test_barcode,expected_error_message",
+    [
+        ("M*222123199-1", "barcode is incorrect length"),
+        ("M*222-1", "barcode is incorrect length"),
+        ("MA22123199-2", "barcode contains invalid header: 'MA'"),
+        ("MB22123199-2", "barcode contains invalid header: 'MB'"),
+        ("ME22123199-2", "barcode contains invalid header: 'ME'"),
+        ("M*221$3199-2", "barcode contains invalid char"),
+        ("M*20123199-2", "year is before 2022: '20'"),
+        ("M*22444199-2", "day is not valid: '444'"),
+        ("M*22123999-2", "experiment id is not valid: '999'"),
+        ("M*22123199-1", "incorrect last digit"),
+    ],
+)
+def test_start_recording__returns_error_code_and_message_if_new_barcode_beta2_mode_scheme_is_invalid(
+    test_barcode_type,
+    test_barcode,
+    expected_error_message,
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    shared_values_dict["stimulation_running"] = [True] * 24
+
+    barcodes = {
+        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
+    }
+    barcode_type_letter = "S" if test_barcode_type == "Stim" else "L"
+    barcodes[f"{test_barcode_type.lower()}_barcode"] = test_barcode.replace("*", barcode_type_letter)
+
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
+    assert response.status_code == 400
+    assert response.status.endswith(f"{test_barcode_type} {expected_error_message}") is True
+
+
+@pytest.mark.parametrize(
+    "test_barcode,expected_error_message",
+    [
         (MantarrayMcSimulator.default_stim_barcode, "Plate barcode contains invalid header: 'MS'"),
         (MantarrayMcSimulator.default_plate_barcode, "Stim barcode contains invalid header: 'ML'"),
     ],

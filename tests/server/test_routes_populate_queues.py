@@ -821,19 +821,19 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_correct_wel
     [
         (
             MantarrayMcSimulator.default_plate_barcode,
-            MantarrayMcSimulator.default_plate_barcode[:-1] + "2",
+            MantarrayMcSimulator.default_plate_barcode.replace("000", "001"),
             False,
             "correctly sets value to False with scanned barcode present",
         ),
         (
             "",
-            MantarrayMcSimulator.default_plate_barcode[:-1] + "2",
+            MantarrayMcSimulator.default_plate_barcode,
             False,
             "correctly sets value to False after barcode scan fails",
         ),
         (
             None,
-            MantarrayMcSimulator.default_plate_barcode[:-1] + "2",
+            MantarrayMcSimulator.default_plate_barcode,
             False,
             "correctly sets value to False without scanned barcode present",
         ),
@@ -884,19 +884,19 @@ def test_start_recording_command__correctly_sets_plate_barcode_from_scanner_valu
     [
         (
             MantarrayMcSimulator.default_stim_barcode,
-            MantarrayMcSimulator.default_stim_barcode[:-1] + "2",
+            MantarrayMcSimulator.default_stim_barcode.replace("000", "001"),
             False,
             "correctly sets value to False with scanned barcode present",
         ),
         (
             "",
-            MantarrayMcSimulator.default_stim_barcode[:-1] + "2",
+            MantarrayMcSimulator.default_stim_barcode,
             False,
             "correctly sets value to False after barcode scan fails",
         ),
         (
             None,
-            MantarrayMcSimulator.default_stim_barcode[:-1] + "2",
+            MantarrayMcSimulator.default_stim_barcode,
             False,
             "correctly sets value to False without scanned barcode present",
         ),

@@ -854,7 +854,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             barcode = packet_payload[1:].decode("ascii") if plate_was_placed else ""
             barcode_comm = {"communication_type": "barcode_comm", "board_idx": board_idx, "barcode": barcode}
             if plate_was_placed:
-                barcode_comm["valid"] = check_barcode_is_valid(barcode)
+                barcode_comm["valid"] = check_barcode_is_valid(barcode, True)
             self._board_queues[board_idx][1].put_nowait(barcode_comm)
         elif packet_type == SERIAL_COMM_STIM_STATUS_PACKET_TYPE:
             raise NotImplementedError("Should never receive stim status packets when not stimulating")
@@ -881,7 +881,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 "communication_type": "barcode_comm",
                 "board_idx": board_idx,
                 "barcode": barcode,
-                "valid": check_barcode_is_valid(barcode),
+                "valid": check_barcode_is_valid(barcode, True),
             }
             self._board_queues[board_idx][1].put_nowait(barcode_comm)
         else:
