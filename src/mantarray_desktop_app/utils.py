@@ -394,6 +394,7 @@ def upload_log_files_to_s3(config_settings: Dict[str, str]) -> None:
 
     with tempfile.TemporaryDirectory() as zipped_dir:
         try:
+            # TODO Tanner (7/8/22): figure out why this isn't working
             file_uploader = FileUploader(
                 file_directory, sub_dir_name, zipped_dir, customer_id, user_name, user_password
             )

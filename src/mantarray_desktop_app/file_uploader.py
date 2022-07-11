@@ -92,8 +92,8 @@ def upload_file_to_s3(file_path: str, file_name: str, upload_details: Dict[Any, 
         file_name: zip file name.
         upload_details: dictionary containing post specific parameters.
     """
-    with open(file_path, "rb") as file_to_upload:
-        files = {"file": (file_name, file_to_upload)}
+    with open(file_path, "rb") as file_handle:
+        files = {"file": (file_name, file_handle)}
         response = requests.post(
             upload_details["params"]["url"], data=upload_details["params"]["fields"], files=files
         )
