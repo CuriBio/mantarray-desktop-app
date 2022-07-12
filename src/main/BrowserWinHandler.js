@@ -1,6 +1,7 @@
 /* eslint-disable */
 import { EventEmitter } from "events";
 import { BrowserWindow, app, screen, ipcMain } from "electron";
+
 const isProduction = process.env.NODE_ENV === "production";
 
 import main_utils from "./utils.js"; // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
@@ -46,9 +47,14 @@ export default class BrowserWinHandler {
     console.log("Screen size scale factor: " + scale_factor); // allow-log
     const { width, height } = screen.getPrimaryDisplay().workAreaSize;
     console.log("Sceen work area width " + width + " height " + height); // allow-log
-    this.options.height = parseInt(this.options.height / scale_factor);
-    this.options.width = parseInt(this.options.width / scale_factor);
-    this.options.webPreferences.zoomFactor = parseInt(this.options.webPreferences.zoomFactor / scale_factor);
+    if (process.platform === "win32") {
+      this.options.height = parseInt(this.options.height / scale_factor);
+      this.options.width = parseInt(this.options.width / scale_factor);
+    } else {
+      this.options.height = height;
+      this.options.width = width;
+    }
+    this.options.webPreferences.zoomFactor = this.options.webPreferences.zoomFactor / scale_factor;
 
     this.browserWindow = new BrowserWindow({
       ...this.options,
