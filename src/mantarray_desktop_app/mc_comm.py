@@ -1257,7 +1257,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._performance_tracking_values[metric_name].append(metric_value)
 
     def _handle_performance_logging(self) -> None:
-        if logging.DEBUG >= self._logging_level:  # pragma no cover
+        if logging.DEBUG >= self._logging_level:  # pragma: no cover
             performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
             for metric_name, metric_values in self._performance_tracking_values.items():
                 performance_metrics[metric_name] = None

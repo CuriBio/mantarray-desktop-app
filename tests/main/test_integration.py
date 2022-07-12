@@ -115,7 +115,6 @@ from stdlib_utils import confirm_port_available
 from ..fixtures import fixture_fully_running_app_from_main_entrypoint
 from ..fixtures import fixture_patched_firmware_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
-from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import WELL_DEF_24
@@ -1047,7 +1046,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
         # Tanner (7/14/21): Beta 2 data packets are currently sent once per second, so there should be at least one data packet for every second needed to run analysis, but sometimes the final data packet doesn't get sent in time
         assert len(msg_list_container["waveform_data"]) >= MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 1
-        confirm_queue_is_eventually_empty(da_out, timeout=QUEUE_CHECK_TIMEOUT_SECONDS * 3)
+        confirm_queue_is_eventually_empty(da_out, timeout_seconds=5)
 
         # Tanner (10/22/21): Stop stimulation
         response = requests.post(f"{get_api_endpoint()}set_stim_status?running=false")
@@ -1083,7 +1082,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
 
-        time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
+        time.sleep(10)  # Tanner (6/15/20): This allows data to be written to files
 
         expected_stop_index_2 = expected_start_index_2 + int(1.5e6)
         response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_2}")
@@ -1099,7 +1098,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
-        confirm_queue_is_eventually_empty(da_out, timeout=QUEUE_CHECK_TIMEOUT_SECONDS * 3)
+        confirm_queue_is_eventually_empty(da_out, timeout_seconds=5)
 
         # Tanner (6/19/21): disconnect here to avoid problems with attempting to disconnect after the server stops
         sio.disconnect()
