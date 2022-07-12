@@ -177,6 +177,9 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_1_dat
 
     mocker.patch.object(data_analyzer, "get_force_signal", autospec=True, return_value=np.zeros((2, 2)))
 
+    # set log level to debug performance metrics are created and sent to main
+    da_process._logging_level = logging.DEBUG
+
     expected_num_iterations = 10
     expected_iteration_dur = 0.001 * 10**9
     expected_idle_time = expected_iteration_dur * expected_num_iterations
@@ -248,6 +251,9 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_dat
     to_main_queue = four_board_analyzer_process_beta_2_mode["to_main_queue"]
     from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
     board_queues = four_board_analyzer_process_beta_2_mode["board_queues"]
+
+    # set log level to debug performance metrics are created and sent to main
+    da_process._logging_level = logging.DEBUG
 
     # perform setup so performance logging values are initialized
     invoke_process_run_and_check_errors(da_process, perform_setup_before_loop=True)
@@ -324,6 +330,10 @@ def test_DataAnalyzerProcess__does_not_include_performance_metrics_in_first_logg
     mocker.patch.object(data_analyzer, "get_force_signal", autospec=True, return_value=np.zeros((2, 2)))
 
     da_process, _, _, to_main_queue, _, _ = four_board_analyzer_process
+
+    # set log level to debug performance metrics are created and sent to main
+    da_process._logging_level = logging.DEBUG
+
     da_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
     data_buffer = da_process._data_buffer  # pylint: disable=protected-access
     for i in range(24):
@@ -335,7 +345,6 @@ def test_DataAnalyzerProcess__does_not_include_performance_metrics_in_first_logg
     actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual = actual["message"]
     assert "percent_use_metrics" not in actual
-    assert "data_creation_duration_metrics" not in actual
 
 
 def test_DataAnalyzerProcess__processes_set_sampling_period_command(

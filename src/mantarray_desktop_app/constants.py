@@ -25,7 +25,7 @@ from .arch_utils import is_cpu_arm
 
 try:
     from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
-except ImportError:
+except ImportError:  # no sec  # pragma: no cover
     if not is_cpu_arm():
         raise
     DATA_FRAMES_PER_ROUND_ROBIN = 1

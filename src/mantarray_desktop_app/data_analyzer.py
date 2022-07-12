@@ -55,6 +55,7 @@ from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from .constants import MM_PER_MT_Z_AXIS_SENSOR_0
+from .constants import PERFOMANCE_LOGGING_PERIOD_SECS
 from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
@@ -248,7 +249,9 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._comm_from_main_queue = comm_from_main_queue
         self._comm_to_main_queue = comm_to_main_queue
         # data streaming values
-        self._end_of_data_stream_reached: List[Optional[bool]] = [False] * len(self._board_queues)
+        self._end_of_data_stream_reached: Tuple[Dict[str, bool], ...] = tuple(
+            {"mag": False, "stim": False} for _ in range(len(self._board_queues))
+        )
         self._data_buffer: Dict[int, Dict[str, Any]] = dict()
         for well_idx in range(24):
             self._data_buffer[well_idx] = {"construct_data": None, "ref_data": None}
@@ -391,11 +394,13 @@ class DataAnalyzerProcess(InfiniteProcess):
         elif communication_type == "acquisition_manager":
             if communication["command"] == "start_managed_acquisition":
                 if not self._beta_2_mode:
-                    self._end_of_data_stream_reached[0] = False
+                    self._end_of_data_stream_reached[0]["mag"] = False
+                    self._end_of_data_stream_reached[0]["stim"] = False
                 drain_queue(self._board_queues[0][1])
                 self._well_offsets = [None] * 24
             elif communication["command"] == "stop_managed_acquisition":
-                self._end_of_data_stream_reached[0] = True
+                self._end_of_data_stream_reached[0]["mag"] = True
+                self._end_of_data_stream_reached[0]["stim"] = True
                 for well_index in range(24):
                     self._data_buffer[well_index] = {"construct_data": None, "ref_data": None}
                 self.init_streams()
@@ -423,8 +428,8 @@ class DataAnalyzerProcess(InfiniteProcess):
         data_type = "magnetometer" if not self._beta_2_mode else packet["data_type"]
         if data_type == "magnetometer":
             if self._beta_2_mode and packet["is_first_packet_of_stream"]:
-                self._end_of_data_stream_reached[0] = False
-            if self._end_of_data_stream_reached[0]:
+                self._end_of_data_stream_reached[0]["mag"] = False
+            if self._end_of_data_stream_reached[0]["mag"]:
                 return
 
             if self._beta_2_mode:
@@ -436,6 +441,10 @@ class DataAnalyzerProcess(InfiniteProcess):
                     self._data_analysis_streams[well_idx][0].emit(packet["data"])
                 self._load_memory_into_buffer(packet)
         elif data_type == "stimulation":
+            if packet["is_first_packet_of_stream"]:
+                self._end_of_data_stream_reached[0]["stim"] = False
+            if self._end_of_data_stream_reached[0]["stim"]:
+                return
             self._process_stim_packet(packet)
         else:
             raise NotImplementedError(f"Invalid data type from File Writer Process: {data_type}")
@@ -639,7 +648,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 self._mag_analysis_active_thread = dict()
                 self._mag_analysis_thread_list = list()
 
-    def _handle_performance_logging(self) -> None:
+    def _handle_performance_logging(self) -> None:  # pragma: no cover
         if logging.DEBUG >= self._logging_level:
             performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
             tracker = self.reset_performance_tracker()
@@ -650,18 +659,16 @@ class DataAnalyzerProcess(InfiniteProcess):
             if len(self._percent_use_values) > 1:
                 performance_metrics["percent_use_metrics"] = self.get_percent_use_metrics()
             name_measurement_list = list()
-            if len(self._outgoing_data_creation_durations) > 1:
+            if len(self._outgoing_data_creation_durations) >= 1:
                 name_measurement_list.append(
                     ("data_creation_duration_metrics", self._outgoing_data_creation_durations)
                 )
-            if len(self._data_analysis_durations) > 1:
+            if len(self._data_analysis_durations) >= 1:
                 name_measurement_list.append(
                     ("data_analysis_duration_metrics", self._data_analysis_durations)
                 )
 
-            da_measurements: List[
-                Union[int, float]
-            ]  # Tanner (5/28/20): This type annotation is necessary for mypy to not incorrectly type this variable
+            da_measurements: List[Union[int, float]]
             for name, da_measurements in name_measurement_list:
                 performance_metrics[name] = create_metrics_stats(da_measurements)
             put_log_message_into_queue(
@@ -670,7 +677,10 @@ class DataAnalyzerProcess(InfiniteProcess):
                 self._comm_to_main_queue,
                 self.get_logging_level(),
             )
-        self._reset_performance_tracking_values()
+            if len(self._outgoing_data_creation_durations) >= PERFOMANCE_LOGGING_PERIOD_SECS:
+                self._reset_performance_tracking_values()
+        else:
+            self._reset_performance_tracking_values()
 
     def _dump_data_into_queue(self, outgoing_data: Dict[str, Any]) -> None:
         timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")

@@ -862,7 +862,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             barcode = packet_payload[1:].decode("ascii") if plate_was_placed else ""
             barcode_comm = {"communication_type": "barcode_comm", "board_idx": board_idx, "barcode": barcode}
             if plate_was_placed:
-                barcode_comm["valid"] = check_barcode_is_valid(barcode)
+                barcode_comm["valid"] = check_barcode_is_valid(barcode, True)
             self._board_queues[board_idx][1].put_nowait(barcode_comm)
         elif packet_type == SERIAL_COMM_STIM_STATUS_PACKET_TYPE:
             raise NotImplementedError("Should never receive stim status packets when not stimulating")
@@ -889,7 +889,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 "communication_type": "barcode_comm",
                 "board_idx": board_idx,
                 "barcode": barcode,
-                "valid": check_barcode_is_valid(barcode),
+                "valid": check_barcode_is_valid(barcode, True),
             }
             self._board_queues[board_idx][1].put_nowait(barcode_comm)
         else:
@@ -1026,7 +1026,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 StimulationStatusUpdateFailedError,
                 FirmwareUpdateCommandFailedError,
             ):
-                raise  # TODO unit test
+                raise
             except Exception as e:
                 raise SerialCommCommandProcessingError(
                     f"Timestamp: {timestamp}, Packet Type: {packet_type}, Payload: {packet_payload}"
@@ -1042,7 +1042,6 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _handle_mag_data_packets(self, mag_stream_info: Dict[str, Union[bytes, int]]) -> None:
         # don't update cache if not streaming or there are no packets to add
         if not (self._is_data_streaming and mag_stream_info["num_packets"]):
-            # TODO make sure this is unit tested
             return
         # update cache values
         for key, value in mag_stream_info.items():
@@ -1258,7 +1257,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._performance_tracking_values[metric_name].append(metric_value)
 
     def _handle_performance_logging(self) -> None:
-        if logging.DEBUG >= self._logging_level:
+        if logging.DEBUG >= self._logging_level:  # pragma: no cover
             performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
             for metric_name, metric_values in self._performance_tracking_values.items():
                 performance_metrics[metric_name] = None

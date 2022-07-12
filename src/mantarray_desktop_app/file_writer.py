@@ -862,7 +862,7 @@ class FileWriterProcess(InfiniteProcess):
 
     def _process_magnetometer_data_packet(self, data_packet: Dict[Any, Any]) -> None:
         # Tanner (5/25/21): Creating this log message takes a long time so only do it if we are actually logging. TODO: Should probably refactor this function to something more efficient eventually
-        if logging.DEBUG >= self.get_logging_level():  # pragma: no cover
+        if logging.DEBUG >= self.get_logging_level() and self._beta_2_mode:  # pragma: no cover
             num_data_points = data_packet["time_indices"].shape[0]
             data_packet_info = {
                 "num_data_points": num_data_points,
@@ -1138,7 +1138,7 @@ class FileWriterProcess(InfiniteProcess):
             well_buffers[1].clear()
 
     def _handle_performance_logging(self) -> None:
-        if logging.DEBUG >= self._logging_level:
+        if logging.DEBUG >= self._logging_level:  # pragma: no cover
             performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
             performance_tracker = self.reset_performance_tracker()
             performance_metrics["percent_use"] = performance_tracker["percent_use"]
@@ -1146,9 +1146,7 @@ class FileWriterProcess(InfiniteProcess):
             if len(self._percent_use_values) > 1:
                 performance_metrics["percent_use_metrics"] = self.get_percent_use_metrics()
             if len(self._num_recorded_points) > 1 and len(self._recording_durations) > 1:
-                fw_measurements: List[
-                    Union[int, float]
-                ]  # Tanner (5/28/20): This type annotation and the 'ignore' on the following line are necessary for mypy to not incorrectly type this variable
+                fw_measurements: List[Union[int, float]]
                 for name, fw_measurements in (  # type: ignore
                     ("num_recorded_data_points_metrics", self._num_recorded_points),
                     ("recording_duration_metrics", self._recording_durations),
@@ -1280,20 +1278,26 @@ class FileWriterProcess(InfiniteProcess):
     def _process_update_name_command(self, comm: Dict[str, str]) -> None:
         """Rename recording directory and h5 files to kick off auto upload."""
         # only perform if new name is different from the original default name
-        if self._current_recording_dir == comm["default_name"] != comm["new_name"]:
-            old_recording_path = os.path.join(self._file_directory, self._current_recording_dir)
-            new_recording_path = os.path.join(self._file_directory, comm["new_name"])
-            # rename directory
-            if os.path.exists(old_recording_path):
-                os.rename(old_recording_path, new_recording_path)
-                self._current_recording_dir = comm["new_name"]
 
-                for filename in os.listdir(new_recording_path):
-                    # replace everything but the well name
-                    new_filename = filename.replace(comm["default_name"], comm["new_name"])
-                    old_file_path = os.path.join(new_recording_path, filename)
-                    new_file_path = os.path.join(new_recording_path, new_filename)
-                    os.rename(old_file_path, new_file_path)
+        if self._current_recording_dir == comm["default_name"] != comm["new_name"]:
+            new_recording_path = os.path.join(self._file_directory, comm["new_name"])
+            if os.path.exists(new_recording_path):
+                # remove current recording if it already exists
+                shutil.rmtree(new_recording_path)
+
+            old_recording_path = os.path.join(self._file_directory, self._current_recording_dir)
+            # if os.path.exists(old_recording_path):
+
+            # rename directory
+            os.rename(old_recording_path, new_recording_path)
+            self._current_recording_dir = comm["new_name"]
+
+            for filename in os.listdir(new_recording_path):
+                # replace everything but the well name
+                new_filename = filename.replace(comm["default_name"], comm["new_name"])
+                old_file_path = os.path.join(new_recording_path, filename)
+                new_file_path = os.path.join(new_recording_path, new_filename)
+                os.rename(old_file_path, new_file_path)
 
         # after all files are finalized, upload them if necessary
         if self._user_settings["auto_upload_on_completion"]:

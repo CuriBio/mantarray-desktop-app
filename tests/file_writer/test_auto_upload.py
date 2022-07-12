@@ -202,6 +202,44 @@ def test_FileWriterProcess__does_not_join_upload_thread_if_alive(four_board_file
     spied_join.assert_not_called()
 
 
+@pytest.mark.parametrize("recording_name_exists", [True, False])
+def test_FileWriterProcess__checks_for_and_removes_existing_recording_path_correctly(
+    recording_name_exists, four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    mocker.patch.object(file_writer.ErrorCatchingThread, "start", autospec=True)
+    mocker.patch.object(file_writer.ErrorCatchingThread, "is_alive", autospec=True, return_value=True)
+
+    update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+    update_user_settings_command["config_settings"]["auto_upload_on_completion"] = False
+    update_user_settings_command["config_settings"]["auto_delete_local_files"] = False
+    create_and_close_beta_1_h5_files(four_board_file_writer_process, update_user_settings_command)
+
+    update_recording_name_command = copy.deepcopy(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
+    update_recording_name_command["default_name"] = file_writer_process._current_recording_dir
+
+    mocked_exists = mocker.patch.object(
+        file_writer.os.path, "exists", autospec=True, return_value=recording_name_exists
+    )
+    mocked_rmtree = mocker.patch.object(file_writer.shutil, "rmtree", autospec=True)
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        update_recording_name_command, from_main_queue
+    )
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    expected_recording_path = os.path.join(
+        file_writer_process._file_directory, update_recording_name_command["new_name"]
+    )
+    mocked_exists.assert_called_once_with(expected_recording_path)
+    if recording_name_exists:
+        mocked_rmtree.assert_called_once_with(expected_recording_path)
+    else:
+        mocked_rmtree.assert_not_called()
+
+
 def test_FileWriterProcess__upload_thread_gets_added_to_container_after_all_files_get_finalized(
     four_board_file_writer_process, mocker
 ):

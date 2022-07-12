@@ -391,6 +391,11 @@ def test_McCommunicationProcess__raises_error_if_status_beacon_not_received_in_a
             False,
             "sends correct message to main when plate with invalid barcode is placed",
         ),
+        (
+            "M$22123199-2",
+            False,
+            "sends correct message to main when plate with invalid barcode is placed",
+        ),
     ],
 )
 def test_McCommunicationProcess__handles_plate_event(

@@ -2,6 +2,7 @@
 import copy
 import datetime
 from random import randint
+import struct
 
 from freezegun import freeze_time
 from mantarray_desktop_app import mc_simulator
@@ -12,6 +13,9 @@ from mantarray_desktop_app import StimulationProtocolUpdateFailedError
 from mantarray_desktop_app import StimulationProtocolUpdateWhileStimulatingError
 from mantarray_desktop_app import StimulationStatusUpdateFailedError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+from mantarray_desktop_app.constants import SERIAL_COMM_PAYLOAD_INDEX
+from mantarray_desktop_app.constants import STIM_MODULE_ID_TO_WELL_IDX
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.serial_comm_utils import convert_adc_readings_to_circuit_status
 import numpy as np
@@ -101,10 +105,20 @@ def test_McCommunicationProcess__processes_start_stim_checks_command__and_sends_
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(start_stim_checks_command), input_queue
     )
+
+    spied_write = mocker.spy(simulator, "write")
+
     invoke_process_run_and_check_errors(mc_process)
+
+    # make sure each well's value is set based on if a protocol is assigned correctly
+    bytes_sent = spied_write.call_args[0][0]
+    well_val_bytes = bytes_sent[SERIAL_COMM_PAYLOAD_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
+    for module_id, well_val in enumerate(struct.unpack(f"<{num_wells}?", well_val_bytes), 1):
+        well_idx = STIM_MODULE_ID_TO_WELL_IDX[module_id]
+        assert well_val is (well_idx in test_well_indices), well_idx
+
     # process command and send response
     invoke_process_run_and_check_errors(simulator)
-    # TODO assert command was sent to simulator with correct info
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(output_queue, 1)
     msg_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)

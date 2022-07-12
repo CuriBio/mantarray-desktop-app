@@ -74,6 +74,9 @@ from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_e
 WELL_DEF_24 = LabwareDefinition(row_count=4, column_count=6)
 
 
+# TODO make everything in here immutabledicts
+
+
 GENERIC_ADC_OFFSET_VALUES: Dict[int, Dict[str, int]] = dict()
 for this_well_idx in range(24):
     GENERIC_ADC_OFFSET_VALUES[this_well_idx] = {
@@ -120,7 +123,6 @@ GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
         USER_ACCOUNT_ID_UUID: CURI_BIO_USER_ACCOUNT_ID,
         SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
         SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
-        PLATE_BARCODE_UUID: MantarrayMcSimulator.default_plate_barcode,  # this will work for beta 1 as well
         BACKEND_LOG_UUID: uuid.UUID("9a3d03f2-1f5a-4ecd-b843-0dc9ecde5f67"),
         COMPUTER_NAME_HASH_UUID: hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest(),
         PLATE_BARCODE_IS_FROM_SCANNER_UUID: True,
@@ -134,6 +136,7 @@ GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
             "metadata_to_copy_onto_main_file_attributes"
         ][UTC_BEGINNING_DATA_ACQUISTION_UUID]
         + datetime.timedelta(seconds=(298518 * 125 / CENTIMILLISECONDS_PER_SECOND)),
+        PLATE_BARCODE_UUID: RunningFIFOSimulator.default_barcode,
         MAIN_FIRMWARE_VERSION_UUID: RunningFIFOSimulator.default_firmware_version,
         SLEEP_FIRMWARE_VERSION_UUID: "0.0.0",
         MANTARRAY_SERIAL_NUMBER_UUID: RunningFIFOSimulator.default_mantarray_serial_number,
@@ -157,6 +160,7 @@ GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
             "metadata_to_copy_onto_main_file_attributes"
         ][UTC_BEGINNING_DATA_ACQUISTION_UUID]
         + datetime.timedelta(seconds=(298518 * 125 / MICRO_TO_BASE_CONVERSION)),
+        PLATE_BARCODE_UUID: MantarrayMcSimulator.default_plate_barcode,
         MAIN_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_main_firmware_version,
         CHANNEL_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_channel_firmware_version,
         MANTARRAY_SERIAL_NUMBER_UUID: MantarrayMcSimulator.default_mantarray_serial_number,
@@ -226,9 +230,14 @@ def open_the_generic_h5_file(
 ) -> h5py._hl.files.File:  # pylint: disable=protected-access # this is the only type definition Eli (2/24/20) could find for a File
     if timestamp_str is None:
         timestamp_str = "2020_02_09_190935" if beta_version == 1 else "2020_02_09_190359"
-    plate_barcode = GENERIC_BASE_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        PLATE_BARCODE_UUID
-    ]
+    if beta_version == 1:
+        plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+            PLATE_BARCODE_UUID
+        ]
+    else:
+        plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+            PLATE_BARCODE_UUID
+        ]
 
     actual_file = h5py.File(
         os.path.join(
@@ -245,9 +254,14 @@ def open_the_generic_h5_file_as_WellFile(
     file_dir: str, well_name: str = "A2", beta_version: int = 1
 ) -> WellFile:
     timestamp_str = "2020_02_09_190935" if beta_version == 1 else "2020_02_09_190359"
-    plate_barcode = GENERIC_BASE_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        PLATE_BARCODE_UUID
-    ]
+    if beta_version == 1:
+        plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+            PLATE_BARCODE_UUID
+        ]
+    else:
+        plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+            PLATE_BARCODE_UUID
+        ]
 
     actual_file = WellFile(
         os.path.join(

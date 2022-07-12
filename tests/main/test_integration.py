@@ -115,7 +115,6 @@ from stdlib_utils import confirm_port_available
 from ..fixtures import fixture_fully_running_app_from_main_entrypoint
 from ..fixtures import fixture_patched_firmware_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
-from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import WELL_DEF_24
@@ -495,10 +494,8 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
 
-        # Tanner (12/29/20): Use new barcode for second set of recordings
-        expected_plate_barcode_2 = (
-            expected_plate_barcode_1[:-1] + "2"
-        )  # change last char of default barcode from '1' to '2'
+        # Tanner (12/29/20): Use new barcode for second set of recordings, change last char of default barcode from '1' to '2'
+        expected_plate_barcode_2 = expected_plate_barcode_1[:-1] + "2"
         # Tanner (12/30/20): Start recording with barcode2 to create second set of files. Use known timepoint a just after end of first set of data
         expected_start_index_2 = expected_stop_index_1 + 1
         start_recording_params_2 = {
@@ -644,8 +641,8 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                         ][COMPUTER_NAME_HASH_UUID]
                     )
                     assert this_file.attrs[str(PLATE_BARCODE_UUID)] == expected_plate_barcode_1
-                    # Tanner (1/12/21): The barcode used for testing (which is passed to start_recording route) is different than the simulator's barcode (the one that is 'scanned' in this test), so this should result to False
-                    assert bool(this_file.attrs[str(PLATE_BARCODE_IS_FROM_SCANNER_UUID)]) is False
+                    # Tanner (1/12/21): The barcode used for testing (which is passed to start_recording route) is the same as the simulator's barcode (the one that is 'scanned' in this test), so this should result to True
+                    assert bool(this_file.attrs[str(PLATE_BARCODE_IS_FROM_SCANNER_UUID)]) is True
 
         # Tanner (12/30/20): test second recording (only make sure it contains waveform data)
         for row_idx in range(4):
@@ -1049,7 +1046,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
         # Tanner (7/14/21): Beta 2 data packets are currently sent once per second, so there should be at least one data packet for every second needed to run analysis, but sometimes the final data packet doesn't get sent in time
         assert len(msg_list_container["waveform_data"]) >= MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 1
-        confirm_queue_is_eventually_empty(da_out, timeout=QUEUE_CHECK_TIMEOUT_SECONDS * 3)
+        confirm_queue_is_eventually_empty(da_out, timeout_seconds=5)
 
         # Tanner (10/22/21): Stop stimulation
         response = requests.post(f"{get_api_endpoint()}set_stim_status?running=false")
@@ -1068,8 +1065,8 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         assert stimulation_running_status_eventually_equals(True, 4) is True
 
-        # Tanner (6/1/21): Use new barcode for second set of recordings, change last char of default barcode from '1' to '2'
-        expected_plate_barcode_2 = expected_plate_barcode_1[:-1] + "2"
+        # Tanner (6/1/21): Use new barcode for second set of recordings, change experiment code from '000' to '001'
+        expected_plate_barcode_2 = expected_plate_barcode_1.replace("000", "001")
         # Tanner (5/25/21): Start at a different timepoint to create a different timestamp in the names of the second set of files
         expected_start_index_2 = (
             MICRO_TO_BASE_CONVERSION + NUM_INITIAL_PACKETS_TO_DROP * DEFAULT_SAMPLING_PERIOD
@@ -1085,7 +1082,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
 
-        time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
+        time.sleep(10)  # Tanner (6/15/20): This allows data to be written to files
 
         expected_stop_index_2 = expected_start_index_2 + int(1.5e6)
         response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_2}")
@@ -1101,7 +1098,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
-        confirm_queue_is_eventually_empty(da_out, timeout=QUEUE_CHECK_TIMEOUT_SECONDS * 3)
+        confirm_queue_is_eventually_empty(da_out, timeout_seconds=5)
 
         # Tanner (6/19/21): disconnect here to avoid problems with attempting to disconnect after the server stops
         sio.disconnect()

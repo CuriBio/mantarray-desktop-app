@@ -68,7 +68,7 @@ try:
     from xem_wrapper import FrontPanelSimulator
     from xem_wrapper import OpalKellyNoDeviceFoundError
     from xem_wrapper import open_board
-except ImportError:  # no sec
+except ImportError:  # no sec  # pragma: no cover
     if not is_cpu_arm():
         raise
 
@@ -636,7 +636,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
                 raise BarcodeScannerNotRespondingError()
 
             trimmed_barcode = _trim_barcode(barcode)
-            if check_barcode_is_valid(trimmed_barcode):
+            if check_barcode_is_valid(trimmed_barcode, False):
                 self._send_barcode_to_main(board_idx, trimmed_barcode, True)
                 return
             if scan_attempt == 1:

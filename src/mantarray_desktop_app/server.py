@@ -35,7 +35,6 @@ import json
 import logging
 import os
 from queue import Queue
-import shutil
 import threading
 from time import sleep
 from typing import Any
@@ -650,7 +649,7 @@ def start_recording() -> Response:
     # validate params separately
     for barcode_type in barcodes_to_check:
         barcode = request.args[barcode_type]
-        error_message = check_barcode_for_errors(barcode, barcode_type)
+        error_message = check_barcode_for_errors(barcode, shared_values_dict["beta_2_mode"], barcode_type)
         if error_message:
             barcode_label = barcode_type.split("_")[0].title()
             return Response(status=f"400 {barcode_label} {error_message}")
@@ -759,14 +758,8 @@ def update_recording_name() -> Response:
     default_recording_name = request.args["default_name"]
     dir_path = os.path.join(recording_dir, new_recording_name)
 
-    try:
-        request.args["replace_existing"]  # only gets sent if a user confirmed a rewrite
-    except KeyError:
-        if os.path.exists(dir_path):
-            return Response(status="403 Recording name already exists")
-    else:
-        # remove current recording if choosing to replace
-        shutil.rmtree(dir_path)
+    if not request.args.get("replace_existing") and os.path.exists(dir_path):
+        return Response(status="403 Recording name already exists")
 
     comm = {
         "communication_type": "recording",

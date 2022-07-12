@@ -464,7 +464,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         with self._lock:
             logger.info(msg)
 
-        command = communication.get("command", None)
+        command = communication.get("command")
 
         if communication_type == "acquisition_manager":
             if command == "start_managed_acquisition":

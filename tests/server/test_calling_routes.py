@@ -2,7 +2,6 @@
 import json
 import os
 from random import randint
-import shutil
 import tempfile
 import urllib
 
@@ -457,20 +456,6 @@ def test_update_recording_name__returns_200_if_recording_name_doesnt_exists(
     assert response.status_code == 200
 
 
-def test_update_recording_name__removes_directory_to_rewrite_if_replace_existing_is_present_in_params(
-    client_and_server_manager_and_shared_values, mocker
-):
-    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    shared_values_dict["config_settings"]["recording_directory"] = "/test/recording/directory"
-    shutil_mock = mocker.patch.object(shutil, "rmtree", autospec=True)
-
-    response = test_client.post(
-        "/update_recording_name?new_name=new_recording_name&default_name=old_name&replace_existing=true"
-    )
-    shutil_mock.assert_called_with(os.path.join("/test/recording/directory", "new_recording_name"))
-    assert response.status_code == 200
-
-
 def test_dev_begin_hardware_script__returns_correct_response(test_client):
     response = test_client.get("/development/begin_hardware_script?script_type=ENUM&version=integer")
     assert response.status_code == 200
@@ -739,6 +724,75 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = [True] * 24
+
+    barcodes = {
+        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
+    }
+    barcode_type_letter = "S" if test_barcode_type == "Stim" else "L"
+    barcodes[f"{test_barcode_type.lower()}_barcode"] = test_barcode.replace("*", barcode_type_letter)
+
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
+    assert response.status_code == 400
+    assert response.status.endswith(f"{test_barcode_type} {expected_error_message}") is True
+
+
+@pytest.mark.parametrize(
+    "test_barcode,expected_error_message",
+    [
+        ("ML222123199-1", "barcode is incorrect length"),
+        ("ML222-1", "barcode is incorrect length"),
+        ("MA22123199-1", "barcode contains invalid header: 'MA'"),
+        ("MB22123199-1", "barcode contains invalid header: 'MB'"),
+        ("ME22123199-1", "barcode contains invalid header: 'ME'"),
+        ("ML221$3199-1", "barcode contains invalid character: '$'"),
+        ("ML20123199-1", "barcode contains invalid year: '20'"),
+        ("ML22444199-1", "barcode contains invalid Julian date: '444'"),
+        ("ML22123999-1", "barcode contains invalid experiment id: '999'"),
+        ("ML22123199-2", "barcode contains invalid last digit: '2'"),
+    ],
+)
+def test_start_recording__returns_error_code_and_message_if_new_barcode_beta_1_mode_scheme_is_invalid(
+    test_barcode,
+    expected_error_message,
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = False
+
+    barcodes = {"plate_barcode": test_barcode}
+
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
+    assert response.status_code == 400
+    assert response.status.endswith(f"Plate {expected_error_message}") is True
+
+
+@pytest.mark.parametrize("test_barcode_type", ["Stim", "Plate"])
+@pytest.mark.parametrize(
+    "test_barcode,expected_error_message",
+    [
+        ("M*222123199-1", "barcode is incorrect length"),
+        ("M*222-1", "barcode is incorrect length"),
+        ("MA22123199-2", "barcode contains invalid header: 'MA'"),
+        ("MB22123199-2", "barcode contains invalid header: 'MB'"),
+        ("ME22123199-2", "barcode contains invalid header: 'ME'"),
+        ("M*221$3199-2", "barcode contains invalid character: '$'"),
+        ("M*20123199-2", "barcode contains invalid year: '20'"),
+        ("M*22444199-2", "barcode contains invalid Julian date: '444'"),
+        ("M*22123999-2", "barcode contains invalid experiment id: '999'"),
+        ("M*22123199-1", "barcode contains invalid last digit: '1'"),
+    ],
+)
+def test_start_recording__returns_error_code_and_message_if_new_barcode_beta_2_mode_scheme_is_invalid(
+    test_barcode_type,
+    test_barcode,
+    expected_error_message,
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
     shared_values_dict["stimulation_running"] = [True] * 24
 
     barcodes = {
