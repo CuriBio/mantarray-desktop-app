@@ -9,6 +9,7 @@ from mantarray_desktop_app import file_uploader
 from mantarray_desktop_app import web_api_utils
 from mantarray_desktop_app.constants import CLOUD_PULSE3D_ENDPOINT
 from mantarray_desktop_app.exceptions import CloudAnalysisJobFailedError
+from mantarray_desktop_app.exceptions import PresignedUploadFailedError
 from mantarray_desktop_app.file_uploader import create_zip_file
 from mantarray_desktop_app.file_uploader import download_analysis_from_s3
 from mantarray_desktop_app.file_uploader import FileUploader
@@ -80,7 +81,7 @@ def test_get_upload_details__requests_and_returns_upload_details_correctly(
     actual = get_upload_details(test_access_token, TEST_FILENAME, test_file_md5, upload_type)
     mocked_post.assert_called_once_with(
         f"https://{CLOUD_PULSE3D_ENDPOINT}/{expected_route}",
-        json={"filename": TEST_FILENAME, "md5s": test_file_md5},
+        json={"filename": TEST_FILENAME, "md5s": test_file_md5, "upload_type": "mantarray"},
         headers={"Authorization": f"Bearer {test_access_token}"},
     )
     assert actual == expected_upload_details
@@ -89,6 +90,8 @@ def test_get_upload_details__requests_and_returns_upload_details_correctly(
 def test_upload_file_to_s3__uploads_file_correctly(mocker):
     mocked_open = mocker.patch("builtins.open", autospec=True)
     mocked_post = mocker.patch.object(requests, "post", autospec=True)
+
+    mocked_post.return_value.status_code = 204
 
     expected_open_file = mocked_open.return_value.__enter__()
     test_url = "website.com"
@@ -101,6 +104,19 @@ def test_upload_file_to_s3__uploads_file_correctly(mocker):
     mocked_post.assert_called_once_with(
         test_url, data=test_data, files={"file": (TEST_FILENAME, expected_open_file)}
     )
+
+
+def test_upload_file_to_s3__raises_error_if_upload_fails(mocker):
+    mocker.patch("builtins.open", autospec=True)
+    mocked_post = mocker.patch.object(requests, "post", autospec=True)
+
+    mocked_post.return_value.status_code = error_code = 400
+    mocked_post.return_value.reason = error_reason = "BAD REQUEST"
+
+    test_upload_details = mocker.MagicMock()
+
+    with pytest.raises(PresignedUploadFailedError, match=f"{error_code} {error_reason}"):
+        upload_file_to_s3(TEST_FILEPATH, TEST_FILENAME, test_upload_details)
 
 
 def test_start_analysis__starts_analysis_job_correctly__and_returns_job_id(mocker):
@@ -186,9 +202,21 @@ def test_FileUploader_get_analysis_status__makes_request_with_refresh(create_fil
     mocked_get.assert_called_once()
 
 
+def test_FileUploader_get_analysis_status__raises_error_if_job_route_errored(mocker, create_file_uploader):
+    expected_error_msg = "err_msg"
+
+    mocked_get = mocker.patch.object(requests, "get", autospec=True)
+    mocked_get.return_value.json.return_value = {"error": expected_error_msg}
+
+    test_file_uploader = create_file_uploader(create_tokens=True)
+
+    with pytest.raises(CloudAnalysisJobFailedError, match=expected_error_msg):
+        test_file_uploader.get_analysis_status("job_id")
+
+
 def test_FileUploader_get_analysis_status__raises_error_if_analysis_job_errored(mocker, create_file_uploader):
     expected_error_msg = "err_msg"
-    expected_status_dict = {"error": expected_error_msg}
+    expected_status_dict = {"error_info": expected_error_msg}
 
     mocked_get = mocker.patch.object(requests, "get", autospec=True)
     mocked_get.return_value.json.return_value = {"jobs": [expected_status_dict]}

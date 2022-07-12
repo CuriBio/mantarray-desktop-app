@@ -45,7 +45,7 @@ from .constants import TIMESTEP_CONVERSION_FACTOR
 try:
     from xem_wrapper import build_header_magic_number_bytes
     from xem_wrapper import HEADER_MAGIC_NUMBER
-except ImportError:  # no sec
+except ImportError:  # no sec  # pragma: no cover
     if not is_cpu_arm():
         raise
 

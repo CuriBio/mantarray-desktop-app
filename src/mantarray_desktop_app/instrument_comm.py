@@ -24,7 +24,7 @@ from .mc_simulator import MantarrayMcSimulator
 try:
     from xem_wrapper import FrontPanelBase
     from xem_wrapper import okCFrontPanel
-except ImportError:  # no sec
+except ImportError:  # no sec  # pragma: no cover
     if not is_cpu_arm():
         raise
     FrontPanelBase = "FrontPanelBase"
@@ -122,7 +122,7 @@ class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
         performance_metrics["longest_iterations"] = sorted(tracker["longest_iterations"])
         if len(self._percent_use_values) > 1:
             performance_metrics["percent_use_metrics"] = self.get_percent_use_metrics()
-        for metric in ("periods_between_iterations", "sleep_durations"):  # TODO unit test
+        for metric in ("periods_between_iterations", "sleep_durations"):
             performance_metrics[metric] = tracker.get(metric)
         put_log_message_into_queue(
             logging.INFO,

@@ -681,6 +681,9 @@ def test_McCommunicationProcess__updates_performance_metrics_after_parsing_data(
     to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
+    # set logging level to debug so performance metrics and created and sent to main
+    mc_process._logging_level = logging.DEBUG
+
     # confirm precondition
     assert mc_process._iterations_per_logging_cycle == int(
         PERFOMANCE_LOGGING_PERIOD_SECS / mc_process._minimum_iteration_duration_seconds
@@ -821,12 +824,16 @@ def test_McCommunicationProcess__updates_performance_metrics_after_parsing_data(
         ("num_mag_packets_parsed", expected_num_packets_parsed),
     ):
         assert actual[name] == create_metrics_stats(mc_measurements), name
+
     # values created in parent class
     assert "idle_iteration_time_ns" not in actual
     assert "start_timepoint_of_measurements" not in actual
+
     assert "percent_use" in actual
     assert "percent_use_metrics" in actual
     assert "longest_iterations" in actual
+    assert "sleep_durations" in actual
+    assert "periods_between_iterations" in actual
 
 
 def test_McCommunicationProcess__does_not_include_data_streaming_performance_metrics_in_first_logging_cycle(
@@ -835,6 +842,9 @@ def test_McCommunicationProcess__does_not_include_data_streaming_performance_met
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    # set logging level to debug so performance metrics and created and sent to main
+    mc_process._logging_level = logging.DEBUG
 
     # mock since connection to simulator will be made by this test
     mocker.patch.object(mc_process, "create_connections_to_all_available_boards", autospec=True)

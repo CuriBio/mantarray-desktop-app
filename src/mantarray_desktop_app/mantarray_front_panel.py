@@ -14,7 +14,7 @@ from .constants import START_BARCODE_SCAN_TRIG_BIT
 try:
     from xem_wrapper import FrontPanel
     from xem_wrapper import FrontPanelBase
-except ImportError:  # no sec
+except ImportError:  # no sec  # pragma: no cover
     if not is_cpu_arm():
         raise
 

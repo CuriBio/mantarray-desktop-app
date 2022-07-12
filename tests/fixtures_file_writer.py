@@ -74,6 +74,9 @@ from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_e
 WELL_DEF_24 = LabwareDefinition(row_count=4, column_count=6)
 
 
+# TODO make everything in here immutabledicts
+
+
 GENERIC_ADC_OFFSET_VALUES: Dict[int, Dict[str, int]] = dict()
 for this_well_idx in range(24):
     GENERIC_ADC_OFFSET_VALUES[this_well_idx] = {

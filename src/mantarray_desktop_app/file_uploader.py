@@ -98,9 +98,8 @@ def upload_file_to_s3(file_path: str, file_name: str, upload_details: Dict[Any, 
             upload_details["params"]["url"], data=upload_details["params"]["fields"], files=files
         )
 
-    # TODO unit test this
     if response.status_code != 204:
-        raise PresignedUploadFailedError(f"{response.status_code}, {response.reason}")
+        raise PresignedUploadFailedError(f"{response.status_code} {response.reason}")
 
 
 def start_analysis(access_token: str, upload_id: str) -> str:
@@ -210,8 +209,6 @@ class FileUploader(WebWorker):
                 headers={"Authorization": f"Bearer {self.tokens.access}"},
             )
         )
-
-        # TODO unit test this
 
         if error := response.json().get("error"):
             raise CloudAnalysisJobFailedError(error)

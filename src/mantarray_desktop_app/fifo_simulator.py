@@ -27,7 +27,7 @@ try:
     from xem_wrapper import FrontPanelBase
     from xem_wrapper import FrontPanelSimulator
     from xem_wrapper import OpalKellyBoardNotInitializedError
-except ImportError:  # no sec
+except ImportError:  # no sec  # pragma: no cover
 
     class FrontPanelSimulator:  # type: ignore
         # Tanner (6/21/22): only adding these values so tests will run

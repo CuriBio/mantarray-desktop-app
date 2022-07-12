@@ -349,52 +349,25 @@ def test_FileWriterProcess__logs_performance_metrics_after_appropriate_number_of
     file_writer_process = four_board_file_writer_process["fw_process"]
     to_main_queue = four_board_file_writer_process["to_main_queue"]
 
+    # set these two values so that performance metrics are created and sent to main
+    file_writer_process._logging_level = logging.DEBUG
     file_writer_process._is_recording = True
 
-    test_num_iterations = file_writer_process._iterations_per_logging_cycle
+    # set this to 0 to speed up the test
+    file_writer_process._minimum_iteration_duration_seconds = 0
 
-    expected_iteration_dur = 0.001 * 10**9
-    expected_idle_time = expected_iteration_dur * test_num_iterations
-    expected_start_timepoint = 0
-    expected_stop_timepoint = 2 * expected_idle_time
-    expected_latest_percent_use = 100 * (
-        1 - expected_idle_time / (expected_stop_timepoint - expected_start_timepoint)
-    )
-    expected_percent_use_values = [27.4, 42.8, expected_latest_percent_use]
-    expected_longest_iterations = [
-        expected_iteration_dur for _ in range(file_writer_process.num_longest_iterations)
-    ]
-
-    perf_counter_vals = []
-    for _ in range(test_num_iterations - 1):
-        perf_counter_vals.append(0)
-        perf_counter_vals.append(expected_iteration_dur)
-    perf_counter_vals.append(0)
-    perf_counter_vals.append(expected_stop_timepoint)
-    perf_counter_vals.append(0)
-    mocker.patch.object(time, "perf_counter_ns", autospec=True, side_effect=perf_counter_vals)
-
-    file_writer_process._idle_iteration_time_ns = expected_iteration_dur  # pylint: disable=protected-access
-    file_writer_process._minimum_iteration_duration_seconds = (  # pylint: disable=protected-access
-        2 * expected_iteration_dur / (10**9)
-    )
-    file_writer_process._start_timepoint_of_last_performance_measurement = (  # pylint: disable=protected-access
-        expected_start_timepoint
-    )
-    file_writer_process._percent_use_values = expected_percent_use_values[  # pylint: disable=protected-access
-        :-1
-    ]
+    test_num_iterations = file_writer_process._iterations_per_logging_cycle * 2
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=test_num_iterations)
-    confirm_queue_is_eventually_of_size(to_main_queue, 1)
-    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    actual = actual["message"]
+    confirm_queue_is_eventually_of_size(to_main_queue, 2)
+    actual = drain_queue(to_main_queue)[-1]["message"]
 
     assert actual["communication_type"] == "performance_metrics"
-    assert actual["percent_use"] == expected_latest_percent_use
-    assert actual["percent_use_metrics"] == create_metrics_stats(expected_percent_use_values)
-    num_longest_iterations = file_writer_process.num_longest_iterations
-    assert actual["longest_iterations"] == expected_longest_iterations[-num_longest_iterations:]
+
+    assert "percent_use" in actual
+    assert "percent_use_metrics" in actual
+    assert "longest_iterations" in actual
+
     assert "idle_iteration_time_ns" not in actual
     assert "start_timepoint_of_measurements" not in actual
 
@@ -407,6 +380,8 @@ def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cy
     file_writer_process = four_board_file_writer_process["fw_process"]
     to_main_queue = four_board_file_writer_process["to_main_queue"]
 
+    # set these two values so that performance metrics are created and sent to main
+    file_writer_process._logging_level = logging.DEBUG
     file_writer_process._is_recording = True
 
     # set to 0 to speed up test
@@ -419,7 +394,7 @@ def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cy
     )
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
 
-    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)["message"]
+    actual = drain_queue(to_main_queue)[-1]["message"]
     assert "percent_use_metrics" not in actual
 
 
@@ -435,6 +410,9 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_correctly(
     board_queues = four_board_file_writer_process["board_queues"]
     to_main_queue = four_board_file_writer_process["to_main_queue"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    # set log level to debug performance metrics are created and sent to main
+    file_writer_process._logging_level = logging.DEBUG
 
     # set to 0 to speed up test
     file_writer_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
@@ -473,8 +451,7 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_correctly(
     )
     confirm_queue_is_eventually_empty(board_queues[0][0])
 
-    actual = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    actual = actual["message"]
+    actual = drain_queue(to_main_queue)[-1]["message"]
     assert (
         "num_recorded_data_points_metrics" in actual
     ), f"Message did not contain key: 'num_recorded_data_points_metrics', Full message dict: {actual}"

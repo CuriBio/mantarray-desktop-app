@@ -68,7 +68,7 @@ try:
     from xem_wrapper import FrontPanelSimulator
     from xem_wrapper import OpalKellyNoDeviceFoundError
     from xem_wrapper import open_board
-except ImportError:  # no sec
+except ImportError:  # no sec  # pragma: no cover
     if not is_cpu_arm():
         raise
 
