@@ -254,18 +254,24 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
     assert outgoing_msg == expected_msg
 
 
-def test_DataAnalyzerProcess__does_not_process_data_packets_after_receiving_stop_managed_acquisition_command_until_receiving_first_packet_of_new_stream(
-    four_board_analyzer_process_beta_2_mode, mocker
+@pytest.mark.parametrize("data_type", ["mag", "stim"])
+def test_DataAnalyzerProcess__does_not_process_any_packets_after_receiving_stop_managed_acquisition_command_until_receiving_first_packet_of_new_stream(
+    data_type, four_board_analyzer_process_beta_2_mode, mocker
 ):
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
     to_main_queue = four_board_analyzer_process_beta_2_mode["to_main_queue"]
     incoming_data_queue = four_board_analyzer_process_beta_2_mode["board_queues"][0][0]
 
-    # mock so these since not using real data
-    mocked_process_data = mocker.patch.object(
-        da_process, "_process_beta_2_data", autospec=True, return_value={}
+    test_packet = copy.deepcopy(
+        SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
+        if data_type == "mag"
+        else SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS
     )
+
+    # mock since not using real data
+    fn_name = "_process_beta_2_data" if data_type == "mag" else "_process_stim_packet"
+    mocked_process_data = mocker.patch.object(da_process, fn_name, autospec=True)
 
     invoke_process_run_and_check_errors(da_process, perform_setup_before_loop=True)
 
@@ -275,13 +281,13 @@ def test_DataAnalyzerProcess__does_not_process_data_packets_after_receiving_stop
     )
     invoke_process_run_and_check_errors(da_process)
     # send first packet of first stream and make sure it is processed
-    test_data_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+    test_data_packet = copy.deepcopy(test_packet)
     test_data_packet["is_first_packet_of_stream"] = True
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, incoming_data_queue)
     invoke_process_run_and_check_errors(da_process)
     assert mocked_process_data.call_count == 1
     # send another packet of first stream and make sure it is processed
-    test_data_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+    test_data_packet = copy.deepcopy(test_packet)
     test_data_packet["is_first_packet_of_stream"] = False
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, incoming_data_queue)
     invoke_process_run_and_check_errors(da_process)
@@ -292,7 +298,7 @@ def test_DataAnalyzerProcess__does_not_process_data_packets_after_receiving_stop
         dict(STOP_MANAGED_ACQUISITION_COMMUNICATION), from_main_queue
     )
     invoke_process_run_and_check_errors(da_process)
-    test_data_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+    test_data_packet = copy.deepcopy(test_packet)
     test_data_packet["is_first_packet_of_stream"] = False
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, incoming_data_queue)
     invoke_process_run_and_check_errors(da_process)
@@ -303,14 +309,14 @@ def test_DataAnalyzerProcess__does_not_process_data_packets_after_receiving_stop
         dict(START_MANAGED_ACQUISITION_COMMUNICATION), from_main_queue
     )
     invoke_process_run_and_check_errors(da_process)
-    test_data_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+    test_data_packet = copy.deepcopy(test_packet)
     test_data_packet["is_first_packet_of_stream"] = False
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, incoming_data_queue)
     invoke_process_run_and_check_errors(da_process)
     assert mocked_process_data.call_count == 2
 
     # send first data packet from second stream and make sure it is processed
-    test_data_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+    test_data_packet = copy.deepcopy(test_packet)
     test_data_packet["is_first_packet_of_stream"] = True
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, incoming_data_queue)
     invoke_process_run_and_check_errors(da_process)
