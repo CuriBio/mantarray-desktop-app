@@ -17,10 +17,10 @@ files:
     to: "dist/resources/"
 win:
   target: "nsis"
-  artifactName: "MantarrayController-Setup-tenaya-${version}.${ext}"
+  artifactName: "MantarrayController-Setup-prod-${version}.${ext}"
 publish:
   provider: "s3"
   bucket: "downloads.curibio.com"
   path: "software"
-  channel: "tenaya"
+  channel: "prod"
   region: "us-east-1"

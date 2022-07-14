@@ -10,7 +10,6 @@ from multiprocessing import queues as mpqueues
 import os
 import queue
 import shutil
-from statistics import stdev
 import tempfile
 from time import perf_counter
 from typing import Any
@@ -28,7 +27,6 @@ from pulse3D.compression_cy import compress_filtered_magnetic_data
 from pulse3D.constants import AMPLITUDE_UUID
 from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
 from pulse3D.constants import MEMSIC_CENTER_OFFSET
-from pulse3D.constants import MILLIMETERS_PER_MILLITESLA
 from pulse3D.constants import TWITCH_FREQUENCY_UUID
 from pulse3D.exceptions import PeakDetectionError
 from pulse3D.magnet_finding import fix_dropped_samples
@@ -42,6 +40,7 @@ from pulse3D.transforms import calculate_displacement_from_voltage
 from pulse3D.transforms import calculate_force_from_displacement
 from pulse3D.transforms import calculate_voltage_from_gmr
 from pulse3D.transforms import create_filter
+from stdlib_utils import create_metrics_stats
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
@@ -55,6 +54,8 @@ from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
+from .constants import MM_PER_MT_Z_AXIS_SENSOR_0
+from .constants import PERFOMANCE_LOGGING_PERIOD_SECS
 from .constants import REF_INDEX_TO_24_WELL_INDEX
 from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from .exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
@@ -72,10 +73,10 @@ def calculate_displacement_from_magnetic_flux_density(
 ) -> NDArray[(2, Any), np.float64]:
     """Convert magnetic flux density to displacement.
 
-    Conversion values were obtained 03/09/2021 by Kevin Grey
+    Conversion values were obtained 06/13/2022 by Kevin Gray
 
     Args:
-        magnetic_flux_data: time and mangetic flux density numpy array.
+        magnetic_flux_data: time and magnetic flux density numpy array.
 
     Returns:
         A 2D array of time vs Displacement (mm)
@@ -84,7 +85,7 @@ def calculate_displacement_from_magnetic_flux_density(
     time = magnetic_flux_data[0, :]
 
     # calculate displacement
-    sample_in_mm = sample_in_milliteslas * MILLIMETERS_PER_MILLITESLA
+    sample_in_mm = sample_in_milliteslas * MM_PER_MT_Z_AXIS_SENSOR_0
 
     return np.vstack((time, sample_in_mm)).astype(np.float64)
 
@@ -247,11 +248,10 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._board_queues = the_board_queues
         self._comm_from_main_queue = comm_from_main_queue
         self._comm_to_main_queue = comm_to_main_queue
-        # performance tracking values
-        self._outgoing_data_creation_durations: List[float] = list()
-        self._data_analysis_durations: List[float] = list()
         # data streaming values
-        self._end_of_data_stream_reached: List[Optional[bool]] = [False] * len(self._board_queues)
+        self._end_of_data_stream_reached: Tuple[Dict[str, bool], ...] = tuple(
+            {"mag": False, "stim": False} for _ in range(len(self._board_queues))
+        )
         self._data_buffer: Dict[int, Dict[str, Any]] = dict()
         for well_idx in range(24):
             self._data_buffer[well_idx] = {"construct_data": None, "ref_data": None}
@@ -271,6 +271,15 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._mag_analysis_active_thread: Optional[Any] = dict()
         self._mag_analysis_output_dir: str = mag_analysis_output_dir
         self._mag_analysis_thread_list: List[str] = list()
+        # performance tracking values
+        self._outgoing_data_creation_durations: List[float]
+        self._data_analysis_durations: List[float]
+        self._reset_performance_tracking_values()
+
+    def _reset_performance_tracking_values(self) -> None:
+        self._reset_performance_measurements()
+        self._outgoing_data_creation_durations = list()
+        self._data_analysis_durations = list()
 
     def _check_dirs(self) -> None:
         if not os.path.isdir(self._mag_analysis_output_dir):
@@ -385,11 +394,13 @@ class DataAnalyzerProcess(InfiniteProcess):
         elif communication_type == "acquisition_manager":
             if communication["command"] == "start_managed_acquisition":
                 if not self._beta_2_mode:
-                    self._end_of_data_stream_reached[0] = False
+                    self._end_of_data_stream_reached[0]["mag"] = False
+                    self._end_of_data_stream_reached[0]["stim"] = False
                 drain_queue(self._board_queues[0][1])
                 self._well_offsets = [None] * 24
             elif communication["command"] == "stop_managed_acquisition":
-                self._end_of_data_stream_reached[0] = True
+                self._end_of_data_stream_reached[0]["mag"] = True
+                self._end_of_data_stream_reached[0]["stim"] = True
                 for well_index in range(24):
                     self._data_buffer[well_index] = {"construct_data": None, "ref_data": None}
                 self.init_streams()
@@ -417,8 +428,8 @@ class DataAnalyzerProcess(InfiniteProcess):
         data_type = "magnetometer" if not self._beta_2_mode else packet["data_type"]
         if data_type == "magnetometer":
             if self._beta_2_mode and packet["is_first_packet_of_stream"]:
-                self._end_of_data_stream_reached[0] = False
-            if self._end_of_data_stream_reached[0]:
+                self._end_of_data_stream_reached[0]["mag"] = False
+            if self._end_of_data_stream_reached[0]["mag"]:
                 return
 
             if self._beta_2_mode:
@@ -430,6 +441,10 @@ class DataAnalyzerProcess(InfiniteProcess):
                     self._data_analysis_streams[well_idx][0].emit(packet["data"])
                 self._load_memory_into_buffer(packet)
         elif data_type == "stimulation":
+            if packet["is_first_packet_of_stream"]:
+                self._end_of_data_stream_reached[0]["stim"] = False
+            if self._end_of_data_stream_reached[0]["stim"]:
+                return
             self._process_stim_packet(packet)
         else:
             raise NotImplementedError(f"Invalid data type from File Writer Process: {data_type}")
@@ -448,10 +463,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             # filter out any keys that are not well indices
             if not isinstance(key, int):
                 continue
-            first_channel_data = [
-                data_dict["time_indices"],
-                well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL],
-            ]
+            first_channel_data = [data_dict["time_indices"], well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL]]
             self._data_analysis_streams[key][0].emit(first_channel_data)
         self._handle_performance_logging()
 
@@ -537,10 +549,10 @@ class DataAnalyzerProcess(InfiniteProcess):
 
     def _normalize_beta_2_data_for_well(self, well_idx: int, well_dict: Dict[Any, Any]) -> None:
         if self._well_offsets[well_idx] is None:
-            self._well_offsets[well_idx] = max(well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL])
+            self._well_offsets[well_idx] = min(well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL])
         well_data = fix_dropped_samples(well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL])
         well_dict[SERIAL_COMM_DEFAULT_DATA_CHANNEL] = (
-            (well_data.astype(np.int32) - self._well_offsets[well_idx]) * -1 + MEMSIC_CENTER_OFFSET
+            (well_data.astype(np.int32) - self._well_offsets[well_idx]) + MEMSIC_CENTER_OFFSET
         ).astype(np.uint16)
 
     def _create_outgoing_beta_1_data(self) -> Dict[str, Any]:
@@ -636,47 +648,39 @@ class DataAnalyzerProcess(InfiniteProcess):
                 self._mag_analysis_active_thread = dict()
                 self._mag_analysis_thread_list = list()
 
-    def _handle_performance_logging(self) -> None:
-        performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
-        tracker = self.reset_performance_tracker()
-        performance_metrics["longest_iterations"] = sorted(tracker["longest_iterations"])
-        performance_metrics["percent_use"] = tracker["percent_use"]
-        performance_metrics["data_creation_duration"] = self._outgoing_data_creation_durations[-1]
+    def _handle_performance_logging(self) -> None:  # pragma: no cover
+        if logging.DEBUG >= self._logging_level:
+            performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
+            tracker = self.reset_performance_tracker()
+            performance_metrics["longest_iterations"] = sorted(tracker["longest_iterations"])
+            performance_metrics["percent_use"] = tracker["percent_use"]
+            performance_metrics["data_creation_duration"] = self._outgoing_data_creation_durations[-1]
 
-        if len(self._percent_use_values) > 1:
-            performance_metrics["percent_use_metrics"] = self.get_percent_use_metrics()
-        name_measurement_list = list()
-        if len(self._outgoing_data_creation_durations) > 1:
-            name_measurement_list.append(
-                (
-                    "data_creation_duration_metrics",
-                    self._outgoing_data_creation_durations,
+            if len(self._percent_use_values) > 1:
+                performance_metrics["percent_use_metrics"] = self.get_percent_use_metrics()
+            name_measurement_list = list()
+            if len(self._outgoing_data_creation_durations) >= 1:
+                name_measurement_list.append(
+                    ("data_creation_duration_metrics", self._outgoing_data_creation_durations)
                 )
-            )
-        if len(self._data_analysis_durations) > 1:
-            name_measurement_list.append(
-                (
-                    "data_analysis_duration_metrics",
-                    self._data_analysis_durations,
+            if len(self._data_analysis_durations) >= 1:
+                name_measurement_list.append(
+                    ("data_analysis_duration_metrics", self._data_analysis_durations)
                 )
-            )
 
-        da_measurements: List[
-            Union[int, float]
-        ]  # Tanner (5/28/20): This type annotation is necessary for mypy to not incorrectly type this variable
-        for name, da_measurements in name_measurement_list:
-            performance_metrics[name] = {
-                "max": max(da_measurements),
-                "min": min(da_measurements),
-                "stdev": round(stdev(da_measurements), 6),
-                "mean": round(sum(da_measurements) / len(da_measurements), 6),
-            }
-        put_log_message_into_queue(
-            logging.INFO,
-            performance_metrics,
-            self._comm_to_main_queue,
-            self.get_logging_level(),
-        )
+            da_measurements: List[Union[int, float]]
+            for name, da_measurements in name_measurement_list:
+                performance_metrics[name] = create_metrics_stats(da_measurements)
+            put_log_message_into_queue(
+                logging.INFO,
+                performance_metrics,
+                self._comm_to_main_queue,
+                self.get_logging_level(),
+            )
+            if len(self._outgoing_data_creation_durations) >= PERFOMANCE_LOGGING_PERIOD_SECS:
+                self._reset_performance_tracking_values()
+        else:
+            self._reset_performance_tracking_values()
 
     def _dump_data_into_queue(self, outgoing_data: Dict[str, Any]) -> None:
         timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")

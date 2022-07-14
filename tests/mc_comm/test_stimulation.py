@@ -2,6 +2,7 @@
 import copy
 import datetime
 from random import randint
+import struct
 
 from freezegun import freeze_time
 from mantarray_desktop_app import mc_simulator
@@ -12,8 +13,10 @@ from mantarray_desktop_app import StimulationProtocolUpdateFailedError
 from mantarray_desktop_app import StimulationProtocolUpdateWhileStimulatingError
 from mantarray_desktop_app import StimulationStatusUpdateFailedError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+from mantarray_desktop_app.constants import SERIAL_COMM_PAYLOAD_INDEX
+from mantarray_desktop_app.constants import STIM_MODULE_ID_TO_WELL_IDX
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
-from mantarray_desktop_app.exceptions import SerialCommCommandProcessingError
 from mantarray_desktop_app.serial_comm_utils import convert_adc_readings_to_circuit_status
 import numpy as np
 import pytest
@@ -35,6 +38,7 @@ from ..fixtures_mc_simulator import get_random_subprotocol
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
+from ..helpers import random_bool
 
 
 __fixtures__ = [
@@ -81,6 +85,8 @@ def test_McCommunicationProcess__processes_start_stim_checks_command__and_sends_
     )
 
     num_wells = 24
+    test_well_indices = list(range(4))
+    test_well_indices.extend([i for i in range(4, num_wells) if random_bool()])
 
     # set known adc readings in simulator. these first 4 values are hard coded, if this test fails might need to update them
     adc_readings = [(0, 0), (0, 2039), (0, 2049), (1113, 0)]
@@ -89,30 +95,48 @@ def test_McCommunicationProcess__processes_start_stim_checks_command__and_sends_
         {"command": "set_adc_readings", "adc_readings": adc_readings}, testing_queue
     )
     invoke_process_run_and_check_errors(simulator)
+
     # send command
-    start_stim_checks_command = {"communication_type": "stimulation", "command": "start_stim_checks"}
+    start_stim_checks_command = {
+        "communication_type": "stimulation",
+        "command": "start_stim_checks",
+        "well_indices": test_well_indices,
+    }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(start_stim_checks_command), input_queue
     )
+
+    spied_write = mocker.spy(simulator, "write")
+
     invoke_process_run_and_check_errors(mc_process)
+
+    # make sure each well's value is set based on if a protocol is assigned correctly
+    bytes_sent = spied_write.call_args[0][0]
+    well_val_bytes = bytes_sent[SERIAL_COMM_PAYLOAD_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
+    for module_id, well_val in enumerate(struct.unpack(f"<{num_wells}?", well_val_bytes), 1):
+        well_idx = STIM_MODULE_ID_TO_WELL_IDX[module_id]
+        assert well_val is (well_idx in test_well_indices), well_idx
+
     # process command and send response
     invoke_process_run_and_check_errors(simulator)
-    # make sure that the message sent back to main contains the correct values
-    status_ints = [
-        convert_adc_readings_to_circuit_status(*module_readings) for module_readings in adc_readings
-    ]
-    start_stim_checks_command["stimulator_circuit_statuses"] = [
-        list(StimulatorCircuitStatuses)[status_int + 1].name.lower() for status_int in status_ints
-    ]
-    start_stim_checks_command["adc_readings"] = adc_readings
-
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(output_queue, 1)
     msg_to_main = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert (
-        msg_to_main["stimulator_circuit_statuses"] == start_stim_checks_command["stimulator_circuit_statuses"]
-    )
-    assert msg_to_main["adc_readings"] == start_stim_checks_command["adc_readings"]
+
+    # make sure that the message sent back to main contains the correct values
+    stimulator_circuit_statuses = {}
+    for well_idx in test_well_indices:
+        well_readings = adc_readings[well_idx]
+        status_int = convert_adc_readings_to_circuit_status(*well_readings)
+        status = list(StimulatorCircuitStatuses)[status_int + 1].name.lower()
+        stimulator_circuit_statuses[well_idx] = status
+    assert msg_to_main["stimulator_circuit_statuses"] == stimulator_circuit_statuses
+
+    assert msg_to_main["adc_readings"] == {
+        well_idx: adc_reading
+        for well_idx, adc_reading in enumerate(adc_readings)
+        if well_idx in test_well_indices
+    }
 
 
 @freeze_time(datetime.datetime(year=2021, month=10, day=24, hour=13, minute=7, second=23, microsecond=173814))
@@ -224,9 +248,8 @@ def test_McCommunicationProcess__raises_error_if_set_protocols_command_fails(
     bad_stim_info["protocols"][0]["subprotocols"].extend(
         [get_null_subprotocol(19000)] * STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
     )
-    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
+    with pytest.raises(StimulationProtocolUpdateFailedError):
         set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, bad_stim_info)
-    assert type(exc_info.value.__cause__) == StimulationProtocolUpdateFailedError
 
 
 def test_McCommunicationProcess__raises_error_if_start_stim_command_fails(
@@ -245,10 +268,8 @@ def test_McCommunicationProcess__raises_error_if_start_stim_command_fails(
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_stim_command, input_queue)
     invoke_process_run_and_check_errors(mc_process)
     invoke_process_run_and_check_errors(simulator)
-    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
+    with pytest.raises(StimulationStatusUpdateFailedError, match="start_stimulation"):
         invoke_process_run_and_check_errors(mc_process)
-    assert type(exc_info.value.__cause__) == StimulationStatusUpdateFailedError
-    assert str(exc_info.value.__cause__) == "start_stimulation"
 
 
 def test_McCommunicationProcess__raises_error_if_stop_stim_command_fails(
@@ -267,10 +288,8 @@ def test_McCommunicationProcess__raises_error_if_stop_stim_command_fails(
     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_stim_command, input_queue)
     invoke_process_run_and_check_errors(mc_process)
     invoke_process_run_and_check_errors(simulator)
-    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
+    with pytest.raises(StimulationStatusUpdateFailedError, match="stop_stimulation"):
         invoke_process_run_and_check_errors(mc_process)
-    assert type(exc_info.value.__cause__) == StimulationStatusUpdateFailedError
-    assert str(exc_info.value.__cause__) == "stop_stimulation"
 
 
 def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument__stim_completing_before_data_stream_starts(

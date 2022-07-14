@@ -325,6 +325,8 @@ def test_MantarrayMcSimulator__processes_get_metadata_command(mantarray_mc_simul
     invoke_process_run_and_check_errors(simulator)
 
     expected_metadata_bytes = convert_metadata_to_bytes(MantarrayMcSimulator.default_metadata_values)
+    assert len(expected_metadata_bytes) % 32 == 0
+
     expected_size = get_full_packet_size_from_payload_len(len(expected_metadata_bytes))
     actual = simulator.read(size=expected_size)
     assert_serial_packet_is_expected(

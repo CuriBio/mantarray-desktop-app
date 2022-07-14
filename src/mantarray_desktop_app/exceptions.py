@@ -26,10 +26,6 @@ class UnrecognizedCommandFromServerToMainError(Exception):
     pass
 
 
-class UnrecognizedCommandFromMainToOkCommError(Exception):
-    pass
-
-
 class UnrecognizedCommandFromMainToFileWriterError(Exception):
     pass
 
@@ -42,39 +38,7 @@ class UnrecognizedCommandFromMainToDataAnalyzerError(Exception):
     pass
 
 
-class UnrecognizedDataFrameFormatNameError(Exception):
-    pass
-
-
 class LocalServerPortAlreadyInUseError(Exception):
-    pass
-
-
-class AttemptToInitializeFIFOReadsError(Exception):
-    pass
-
-
-class AttemptToAddCyclesWhileSPIRunningError(Exception):
-    pass
-
-
-class FirstManagedReadLessThanOneRoundRobinError(Exception):
-    pass
-
-
-class InvalidDataFramePeriodError(Exception):
-    pass
-
-
-class MismatchedScriptTypeError(Exception):
-    pass
-
-
-class InvalidScriptCommandError(Exception):
-    pass
-
-
-class ScriptDoesNotContainEndCommandError(Exception):
     pass
 
 
@@ -110,6 +74,43 @@ class CalibrationFilesMissingError(Exception):
     pass
 
 
+# Beta 1 errors
+class UnrecognizedCommandFromMainToOkCommError(Exception):
+    pass
+
+
+class UnrecognizedDataFrameFormatNameError(Exception):
+    pass
+
+
+class AttemptToInitializeFIFOReadsError(Exception):
+    pass
+
+
+class AttemptToAddCyclesWhileSPIRunningError(Exception):
+    pass
+
+
+class FirstManagedReadLessThanOneRoundRobinError(Exception):
+    pass
+
+
+class InvalidDataFramePeriodError(Exception):
+    pass
+
+
+class MismatchedScriptTypeError(Exception):
+    pass
+
+
+class InvalidScriptCommandError(Exception):
+    pass
+
+
+class ScriptDoesNotContainEndCommandError(Exception):
+    pass
+
+
 class FirmwareFileNameDoesNotMatchWireOutVersionError(Exception):
     pass
 
@@ -131,34 +132,68 @@ class ServerManagerSingletonAlreadySetError(Exception):
 
 
 class InstrumentCommIncorrectHeaderError(Exception):
+    """Incorrect Beta 1 header."""
+
+
+# Instrument related errors
+class InstrumentError(Exception):
+    """Generic exception for errors with instrument interaction."""
+
+
+class InstrumentCreateConnectionError(InstrumentError):
+    """Generic exception for errors caused by connection failures."""
+
+
+class SerialCommPacketRegistrationTimeoutError(InstrumentCreateConnectionError):
     pass
 
 
+class SerialCommPacketRegistrationReadEmptyError(InstrumentCreateConnectionError):
+    pass
+
+
+class SerialCommPacketRegistrationSearchExhaustedError(InstrumentCreateConnectionError):
+    pass
+
+
+class InstrumentConnectionLostError(InstrumentError):
+    """Generic exception for errors caused by response timeouts."""
+
+
+class SerialCommStatusBeaconTimeoutError(InstrumentConnectionLostError):
+    pass
+
+
+class SerialCommCommandResponseTimeoutError(InstrumentConnectionLostError):
+    pass
+
+
+class InstrumentBadDataError(InstrumentError):
+    """Generic exception for errors caused by malformed data."""
+
+
+class SerialCommIncorrectMagicWordFromMantarrayError(InstrumentBadDataError):
+    pass
+
+
+class SerialCommIncorrectChecksumFromInstrumentError(InstrumentBadDataError):
+    pass
+
+
+class SerialCommCommandProcessingError(InstrumentBadDataError):
+    pass
+
+
+class InstrumentFirmwareError(InstrumentError):
+    """Generic exception representing errors in the instrument's firmware."""
+
+
+# Misc Instrument comm related errors
 class UnrecognizedSerialCommPacketTypeError(Exception):
     pass
 
 
-class SerialCommPacketRegistrationTimeoutError(Exception):
-    pass
-
-
-class SerialCommPacketRegistrationReadEmptyError(Exception):
-    pass
-
-
-class SerialCommPacketRegistrationSearchExhaustedError(Exception):
-    pass
-
-
-class SerialCommIncorrectChecksumFromInstrumentError(Exception):
-    pass
-
-
 class SerialCommIncorrectChecksumFromPCError(Exception):
-    pass
-
-
-class SerialCommIncorrectMagicWordFromMantarrayError(Exception):
     pass
 
 
@@ -174,25 +209,8 @@ class SerialCommUntrackedCommandResponseError(Exception):
     pass
 
 
-class SerialCommStatusBeaconTimeoutError(Exception):
-    pass
-
-
-class SerialCommCommandResponseTimeoutError(Exception):
-    pass
-
-
-class SerialCommHandshakeTimeoutError(Exception):
-    pass
-
-
 class SerialCommInvalidSamplingPeriodError(Exception):
     pass
-
-
-class SerialCommCommandProcessingError(Exception):
-    def __init__(self, timestamp: int, packet_type: int, packet_payload: bytearray) -> None:
-        super().__init__(f"Timestamp: {timestamp}, Packet Type: {packet_type}, Payload: {packet_payload}")
 
 
 class SamplingPeriodUpdateWhileDataStreamingError(Exception):
@@ -235,11 +253,12 @@ class FirmwareDownloadError(Exception):
     pass
 
 
-class InstrumentFirmwareError(Exception):
-    """Errors occurring on the Mantarray instrument itself."""
-
-
 class FirmwareGoingDormantError(Exception):
+    pass
+
+
+# Cloud
+class PresignedUploadFailedError(Exception):
     pass
 
 

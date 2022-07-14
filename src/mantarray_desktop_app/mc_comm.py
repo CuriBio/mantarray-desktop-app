@@ -2,18 +2,16 @@
 """Process controlling communication with Mantarray Microcontroller."""
 from __future__ import annotations
 
-from collections import deque
 import copy
 import datetime
 import logging
 from multiprocessing import Queue
 import queue
-from statistics import stdev
+import struct
 from time import perf_counter
 from time import sleep
 import traceback
 from typing import Any
-from typing import Deque
 from typing import Dict
 from typing import FrozenSet
 from typing import List
@@ -28,6 +26,7 @@ import numpy as np
 from pulse3D.constants import DATETIME_STR_FORMAT
 import serial
 import serial.tools.list_ports as list_ports
+from stdlib_utils import create_metrics_stats
 from stdlib_utils import put_log_message_into_queue
 
 from .constants import DEFAULT_SAMPLING_PERIOD
@@ -119,6 +118,7 @@ from .serial_comm_utils import create_data_packet
 from .serial_comm_utils import get_serial_comm_timestamp
 from .serial_comm_utils import parse_metadata_bytes
 from .utils import check_barcode_is_valid
+from .utils import CommandTracker
 from .utils import set_this_process_high_priority
 from .worker_thread import ErrorCatchingThread
 
@@ -126,7 +126,6 @@ from .worker_thread import ErrorCatchingThread
 COMMAND_PACKET_TYPES = frozenset(
     [
         SERIAL_COMM_REBOOT_PACKET_TYPE,
-        SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
         SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
         SERIAL_COMM_START_STIM_PACKET_TYPE,
         SERIAL_COMM_STOP_STIM_PACKET_TYPE,
@@ -213,17 +212,15 @@ class McCommunicationProcess(InstrumentCommProcess):
         super().__init__(*args, **kwargs)
         self._error: Optional[Exception] = None
         self._in_simulation_mode = False
-        self._simulator_error_queues: List[
-            Optional[Queue[Tuple[Exception, str]]]  # pylint: disable=unsubscriptable-object
-        ] = [None] * len(self._board_queues)
+        self._simulator_error_queues: List[Optional[Queue[Tuple[Exception, str]]]] = [None] * len(
+            self._board_queues
+        )
         self._num_wells = 24
         self._is_registered_with_serial_comm: List[bool] = [False] * len(self._board_queues)
         self._auto_get_metadata = False
         self._time_of_last_handshake_secs: Optional[float] = None
         self._time_of_last_beacon_secs: Optional[float] = None
-        self._commands_awaiting_response: Deque[  # pylint: disable=unsubscriptable-object
-            Dict[str, Any]
-        ] = deque()
+        self._commands_awaiting_response = CommandTracker()
         self._hardware_test_mode = hardware_test_mode
         # reboot values
         self._is_setting_nickname = False
@@ -352,6 +349,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._stim_status_buffers = {well_idx: [[], []] for well_idx in range(self._num_wells)}
 
     def _reset_performance_tracking_values(self) -> None:
+        self._reset_performance_measurements()
         self._performance_tracking_values = {
             key: list()
             for key in (
@@ -449,6 +447,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         8. If rebooting or waiting for firmware update to complete, make sure that the reboot has not taken longer than the max allowed reboot time.
         9. Check on the status of any worker threads.
         """
+        board_idx = 0
+
         if self._in_simulation_mode:
             if self._check_simulator_error():
                 self.stop()
@@ -460,9 +460,9 @@ class McCommunicationProcess(InstrumentCommProcess):
             and not self._is_waiting_for_reboot
         ):
             self._process_next_communication_from_main()
-            self._handle_sending_handshake()
 
-        board_idx = 0
+        self._handle_sending_handshake()
+
         if not self._is_registered_with_serial_comm[board_idx]:
             self._register_magic_word(board_idx)
         else:
@@ -546,6 +546,13 @@ class McCommunicationProcess(InstrumentCommProcess):
         elif communication_type == "stimulation":
             if comm_from_main["command"] == "start_stim_checks":
                 packet_type = SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
+                bytes_to_send = struct.pack(
+                    f"<{self._num_wells}?",
+                    *[
+                        STIM_MODULE_ID_TO_WELL_IDX[module_id] in comm_from_main["well_indices"]
+                        for module_id in range(1, self._num_wells + 1)
+                    ],
+                )
             elif comm_from_main["command"] == "set_protocols":
                 packet_type = SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
                 bytes_to_send = convert_stim_dict_to_bytes(comm_from_main["stim_info"])
@@ -647,11 +654,11 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         if packet_type is not None:
             self._send_data_packet(board_idx, packet_type, bytes_to_send)
-            self._add_command_to_track(comm_from_main)
+            self._add_command_to_track(packet_type, comm_from_main)
 
-    def _add_command_to_track(self, command_dict: Dict[str, Any]) -> None:
+    def _add_command_to_track(self, packet_type: int, command_dict: Dict[str, Any]) -> None:
         command_dict["timepoint"] = perf_counter()
-        self._commands_awaiting_response.append(command_dict)
+        self._commands_awaiting_response.add(packet_type, command_dict)
 
     def _handle_firmware_update(self) -> None:
         board_idx = 0
@@ -692,18 +699,17 @@ class McCommunicationProcess(InstrumentCommProcess):
                 SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES - 1 :
             ]
         self._send_data_packet(board_idx, packet_type, bytes_to_send)
-        self._add_command_to_track(command_dict)
+        self._add_command_to_track(packet_type, command_dict)
 
     def _handle_sending_handshake(self) -> None:
         board_idx = 0
         if self._board_connections[board_idx] is None:
             return
-        if not self._has_initial_handshake_been_sent():
-            self._send_handshake(board_idx)
-            return
-        seconds_elapsed = _get_secs_since_last_handshake(self._time_of_last_handshake_secs)  # type: ignore
-        if seconds_elapsed >= SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS:
-            self._send_handshake(board_idx)
+        if self._has_initial_handshake_been_sent():
+            seconds_elapsed = _get_secs_since_last_handshake(self._time_of_last_handshake_secs)  # type: ignore
+            if seconds_elapsed < SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS:
+                return
+        self._send_handshake(board_idx)
 
     def _has_initial_handshake_been_sent(self) -> bool:
         # Extracting this into its own method to make mocking in tests easier
@@ -712,7 +718,6 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _send_handshake(self, board_idx: int) -> None:
         self._time_of_last_handshake_secs = perf_counter()
         self._send_data_packet(board_idx, SERIAL_COMM_HANDSHAKE_PACKET_TYPE)
-        self._add_command_to_track({"command": "handshake"})
 
     def _process_comm_from_instrument(self, packet_type: int, packet_payload: bytes) -> None:
         if packet_type == SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE:
@@ -720,8 +725,12 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise SerialCommIncorrectChecksumFromPCError(returned_packet)
 
         board_idx = 0
+
         if packet_type == SERIAL_COMM_STATUS_BEACON_PACKET_TYPE:
             self._process_status_beacon(packet_payload)
+        elif packet_type == SERIAL_COMM_HANDSHAKE_PACKET_TYPE:
+            status_codes_dict = convert_status_code_bytes_to_dict(packet_payload)
+            self._handle_status_codes(status_codes_dict, "Handshake Response")
         elif packet_type == SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE:
             raise NotImplementedError(
                 "Should never receive magnetometer data packets when not streaming data"
@@ -730,17 +739,14 @@ class McCommunicationProcess(InstrumentCommProcess):
             going_dormant_reason = packet_payload[0]
             raise FirmwareGoingDormantError(going_dormant_reason)
         elif packet_type in COMMAND_PACKET_TYPES:
-            response_data = packet_payload
-            if not self._commands_awaiting_response:
+            try:
+                prev_command = self._commands_awaiting_response.pop(packet_type)
+            except ValueError:
                 raise SerialCommUntrackedCommandResponseError(
                     f"Packet Type ID: {packet_type}, Packet Body: {str(packet_payload)}"
                 )
-                # TODO make sure the packet type matches the expected packet type from the previous command
-            prev_command = self._commands_awaiting_response.popleft()
-            if prev_command["command"] == "handshake":
-                status_codes_dict = convert_status_code_bytes_to_dict(response_data)
-                self._handle_status_codes(status_codes_dict, "Handshake Response")
-                return
+
+            response_data = packet_payload
             if prev_command["command"] == "get_metadata":
                 prev_command["board_index"] = board_idx
                 prev_command["metadata"] = parse_metadata_bytes(response_data)
@@ -790,11 +796,13 @@ class McCommunicationProcess(InstrumentCommProcess):
             elif prev_command["command"] == "start_stim_checks":
                 stimulator_check_dict = convert_stimulator_check_bytes_to_dict(response_data)
 
-                stimulator_circuit_statuses: List[Optional[str]] = [None] * self._num_wells
-                adc_readings: List[Optional[Tuple[int, int]]] = [None] * self._num_wells
+                stimulator_circuit_statuses: Dict[int, str] = {}
+                adc_readings: Dict[int, Tuple[int, int]] = {}
 
                 for module_id, (adc8, adc9, status_int) in enumerate(zip(*stimulator_check_dict.values()), 1):
                     well_idx = STIM_MODULE_ID_TO_WELL_IDX[module_id]
+                    if well_idx not in prev_command["well_indices"]:
+                        continue
                     status_str = list(StimulatorCircuitStatuses)[status_int + 1].name.lower()
                     stimulator_circuit_statuses[well_idx] = status_str
                     adc_readings[well_idx] = (adc8, adc9)
@@ -912,7 +920,10 @@ class McCommunicationProcess(InstrumentCommProcess):
                 SERIAL_COMM_GET_METADATA_PACKET_TYPE,
                 convert_to_timestamp_bytes(get_serial_comm_timestamp()),
             )
-            self._add_command_to_track({"communication_type": "metadata_comm", "command": "get_metadata"})
+            self._add_command_to_track(
+                SERIAL_COMM_GET_METADATA_PACKET_TYPE,
+                {"communication_type": "metadata_comm", "command": "get_metadata"},
+            )
             self._auto_get_metadata = False
 
     def _register_magic_word(self, board_idx: int) -> None:
@@ -1002,10 +1013,24 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         # process any other packets
         for other_packet_info in sorted_packet_dict["other_packet_info"]:
+            timestamp, packet_type, packet_payload = other_packet_info
             try:
-                self._process_comm_from_instrument(*other_packet_info[1:])
+                self._process_comm_from_instrument(packet_type, packet_payload)
+            except (
+                FirmwareGoingDormantError,
+                SerialCommUntrackedCommandResponseError,
+                SerialCommIncorrectChecksumFromPCError,
+                InstrumentDataStreamingAlreadyStartedError,
+                InstrumentDataStreamingAlreadyStoppedError,
+                StimulationProtocolUpdateFailedError,
+                StimulationStatusUpdateFailedError,
+                FirmwareUpdateCommandFailedError,
+            ):
+                raise
             except Exception as e:
-                raise SerialCommCommandProcessingError(*other_packet_info) from e
+                raise SerialCommCommandProcessingError(
+                    f"Timestamp: {timestamp}, Packet Type: {packet_type}, Payload: {packet_payload}"
+                ) from e
 
         # create dict and send to file writer if any stream packets were found
         self._handle_mag_data_packets(sorted_packet_dict["magnetometer_stream_info"])
@@ -1017,7 +1042,6 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _handle_mag_data_packets(self, mag_stream_info: Dict[str, Union[bytes, int]]) -> None:
         # don't update cache if not streaming or there are no packets to add
         if not (self._is_data_streaming and mag_stream_info["num_packets"]):
-            # TODO make sure this is unit tested
             return
         # update cache values
         for key, value in mag_stream_info.items():
@@ -1140,9 +1164,11 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise SerialCommStatusBeaconTimeoutError()
 
     def _handle_command_tracking(self) -> None:
-        if not self._commands_awaiting_response:
+        try:
+            oldest_command = self._commands_awaiting_response.oldest()
+        except IndexError:
             return
-        oldest_command = self._commands_awaiting_response[0]
+
         secs_since_command_sent = _get_secs_since_command_sent(oldest_command["timepoint"])
         if secs_since_command_sent >= SERIAL_COMM_RESPONSE_TIMEOUT_SECONDS:
             raise SerialCommCommandResponseTimeoutError(oldest_command["command"])
@@ -1231,14 +1257,11 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._performance_tracking_values[metric_name].append(metric_value)
 
     def _handle_performance_logging(self) -> None:
-        performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
-        for metric_name, metric_values in self._performance_tracking_values.items():
-            performance_metrics[metric_name] = None
-            if len(metric_values) > 2:
-                performance_metrics[metric_name] = {
-                    "max": max(metric_values),
-                    "min": min(metric_values),
-                    "stdev": round(stdev(metric_values), 6),
-                    "mean": round(sum(metric_values) / len(metric_values), 6),
-                }
-        self._send_performance_metrics(performance_metrics)
+        if logging.DEBUG >= self._logging_level:  # pragma: no cover
+            performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
+            for metric_name, metric_values in self._performance_tracking_values.items():
+                performance_metrics[metric_name] = None
+                if len(metric_values) > 2:
+                    performance_metrics[metric_name] = create_metrics_stats(metric_values)
+            self._send_performance_metrics(performance_metrics)
+        self._reset_performance_tracking_values()

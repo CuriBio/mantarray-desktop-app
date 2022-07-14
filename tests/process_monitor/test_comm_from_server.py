@@ -24,6 +24,7 @@ from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.constants import UPDATES_NEEDED_STATE
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
+from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
 from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
@@ -270,6 +271,9 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
             STIMULATION_PROTOCOL_UUID: None,
             CUSTOMER_ACCOUNT_ID_UUID: NOT_APPLICABLE_H5_METADATA,
             USER_ACCOUNT_ID_UUID: NOT_APPLICABLE_H5_METADATA,
+            INITIAL_MAGNET_FINDING_PARAMS_UUID: GENERIC_BETA_2_START_RECORDING_COMMAND[
+                "metadata_to_copy_onto_main_file_attributes"
+            ][INITIAL_MAGNET_FINDING_PARAMS_UUID],
         }
     )
     assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_start_recording_command
@@ -289,10 +293,14 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__passe
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, svd, *_ = test_monitor(test_process_manager)
 
-    test_num_wells = 24
-    svd["stimulator_circuit_statuses"] = ["any"] * test_num_wells
+    test_wells = [1, 2, 3]
+    svd["stimulator_circuit_statuses"] = {}
 
-    start_stim_checks_command = {"communication_type": "stimulation", "command": "start_stim_checks"}
+    start_stim_checks_command = {
+        "communication_type": "stimulation",
+        "command": "start_stim_checks",
+        "well_indices": test_wells,
+    }
 
     server_to_main_queue = (
         test_process_manager.queue_container().get_communication_queue_from_server_to_main()
@@ -303,10 +311,9 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__passe
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert (
-        svd["stimulator_circuit_statuses"]
-        == [StimulatorCircuitStatuses.CALCULATING.name.lower()] * test_num_wells
-    )
+    assert svd["stimulator_circuit_statuses"] == {
+        well_idx: StimulatorCircuitStatuses.CALCULATING.name.lower() for well_idx in test_wells
+    }
 
     main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
     confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)

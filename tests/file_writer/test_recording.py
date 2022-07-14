@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import copy
+import glob
 import json
 import os
 
@@ -43,6 +44,7 @@ from pulse3D.constants import COMPUTER_NAME_HASH_UUID
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import FILE_FORMAT_VERSION_METADATA_KEY
 from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
+from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import IS_CALIBRATION_FILE_UUID
 from pulse3D.constants import IS_FILE_ORIGINAL_UNTRIMMED_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
@@ -295,6 +297,12 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
                 bool(this_file.attrs[str(STIM_BARCODE_IS_FROM_SCANNER_UUID)])
                 is start_recording_command["metadata_to_copy_onto_main_file_attributes"][
                     STIM_BARCODE_IS_FROM_SCANNER_UUID
+                ]
+            )
+            assert (
+                this_file.attrs[str(INITIAL_MAGNET_FINDING_PARAMS_UUID)]
+                == start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+                    INITIAL_MAGNET_FINDING_PARAMS_UUID
                 ]
             )
             assert get_time_index_dataset_from_file(this_file).shape == (0,)
@@ -755,10 +763,7 @@ def test_FileWriterProcess__closes_the_files_and_sends_communication_to_main_whe
 
     test_num_data_points = 10
 
-    spied_h5_close = mocker.spy(
-        h5py._hl.files.File,  # pylint:disable=protected-access # this is the only known (Eli 2/27/20) way to access the appropriate type definition
-        "close",
-    )
+    spied_h5_close = mocker.spy(h5py._hl.files.File, "close")
 
     update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
     update_user_settings_command["config_settings"]["auto_delete_local_files"] = False
@@ -782,11 +787,66 @@ def test_FileWriterProcess__closes_the_files_and_sends_communication_to_main_whe
     assert actual_data[3] == 6
     assert actual_data[9] == 18
 
-    assert spied_h5_close.call_count == 1
+    # corruption check closes file for a second time
+    assert spied_h5_close.call_count == 2
 
     finalization_msg = msgs_to_main[0]
     assert finalization_msg["communication_type"] == "file_finalized"
     assert "_A1" in finalization_msg["file_path"]
+
+
+def test_FileWriterProcess__sends_message_to_main_if_a_corrupt_file_is_found(
+    four_board_file_writer_process, mocker
+):
+    file_dir = four_board_file_writer_process["file_dir"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+
+    test_num_data_points = 10
+
+    def file_se(file_name, open_type, *args, **kwargs):
+        yield h5py.File(file_name, open_type)
+        raise Exception()
+
+    mocker.patch.object(h5py, "File", autospec=True, side_effect=file_se)
+
+    update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+    update_user_settings_command["config_settings"]["auto_delete_local_files"] = False
+    update_user_settings_command["config_settings"]["auto_upload_on_completion"] = False
+    create_and_close_beta_1_h5_files(
+        four_board_file_writer_process,
+        update_user_settings_command,
+        num_data_points=test_num_data_points,
+        active_well_indices=[0],
+        check_queue_after_finalization=False,
+    )
+
+    assert drain_queue(to_main_queue)[-2] == {
+        "communication_type": "corrupt_file_detected",
+        "corrupt_files": glob.glob(os.path.join(file_dir, "**", "*.h5"), recursive=True),
+    }
+
+
+def test_FileWriterProcess__does_not_send_message_to_main_if_no_corrupt_files_found(
+    four_board_file_writer_process,
+):
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+
+    test_num_data_points = 10
+
+    update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+    update_user_settings_command["config_settings"]["auto_delete_local_files"] = False
+    update_user_settings_command["config_settings"]["auto_upload_on_completion"] = False
+    create_and_close_beta_1_h5_files(
+        four_board_file_writer_process,
+        update_user_settings_command,
+        num_data_points=test_num_data_points,
+        active_well_indices=[0],
+        check_queue_after_finalization=False,
+    )
+
+    assert not [
+        msg for msg in drain_queue(to_main_queue) if msg["communication_type"] == "corrupt_file_detected"
+    ]
 
 
 def test_FileWriterProcess__adds_incoming_magnetometer_data_to_internal_buffer(

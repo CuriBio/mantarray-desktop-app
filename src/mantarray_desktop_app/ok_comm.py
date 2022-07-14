@@ -10,7 +10,6 @@ import math
 from multiprocessing import Queue
 import os
 import queue
-from statistics import stdev
 import struct
 import time
 from time import sleep
@@ -21,20 +20,13 @@ from typing import Optional
 from typing import Union
 
 import numpy as np
+from stdlib_utils import create_metrics_stats
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import get_formatted_stack_trace
 from stdlib_utils import put_log_message_into_queue
 from stdlib_utils import resource_path
-from xem_wrapper import check_header
-from xem_wrapper import convert_sample_idx
-from xem_wrapper import convert_wire_value
-from xem_wrapper import DATA_FRAME_SIZE_WORDS
-from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
-from xem_wrapper import FrontPanelBase
-from xem_wrapper import FrontPanelSimulator
-from xem_wrapper import OpalKellyNoDeviceFoundError
-from xem_wrapper import open_board
 
+from .arch_utils import is_cpu_arm
 from .constants import ADC_GAIN_DESCRIPTION_TAG
 from .constants import BARCODE_CONFIRM_CLEAR_WAIT_SECONDS
 from .constants import BARCODE_GET_SCAN_WAIT_SECONDS
@@ -65,6 +57,22 @@ from .instrument_comm import InstrumentCommProcess
 from .mantarray_front_panel import MantarrayFrontPanel
 from .utils import _trim_barcode
 from .utils import check_barcode_is_valid
+
+try:
+    from xem_wrapper import check_header
+    from xem_wrapper import convert_sample_idx
+    from xem_wrapper import convert_wire_value
+    from xem_wrapper import DATA_FRAME_SIZE_WORDS
+    from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
+    from xem_wrapper import FrontPanelBase
+    from xem_wrapper import FrontPanelSimulator
+    from xem_wrapper import OpalKellyNoDeviceFoundError
+    from xem_wrapper import open_board
+except ImportError:  # no sec  # pragma: no cover
+    if not is_cpu_arm():
+        raise
+
+    pass
 
 if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement
     from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20): unsure why pylint is unable to recognize cython import...
@@ -956,10 +964,5 @@ class OkCommunicationProcess(InstrumentCommProcess):
                 self._durations_between_acquisition,
             ),
         ):
-            performance_metrics[name] = {
-                "max": max(okc_measurements),
-                "min": min(okc_measurements),
-                "stdev": round(stdev(okc_measurements), 6),
-                "mean": round(sum(okc_measurements) / len(okc_measurements), 6),
-            }
+            performance_metrics[name] = create_metrics_stats(okc_measurements)
         self._send_performance_metrics(performance_metrics)

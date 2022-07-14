@@ -2,7 +2,6 @@
 import copy
 import datetime
 import logging
-from statistics import stdev
 import struct
 import time
 from typing import Any
@@ -26,6 +25,7 @@ from mantarray_desktop_app import UnrecognizedDataFrameFormatNameError
 import numpy as np
 import pytest
 from scipy import signal
+from stdlib_utils import create_metrics_stats
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import parallelism_framework
@@ -693,37 +693,17 @@ def test_OkCommunicationProcess_managed_acquisition__logs_performance_metrics_af
     assert actual["communication_type"] == "performance_metrics"
     assert "idle_iteration_time_ns" not in actual
     assert "start_timepoint_of_measurements" not in actual
-    assert actual["fifo_read_num_bytes"] == {
-        "max": max(expected_num_bytes),
-        "min": min(expected_num_bytes),
-        "stdev": round(stdev(expected_num_bytes), 6),
-        "mean": round(sum(expected_num_bytes) / len(expected_num_bytes), 6),
-    }
-    assert actual["fifo_read_duration"] == {
-        "max": max(expected_read_dur_values),
-        "min": min(expected_read_dur_values),
-        "stdev": round(stdev(expected_read_dur_values), 6),
-        "mean": round(sum(expected_read_dur_values) / len(expected_read_dur_values), 6),
-    }
-    assert actual["duration_between_acquisition"] == {
-        "max": max(expected_acquisition_values),
-        "min": min(expected_acquisition_values),
-        "stdev": round(stdev(expected_acquisition_values), 6),
-        "mean": round(sum(expected_acquisition_values) / len(expected_acquisition_values), 6),
-    }
-    assert actual["data_parsing_duration"] == {
-        "max": max(expected_parsing_dur_values),
-        "min": min(expected_parsing_dur_values),
-        "stdev": round(stdev(expected_parsing_dur_values), 6),
-        "mean": round(sum(expected_parsing_dur_values) / len(expected_parsing_dur_values), 6),
-    }
+
+    for name, measurements in (
+        ("percent_use_metrics", expected_percent_use_values),
+        ("fifo_read_num_bytes", expected_num_bytes),
+        ("fifo_read_duration", expected_read_dur_values),
+        ("duration_between_acquisition", expected_acquisition_values),
+        ("data_parsing_duration", expected_parsing_dur_values),
+    ):
+        assert actual[name] == create_metrics_stats(measurements), name
+
     assert actual["percent_use"] == expected_latest_percent_use
-    assert actual["percent_use_metrics"] == {
-        "max": max(expected_percent_use_values),
-        "min": min(expected_percent_use_values),
-        "stdev": round(stdev(expected_percent_use_values), 6),
-        "mean": round(sum(expected_percent_use_values) / len(expected_percent_use_values), 6),
-    }
     num_longest_iterations = ok_process.num_longest_iterations
     assert actual["longest_iterations"] == expected_longest_iterations[-num_longest_iterations:]
 

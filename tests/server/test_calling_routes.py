@@ -2,7 +2,6 @@
 import json
 import os
 from random import randint
-import shutil
 import tempfile
 import urllib
 
@@ -285,9 +284,9 @@ def test_start_calibration__returns_error_code_and_message_if_called_in_beta_2_m
     test_num_wells = 24
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulation_running"][0] = True  # arbitrary well
-    shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.name.lower()
-    ] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = {
+        well_idx: StimulatorCircuitStatuses.MEDIA.name.lower() for well_idx in range(test_num_wells)
+    }
 
     response = test_client.get("/start_calibration")
     assert response.status_code == 403
@@ -303,9 +302,9 @@ def test_start_calibration__returns_error_code_and_message_if_called_in_beta_2_m
 
     test_num_wells = 24
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
-    shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.name.lower()
-    ] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = {
+        well_idx: StimulatorCircuitStatuses.MEDIA.name.lower() for well_idx in range(test_num_wells)
+    }
     # set random circuit status to calculating
     shared_values_dict["stimulator_circuit_statuses"][
         randint(0, test_num_wells - 1)
@@ -351,13 +350,13 @@ def test_start_stim_checks__returns_correct_response(
 
     test_num_wells = 24
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
-    shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.name.lower()
-    ] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = {
+        well_idx: StimulatorCircuitStatuses.MEDIA.name.lower() for well_idx in range(test_num_wells)
+    }
 
-    expected_status_code = 200 if test_system_status in (CALIBRATED_STATE) else 403
+    expected_status_code = 200 if test_system_status == CALIBRATED_STATE else 403
 
-    response = test_client.post("/start_stim_checks")
+    response = test_client.post("/start_stim_checks", json={"well_indices": [0]})
     assert response.status_code == expected_status_code
     if expected_status_code == 403:
         assert response.status.endswith("Route cannot be called unless in calibrated state") is True
@@ -373,9 +372,9 @@ def test_start_stim_checks__returns_error_code_and_message_if_called_while_stimu
     test_num_wells = 24
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulation_running"][0] = True  # arbitrary well
-    shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.name.lower()
-    ] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = {
+        well_idx: StimulatorCircuitStatuses.MEDIA.name.lower() for well_idx in range(test_num_wells)
+    }
 
     response = test_client.post("/start_stim_checks")
     assert response.status_code == 403
@@ -390,9 +389,9 @@ def test_set_start_stim_checks__returns_code_and_message_if_checks_are_already_r
     shared_values_dict["system_status"] = CALIBRATED_STATE
     test_num_wells = 24
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
-    shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.name.lower()
-    ] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = {
+        well_idx: StimulatorCircuitStatuses.MEDIA.name.lower() for well_idx in range(test_num_wells)
+    }
     # set random circuit status to calculating
     shared_values_dict["stimulator_circuit_statuses"][
         randint(0, test_num_wells - 1)
@@ -401,6 +400,38 @@ def test_set_start_stim_checks__returns_code_and_message_if_checks_are_already_r
     response = test_client.post("/start_stim_checks")
     assert response.status_code == 304
     assert response.status.endswith("Stimulator checks already running") is True
+
+
+def test_start_stim_checks__returns_error_code_and_message_if_called_without_well_indices_in_body(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    shared_values_dict["beta_2_mode"] = True
+
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = {}
+
+    response = test_client.post("/start_stim_checks")
+    assert response.status_code == 400
+    assert response.status.endswith("Request body missing 'well_indices'") is True
+
+
+def test_start_stim_checks__returns_error_code_and_message_if_called_with_empty_well_indices_list(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    shared_values_dict["beta_2_mode"] = True
+
+    test_num_wells = 24
+    shared_values_dict["stimulation_running"] = [False] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = {}
+
+    response = test_client.post("/start_stim_checks", json={"well_indices": []})
+    assert response.status_code == 400
+    assert response.status.endswith("No well indices given") is True
 
 
 def test_update_recording_name__returns_403_if_recording_name_exists(
@@ -422,20 +453,6 @@ def test_update_recording_name__returns_200_if_recording_name_doesnt_exists(
     mocker.patch.object(os.path, "exists", return_value=False)
 
     response = test_client.post("/update_recording_name?new_name=new_recording_name&default_name=old_name")
-    assert response.status_code == 200
-
-
-def test_update_recording_name__removes_directory_to_rewrite_if_replace_existing_is_present_in_params(
-    client_and_server_manager_and_shared_values, mocker
-):
-    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    shared_values_dict["config_settings"]["recording_directory"] = "/test/recording/directory"
-    shutil_mock = mocker.patch.object(shutil, "rmtree", autospec=True)
-
-    response = test_client.post(
-        "/update_recording_name?new_name=new_recording_name&default_name=old_name&replace_existing=true"
-    )
-    shutil_mock.assert_called_with(os.path.join("/test/recording/directory", "new_recording_name"))
     assert response.status_code == 200
 
 
@@ -528,9 +545,9 @@ def test_start_managed_acquisition__returns_error_code_and_message_called_while_
     }
 
     test_num_wells = 24
-    shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.name.lower()
-    ] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = {
+        well_idx: StimulatorCircuitStatuses.MEDIA.name.lower() for well_idx in range(test_num_wells)
+    }
     # set random circuit status to calculating
     shared_values_dict["stimulator_circuit_statuses"][
         randint(0, test_num_wells - 1)
@@ -729,14 +746,14 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
         ("MA22123199-1", "barcode contains invalid header: 'MA'"),
         ("MB22123199-1", "barcode contains invalid header: 'MB'"),
         ("ME22123199-1", "barcode contains invalid header: 'ME'"),
-        ("ML221$3199-1", "barcode contains invalid char"),
-        ("ML20123199-1", "year is before 2022: '20'"),
-        ("ML22444199-1", "day is not valid: '444'"),
-        ("ML22123999-1", "experiment id is not valid: '999'"),
-        ("ML22123199-2", "incorrect last digit"),
+        ("ML221$3199-1", "barcode contains invalid character: '$'"),
+        ("ML20123199-1", "barcode contains invalid year: '20'"),
+        ("ML22444199-1", "barcode contains invalid Julian date: '444'"),
+        ("ML22123999-1", "barcode contains invalid experiment id: '999'"),
+        ("ML22123199-2", "barcode contains invalid last digit: '2'"),
     ],
 )
-def test_start_recording__returns_error_code_and_message_if_new_barcode_beta1_mode_scheme_is_invalid(
+def test_start_recording__returns_error_code_and_message_if_new_barcode_beta_1_mode_scheme_is_invalid(
     test_barcode,
     expected_error_message,
     client_and_server_manager_and_shared_values,
@@ -744,13 +761,7 @@ def test_start_recording__returns_error_code_and_message_if_new_barcode_beta1_mo
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = False
 
-    shared_values_dict["stimulation_running"] = [True] * 24
-
-    barcodes = {
-        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
-    }
-
-    barcodes["plate_barcode"] = test_barcode
+    barcodes = {"plate_barcode": test_barcode}
 
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
     assert response.status_code == 400
@@ -766,14 +777,14 @@ def test_start_recording__returns_error_code_and_message_if_new_barcode_beta1_mo
         ("MA22123199-2", "barcode contains invalid header: 'MA'"),
         ("MB22123199-2", "barcode contains invalid header: 'MB'"),
         ("ME22123199-2", "barcode contains invalid header: 'ME'"),
-        ("M*221$3199-2", "barcode contains invalid char"),
-        ("M*20123199-2", "year is before 2022: '20'"),
-        ("M*22444199-2", "day is not valid: '444'"),
-        ("M*22123999-2", "experiment id is not valid: '999'"),
-        ("M*22123199-1", "incorrect last digit"),
+        ("M*221$3199-2", "barcode contains invalid character: '$'"),
+        ("M*20123199-2", "barcode contains invalid year: '20'"),
+        ("M*22444199-2", "barcode contains invalid Julian date: '444'"),
+        ("M*22123999-2", "barcode contains invalid experiment id: '999'"),
+        ("M*22123199-1", "barcode contains invalid last digit: '1'"),
     ],
 )
-def test_start_recording__returns_error_code_and_message_if_new_barcode_beta2_mode_scheme_is_invalid(
+def test_start_recording__returns_error_code_and_message_if_new_barcode_beta_2_mode_scheme_is_invalid(
     test_barcode_type,
     test_barcode,
     expected_error_message,
@@ -949,11 +960,7 @@ def test_set_stim_status__returns_error_code_and_message_if_called_with_true_bef
     test_num_wells = 24
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulation_info"] = create_random_stim_info()
-    shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.name.lower()
-    ] * test_num_wells
-    # set random circuit status to None
-    shared_values_dict["stimulator_circuit_statuses"][randint(0, test_num_wells - 1)] = None
+    shared_values_dict["stimulator_circuit_statuses"] = {}
 
     response = test_client.post("/set_stim_status?running=true")
     assert response.status_code == 403
@@ -973,9 +980,9 @@ def test_set_stim_status__returns_error_code_and_message_if_called_with_true_if_
     test_num_wells = 24
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulation_info"] = create_random_stim_info()
-    shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.name.lower()
-    ] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = {
+        well_idx: StimulatorCircuitStatuses.MEDIA.name.lower() for well_idx in range(test_num_wells)
+    }
     # set random circuit status to short
     shared_values_dict["stimulator_circuit_statuses"][
         randint(0, test_num_wells - 1)
@@ -996,9 +1003,9 @@ def test_set_stim_status__returns_error_code_and_message_if_called_with_true_whi
     test_num_wells = 24
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulation_info"] = create_random_stim_info()
-    shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.name.lower()
-    ] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = {
+        well_idx: StimulatorCircuitStatuses.MEDIA.name.lower() for well_idx in range(test_num_wells)
+    }
     # set random circuit status to calculating
     shared_values_dict["stimulator_circuit_statuses"][
         randint(0, test_num_wells - 1)
@@ -1020,9 +1027,9 @@ def test_set_stim_status__returns_code_and_message_if_new_status_is_the_same_as_
     test_num_wells = 24
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulation_info"] = {}
-    shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.name.lower()
-    ] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = {
+        well_idx: StimulatorCircuitStatuses.MEDIA.name.lower() for well_idx in range(test_num_wells)
+    }
 
     response = test_client.post("/set_stim_status?running=false")
     assert response.status_code == 304

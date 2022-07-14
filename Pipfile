@@ -4,6 +4,7 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
+atomicwrites = "==1.4.0" # Tanner (7/11/22): pytest on windows needs this, so need to explicitly keep this here until pytest drops this package.  TODO check and see if pytest dropped this package
 boto3 = "==1.17.32"
 click = "==8.0.3"  # Tanner (4/11/22): pinned for black
 cython = "==0.29.23"
@@ -28,7 +29,7 @@ flask = "==1.1.2"
 flask-cors = "==3.0.10"
 Flask-SocketIO = "==5.1.1"
 flatten-dict = "==0.4.2"
-h5py = "==3.2.1"
+h5py = "==3.7.0"
 immutabledict = "==1.3.0"
 immutable-data-validation = "==0.2.1"
 labware-domain-models = "==0.3.1"
@@ -36,14 +37,14 @@ itsdangerous = "==2.0.1"  # Tanner (4/7/22): pinned for flask
 Jinja2 = "==3.0.3"  # Tanner (4/7/22): pinned for flask
 jsonschema = "==4.1.0"  # Tanner (11/8/21): latest version is having issues in compiled executable
 nptyping = "==1.4.4"  # Tanner (4/7/22): pinned for pulse3D
-numpy = "==1.21.5"
+numpy = "==1.22.4"
 psutil = "==5.8.0"
-pulse3D = "==0.23.8"
+pulse3D = "==0.24.1"
 pyserial = "==3.5"
-scipy = "==1.6.2"
+scipy = "==1.8.1"
 secrets-manager = "==0.4"
 semver = "==2.13.0"
-stdlib-utils = "==0.4.8"
+stdlib-utils = "==0.5.1"
 streamz = "==0.6.2"
 werkzeug = "==2.0.3"  # Tanner (4/7/22): pinned for flask
 xem-wrapper = "==0.2.5"

@@ -55,6 +55,7 @@ from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import UPDATE_ERROR_STATE
 from .constants import UPDATES_COMPLETE_STATE
 from .constants import UPDATES_NEEDED_STATE
+from .exceptions import InstrumentError
 from .exceptions import UnrecognizedCommandFromServerToMainError
 from .exceptions import UnrecognizedMantarrayNamingCommandError
 from .exceptions import UnrecognizedRecordingCommandError
@@ -140,10 +141,18 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     self._process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
                 )
                 # need to send stop command to the process the furthest downstream the data path first then move upstream
-                stop_managed_acquisition_comm = dict(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+                stop_managed_acquisition_comm: Dict[str, Any] = dict(STOP_MANAGED_ACQUISITION_COMMUNICATION)
                 stop_managed_acquisition_comm["is_calibration_recording"] = True
                 main_to_fw_queue.put_nowait(stop_managed_acquisition_comm)
                 main_to_ic_queue.put_nowait(stop_managed_acquisition_comm)
+        elif communication_type == "corrupt_file_detected":
+            corrupt_files = communication["corrupt_files"]
+            self._queue_websocket_message(
+                {
+                    "data_type": "corrupt_files_alert",
+                    "data_json": json.dumps({"corrupt_files_found": corrupt_files}),
+                }
+            )
 
         # Tanner (12/13/21): redact file/folder path after handling comm in case the actual file path is needed
         for sensitive_field in ("file_path", "file_folder"):
@@ -262,9 +271,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._values_to_share_to_server["stimulation_info"] = communication["stim_info"]
                 self._put_communication_into_instrument_comm_queue(communication)
             elif command == "start_stim_checks":
-                self._values_to_share_to_server["stimulator_circuit_statuses"] = [
-                    StimulatorCircuitStatuses.CALCULATING.name.lower()
-                ] * 24
+                self._values_to_share_to_server["stimulator_circuit_statuses"] = {
+                    well_idx: StimulatorCircuitStatuses.CALCULATING.name.lower()
+                    for well_idx in communication["well_indices"]
+                }
                 self._put_communication_into_instrument_comm_queue(communication)
             else:
                 # Tanner (8/9/21): could make this a custom error if needed
@@ -432,11 +442,19 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     communication["response"]["bit_file_name"]
                 )
 
-        msg: str
+        communication_type = communication["communication_type"]
+
         if "mantarray_nickname" in communication:
             # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
             comm_copy = copy.deepcopy(communication)
             comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
+            msg = f"Communication from the Instrument Controller: {comm_copy}"
+        elif communication_type == "metadata_comm":
+            # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
+            comm_copy = copy.deepcopy(communication)
+            comm_copy["metadata"][MANTARRAY_NICKNAME_UUID] = get_redacted_string(
+                len(comm_copy["metadata"][MANTARRAY_NICKNAME_UUID])
+            )
             msg = f"Communication from the Instrument Controller: {comm_copy}"
         else:
             # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
@@ -445,9 +463,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.info(msg)
-        communication_type = communication["communication_type"]
 
-        command = communication.get("command", None)
+        command = communication.get("command")
 
         if communication_type == "acquisition_manager":
             if command == "start_managed_acquisition":
@@ -823,14 +840,25 @@ class MantarrayProcessesMonitor(InfiniteThread):
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.error(msg)
-        if self._values_to_share_to_server["system_status"] in (
+
+        shutdown_server = True
+
+        if process == self._process_manager.get_instrument_process() and isinstance(
+            this_err, InstrumentError
+        ):
+            this_err_type_mro = type(this_err).mro()
+            instrument_sub_error_class = this_err_type_mro[this_err_type_mro.index(InstrumentError) - 1]
+            instrument_sub_error_name = instrument_sub_error_class.__name__
+            self._queue_websocket_message(
+                {"data_type": "error", "data_json": json.dumps({"error_type": instrument_sub_error_name})}
+            )
+        elif self._values_to_share_to_server["system_status"] in (
             DOWNLOADING_UPDATES_STATE,
             INSTALLING_UPDATES_STATE,
         ):
             self._values_to_share_to_server["system_status"] = UPDATE_ERROR_STATE
             shutdown_server = False
-        else:
-            shutdown_server = True
+
         self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=shutdown_server)
 
     def _hard_stop_and_join_processes_and_log_leftovers(

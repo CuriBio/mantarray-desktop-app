@@ -1,6 +1,6 @@
 {
   "name": "MantarrayController",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "description": "Desktop application for controlling the Mantarray instrument.",
   "author": {
     "name": "Curi Bio",
@@ -10,7 +10,7 @@
     "type": "git",
     "url": "https://github.com/CuriBio/mantarray-desktop-app.git"
   },
-  "homepage": "http://www.curiobio.com",
+  "homepage": "http://www.curibio.com",
   "private": false,
   "license": "MIT",
   "main": "./dist/main/index.js",
@@ -24,7 +24,7 @@
     "build-unstable": "node ./node_modules/@curi-bio/frontend-test-utils/src/check_engines.js && cross-env-shell NODE_ENV=production RELEASE_CHANNEL=unstable node .electron-nuxt/index.js",
     "build-alpha": "node ./node_modules/@curi-bio/frontend-test-utils/src/check_engines.js && cross-env-shell NODE_ENV=production RELEASE_CHANNEL=alpha node .electron-nuxt/index.js",
     "build-beta": "node ./node_modules/@curi-bio/frontend-test-utils/src/check_engines.js && cross-env-shell NODE_ENV=production RELEASE_CHANNEL=beta node .electron-nuxt/index.js",
-    "build-tenaya": "node ./node_modules/@curi-bio/frontend-test-utils/src/check_engines.js && cross-env-shell NODE_ENV=production RELEASE_CHANNEL=tenaya node .electron-nuxt/index.js",
+    "build-prod": "node ./node_modules/@curi-bio/frontend-test-utils/src/check_engines.js && cross-env-shell NODE_ENV=production RELEASE_CHANNEL=prod node .electron-nuxt/index.js",
     "build": "node ./node_modules/@curi-bio/frontend-test-utils/src/check_engines.js && cross-env-shell NODE_ENV=production RELEASE_CHANNEL=jest node .electron-nuxt/index.js",
     "build-nuxt": "node ./node_modules/@curi-bio/frontend-test-utils/src/check_engines.js && cross-env-shell NODE_ENV=production SUPPRESS_ELECTRON_BUILD=true node .electron-nuxt/index.js",
     "electron-builder-help": "electron-builder --help",
@@ -35,7 +35,7 @@
     "node": "^14.15.1"
   },
   "dependencies": {
-    "@curi-bio/mantarray-frontend-components": "0.7.5",
+    "@curi-bio/mantarray-frontend-components": "1.0.2",
     "@electron/remote": "~1.0.2",
     "axios": "~0.21.2",
     "current-script-polyfill": "~1.0.0",

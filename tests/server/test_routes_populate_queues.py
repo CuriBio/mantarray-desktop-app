@@ -25,6 +25,7 @@ from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import COMPUTER_NAME_HASH_UUID
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
+from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
@@ -666,7 +667,7 @@ def test_send_single_start_managed_acquisition_command__populates_queues(
 
     board_idx = 0
     shared_values_dict["mantarray_serial_number"] = {board_idx: "M02001801"}
-    shared_values_dict["stimulator_circuit_statuses"] = [None] * 24
+    shared_values_dict["stimulator_circuit_statuses"] = {}
 
     response = test_client.get("/start_managed_acquisition")
     assert response.status_code == 200
@@ -1155,6 +1156,9 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
         == expected_plate_barcode
     )
     assert communication["metadata_to_copy_onto_main_file_attributes"][HARDWARE_TEST_RECORDING_UUID] is False
+    assert communication["metadata_to_copy_onto_main_file_attributes"][
+        INITIAL_MAGNET_FINDING_PARAMS_UUID
+    ] == json.dumps(dict(MantarrayMcSimulator.initial_magnet_finding_params))
     # metadata values from instrument
     instrument_metadata = shared_values_dict["instrument_metadata"][0]
     assert (
@@ -1182,7 +1186,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
         communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_IS_FROM_SCANNER_UUID]
         is True
     )
-    assert (  # pylint: disable=duplicate-code
+    assert (
         communication["metadata_to_copy_onto_main_file_attributes"][COMPUTER_NAME_HASH_UUID]
         == GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
             COMPUTER_NAME_HASH_UUID
@@ -1345,9 +1349,9 @@ def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_statu
     expected_status_bool = test_status in ("true", "True")
     test_num_wells = 24
     shared_values_dict["stimulation_running"] = [not expected_status_bool] * test_num_wells
-    shared_values_dict["stimulator_circuit_statuses"] = [
-        StimulatorCircuitStatuses.MEDIA.name.lower()
-    ] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = {
+        well_idx: StimulatorCircuitStatuses.MEDIA.name.lower() for well_idx in range(test_num_wells)
+    }
 
     response = test_client.post(f"/set_stim_status?running={test_status}")
     assert response.status_code == 200
@@ -1420,7 +1424,7 @@ def test_start_calibration__populates_queue_to_process_monitor_with_correct_comm
     if test_beta_2_mode:
         test_num_wells = 24
         shared_values_dict["stimulation_running"] = [False] * test_num_wells
-        shared_values_dict["stimulator_circuit_statuses"] = [None] * test_num_wells
+        shared_values_dict["stimulator_circuit_statuses"] = {}
 
     response = test_client.get("/start_calibration")
     assert response.status_code == 200
@@ -1444,11 +1448,22 @@ def test_start_stim_checks__populates_queue_to_process_monitor_with_correct_comm
 
     test_num_wells = 24
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
-    shared_values_dict["stimulator_circuit_statuses"] = [None] * test_num_wells
+    shared_values_dict["stimulator_circuit_statuses"] = {}
 
-    expected_comm_dict = {"communication_type": "stimulation", "command": "start_stim_checks"}
+    test_well_indices = [i for i in range(test_num_wells) if random_bool()]
+    if not test_well_indices:
+        # guard against unlikely case where no wells were selected
+        test_well_indices = [0]
 
-    response = test_client.post("/start_stim_checks")
+    expected_comm_dict = {
+        "communication_type": "stimulation",
+        "command": "start_stim_checks",
+        "well_indices": test_well_indices,
+    }
+
+    response = test_client.post(
+        "/start_stim_checks", json={"well_indices": [str(well_idx) for well_idx in test_well_indices]}
+    )
     assert response.status_code == 200
 
     comm_queue = server_manager.get_queue_to_main()

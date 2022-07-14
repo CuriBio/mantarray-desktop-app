@@ -40,6 +40,12 @@ from mantarray_desktop_app import UPDATES_COMPLETE_STATE
 from mantarray_desktop_app import UPDATES_NEEDED_STATE
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
+from mantarray_desktop_app.exceptions import InstrumentBadDataError
+from mantarray_desktop_app.exceptions import InstrumentConnectionLostError
+from mantarray_desktop_app.exceptions import InstrumentCreateConnectionError
+from mantarray_desktop_app.exceptions import InstrumentFirmwareError
+from mantarray_desktop_app.exceptions import SerialCommCommandProcessingError
+from mantarray_desktop_app.exceptions import SerialCommCommandResponseTimeoutError
 from mantarray_desktop_app.server import queue_command_to_instrument_comm
 from mantarray_desktop_app.utils import redact_sensitive_info_from_path
 import numpy as np
@@ -344,9 +350,49 @@ def test_MantarrayProcessesMonitor__passes_update_upload_status_data_to_server(
 
 
 @pytest.mark.parametrize(
+    "test_error,expected_error_sent",
+    [
+        # base classes
+        (InstrumentCreateConnectionError, InstrumentCreateConnectionError),
+        (InstrumentConnectionLostError, InstrumentConnectionLostError),
+        (InstrumentBadDataError, InstrumentBadDataError),
+        (InstrumentFirmwareError, InstrumentFirmwareError),
+        # subclasses
+        (SerialCommCommandProcessingError, InstrumentBadDataError),
+        (SerialCommCommandResponseTimeoutError, InstrumentConnectionLostError),
+    ],
+)
+def test_MantarrayProcessesMonitor__handles_instrument_related_errors_from_instrument_comm_process_correctly(
+    test_error, expected_error_sent, mocker, test_process_manager_creator, test_monitor, patch_print
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
+    ic_process = test_process_manager.get_instrument_process()
+    ic_error_queue = test_process_manager.queue_container().get_instrument_communication_error_queue()
+    queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
+
+    mocker.patch.object(test_process_manager, "hard_stop_and_join_processes", autospec=True)
+
+    mocker.patch.object(
+        ic_process, "_commands_for_each_run_iteration", autospec=True, side_effect=test_error()
+    )
+    ic_process.run(num_iterations=1)
+    confirm_queue_is_eventually_of_size(ic_error_queue, 1)
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
+
+    ws_msg = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert ws_msg == {
+        "data_type": "error",
+        "data_json": json.dumps({"error_type": expected_error_sent.__name__}),
+    }
+
+
+@pytest.mark.parametrize(
     "test_system_status", [DOWNLOADING_UPDATES_STATE, INSTALLING_UPDATES_STATE, "anything else"]
 )
-def test_MantarrayProcessesMonitor__handles_instrument_comm_process_error_correctly(
+def test_MantarrayProcessesMonitor__handles_non_instrument_related_errors_from_instrument_comm_process_correctly(
     test_system_status, mocker, test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -805,11 +851,13 @@ def test_MantarrayProcessesMonitor__sets_in_simulation_mode_after_connection__in
     assert shared_values_dict["in_simulation_mode"] is True
 
 
-def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm(
-    test_monitor, test_process_manager_creator
+def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm__and_redacts_nickname_from_log_message(
+    test_monitor, test_process_manager_creator, mocker
 ):
     test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+
+    spied_info = mocker.spy(process_monitor.logger, "info")
 
     board_idx = 0
     instrument_comm_to_main_queue = (
@@ -842,6 +890,9 @@ def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm
     assert (
         shared_values_dict["instrument_metadata"][board_idx] == MantarrayMcSimulator.default_metadata_values
     )
+
+    for call_args in spied_info.call_args_list:
+        assert MantarrayMcSimulator.default_mantarray_nickname not in call_args[0][0]
 
 
 def test_MantarrayProcessesMonitor__does_not_switch_from_INSTRUMENT_INITIALIZING_STATE__in_beta_2_mode_if_required_values_are_not_set(
@@ -1919,7 +1970,7 @@ def test_MantarrayProcessesMonitor__passes_stim_status_check_results_from_mc_com
 
     test_num_wells = 24
     possible_stim_statuses = [member.name.lower() for member in StimulatorCircuitStatuses]
-    stim_check_results = [choice(possible_stim_statuses) for _ in range(test_num_wells)]
+    stim_check_results = {well_idx: choice(possible_stim_statuses) for well_idx in range(test_num_wells)}
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {
@@ -1937,4 +1988,31 @@ def test_MantarrayProcessesMonitor__passes_stim_status_check_results_from_mc_com
     assert ws_message == {
         "data_type": "stimulator_circuit_statuses",
         "data_json": json.dumps(stim_check_results),
+    }
+
+
+def test_MantarrayProcessesMonitor__passes_corrupt_file_message_from_file_writer_to_websocket_queue(
+    test_monitor, test_process_manager_creator
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
+
+    file_writer_to_main = (
+        test_process_manager.queue_container().get_communication_queue_from_file_writer_to_main()
+    )
+    queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
+
+    test_corrupt_files = ["test_file_A1", "test_file_C4"]
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"communication_type": "corrupt_file_detected", "corrupt_files": test_corrupt_files},
+        file_writer_to_main,
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
+
+    ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert ws_message == {
+        "data_type": "corrupt_files_alert",
+        "data_json": json.dumps({"corrupt_files_found": test_corrupt_files}),
     }

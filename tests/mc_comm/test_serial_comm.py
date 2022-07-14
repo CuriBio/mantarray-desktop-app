@@ -184,10 +184,9 @@ def test_McCommunicationProcess__raises_error_if_mantarray_returns_data_packet_t
     # assert that mc_comm receives the checksum failure response and handles it correctly
     board_idx = 0
     mc_process.set_board_connection(board_idx, simulator)
-    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
+    with pytest.raises(SerialCommIncorrectChecksumFromPCError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
-    assert type(exc_info.value.__cause__) == SerialCommIncorrectChecksumFromPCError
-    assert str(test_handshake) in str(exc_info.value.__cause__)
+    assert str(test_handshake) in str(exc_info.value)
 
 
 def test_McCommunicationProcess__includes_correct_timestamp_in_packets_sent_to_instrument(
@@ -281,10 +280,9 @@ def test_McCommunicationProcess__raises_error_when_receiving_going_dormant_packe
     )
     invoke_process_run_and_check_errors(simulator)
     # make sure error is raised
-    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
+    with pytest.raises(FirmwareGoingDormantError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
-    assert type(exc_info.value.__cause__) == FirmwareGoingDormantError
-    assert str(exc_info.value.__cause__) == str(test_reason)
+    assert str(exc_info.value) == str(test_reason)
 
 
 def test_McCommunicationProcess__raises_error_when_receiving_untracked_command_response_from_instrument(
@@ -300,7 +298,7 @@ def test_McCommunicationProcess__raises_error_when_receiving_untracked_command_r
     test_timestamp_bytes = bytes(8)  # 8 arbitrary bytes in place of timestamp of command sent from PC
     # using arbitrary command packet type here
     test_command_response = create_data_packet(
-        test_timestamp, SERIAL_COMM_HANDSHAKE_PACKET_TYPE, test_timestamp_bytes
+        test_timestamp, SERIAL_COMM_GET_METADATA_PACKET_TYPE, test_timestamp_bytes
     )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "add_read_bytes", "read_bytes": test_command_response},
@@ -309,11 +307,10 @@ def test_McCommunicationProcess__raises_error_when_receiving_untracked_command_r
     invoke_process_run_and_check_errors(simulator)
 
     mc_process.set_board_connection(0, simulator)
-    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
+    with pytest.raises(SerialCommUntrackedCommandResponseError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
-    assert type(exc_info.value.__cause__) == SerialCommUntrackedCommandResponseError
-    assert str(SERIAL_COMM_HANDSHAKE_PACKET_TYPE) in str(exc_info.value.__cause__)
-    assert str(test_timestamp_bytes) in str(exc_info.value.__cause__)
+    assert str(SERIAL_COMM_GET_METADATA_PACKET_TYPE) in str(exc_info.value)
+    assert str(test_timestamp_bytes) in str(exc_info.value)
 
 
 def test_McCommunicationProcess__raises_error_if_command_response_not_received_within_command_response_wait_period(

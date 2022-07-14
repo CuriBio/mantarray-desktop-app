@@ -12,7 +12,6 @@ from multiprocessing import queues as mpqueues
 import os
 import queue
 import shutil
-from statistics import stdev
 import tempfile
 import time
 from typing import Any
@@ -57,6 +56,7 @@ from pulse3D.constants import WELL_INDEX_UUID
 from pulse3D.constants import WELL_NAME_UUID
 from pulse3D.constants import WELL_ROW_UUID
 from pulse3D.plate_recording import MantarrayH5FileCreator
+from stdlib_utils import create_metrics_stats
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
@@ -298,8 +298,14 @@ class FileWriterProcess(InfiniteProcess):
             PERFOMANCE_LOGGING_PERIOD_SECS / self._minimum_iteration_duration_seconds
         )
         self._iterations_since_last_logging = 0
-        self._num_recorded_points: List[int] = list()
-        self._recording_durations: List[float] = list()
+        self._num_recorded_points: List[int]
+        self._recording_durations: List[float]
+        self._reset_performance_tracking_values()
+
+    def _reset_performance_tracking_values(self) -> None:
+        self._reset_performance_measurements()
+        self._num_recorded_points = list()
+        self._recording_durations = list()
 
     @property
     def _file_directory(self) -> str:
@@ -796,6 +802,8 @@ class FileWriterProcess(InfiniteProcess):
         if len(self._open_files[0]) == 0:
             return
 
+        list_of_corrupt_files = []  # keeps track of all files unable to be open and read
+
         for this_well_idx in list(
             self._open_files[0].keys()
         ):  # make a copy of the keys since they may be deleted during the run
@@ -806,6 +814,14 @@ class FileWriterProcess(InfiniteProcess):
             # grab filename before closing h5 file otherwise it will error
             file_name = this_file.filename
             this_file.close()
+
+            # after h5 close, reopen them and attempt to read. If not possible then add file to list
+            try:
+                with h5py.File(file_name, "r"):
+                    pass  # if file opens, then there is no corruption
+            except Exception:
+                list_of_corrupt_files.append(file_name)
+
             self._to_main_queue.put_nowait({"communication_type": "file_finalized", "file_path": file_name})
             del self._open_files[0][this_well_idx]
         # if no files open anymore, then send message to main indicating that all files have been finalized
@@ -813,6 +829,11 @@ class FileWriterProcess(InfiniteProcess):
             self._to_main_queue.put_nowait(
                 {"communication_type": "file_finalized", "message": "all_finals_finalized"}
             )
+            # if corrupt files present then send message to main
+            if list_of_corrupt_files:
+                self._to_main_queue.put_nowait(
+                    {"communication_type": "corrupt_file_detected", "corrupt_files": list_of_corrupt_files}
+                )
 
     def _process_next_incoming_packet(self) -> None:
         """Process the next incoming packet for that board.
@@ -841,7 +862,7 @@ class FileWriterProcess(InfiniteProcess):
 
     def _process_magnetometer_data_packet(self, data_packet: Dict[Any, Any]) -> None:
         # Tanner (5/25/21): Creating this log message takes a long time so only do it if we are actually logging. TODO: Should probably refactor this function to something more efficient eventually
-        if logging.DEBUG >= self.get_logging_level():  # pragma: no cover
+        if logging.DEBUG >= self.get_logging_level() and self._beta_2_mode:  # pragma: no cover
             num_data_points = data_packet["time_indices"].shape[0]
             data_packet_info = {
                 "num_data_points": num_data_points,
@@ -1117,33 +1138,28 @@ class FileWriterProcess(InfiniteProcess):
             well_buffers[1].clear()
 
     def _handle_performance_logging(self) -> None:
-        performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
-        performance_tracker = self.reset_performance_tracker()
-        performance_metrics["percent_use"] = performance_tracker["percent_use"]
-        performance_metrics["longest_iterations"] = sorted(performance_tracker["longest_iterations"])
-        if len(self._percent_use_values) > 1:
-            performance_metrics["percent_use_metrics"] = self.get_percent_use_metrics()
-        if len(self._num_recorded_points) > 1 and len(self._recording_durations) > 1:
-            fw_measurements: List[
-                Union[int, float]
-            ]  # Tanner (5/28/20): This type annotation and the 'ignore' on the following line are necessary for mypy to not incorrectly type this variable
-            for name, fw_measurements in (  # type: ignore
-                ("num_recorded_data_points_metrics", self._num_recorded_points),
-                ("recording_duration_metrics", self._recording_durations),
-            ):
-                performance_metrics[name] = {
-                    "max": max(fw_measurements),
-                    "min": min(fw_measurements),
-                    "stdev": round(stdev(fw_measurements), 6),
-                    "mean": round(sum(fw_measurements) / len(fw_measurements), 6),
-                }
+        if logging.DEBUG >= self._logging_level:  # pragma: no cover
+            performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
+            performance_tracker = self.reset_performance_tracker()
+            performance_metrics["percent_use"] = performance_tracker["percent_use"]
+            performance_metrics["longest_iterations"] = sorted(performance_tracker["longest_iterations"])
+            if len(self._percent_use_values) > 1:
+                performance_metrics["percent_use_metrics"] = self.get_percent_use_metrics()
+            if len(self._num_recorded_points) > 1 and len(self._recording_durations) > 1:
+                fw_measurements: List[Union[int, float]]
+                for name, fw_measurements in (  # type: ignore
+                    ("num_recorded_data_points_metrics", self._num_recorded_points),
+                    ("recording_duration_metrics", self._recording_durations),
+                ):
+                    performance_metrics[name] = create_metrics_stats(fw_measurements)
 
-        put_log_message_into_queue(
-            logging.INFO,
-            performance_metrics,
-            self._to_main_queue,
-            self.get_logging_level(),
-        )
+            put_log_message_into_queue(
+                logging.INFO,
+                performance_metrics,
+                self._to_main_queue,
+                self.get_logging_level(),
+            )
+        self._reset_performance_tracking_values()
 
     def _start_new_file_upload(self) -> None:
         """Upload file recordings to the cloud.
@@ -1262,20 +1278,26 @@ class FileWriterProcess(InfiniteProcess):
     def _process_update_name_command(self, comm: Dict[str, str]) -> None:
         """Rename recording directory and h5 files to kick off auto upload."""
         # only perform if new name is different from the original default name
-        if self._current_recording_dir == comm["default_name"] != comm["new_name"]:
-            old_recording_path = os.path.join(self._file_directory, self._current_recording_dir)
-            new_recording_path = os.path.join(self._file_directory, comm["new_name"])
-            # rename directory
-            if os.path.exists(old_recording_path):
-                os.rename(old_recording_path, new_recording_path)
-                self._current_recording_dir = comm["new_name"]
 
-                for filename in os.listdir(new_recording_path):
-                    # replace everything but the well name
-                    new_filename = filename.replace(comm["default_name"], comm["new_name"])
-                    old_file_path = os.path.join(new_recording_path, filename)
-                    new_file_path = os.path.join(new_recording_path, new_filename)
-                    os.rename(old_file_path, new_file_path)
+        if self._current_recording_dir == comm["default_name"] != comm["new_name"]:
+            new_recording_path = os.path.join(self._file_directory, comm["new_name"])
+            if os.path.exists(new_recording_path):
+                # remove current recording if it already exists
+                shutil.rmtree(new_recording_path)
+
+            old_recording_path = os.path.join(self._file_directory, self._current_recording_dir)
+            # if os.path.exists(old_recording_path):
+
+            # rename directory
+            os.rename(old_recording_path, new_recording_path)
+            self._current_recording_dir = comm["new_name"]
+
+            for filename in os.listdir(new_recording_path):
+                # replace everything but the well name
+                new_filename = filename.replace(comm["default_name"], comm["new_name"])
+                old_file_path = os.path.join(new_recording_path, filename)
+                new_file_path = os.path.join(new_recording_path, new_filename)
+                os.rename(old_file_path, new_file_path)
 
         # after all files are finalized, upload them if necessary
         if self._user_settings["auto_upload_on_completion"]:

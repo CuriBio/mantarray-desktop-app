@@ -3,7 +3,6 @@ import copy
 import datetime
 import logging
 from random import randint
-from statistics import stdev
 
 from freezegun import freeze_time
 from mantarray_desktop_app import create_data_packet
@@ -23,9 +22,9 @@ from mantarray_desktop_app.constants import PERFOMANCE_LOGGING_PERIOD_SECS
 from mantarray_desktop_app.constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
-from mantarray_desktop_app.exceptions import SerialCommCommandProcessingError
 import numpy as np
 import pytest
+from stdlib_utils import create_metrics_stats
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -156,9 +155,8 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__an
     # run mc_simulator once to process command and send response
     invoke_process_run_and_check_errors(simulator)
     # run mc_process to check command response and raise error
-    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
+    with pytest.raises(InstrumentDataStreamingAlreadyStartedError):
         invoke_process_run_and_check_errors(mc_process)
-    assert type(exc_info.value.__cause__) == InstrumentDataStreamingAlreadyStartedError
 
 
 def test_McCommunicationProcess__processes_stop_data_streaming_command__when_data_is_streaming(
@@ -214,9 +212,8 @@ def test_McCommunicationProcess__processes_stop_data_streaming_command__and_rais
     invoke_process_run_and_check_errors(mc_process)
     invoke_process_run_and_check_errors(simulator)
     # run mc_process to check command response and raise error
-    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
+    with pytest.raises(InstrumentDataStreamingAlreadyStoppedError):
         invoke_process_run_and_check_errors(mc_process)
-    assert type(exc_info.value.__cause__) == InstrumentDataStreamingAlreadyStoppedError
 
 
 def test_McCommunicationProcess__reads_all_bytes_from_instrument__and_does_not_sort_packets_if_not_at_least_one_full_packet_is_present(
@@ -684,6 +681,9 @@ def test_McCommunicationProcess__updates_performance_metrics_after_parsing_data(
     to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
+    # set logging level to debug so performance metrics and created and sent to main
+    mc_process._logging_level = logging.DEBUG
+
     # confirm precondition
     assert mc_process._iterations_per_logging_cycle == int(
         PERFOMANCE_LOGGING_PERIOD_SECS / mc_process._minimum_iteration_duration_seconds
@@ -823,18 +823,17 @@ def test_McCommunicationProcess__updates_performance_metrics_after_parsing_data(
         ("mag_data_parsing_duration", expected_parse_durs),
         ("num_mag_packets_parsed", expected_num_packets_parsed),
     ):
-        assert actual[name] == {
-            "max": max(mc_measurements),
-            "min": min(mc_measurements),
-            "stdev": round(stdev(mc_measurements), 6),
-            "mean": round(sum(mc_measurements) / len(mc_measurements), 6),
-        }, name
+        assert actual[name] == create_metrics_stats(mc_measurements), name
+
     # values created in parent class
     assert "idle_iteration_time_ns" not in actual
     assert "start_timepoint_of_measurements" not in actual
+
     assert "percent_use" in actual
     assert "percent_use_metrics" in actual
     assert "longest_iterations" in actual
+    assert "sleep_durations" in actual
+    assert "periods_between_iterations" in actual
 
 
 def test_McCommunicationProcess__does_not_include_data_streaming_performance_metrics_in_first_logging_cycle(
@@ -843,6 +842,9 @@ def test_McCommunicationProcess__does_not_include_data_streaming_performance_met
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    # set logging level to debug so performance metrics and created and sent to main
+    mc_process._logging_level = logging.DEBUG
 
     # mock since connection to simulator will be made by this test
     mocker.patch.object(mc_process, "create_connections_to_all_available_boards", autospec=True)

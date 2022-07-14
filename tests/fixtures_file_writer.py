@@ -3,6 +3,7 @@
 import copy
 import datetime
 import hashlib
+import json
 from multiprocessing import Queue as MPQueue
 import os
 import socket
@@ -37,6 +38,7 @@ from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import COMPUTER_NAME_HASH_UUID
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
+from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
@@ -70,6 +72,9 @@ from .helpers import confirm_queue_is_eventually_of_size
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 WELL_DEF_24 = LabwareDefinition(row_count=4, column_count=6)
+
+
+# TODO make everything in here immutabledicts
 
 
 GENERIC_ADC_OFFSET_VALUES: Dict[int, Dict[str, int]] = dict()
@@ -169,6 +174,9 @@ GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
         + datetime.timedelta(seconds=5),
         STIM_BARCODE_UUID: MantarrayMcSimulator.default_stim_barcode,
         STIM_BARCODE_IS_FROM_SCANNER_UUID: True,
+        INITIAL_MAGNET_FINDING_PARAMS_UUID: json.dumps(
+            dict(MantarrayMcSimulator.initial_magnet_finding_params)
+        ),
     }
 )
 
@@ -350,6 +358,7 @@ def create_and_close_beta_1_h5_files(
     update_user_settings_command,
     num_data_points=10,
     active_well_indices=None,
+    check_queue_after_finalization=True,
 ):
     if not active_well_indices:
         active_well_indices = [0]
@@ -401,8 +410,10 @@ def create_and_close_beta_1_h5_files(
     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
     # confirm each finalization message, all files finalized, and stop recording receipt are sent
-    confirm_queue_is_eventually_of_size(to_main_queue, len(active_well_indices) + 2)
-    finalization_messages = drain_queue(to_main_queue)[:-1]
+    finalization_messages = []
+    if check_queue_after_finalization:
+        confirm_queue_is_eventually_of_size(to_main_queue, len(active_well_indices) + 2)
+        finalization_messages = drain_queue(to_main_queue)[:-1]
 
     # drain output queue to avoid BrokenPipeErrors
     drain_queue(board_queues[0][1])

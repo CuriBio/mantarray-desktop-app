@@ -35,7 +35,6 @@ import json
 import logging
 import os
 from queue import Queue
-import shutil
 import threading
 from time import sleep
 from typing import Any
@@ -327,8 +326,20 @@ def start_stim_checks() -> Response:
         return Response(status="403 Cannot perform stimulator checks while stimulation is running")
     if _are_stimulator_checks_running():
         return Response(status="304 Stimulator checks already running")
+    try:
+        well_indices = request.get_json()["well_indices"]
+    except Exception:
+        return Response(status="400 Request body missing 'well_indices'")
+    if not well_indices:
+        return Response(status="400 No well indices given")
 
-    response = queue_command_to_main({"communication_type": "stimulation", "command": "start_stim_checks"})
+    response = queue_command_to_main(
+        {
+            "communication_type": "stimulation",
+            "command": "start_stim_checks",
+            "well_indices": [int(well_idx) for well_idx in well_indices],
+        }
+    )
     return response
 
 
@@ -446,25 +457,25 @@ def _is_stimulating_on_any_well() -> bool:
 def _are_stimulator_checks_running() -> bool:
     stimulator_circuit_statuses = _get_values_from_process_monitor()["stimulator_circuit_statuses"]
     return any(
-        status == StimulatorCircuitStatuses.CALCULATING.name.lower() for status in stimulator_circuit_statuses
+        status == StimulatorCircuitStatuses.CALCULATING.name.lower()
+        for status in stimulator_circuit_statuses.values()
     )
 
 
 def _are_initial_stimulator_checks_complete() -> bool:
-    stimulator_circuit_statuses = _get_values_from_process_monitor()["stimulator_circuit_statuses"]
-    return not any(status is None for status in stimulator_circuit_statuses)
+    return bool(_get_values_from_process_monitor()["stimulator_circuit_statuses"])
 
 
 def _are_any_stimulator_circuits_short() -> bool:
     stimulator_circuit_statuses = _get_values_from_process_monitor()["stimulator_circuit_statuses"]
     return any(
-        status == StimulatorCircuitStatuses.SHORT.name.lower() for status in stimulator_circuit_statuses
+        status == StimulatorCircuitStatuses.SHORT.name.lower()
+        for status in stimulator_circuit_statuses.values()
     )
 
 
 @flask_app.route("/set_protocols", methods=["POST"])
 def set_protocols() -> Response:
-    # pylint: disable=too-many-return-statements  # Tanner (8/9/21): lots of error codes that can be returned here
     """Set the stimulation protocols in hardware memory.
 
     Not available for Beta 1 instruments.
@@ -747,14 +758,8 @@ def update_recording_name() -> Response:
     default_recording_name = request.args["default_name"]
     dir_path = os.path.join(recording_dir, new_recording_name)
 
-    try:
-        request.args["replace_existing"]  # only gets sent if a user confirmed a rewrite
-    except KeyError:
-        if os.path.exists(dir_path):
-            return Response(status="403 Recording name already exists")
-    else:
-        # remove current recording if choosing to replace
-        shutil.rmtree(dir_path)
+    if not request.args.get("replace_existing") and os.path.exists(dir_path):
+        return Response(status="403 Recording name already exists")
 
     comm = {
         "communication_type": "recording",
@@ -782,7 +787,7 @@ def start_managed_acquisition() -> Response:
     if shared_values_dict["beta_2_mode"] and _are_stimulator_checks_running():
         return Response(status="403 Cannot start managed acquisition while stimulator checks are running")
 
-    response = queue_command_to_main(START_MANAGED_ACQUISITION_COMMUNICATION)
+    response = queue_command_to_main(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     return response
 
 
@@ -794,7 +799,7 @@ def stop_managed_acquisition() -> Response:
 
     `curl http://localhost:4567/stop_managed_acquisition`
     """
-    response = queue_command_to_main(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+    response = queue_command_to_main(dict(STOP_MANAGED_ACQUISITION_COMMUNICATION))
     return response
 
 
@@ -1264,8 +1269,8 @@ class ServerManager:
         # Tanner (8/10/21): not sure if using a lock here is necessary as nothing else accessing this dictionary is using a lock before modifying it
         with self._lock:
             copied_values = deepcopy(self._values_from_process_monitor)
-        immutable_version: Dict[str, Any] = immutabledict(copied_values)
-        return immutable_version
+        immutable_version = immutabledict(copied_values)
+        return immutable_version  # type: ignore
 
     def get_logging_level(self) -> int:
         return self._logging_level

@@ -26,6 +26,7 @@ from nptyping import NDArray
 import numpy as np
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
+from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
@@ -146,19 +147,25 @@ class MantarrayMcSimulator(InfiniteProcess):
         read_timeout_seconds: number of seconds to wait until read is of desired size before returning how ever many bytes have been read. Timeout should be set to 0 except in unit testing scenarios where necessary
     """
 
+    # values for V1 instrument as of 6/17/22
+    initial_magnet_finding_params: immutabledict[str, int] = immutabledict(
+        {"X": 0, "Y": 2, "Z": -5, "REMN": 1200},
+    )
+
     default_mantarray_nickname = "Mantarray Sim"
     default_mantarray_serial_number = "MA2022001000"
     default_main_firmware_version = "0.0.0"
     default_channel_firmware_version = "0.0.0"
     default_plate_barcode = "ML22001000-2"
     default_stim_barcode = "MS22001000-2"
-    default_metadata_values: Dict[UUID, Any] = immutabledict(
+    default_metadata_values: immutabledict[UUID, Any] = immutabledict(
         {
             BOOT_FLAGS_UUID: 0b00000000,
             MANTARRAY_SERIAL_NUMBER_UUID: default_mantarray_serial_number,
             MANTARRAY_NICKNAME_UUID: default_mantarray_nickname,
             MAIN_FIRMWARE_VERSION_UUID: default_main_firmware_version,
             CHANNEL_FIRMWARE_VERSION_UUID: default_channel_firmware_version,
+            INITIAL_MAGNET_FINDING_PARAMS_UUID: initial_magnet_finding_params,
         }
     )
     default_adc_reading = 0xFF00
@@ -725,13 +732,13 @@ class MantarrayMcSimulator(InfiniteProcess):
         )
         for module_id in range(1, self._num_wells + 1):
             # add offset of 0 since this is simulated data
-            offset = bytes(SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES)
+            time_offset = bytes(SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES)
             # create data point value
             data_value = self._simulated_data[self._simulated_data_index] * np.uint16(
                 SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id] + 1
             )
             # add data points
-            well_sensor_data = offset + (data_value.tobytes() * SERIAL_COMM_NUM_CHANNELS_PER_SENSOR)
+            well_sensor_data = time_offset + (data_value.tobytes() * SERIAL_COMM_NUM_CHANNELS_PER_SENSOR)
             well_data = well_sensor_data * SERIAL_COMM_NUM_SENSORS_PER_WELL
             magnetometer_data_payload += well_data
         return magnetometer_data_payload

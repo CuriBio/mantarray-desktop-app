@@ -11,6 +11,7 @@ The following constants are based off the geometry of Mantarray Board Rev 2
 import datetime
 from enum import IntEnum
 from typing import Dict
+from typing import FrozenSet
 from typing import Tuple
 import uuid
 
@@ -18,7 +19,16 @@ from immutabledict import immutabledict
 from labware_domain_models import LabwareDefinition
 import numpy as np
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
-from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
+
+from .arch_utils import is_cpu_arm
+
+
+try:
+    from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
+except ImportError:  # no sec  # pragma: no cover
+    if not is_cpu_arm():
+        raise
+    DATA_FRAMES_PER_ROUND_ROBIN = 1
 
 CURRENT_SOFTWARE_VERSION = "REPLACETHISWITHVERSIONDURINGBUILD"
 COMPILED_EXE_BUILD_TIMESTAMP = "REPLACETHISWITHTIMESTAMPDURINGBUILD"
@@ -26,14 +36,16 @@ SOFTWARE_RELEASE_CHANNEL = "REPLACETHISWITHRELEASECHANNELDURINGBUILD"
 
 # Cloud APIs
 CLOUD_ENDPOINT_USER_OPTION = "REPLACETHISWITHENDPOINTDURINGBUILD"
-CLOUD_ENDPOINT_VALID_OPTIONS = immutabledict({"test": "curibio-test", "prod": "curibio"})
+CLOUD_ENDPOINT_VALID_OPTIONS: immutabledict[str, str] = immutabledict(
+    {"test": "curibio-test", "prod": "curibio"}
+)
 CLOUD_DOMAIN = CLOUD_ENDPOINT_VALID_OPTIONS.get(CLOUD_ENDPOINT_USER_OPTION, "curibio-test")
 CLOUD_API_ENDPOINT = f"apiv2.{CLOUD_DOMAIN}.com"
 CLOUD_PULSE3D_ENDPOINT = f"pulse3d.{CLOUD_DOMAIN}.com"
 
 # File Versions
 CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION = "0.4.2"
-CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION = "1.0.3"
+CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION = "1.1.0"
 
 # General
 DEFAULT_SERVER_PORT_NUMBER = 4567
@@ -45,7 +57,7 @@ GENERIC_24_WELL_DEFINITION = LabwareDefinition(row_count=4, column_count=6)
 CURI_BIO_ACCOUNT_UUID = uuid.UUID("73f52be0-368c-42d8-a1fd-660d49ba5604")
 CURI_BIO_USER_ACCOUNT_ID = uuid.UUID("455b93eb-c78f-4494-9f73-d3291130f126")
 
-DEFAULT_USER_CONFIG = immutabledict({"customer_id": "", "user_name": ""})
+DEFAULT_USER_CONFIG: immutabledict[str, str] = immutabledict({"customer_id": "", "user_name": ""})
 VALID_CONFIG_SETTINGS = frozenset(
     [
         "customer_id",
@@ -57,7 +69,7 @@ VALID_CONFIG_SETTINGS = frozenset(
     ]
 )
 
-BARCODE_HEADERS = immutabledict({"plate_barcode": "ML", "stim_barcode": "MS"})
+BARCODE_HEADERS: immutabledict[str, str] = immutabledict({"plate_barcode": "ML", "stim_barcode": "MS"})
 ALL_VALID_BARCODE_HEADERS = frozenset(BARCODE_HEADERS.values())
 
 MICROSECONDS_PER_CENTIMILLISECOND = 10
@@ -145,7 +157,7 @@ ADC_OFFSET_DESCRIPTION_TAG = (
 )
 
 CONSTRUCT_SENSORS_PER_REF_SENSOR = 4
-REF_INDEX_TO_24_WELL_INDEX = immutabledict(
+REF_INDEX_TO_24_WELL_INDEX: immutabledict[int, FrozenSet[int]] = immutabledict(
     {
         0: frozenset([0, 1, 4, 5]),
         1: frozenset([8, 9, 12, 13]),
@@ -155,7 +167,7 @@ REF_INDEX_TO_24_WELL_INDEX = immutabledict(
         5: frozenset([18, 19, 22, 23]),
     }
 )
-ADC_CH_TO_24_WELL_INDEX = immutabledict(
+ADC_CH_TO_24_WELL_INDEX: immutabledict[int, Dict[int, int]] = immutabledict(
     {
         0: {0: 0, 2: 1, 4: 4, 6: 5},
         1: {0: 8, 2: 9, 4: 12, 6: 13},
@@ -165,7 +177,7 @@ ADC_CH_TO_24_WELL_INDEX = immutabledict(
         5: {6: 18, 4: 19, 2: 22, 0: 23},
     }
 )
-ADC_CH_TO_IS_REF_SENSOR = immutabledict(
+ADC_CH_TO_IS_REF_SENSOR: immutabledict[int, Dict[int, bool]] = immutabledict(
     {
         0: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
         1: {0: False, 1: True, 2: False, 3: True, 4: False, 5: True, 6: False, 7: True},
@@ -182,10 +194,10 @@ for adc_num in range(6):
         WELL_24_INDEX_TO_ADC_AND_CH_INDEX[well_idx] = (adc_num, ch_num)
 
 # Communications from Main to Subprocesses
-START_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
+START_MANAGED_ACQUISITION_COMMUNICATION: immutabledict[str, str] = immutabledict(
     {"communication_type": "acquisition_manager", "command": "start_managed_acquisition"}
 )
-STOP_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
+STOP_MANAGED_ACQUISITION_COMMUNICATION: immutabledict[str, str] = immutabledict(
     {"communication_type": "acquisition_manager", "command": "stop_managed_acquisition"}
 )
 
@@ -208,7 +220,7 @@ INSTALLING_UPDATES_STATE = "installing_updates"
 UPDATES_COMPLETE_STATE = "updates_complete"
 UPDATE_ERROR_STATE = "update_error"
 
-SYSTEM_STATUS_UUIDS = immutabledict(
+SYSTEM_STATUS_UUIDS: immutabledict[str, uuid.UUID] = immutabledict(
     {
         SERVER_INITIALIZING_STATE: uuid.UUID("04471bcf-1a00-4a0d-83c8-4160622f9a25"),
         SERVER_READY_STATE: uuid.UUID("8e24ef4d-2353-4e9d-aa32-4346126e73e3"),
@@ -339,7 +351,7 @@ SERIAL_COMM_COMMAND_FAILURE_BYTE = 1
 GOING_DORMANT_HANDSHAKE_TIMEOUT_CODE = 0
 
 # Magnetometer configuration
-SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE = immutabledict(
+SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE: immutabledict[str, Dict[str, int]] = immutabledict(
     {
         "A": {"X": 0, "Y": 1, "Z": 2},
         "B": {"X": 3, "Y": 4, "Z": 5},
@@ -349,7 +361,7 @@ SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE = immutabledict(
 SERIAL_COMM_NUM_CHANNELS_PER_SENSOR = 3
 SERIAL_COMM_NUM_SENSORS_PER_WELL = 3
 SERIAL_COMM_NUM_DATA_CHANNELS = SERIAL_COMM_NUM_SENSORS_PER_WELL * SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
-SERIAL_COMM_DEFAULT_DATA_CHANNEL = SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]
+SERIAL_COMM_DEFAULT_DATA_CHANNEL = SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Z"]
 DEFAULT_SAMPLING_PERIOD = 10000  # valid as of 4/12/22
 
 # Stimulation
@@ -381,19 +393,36 @@ class StimProtocolStatuses(IntEnum):
 
 
 # Metadata
-SERIAL_COMM_METADATA_BYTES_LENGTH = 64
+SERIAL_COMM_METADATA_BYTES_LENGTH = 96
 SERIAL_COMM_NICKNAME_BYTES_LENGTH = 13
 SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH = 12
 
+
 # Mappings
-SERIAL_COMM_WELL_IDX_TO_MODULE_ID = immutabledict({well_idx: well_idx + 1 for well_idx in range(24)})
-SERIAL_COMM_MODULE_ID_TO_WELL_IDX = immutabledict(
+
+# fmt: off
+SERIAL_COMM_WELL_IDX_TO_MODULE_ID: immutabledict[int, int] = immutabledict(
+    {
+        well_idx: module_id
+        for well_idx, module_id in enumerate(
+            [
+                4, 3, 2, 1,      # A1 - D1
+                8, 7, 6, 5,      # A2 - D2
+                12, 11, 10, 9,   # A3 - D3
+                16, 15, 14, 13,  # A4 - D4
+                20, 19, 18, 17,  # A5 - D5
+                24, 23, 22, 21   # A6 - D6
+            ]
+        )
+    }
+)
+# fmt: on
+SERIAL_COMM_MODULE_ID_TO_WELL_IDX: immutabledict[int, int] = immutabledict(
     {module_id: well_idx for well_idx, module_id in SERIAL_COMM_WELL_IDX_TO_MODULE_ID.items()}
 )
 
-# Tanner (12/28/21): The following two mappings are only needed due to a hardware issue with the Beta 2.2. They can eventually be removed in a future hardware iteration
 # fmt: off
-STIM_MODULE_ID_TO_WELL_IDX = immutabledict(
+STIM_MODULE_ID_TO_WELL_IDX: immutabledict[int, int] = immutabledict(
     {
         module_id: well_idx
         for module_id, well_idx in enumerate(
@@ -408,10 +437,13 @@ STIM_MODULE_ID_TO_WELL_IDX = immutabledict(
     }
 )
 # fmt: on
-STIM_WELL_IDX_TO_MODULE_ID = immutabledict(
-    {module_id: well_idx for well_idx, module_id in STIM_MODULE_ID_TO_WELL_IDX.items()}
+STIM_WELL_IDX_TO_MODULE_ID: immutabledict[int, int] = immutabledict(
+    {well_idx: module_id for module_id, well_idx in STIM_MODULE_ID_TO_WELL_IDX.items()}
 )
 
 
 # Calibration
 CALIBRATION_RECORDING_DUR_SECONDS = 30
+
+# Live View Conversion
+MM_PER_MT_Z_AXIS_SENSOR_0 = 1 / 0.075

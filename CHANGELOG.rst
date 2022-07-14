@@ -2,13 +2,15 @@ Changelog for Mantarray Desktop App
 ===================================
 
 
-0.9.0 (unreleased)
+1.0.0 (2022-06-30)
 ------------------
 
 
 Added:
 ^^^^^^
 
+- V1 instrument support.
+- Better error messages.
 - Stim Lid barcode.
 - Stim Lid configuration check.
 - Ability to specify a name for recording files.
@@ -20,6 +22,7 @@ Added:
     - Prevention of starting an analysis while other process are already active.
     - Will prompt user to confirm window closure if an attempt is made and an analysis is running.
 
+- Check to see if H5 files are corrupted immediately after recording completes.
 - Debug logging.
 
 
@@ -27,10 +30,11 @@ Changed:
 ^^^^^^^^
 
 - Additional Controls panel is now Stimulation Controls panel.
-- Beta 2 H5 file format version is now 1.0.3. Format Changes:
+- Beta 2 H5 file format version is now 1.1.0. Format Changes:
 
-  - Added 2 metadata fields:
+  - Added 3 metadata fields:
 
+    - Initial flexible post positions.
     - Stim Lid barcode.
     - Whether or not the Stim Lid barcode was scanned by the instrument or manually entered by the user.
 
@@ -43,14 +47,18 @@ Changed:
 
 - Instrument error handling procedure.
 - Default layout page changes:
-    - Accordian style tabs used to toggle visibility of data acquisition, stim studio, and data analysis tabs
-    - Beta 1 will still see accordian style tabs, but only the data acquisition tab
+
+  - Accordian style tabs used to toggle visibility of data acquisition, stim studio, and data analysis tabs
+  - Beta 1 will still see accordian style tabs, but only the data acquisition tab
+
+- Performance metrics and other misc. events only logged in debug mode.
+
 
 Fixed:
 ^^^^^^
 
+- Issue with Live View crashes when running it longer than 5 minutes.
 - Issue with SW auto updating not working in Beta 1 mode.
-
 
 
 0.8.1 (2022-03-18)

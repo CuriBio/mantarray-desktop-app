@@ -2,6 +2,8 @@
 """Misc utility functions."""
 from __future__ import annotations
 
+from collections import defaultdict
+from collections import deque
 import datetime
 import json
 import logging
@@ -9,14 +11,13 @@ import os
 import re
 import tempfile
 from typing import Any
+from typing import Deque
 from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Union
 from uuid import UUID
 
-from mantarray_desktop_app.file_uploader import FileUploader
-from mantarray_desktop_app.web_api_utils import get_cloud_api_tokens
 import psutil
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import BACKEND_LOG_UUID
@@ -25,6 +26,7 @@ from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import COMPUTER_NAME_HASH_UUID
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
+from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
@@ -60,8 +62,44 @@ from .constants import MICRO_TO_BASE_CONVERSION
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import REFERENCE_VOLTAGE
 from .exceptions import RecordingFolderDoesNotExistError
+from .file_uploader import FileUploader
+from .web_api_utils import get_cloud_api_tokens
 
 logger = logging.getLogger(__name__)
+
+
+class CommandTracker:
+    def __init__(self) -> None:
+        self._command_order: Deque[int] = deque()
+        self._command_mapping: Dict[int, Deque[Dict[str, Any]]] = defaultdict(deque)
+
+    def add(self, packet_type: int, command_dict: Dict[str, Any]) -> None:
+        self._command_order.append(packet_type)
+        self._command_mapping[packet_type].append(command_dict)
+
+    def oldest(self) -> Dict[str, Any]:
+        try:
+            packet_type_of_oldest = self._command_order[0]
+        except IndexError as e:
+            raise IndexError("Tracker is empty") from e
+
+        return self._command_mapping[packet_type_of_oldest][0]
+
+    def pop(self, packet_type: int) -> Dict[str, Any]:
+        try:
+            self._command_order.remove(packet_type)
+        except ValueError as e:
+            raise ValueError(f"No commands of packet type: {packet_type}") from e
+
+        command = self._command_mapping[packet_type].popleft()
+
+        if not self._command_mapping[packet_type]:
+            del self._command_mapping[packet_type]
+
+        return command
+
+    def __bool__(self) -> bool:
+        return bool(self._command_order)
 
 
 def validate_settings(settings_dict: Dict[str, Any]) -> None:
@@ -151,7 +189,7 @@ def get_current_software_version() -> str:
         return version
 
 
-def check_barcode_for_errors(barcode: str, beta2_mode: bool, barcode_type: Optional[str] = None) -> str:
+def check_barcode_for_errors(barcode: str, beta_2_mode: bool, barcode_type: Optional[str] = None) -> str:
     """Return error message if barcode contains an error.
 
     barcode_type kwarg should always be given unless checking a scanned
@@ -163,28 +201,26 @@ def check_barcode_for_errors(barcode: str, beta2_mode: bool, barcode_type: Optio
     if header not in BARCODE_HEADERS.get(barcode_type, ALL_VALID_BARCODE_HEADERS):
         return f"barcode contains invalid header: '{header}'"
     if "-" in barcode:
-        barcode_check_err = _check_new_barcode(barcode, beta2_mode)
+        barcode_check_err = _check_new_barcode(barcode, beta_2_mode)
     else:
         barcode_check_err = _check_old_barcode(barcode)
     return barcode_check_err
 
 
-def _check_new_barcode(barcode: str, beta2_mode: bool) -> str:
-    # check if barcode is numeric
-    if not (barcode[2:10] + barcode[-1]).isnumeric():
-        return "barcode contains invalid char"
-    # check year is 2022 or later
+def _check_new_barcode(barcode: str, beta_2_mode: bool) -> str:
+    for char in barcode[2:10] + barcode[-1]:
+        if not char.isnumeric():
+            return f"barcode contains invalid character: '{char}'"
     if int(barcode[2:4]) < 22:
-        return f"year is before 2022: '{barcode[2:4]}'"
-    # check that day is a valid number
+        return f"barcode contains invalid year: '{barcode[2:4]}'"
     if not 0 < int(barcode[4:7]) < 366:
-        return f"day is not valid: '{barcode[4:7]}'"
-    # check experiment id is valid
+        return f"barcode contains invalid Julian date: '{barcode[4:7]}'"
     if not 0 <= int(barcode[7:10]) < 300:
-        return f"experiment id is not valid: '{barcode[7:10]}'"
-    # check if beta mode matches the last digit
-    if (beta2_mode and int(barcode[-1]) != 2) or (not beta2_mode and int(barcode[-1]) != 1):
-        return "incorrect last digit"
+        return f"barcode contains invalid experiment id: '{barcode[7:10]}'"
+    # final digit must equal beta version (1/2)
+    last_digit = int(barcode[-1])
+    if last_digit != 1 + int(beta_2_mode):
+        return f"barcode contains invalid last digit: '{last_digit}'"
     return ""
 
 
@@ -299,6 +335,9 @@ def _create_start_recording_command(
                 TISSUE_SAMPLING_PERIOD_UUID: DEFAULT_SAMPLING_PERIOD,
                 STIMULATION_PROTOCOL_UUID: stim_info_value,
                 UTC_BEGINNING_STIMULATION_UUID: beginning_of_stim_timestamp,
+                INITIAL_MAGNET_FINDING_PARAMS_UUID: json.dumps(
+                    dict(instrument_metadata[INITIAL_MAGNET_FINDING_PARAMS_UUID])
+                ),
             }
         )
         comm_dict["stim_running_statuses"] = shared_values_dict["stimulation_running"]
@@ -353,7 +392,7 @@ def _get_timestamp_of_acquisition_sample_index_zero(  # pylint:disable=invalid-n
 def set_this_process_high_priority() -> None:  # pragma: no cover
     p = psutil.Process(os.getpid())
     try:
-        nice_value = psutil.HIGH_PRIORITY_CLASS
+        nice_value = psutil.REALTIME_PRIORITY_CLASS
     except AttributeError:
         nice_value = -10
     p.nice(nice_value)

@@ -281,7 +281,7 @@ def test_sensors_and_mappings():
 
 def test_current_file_versions():
     assert CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION == "0.4.2"
-    assert CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION == "1.0.3"
+    assert CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION == "1.1.0"
 
 
 def test_COMPILED_EXE_BUILD_TIMESTAMP():
@@ -502,7 +502,7 @@ def test_serial_comm():
     assert SERIAL_COMM_COMMAND_SUCCESS_BYTE == 0
     assert SERIAL_COMM_COMMAND_FAILURE_BYTE == 1
 
-    assert SERIAL_COMM_METADATA_BYTES_LENGTH == 64
+    assert SERIAL_COMM_METADATA_BYTES_LENGTH == 96
     assert SERIAL_COMM_NICKNAME_BYTES_LENGTH == 13
     assert SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH == 12
 
@@ -516,7 +516,7 @@ def test_serial_comm():
         == SERIAL_COMM_NUM_CHANNELS_PER_SENSOR * SERIAL_COMM_NUM_SENSORS_PER_WELL
     )
 
-    assert SERIAL_COMM_DEFAULT_DATA_CHANNEL == SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["X"]
+    assert SERIAL_COMM_DEFAULT_DATA_CHANNEL == SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Z"]
     assert DEFAULT_SAMPLING_PERIOD == 10000
 
     assert STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS == int(100e3)
@@ -557,9 +557,14 @@ def test_beta_2_mappings():
         "C": {"X": 6, "Y": 7, "Z": 8},
     }
     assert SERIAL_COMM_WELL_IDX_TO_MODULE_ID == {
-        well_idx: module_id for module_id, well_idx in SERIAL_COMM_MODULE_ID_TO_WELL_IDX.items()
+        module_id: well_idx
+        for module_id, well_idx in enumerate(
+            [4, 3, 2, 1, 8, 7, 6, 5, 12, 11, 10, 9, 16, 15, 14, 13, 20, 19, 18, 17, 24, 23, 22, 21]
+        )
     }
-    assert SERIAL_COMM_MODULE_ID_TO_WELL_IDX == {module_id: module_id - 1 for module_id in range(1, 25)}
+    assert SERIAL_COMM_MODULE_ID_TO_WELL_IDX == {
+        module_id: well_idx for well_idx, module_id in SERIAL_COMM_WELL_IDX_TO_MODULE_ID.items()
+    }
     for well_idx in range(24):
         module_id = SERIAL_COMM_WELL_IDX_TO_MODULE_ID[well_idx]
         well_idx_from_module_id = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
