@@ -26,7 +26,40 @@ on:
     branches:
       - main
 jobs:
-  test:
+  check_inputs:
+    strategy:
+      fail-fast: false
+
+    name: Check job inputs and package version
+    runs-on: "ubuntu-20.04"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Confirming tag not already present on remote
+        run: if [$(git ls-remote --tags origin | grep ${{ steps.extract_version.outputs.package-version }}) = '']; then echo Tag does not exist on remote; else echo Tag already exists on remote && exit 1; fi
+
+      - name: Extract branch name # Adapted from: https://stackoverflow.com/questions/58033366/how-to-get-current-branch-within-github-actions
+        shell: bash
+        run: |
+          git branch -av
+          echo '##[set-output name=sha-of-main-branch;]$(echo $(git branch -av | grep remotes/origin/main | grep -oP "main\s+\K\w+"))'
+          echo '##[set-output name=sha-of-current-branch;]$(echo $(git branch -av | grep "*" | grep -oP " \s+\K\w+"))'
+        id: extract_branch
+
+      - name: Display extracted branch information
+        run: |
+          echo "SHA of current branch: ${{ steps.extract_branch.outputs.sha-of-current-branch }}"
+          echo "SHA of main branch: ${{ steps.extract_branch.outputs.sha-of-main-branch }}"
+
+      - name: Fail if attempting to publish to prod release channel incorrectly
+        if: github.event.inputs.release_channel == 'prod'
+        run: |
+          if [ "${{github.event.inputs.api_endpoint}}" = "prod" ] ; then echo "Using prod API endpoint, can proceed to publish"; else exit 1; fi
+          if [ "${{ steps.extract_branch.outputs.sha-of-current-branch}}" = "${{ steps.extract_branch.outputs.sha-of-main-branch}}" ] ; then echo "Running on main branch, can proceed to publish"; else exit 1; fi
+
+  publish:
+    needs: [check_inputs]
     strategy:
       fail-fast: false
       matrix:
