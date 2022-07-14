@@ -48,13 +48,13 @@ export default class BrowserWinHandler {
     const { width, height } = screen.getPrimaryDisplay().workAreaSize;
     console.log("Sceen work area width " + width + " height " + height); // allow-log
     if (process.platform === "win32") {
-      this.options.height = parseInt(this.options.height / scale_factor);
-      this.options.width = parseInt(this.options.width / scale_factor);
+      this.options.height = parseInt(this.options.target_height / scale_factor);
+      this.options.width = parseInt(this.options.target_width / scale_factor);
     } else {
       this.options.height = height;
       this.options.width = width;
     }
-    this.options.webPreferences.zoomFactor = this.options.webPreferences.zoomFactor / scale_factor;
+    // this.options.webPreferences.zoomFactor = this.options.webPreferences.zoomFactor / scale_factor;
 
     this.browserWindow = new BrowserWindow({
       ...this.options,
@@ -90,6 +90,11 @@ export default class BrowserWinHandler {
           console.log("error in BrowserWinHandler trying to close");
         }
       }
+    });
+
+    this.browserWindow.once("ready-to-show", () => {
+      const zoomFactor = this.options.width / this.options.target_width;
+      this.browserWindow.webContents.setZoomFactor(zoomFactor);
     });
 
     this.browserWindow.setContentSize(this.options.width, this.options.height); // Eli (6/20/20): for some odd reason, in Windows the EXE is booting up at slightly smaller dimensions than defined, so seeing if this extra command helps at all

@@ -152,7 +152,7 @@ import {
   UploadFilesWidget,
   DataAnalysisControl,
 } from "@curi-bio/mantarray-frontend-components";
-import { ipcRenderer, webFrame } from "electron";
+import { ipcRenderer /* webFrame */ } from "electron";
 import { mapState } from "vuex";
 const log = require("electron-log");
 import path from "path";
@@ -224,7 +224,7 @@ export default {
     // TODO make this dynamic and conditionally called.
     // Try to set it up so that the zoom is always as big as possible without going off the screen.
     // Could also try to update it whenever the screen dim updates
-    webFrame.setZoomFactor(0.8);
+    // webFrame.setZoomFactor(0.8);
 
     ipcRenderer.on("logs_flask_dir_response", (e, log_dir_name) => {
       this.$store.commit("settings/set_log_path", log_dir_name);

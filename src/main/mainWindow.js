@@ -9,8 +9,8 @@ const INDEX_PATH = path.join(__dirname, "..", "renderer", "index.html");
 const DEV_SERVER_URL = process.env.DEV_SERVER_URL; // eslint-disable-line prefer-destructuring
 
 const winHandler = new BrowserWinHandler({
-  height: 930,
-  width: 1920,
+  target_height: 930,
+  target_width: 1920,
   maxHeight: 989, // required to offset the hidden menu bar that holds keyboard shortcuts
   x: 0, //  have the window launch in the top left corner of the screen. This is necessary since it takes the full width of the screen and so normally would try some weird way to center itself
   y: 0,
