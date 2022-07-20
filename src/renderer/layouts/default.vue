@@ -3,25 +3,27 @@
     <div class="div__sidebar">
       <div class="div__sidebar-page-divider" />
       <div class="div__accordian-container" role="tablist">
-        <div
-          role="tab"
-          @click="handle_tab_visibility(0)"
-          @mouseenter="data_acquisition_hover = true"
-          @mouseleave="data_acquisition_hover = false"
-        >
+        <NuxtLink to="/">
           <div
-            v-b-toggle.data-acquisition-card
-            class="div__accordian-tabs"
-            :class="data_acquisition_dynamic_class"
+            role="tab"
+            @click="handle_tab_visibility(0)"
+            @mouseenter="data_acquisition_hover = true"
+            @mouseleave="data_acquisition_hover = false"
           >
-            Data Acquisition
             <div
-              class="div__arrow"
-              :class="{ expanded: data_acquisition_visibility }"
-              :style="data_acquisition_hover ? 'border-top: 6px solid #000' : null"
-            />
+              v-b-toggle.data-acquisition-card
+              class="div__accordian-tabs"
+              :class="data_acquisition_dynamic_class"
+            >
+              Data Acquisition
+              <div
+                class="div__arrow"
+                :class="{ expanded: data_acquisition_visibility }"
+                :style="data_acquisition_hover ? 'border-top: 6px solid #000' : null"
+              />
+            </div>
           </div>
-        </div>
+        </NuxtLink>
         <b-collapse id="data-acquisition-card" visible accordion="controls-accordion" role="tabpanel">
           <div class="div__plate-barcode-container">
             <BarcodeViewer />
@@ -62,22 +64,24 @@
             </div>
           </div>
         </b-collapse>
-        <div
-          v-if="beta_2_mode"
-          role="tab"
-          @click="handle_tab_visibility(1)"
-          @mouseenter="stim_studio_hover = true"
-          @mouseleave="stim_studio_hover = false"
-        >
-          <div v-b-toggle.stim-studio-card class="div__accordian-tabs" :class="stim_studio_dynamic_class">
-            Stimulation Studio
-            <div
-              class="div__arrow"
-              :class="{ expanded: stim_studio_visibility }"
-              :style="stim_studio_hover ? 'border-top: 6px solid #000' : null"
-            />
+        <NuxtLink to="/stimulationstudio">
+          <div
+            v-if="beta_2_mode"
+            role="tab"
+            @click="handle_tab_visibility(1)"
+            @mouseenter="stim_studio_hover = true"
+            @mouseleave="stim_studio_hover = false"
+          >
+            <div v-b-toggle.stim-studio-card class="div__accordian-tabs" :class="stim_studio_dynamic_class">
+              Stimulation Studio
+              <div
+                class="div__arrow"
+                :class="{ expanded: stim_studio_visibility }"
+                :style="stim_studio_hover ? 'border-top: 6px solid #000' : null"
+              />
+            </div>
           </div>
-        </div>
+        </NuxtLink>
         <b-collapse id="stim-studio-card" accordion="controls-accordion" role="tabpanel">
           <div class="div__stim-barcode-container">
             <BarcodeViewer :barcode_type="'stim_barcode'" />
@@ -87,13 +91,6 @@
           </div>
           <div class="div__stimulation_controls-controls-icon-container">
             <StimulationControls />
-            <NuxtLink to="/stimulationstudio">
-              <div
-                v-b-popover.hover.bottom="'Click to view Stimulation Studio'"
-                :title="'Stimulation Studio'"
-                class="div__stim-studio-screen-view"
-              />
-            </NuxtLink>
           </div>
         </b-collapse>
         <div
