@@ -10,17 +10,10 @@ const url_safe_base64 = require("urlsafe-base64");
 
 // import default as main_utils from "@/main/utils.js" // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
 import main_utils from "@/main/utils.js"; // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
-const sinon = require("sinon");
-// const sinon_helpers = require("sinon-helpers");
-
-const sandbox = sinon.createSandbox({
-  useFakeTimers: false, // Eli (6/14/20): fakeTimers can mess with Jest's builtin timers for timeouts for the tests. If you need to fake things about time, do so carefully, such as with sandbox.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
-});
 
 describe("utils.js", () => {
   afterEach(() => {
     jest.restoreAllMocks();
-    sandbox.restore();
   });
   describe("Given a temporary directory is available", () => {
     let tmp_dir_name;

@@ -7,35 +7,12 @@ const path_to_electron_nuxt = path.join(__dirname, ".electron-nuxt");
 
 const path_to_resources_provider = path.join(path_to_electron_nuxt, "resources-path-provider");
 
-// const path_to_config = path.join(path_to_electron_nuxt, "config");
-
 const path_to_nuxt_config = path.join(path_to_electron_nuxt, "renderer", "nuxt.config");
 
-// const path_to_nuxt_app = path.join(
-//   path_to_electron_nuxt,
-//   "renderer",
-//   "NuxtApp"
-// );
-
-// const resourcesPath = require(path_to_resources_provider);
 require(path_to_resources_provider);
-// const {
-//   DIST_DIR,
-//   MAIN_PROCESS_DIR,
-//   SERVER_HOST,
-//   SERVER_PORT,
-// } = require(path_to_config);
-// const NuxtApp = require(path_to_nuxt_app);
-
-// const isDev = process.env.NODE_ENV === "development";
-
-// const nuxt = new NuxtApp(new Logger("Nuxt", "green"));
-// ------------------------------
 
 import { Nuxt, Builder } from "nuxt";
 const nuxtConfig = require(path_to_nuxt_config);
-
-// console.log('after imports')
 
 // these boolean switches turn off the build for all but the store
 const resetConfig = {
