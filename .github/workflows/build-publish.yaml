@@ -68,11 +68,11 @@ jobs:
         python-version:
           - 3.8 # 3.9 # Eli (12/10/20): Cython package is giving issues with Python 3.9 currently
         node-version:
-          - 14
+          - 16
         include:
           - os: "windows-2019"
             python-version: "3.8"
-            node-version: "14"
+            node-version: "16"
             IS_DEPLOYMENT_CONFIG: true
 
     name: Python ${{ matrix.python-version }} with Node ${{ matrix.node-version }} on ${{ matrix.os }}
