@@ -336,6 +336,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             else:
                 # turn off keepawake now that the process is exiting
                 unset_keepawake()
+
                 if self._error and not isinstance(self._error, InstrumentFirmwareError):
                     self._send_data_packet(board_idx, SERIAL_COMM_REBOOT_PACKET_TYPE)
 
