@@ -10,6 +10,7 @@ Added:
 
 - Computer sleep and screen lock prevention when the app is running and connected to an instrument
   (not simulation mode).
+- Automatic switching between Data Acquisition / Stim pages when sidebar tab changes.
 
 
 1.0.0 (2022-06-30)
