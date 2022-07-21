@@ -28,6 +28,8 @@ import serial
 import serial.tools.list_ports as list_ports
 from stdlib_utils import create_metrics_stats
 from stdlib_utils import put_log_message_into_queue
+from wakepy import set_keepawake
+from wakepy import unset_keepawake
 
 from .constants import DEFAULT_SAMPLING_PERIOD
 from .constants import GENERIC_24_WELL_DEFINITION
@@ -304,6 +306,9 @@ class McCommunicationProcess(InstrumentCommProcess):
         else:
             # if connected to a real board, then make sure this process has a high priority
             set_this_process_high_priority()
+            # also make sure that the computer does not put itself to sleep
+            set_keepawake(keep_screen_awake=True)
+
         self._auto_get_metadata = True
 
     def _teardown_after_loop(self) -> None:
@@ -328,8 +333,13 @@ class McCommunicationProcess(InstrumentCommProcess):
                 if board.is_alive():
                     board.hard_stop()  # hard stop to drain all queues of simulator
                     board.join()
-            elif self._error and not isinstance(self._error, InstrumentFirmwareError):
-                self._send_data_packet(board_idx, SERIAL_COMM_REBOOT_PACKET_TYPE)
+            else:
+                # turn off keepawake now that the process is exiting
+                unset_keepawake()
+
+                if self._error and not isinstance(self._error, InstrumentFirmwareError):
+                    self._send_data_packet(board_idx, SERIAL_COMM_REBOOT_PACKET_TYPE)
+
         super()._teardown_after_loop()
 
     def _report_fatal_error(self, the_err: Exception) -> None:
