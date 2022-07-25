@@ -39,7 +39,6 @@ from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import NUM_INITIAL_PACKETS_TO_DROP
-from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
@@ -48,17 +47,18 @@ from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
-from mantarray_desktop_app import server
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import system_state_eventually_equals
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
-from mantarray_desktop_app import utils
 from mantarray_desktop_app import wait_for_subprocesses_to_start
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
-from mantarray_desktop_app.data_analyzer import get_force_signal
+from mantarray_desktop_app.main_process import process_monitor
+from mantarray_desktop_app.main_process import server
+from mantarray_desktop_app.sub_processes.data_analyzer import get_force_signal
+from mantarray_desktop_app.utils import generic
 import numpy as np
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import ADC_REF_OFFSET_UUID
@@ -398,7 +398,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         return_value=expected_time,
     )
     mocker.patch.object(
-        utils,
+        generic,
         "_get_timestamp_of_acquisition_sample_index_zero",
         return_value=expected_time,
     )
@@ -899,7 +899,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         return_value=expected_time,
     )
     mocker.patch.object(
-        utils,
+        generic,
         "_get_timestamp_of_acquisition_sample_index_zero",
         return_value=expected_time,
     )

@@ -4,7 +4,7 @@ import logging
 import re
 from typing import Any
 
-from .utils import get_redacted_string
+from .generic import get_redacted_string
 
 
 class SensitiveFormatter(logging.Formatter):

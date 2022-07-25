@@ -7,10 +7,10 @@ from typing import Optional
 import requests
 from requests import Response
 
-from .constants import SERVER_INITIALIZING_STATE
-from .constants import SYSTEM_STATUS_UUIDS
-from .exceptions import SystemStartUpError
-from .server import get_api_endpoint
+from ..constants import SERVER_INITIALIZING_STATE
+from ..constants import SYSTEM_STATUS_UUIDS
+from ..exceptions import SystemStartUpError
+from ..main_process.server import get_api_endpoint
 
 
 def system_state_eventually_equals(state_name: str, timeout: int) -> bool:

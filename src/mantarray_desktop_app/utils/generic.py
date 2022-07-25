@@ -51,19 +51,19 @@ from semver import VersionInfo
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_frozen_as_exe
 
-from .constants import ALL_VALID_BARCODE_HEADERS
-from .constants import BARCODE_HEADERS
-from .constants import BARCODE_LEN
-from .constants import CENTIMILLISECONDS_PER_SECOND
-from .constants import COMPILED_EXE_BUILD_TIMESTAMP
-from .constants import CURRENT_SOFTWARE_VERSION
-from .constants import DEFAULT_SAMPLING_PERIOD
-from .constants import MICRO_TO_BASE_CONVERSION
-from .constants import MICROSECONDS_PER_CENTIMILLISECOND
-from .constants import REFERENCE_VOLTAGE
-from .exceptions import RecordingFolderDoesNotExistError
-from .file_uploader import FileUploader
-from .web_api_utils import get_cloud_api_tokens
+from .web_api import get_cloud_api_tokens
+from ..constants import ALL_VALID_BARCODE_HEADERS
+from ..constants import BARCODE_HEADERS
+from ..constants import BARCODE_LEN
+from ..constants import CENTIMILLISECONDS_PER_SECOND
+from ..constants import COMPILED_EXE_BUILD_TIMESTAMP
+from ..constants import CURRENT_SOFTWARE_VERSION
+from ..constants import DEFAULT_SAMPLING_PERIOD
+from ..constants import MICRO_TO_BASE_CONVERSION
+from ..constants import MICROSECONDS_PER_CENTIMILLISECOND
+from ..constants import REFERENCE_VOLTAGE
+from ..exceptions import RecordingFolderDoesNotExistError
+from ..workers.file_uploader import FileUploader
 
 logger = logging.getLogger(__name__)
 

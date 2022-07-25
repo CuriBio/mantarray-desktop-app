@@ -7,11 +7,11 @@ from mantarray_desktop_app import clear_server_singletons
 from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
 from mantarray_desktop_app import get_the_server_manager
 from mantarray_desktop_app import LocalServerPortAlreadyInUseError
-from mantarray_desktop_app import server
 from mantarray_desktop_app import ServerManager
 from mantarray_desktop_app import ServerManagerNotInitializedError
 from mantarray_desktop_app import ServerManagerSingletonAlreadySetError
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
+from mantarray_desktop_app.main_process import server
 import pytest
 import requests
 

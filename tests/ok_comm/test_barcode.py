@@ -7,8 +7,8 @@ from mantarray_desktop_app import BarcodeNotClearedError
 from mantarray_desktop_app import BarcodeScannerNotRespondingError
 from mantarray_desktop_app import CLEARED_BARCODE_VALUE
 from mantarray_desktop_app import NO_PLATE_DETECTED_BARCODE_VALUE
-from mantarray_desktop_app import ok_comm
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app.sub_processes import ok_comm
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 

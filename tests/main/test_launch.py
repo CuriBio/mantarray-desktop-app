@@ -23,12 +23,12 @@ from mantarray_desktop_app import LocalServerPortAlreadyInUseError
 from mantarray_desktop_app import main
 from mantarray_desktop_app import MantarrayProcessesMonitor
 from mantarray_desktop_app import MultiprocessingNotSetToSpawnError
-from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import redact_sensitive_info_from_path
 from mantarray_desktop_app import SensitiveFormatter
 from mantarray_desktop_app import wait_for_subprocesses_to_start
 from mantarray_desktop_app.constants import SOFTWARE_RELEASE_CHANNEL
-from mantarray_desktop_app.server import get_server_address_components
+from mantarray_desktop_app.main_process import process_monitor
+from mantarray_desktop_app.main_process.server import get_server_address_components
 import pytest
 import requests
 from stdlib_utils import confirm_port_available

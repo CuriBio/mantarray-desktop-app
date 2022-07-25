@@ -24,7 +24,7 @@ from typing import Union
 from uuid import UUID
 
 import h5py
-from mantarray_desktop_app.file_uploader import FileUploader
+from mantarray_desktop_app.workers.file_uploader import FileUploader
 from nptyping import NDArray
 import numpy as np
 from pulse3D.constants import ADC_REF_OFFSET_UUID
@@ -61,23 +61,23 @@ from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
 
-from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
-from .constants import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
-from .constants import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
-from .constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
-from .constants import FILE_WRITER_BUFFER_SIZE_MICROSECONDS
-from .constants import GENERIC_24_WELL_DEFINITION
-from .constants import MICRO_TO_BASE_CONVERSION
-from .constants import MICROSECONDS_PER_CENTIMILLISECOND
-from .constants import PERFOMANCE_LOGGING_PERIOD_SECS
-from .constants import REFERENCE_SENSOR_SAMPLING_PERIOD
-from .constants import ROUND_ROBIN_PERIOD
-from .constants import SERIAL_COMM_NUM_DATA_CHANNELS
-from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
-from .exceptions import CalibrationFilesMissingError
-from .exceptions import InvalidStopRecordingTimepointError
-from .exceptions import UnrecognizedCommandFromMainToFileWriterError
-from .worker_thread import ErrorCatchingThread
+from ..constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
+from ..constants import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
+from ..constants import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
+from ..constants import FILE_WRITER_BUFFER_SIZE_CENTIMILLISECONDS
+from ..constants import FILE_WRITER_BUFFER_SIZE_MICROSECONDS
+from ..constants import GENERIC_24_WELL_DEFINITION
+from ..constants import MICRO_TO_BASE_CONVERSION
+from ..constants import MICROSECONDS_PER_CENTIMILLISECOND
+from ..constants import PERFOMANCE_LOGGING_PERIOD_SECS
+from ..constants import REFERENCE_SENSOR_SAMPLING_PERIOD
+from ..constants import ROUND_ROBIN_PERIOD
+from ..constants import SERIAL_COMM_NUM_DATA_CHANNELS
+from ..constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
+from ..exceptions import CalibrationFilesMissingError
+from ..exceptions import InvalidStopRecordingTimepointError
+from ..exceptions import UnrecognizedCommandFromMainToFileWriterError
+from ..workers.worker_thread import ErrorCatchingThread
 
 
 def _get_formatted_utc_now() -> str:

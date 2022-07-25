@@ -12,8 +12,8 @@ from mantarray_desktop_app.exceptions import CloudAnalysisJobFailedError
 from mantarray_desktop_app.exceptions import PresignedUploadFailedError
 import requests
 
-from .constants import CLOUD_PULSE3D_ENDPOINT
-from .web_api_utils import WebWorker
+from ..constants import CLOUD_PULSE3D_ENDPOINT
+from ..utils.web_api import WebWorker
 
 
 def create_zip_file(file_directory: str, file_name: str, zipped_recordings_dir: str) -> str:

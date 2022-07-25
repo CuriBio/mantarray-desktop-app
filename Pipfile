@@ -43,10 +43,10 @@ pyserial = "==3.5"
 scipy = "==1.8.1"
 secrets-manager = "==0.4"
 semver = "==2.13.0"
-stdlib-utils = "==0.5.1"
+stdlib-utils = "==0.5.2"
 streamz = "==0.6.2"
 werkzeug = "==2.0.3"  # Tanner (4/7/22): pinned for flask
-xem-wrapper = "==0.2.5"
+xem-wrapper = "==0.3.0"
 
 [requires]
 python_version = "3.8"

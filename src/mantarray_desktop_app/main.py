@@ -37,16 +37,16 @@ from .constants import SOFTWARE_RELEASE_CHANNEL
 from .exceptions import InvalidBeta2FlagOptionError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import MultiprocessingNotSetToSpawnError
-from .log_formatter import SensitiveFormatter
-from .process_manager import MantarrayProcessesManager
-from .process_monitor import MantarrayProcessesMonitor
-from .server import clear_the_server_manager
-from .server import flask_app
-from .server import get_server_address_components
-from .server import get_the_server_manager
-from .server import ServerManagerNotInitializedError
-from .server import socketio
-from .utils import redact_sensitive_info_from_path
+from .main_process.process_manager import MantarrayProcessesManager
+from .main_process.process_monitor import MantarrayProcessesMonitor
+from .main_process.server import clear_the_server_manager
+from .main_process.server import flask_app
+from .main_process.server import get_server_address_components
+from .main_process.server import get_the_server_manager
+from .main_process.server import ServerManagerNotInitializedError
+from .main_process.server import socketio
+from .utils.generic import redact_sensitive_info_from_path
+from .utils.log_formatter import SensitiveFormatter
 
 
 logger = logging.getLogger(__name__)

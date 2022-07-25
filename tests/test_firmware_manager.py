@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 import os
 
-from mantarray_desktop_app import firmware_manager
 from mantarray_desktop_app import get_latest_firmware
 from mantarray_desktop_app import get_latest_firmware_name
 from mantarray_desktop_app import get_latest_firmware_version
 from mantarray_desktop_app import sort_firmware_files
+from mantarray_desktop_app.utils import firmware_manager
 import pytest
 from stdlib_utils import get_current_file_abs_directory
 

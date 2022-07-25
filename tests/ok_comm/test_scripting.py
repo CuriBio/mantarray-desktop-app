@@ -7,11 +7,11 @@ from mantarray_desktop_app import ADC_GAIN_DESCRIPTION_TAG
 from mantarray_desktop_app import ADC_OFFSET_DESCRIPTION_TAG
 from mantarray_desktop_app import InvalidScriptCommandError
 from mantarray_desktop_app import MismatchedScriptTypeError
-from mantarray_desktop_app import ok_comm
 from mantarray_desktop_app import parse_scripting_log
 from mantarray_desktop_app import parse_scripting_log_line
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import ScriptDoesNotContainEndCommandError
+from mantarray_desktop_app.sub_processes import ok_comm
 import pytest
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import invoke_process_run_and_check_errors

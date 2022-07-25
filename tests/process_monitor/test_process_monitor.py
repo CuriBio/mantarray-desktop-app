@@ -25,10 +25,7 @@ from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MantarrayProcessesMonitor
-from mantarray_desktop_app import ok_comm
 from mantarray_desktop_app import OUTGOING_DATA_BUFFER_SIZE
-from mantarray_desktop_app import process_manager
-from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
@@ -46,8 +43,11 @@ from mantarray_desktop_app.exceptions import InstrumentCreateConnectionError
 from mantarray_desktop_app.exceptions import InstrumentFirmwareError
 from mantarray_desktop_app.exceptions import SerialCommCommandProcessingError
 from mantarray_desktop_app.exceptions import SerialCommCommandResponseTimeoutError
-from mantarray_desktop_app.server import queue_command_to_instrument_comm
-from mantarray_desktop_app.utils import redact_sensitive_info_from_path
+from mantarray_desktop_app.main_process import process_manager
+from mantarray_desktop_app.main_process import process_monitor
+from mantarray_desktop_app.main_process.server import queue_command_to_instrument_comm
+from mantarray_desktop_app.sub_processes import ok_comm
+from mantarray_desktop_app.utils.generic import redact_sensitive_info_from_path
 import numpy as np
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID

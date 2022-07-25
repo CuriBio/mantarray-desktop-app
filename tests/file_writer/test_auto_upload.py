@@ -4,7 +4,7 @@ import json
 import os
 import shutil
 
-from mantarray_desktop_app import file_writer
+from mantarray_desktop_app.sub_processes import file_writer
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 

@@ -7,10 +7,25 @@ Changelog for Mantarray Desktop App
 
 Added:
 ^^^^^^
-
 - Computer sleep and screen lock prevention when the app is running and connected to an instrument
   (not simulation mode).
 - Automatic switching between Data Acquisition / Stim pages when sidebar tab changes.
+
+Changed:
+^^^^^^^^
+- Max recording time limit is now two minutes.
+- Tooltips:
+
+    - Specify that barcodes can not be manually changed while live view is active.
+    - Specify that Stim Config checks cannot be run while while live view is active.
+
+Fixed:
+^^^^^^
+- Stim protocol editor oveflow, now has a scroll bar.
+
+Removed
+^^^^^^^
+- Live view warnings after running for 5 minutes.
 
 
 1.0.0 (2022-06-30)

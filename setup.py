@@ -20,9 +20,9 @@ else:
 ext = ".pyx" if USE_CYTHON else ".cpp"
 extensions = [
     Extension(
-        "mantarray_desktop_app.data_parsing_cy",
+        "mantarray_desktop_app.utils.data_parsing_cy",
         [
-            os.path.join("src", "mantarray_desktop_app", "data_parsing_cy") + ext,
+            os.path.join("src", "mantarray_desktop_app", "utils", "data_parsing_cy") + ext,
             os.path.join("src", "zlib", "crc32.c"),
         ],
     )

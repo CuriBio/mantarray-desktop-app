@@ -5,7 +5,6 @@ from random import randint
 import struct
 
 from freezegun import freeze_time
-from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
 from mantarray_desktop_app import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
@@ -17,7 +16,8 @@ from mantarray_desktop_app.constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_PAYLOAD_INDEX
 from mantarray_desktop_app.constants import STIM_MODULE_ID_TO_WELL_IDX
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
-from mantarray_desktop_app.serial_comm_utils import convert_adc_readings_to_circuit_status
+from mantarray_desktop_app.simulators import mc_simulator
+from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_circuit_status
 import numpy as np
 import pytest
 from stdlib_utils import drain_queue
