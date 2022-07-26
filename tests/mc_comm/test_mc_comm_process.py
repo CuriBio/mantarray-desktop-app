@@ -94,6 +94,8 @@ def test_McCommunicationProcess_setup_before_loop__does_not_send_message_to_main
 ):
     # mock this so the process priority isn't changed during unit tests
     mocker.patch.object(mc_comm, "set_this_process_high_priority", autospec=True)
+    # mock so keepawake is not set
+    mocker.patch.object(mc_comm, "set_keepawake", autospec=True)
 
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
     mc_process = McCommunicationProcess(board_queues, error_queue, suppress_setup_communication_to_main=True)
@@ -120,6 +122,8 @@ def test_McCommunicationProcess_setup_before_loop__does_not_set_process_priority
 
     # mock this so the process priority isn't changed during unit tests
     mocked_set_priority = mocker.patch.object(mc_comm, "set_this_process_high_priority", autospec=True)
+    # mock so keepawake is not set
+    mocker.patch.object(mc_comm, "set_keepawake", autospec=True)
 
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
     mc_process = McCommunicationProcess(board_queues, error_queue, suppress_setup_communication_to_main=True)
@@ -129,18 +133,29 @@ def test_McCommunicationProcess_setup_before_loop__does_not_set_process_priority
     mocked_set_priority.assert_not_called()
 
 
-def test_McCommunicationProcess_setup_before_loop__sets_process_priority_when_not_connected_to_a_simulator(
+def test_McCommunicationProcess_setup_before_loop__sets_process_priority_and_keepawake_when_not_connected_to_a_simulator(
+    four_board_mc_comm_process_no_handshake,
     mocker,
 ):
-    # mock this so the process priority isn't changed during unit tests
-    mocked_set_priority = mocker.patch.object(mc_comm, "set_this_process_high_priority", autospec=True)
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
 
-    board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
-    mc_process = McCommunicationProcess(board_queues, error_queue, suppress_setup_communication_to_main=True)
-    mocker.patch.object(mc_process, "create_connections_to_all_available_boards", autospec=True)
+    def se():
+        mc_process.set_board_connection(0, mocker.MagicMock())
+
+    # these are mocked in the four_board_mc_comm_process_no_handshake fixture
+    mocked_set_priority = mc_comm.set_this_process_high_priority
+    mocked_set_keepawake = mc_comm.set_keepawake
+    # mock so simulator is not created
+    mocker.patch.object(
+        mc_process, "create_connections_to_all_available_boards", autospec=True, side_effect=se
+    )
+    # mock so no comms are sent or read from mock board
+    mocker.patch.object(mc_process, "_commands_for_each_run_iteration", autospec=True)
 
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
+
     mocked_set_priority.assert_called_once()
+    mocked_set_keepawake.assert_called_once_with(keep_screen_awake=True)
 
 
 def test_McCommunicationProcess_hard_stop__clears_all_queues_and_returns_lists_of_values(
@@ -302,6 +317,22 @@ def test_McCommunicationProcess_teardown_after_loop__sends_reboot_command_if_err
     else:
         reboot_command_bytes = create_data_packet(spied_timestamp.spy_return, SERIAL_COMM_REBOOT_PACKET_TYPE)
         spied_write.assert_called_once_with(reboot_command_bytes)
+
+
+def test_McCommunicationProcess_teardown_after_loop__unsets_keepawake_if_not_in_simulation_mode(
+    four_board_mc_comm_process_no_handshake,
+    mocker,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    mc_process.set_board_connection(0, mocker.MagicMock())
+
+    mocked_unset = mocker.patch.object(mc_comm, "unset_keepawake", autospec=True)
+    # mock so no comms are sent or read from mock board
+    mocker.patch.object(mc_process, "_commands_for_each_run_iteration", autospec=True)
+
+    invoke_process_run_and_check_errors(mc_process, perform_teardown_after_loop=True)
+
+    mocked_unset.assert_called_once_with()
 
 
 @pytest.mark.slow

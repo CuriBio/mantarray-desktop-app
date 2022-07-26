@@ -111,6 +111,8 @@ def stop_data_stream(mc_fixture, simulator):
 def fixture_four_board_mc_comm_process(mocker):
     # mock this so the process priority isn't changed during unit tests
     mocker.patch.object(mc_comm, "set_this_process_high_priority", autospec=True)
+    # mock so keepawake is not set
+    mocker.patch.object(mc_comm, "set_keepawake", autospec=True)
 
     # Tests using this fixture should be responsible for cleaning up the queues
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4, queue_type=TestingQueue)
@@ -124,6 +126,8 @@ def fixture_four_board_mc_comm_process(mocker):
 def fixture_runnable_four_board_mc_comm_process(mocker):
     # mock this so the process priority isn't changed during unit tests
     mocker.patch.object(mc_comm, "set_this_process_high_priority", autospec=True)
+    # mock so keepawake is not set
+    mocker.patch.object(mc_comm, "set_keepawake", autospec=True)
 
     # Tests using this fixture should be responsible for cleaning up the queues
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
@@ -145,6 +149,8 @@ class McCommunicationProcessNoHandshakes(McCommunicationProcess):
 def fixture_four_board_mc_comm_process_no_handshake(mocker):
     # mock this so the process priority isn't changed during unit tests
     mocker.patch.object(mc_comm, "set_this_process_high_priority", autospec=True)
+    # mock so keepawake is not set
+    mocker.patch.object(mc_comm, "set_keepawake", autospec=True)
 
     # Tests using this fixture should be responsible for cleaning up the queues
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4, queue_type=TestingQueue)
