@@ -38,7 +38,6 @@ from pulse3D.constants import ORIGINAL_FILE_VERSION_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import REF_SAMPLING_PERIOD_UUID
 from pulse3D.constants import REFERENCE_SENSOR_READINGS
-from pulse3D.constants import STIMULATION_PROTOCOL_UUID
 from pulse3D.constants import STIMULATION_READINGS
 from pulse3D.constants import TIME_INDICES
 from pulse3D.constants import TIME_OFFSETS
@@ -48,7 +47,6 @@ from pulse3D.constants import TOTAL_WELL_COUNT_UUID
 from pulse3D.constants import TRIMMED_TIME_FROM_ORIGINAL_END_UUID
 from pulse3D.constants import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
-from pulse3D.constants import UTC_BEGINNING_STIMULATION_UUID
 from pulse3D.constants import UTC_FIRST_REF_DATA_POINT_UUID
 from pulse3D.constants import UTC_FIRST_TISSUE_DATA_POINT_UUID
 from pulse3D.constants import WELL_COLUMN_UUID
@@ -576,16 +574,17 @@ class FileWriterProcess(InfiniteProcess):
 
         communication["abs_path_to_file_folder"] = file_folder_dir
 
-        stim_protocols = None
-        labeled_protocol_dict = {}
-        if self._beta_2_mode:
-            stim_protocols = communication["metadata_to_copy_onto_main_file_attributes"][
-                STIMULATION_PROTOCOL_UUID
-            ]
-            if stim_protocols is not None:
-                labeled_protocol_dict = {
-                    protocol["protocol_id"]: protocol for protocol in stim_protocols["protocols"]
-                }
+        # TODO fix this
+        # stim_protocols = None
+        # labeled_protocol_dict = {}
+        # if self._beta_2_mode:
+        #     stim_protocols = communication["metadata_to_copy_onto_main_file_attributes"][
+        #         STIMULATION_PROTOCOL_UUID
+        #     ]
+        #     if stim_protocols is not None:
+        #         labeled_protocol_dict = {
+        #             protocol["protocol_id"]: protocol for protocol in stim_protocols["protocols"]
+        #         }
 
         tissue_status, reference_status = self.get_recording_finalization_statuses()
         tissue_status[board_idx].clear()
@@ -625,18 +624,6 @@ class FileWriterProcess(InfiniteProcess):
                     this_file.attrs[str(ADC_TISSUE_OFFSET_UUID)] = this_attr_value[this_well_idx]["construct"]
                     this_file.attrs[str(ADC_REF_OFFSET_UUID)] = this_attr_value[this_well_idx]["ref"]
                     continue
-                if this_attr_name == STIMULATION_PROTOCOL_UUID:
-                    # extract stim configuration for well
-                    if communication["stim_running_statuses"][this_well_idx]:
-                        assigned_protocol_id = this_attr_value["protocol_assignments"][well_name]
-                        this_attr_value = json.dumps(labeled_protocol_dict[assigned_protocol_id])
-                    else:
-                        this_attr_value = json.dumps(None)
-                elif (
-                    this_attr_name == UTC_BEGINNING_STIMULATION_UUID
-                    and not communication["stim_running_statuses"][this_well_idx]
-                ):
-                    this_attr_value = NOT_APPLICABLE_H5_METADATA
                 # apply custom formatting to UTC datetime value
                 if (
                     METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith("UTC Timestamp")

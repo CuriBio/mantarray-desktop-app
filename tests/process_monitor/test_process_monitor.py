@@ -1842,7 +1842,7 @@ def test_MantarrayProcessesMonitor__drains_data_analyzer_data_out_queue_after_re
     confirm_queue_is_eventually_empty(da_data_out_queue)
 
 
-def test_MantarrayProcessesMonitor__sets_timestamp_and_stim_running_statuses_in_shared_values_dict_after_receiving_start_stimulation_command_response_from_instrument_comm(
+def test_MantarrayProcessesMonitor__sets_stim_running_statuses_in_shared_values_dict_after_receiving_start_stimulation_command_response_from_instrument_comm(
     test_monitor, test_process_manager_creator
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -1850,7 +1850,6 @@ def test_MantarrayProcessesMonitor__sets_timestamp_and_stim_running_statuses_in_
 
     test_stim_info = create_random_stim_info()
 
-    shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [None]
     shared_values_dict["stimulation_info"] = test_stim_info
 
     instrument_comm_to_main = (
@@ -1868,7 +1867,6 @@ def test_MantarrayProcessesMonitor__sets_timestamp_and_stim_running_statuses_in_
     put_object_into_queue_and_raise_error_if_eventually_still_empty(command_response, instrument_comm_to_main)
 
     invoke_process_run_and_check_errors(monitor_thread)
-    assert shared_values_dict["utc_timestamps_of_beginning_of_stimulation"][0] == expected_timestamp
     assert shared_values_dict["stimulation_running"] == [
         bool(
             test_stim_info["protocol_assignments"][
@@ -1879,7 +1877,7 @@ def test_MantarrayProcessesMonitor__sets_timestamp_and_stim_running_statuses_in_
     ]
 
 
-def test_MantarrayProcessesMonitor__clears_timestamp_and_updates_stim_running_statuses_shared_values_dict_after_receiving_stop_stimulation_command_response_from_instrument_comm(
+def test_MantarrayProcessesMonitor__updates_stim_running_statuses_shared_values_dict_after_receiving_stop_stimulation_command_response_from_instrument_comm(
     test_monitor, test_process_manager_creator
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -1896,9 +1894,6 @@ def test_MantarrayProcessesMonitor__clears_timestamp_and_updates_stim_running_st
         )
         for well_idx in range(24)
     ]
-    shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [
-        datetime.datetime(year=2021, month=10, day=19, hour=10, minute=31, second=21, microsecond=123456)
-    ]
 
     instrument_comm_to_main = (
         test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
@@ -1908,11 +1903,10 @@ def test_MantarrayProcessesMonitor__clears_timestamp_and_updates_stim_running_st
     put_object_into_queue_and_raise_error_if_eventually_still_empty(command_response, instrument_comm_to_main)
 
     invoke_process_run_and_check_errors(monitor_thread)
-    assert shared_values_dict["utc_timestamps_of_beginning_of_stimulation"][0] is None
     assert shared_values_dict["stimulation_running"] == [False] * 24
 
 
-def test_MantarrayProcessesMonitor__updates_stimulation_running_list_and_stimulation_start_time_timestamp_when_status_update_message_from_instrument_comm(
+def test_MantarrayProcessesMonitor__updates_stimulation_running_list_when_status_update_message_received_from_instrument_comm(
     test_monitor, test_process_manager_creator
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -1920,10 +1914,6 @@ def test_MantarrayProcessesMonitor__updates_stimulation_running_list_and_stimula
 
     test_wells_running = {0, 5, 10, 15}
     shared_values_dict["stimulation_running"] = [well_idx in test_wells_running for well_idx in range(24)]
-    test_timestamp = datetime.datetime(
-        year=2021, month=10, day=19, hour=12, minute=8, second=5, microsecond=123456
-    )
-    shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [test_timestamp]
 
     instrument_comm_to_main = (
         test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
@@ -1943,7 +1933,6 @@ def test_MantarrayProcessesMonitor__updates_stimulation_running_list_and_stimula
         well_idx in (test_wells_running - test_wells_to_stop_1) for well_idx in range(24)
     ]
     assert shared_values_dict["stimulation_running"] == expected_updated_statuses_1
-    assert shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] == [test_timestamp]
 
     # stop remaining wells
     msg_from_ic_2 = {
@@ -1954,7 +1943,6 @@ def test_MantarrayProcessesMonitor__updates_stimulation_running_list_and_stimula
     put_object_into_queue_and_raise_error_if_eventually_still_empty(msg_from_ic_2, instrument_comm_to_main)
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["stimulation_running"] == [False] * 24
-    assert shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] == [None]
 
 
 def test_MantarrayProcessesMonitor__passes_stim_status_check_results_from_mc_comm_to_websocket_queue__and_stores_them_in_shared_values_dictionary(

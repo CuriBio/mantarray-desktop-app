@@ -487,9 +487,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 )
         elif communication_type == "stimulation":
             if command == "start_stimulation":
-                self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [
-                    communication["timestamp"]
-                ]
                 stim_running_list = [False] * 24
                 protocol_assignments = self._values_to_share_to_server["stimulation_info"][
                     "protocol_assignments"
@@ -501,14 +498,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     stim_running_list[well_idx] = True
                 self._values_to_share_to_server["stimulation_running"] = stim_running_list
             elif command == "stop_stimulation":
-                self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [None]
                 self._values_to_share_to_server["stimulation_running"] = [False] * 24
             elif command == "status_update":
                 # ignore stim status updates if stim was already stopped manually
                 for well_idx in communication["wells_done_stimulating"]:
                     self._values_to_share_to_server["stimulation_running"][well_idx] = False
-                if not any(self._values_to_share_to_server["stimulation_running"]):
-                    self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [None]
             elif command == "start_stim_checks":
                 key = "stimulator_circuit_statuses"
                 stimulator_circuit_statuses = communication[key]

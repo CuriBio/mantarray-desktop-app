@@ -38,11 +38,9 @@ from pulse3D.constants import SOFTWARE_RELEASE_VERSION_UUID
 from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
 from pulse3D.constants import STIM_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import STIM_BARCODE_UUID
-from pulse3D.constants import STIMULATION_PROTOCOL_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
-from pulse3D.constants import UTC_BEGINNING_STIMULATION_UUID
 from pulse3D.constants import XEM_SERIAL_NUMBER_UUID
 import pytest
 
@@ -1201,6 +1199,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     assert response_json["command"] == "start_recording"
 
 
+# TODO parametrize stim barcode to either be a barcode or None
 @pytest.mark.parametrize(
     "test_stim_start_timestamp,test_stim_info,expected_stim_info,test_description",
     [
@@ -1219,7 +1218,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
         ),
     ],
 )
-def test_start_recording_command__beta_2_mode__populates_queue_with_stim_metadata_correctly(
+def test_start_recording_command__beta_2_mode__populates_queue_with_stim_barcode_correctly(
     test_stim_start_timestamp,
     test_stim_info,
     expected_stim_info,
@@ -1227,6 +1226,7 @@ def test_start_recording_command__beta_2_mode__populates_queue_with_stim_metadat
     test_process_manager_creator,
     test_client,
 ):
+    # TODO
     test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
     shared_values_dict = test_process_manager.get_values_to_share_to_server()
     put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
@@ -1234,7 +1234,6 @@ def test_start_recording_command__beta_2_mode__populates_queue_with_stim_metadat
     expected_stim_running_list = [random_bool() for _ in range(24)]
     shared_values_dict["stimulation_running"] = expected_stim_running_list
     shared_values_dict["stimulation_info"] = test_stim_info
-    shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [test_stim_start_timestamp]
 
     test_plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
@@ -1254,15 +1253,7 @@ def test_start_recording_command__beta_2_mode__populates_queue_with_stim_metadat
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
-    assert communication["stim_running_statuses"] == expected_stim_running_list
-    assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][UTC_BEGINNING_STIMULATION_UUID]
-        == test_stim_start_timestamp
-    )
-    assert (
-        communication["metadata_to_copy_onto_main_file_attributes"][STIMULATION_PROTOCOL_UUID]
-        == expected_stim_info
-    )
+    # TODO make assertion about stim barcode only
 
 
 @pytest.mark.parametrize("recording_name", ["Test Name", None])

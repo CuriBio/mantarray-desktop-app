@@ -19,6 +19,10 @@ Changed:
     - Specify that barcodes can not be manually changed while live view is active.
     - Specify that Stim Config checks cannot be run while while live view is active.
 
+- Beta 2 H5 file format version is now 1.2.0. Format Changes:
+
+  - Removed UTC_BEGINNING_STIMULATION_UUID value
+
 Fixed:
 ^^^^^^
 - Stim protocol editor oveflow, now has a scroll bar.

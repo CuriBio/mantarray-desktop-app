@@ -51,12 +51,10 @@ from pulse3D.constants import SOFTWARE_RELEASE_VERSION_UUID
 from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
 from pulse3D.constants import STIM_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import STIM_BARCODE_UUID
-from pulse3D.constants import STIMULATION_PROTOCOL_UUID
 from pulse3D.constants import TISSUE_SAMPLING_PERIOD_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
-from pulse3D.constants import UTC_BEGINNING_STIMULATION_UUID
 from pulse3D.constants import XEM_SERIAL_NUMBER_UUID
 from pulse3D.plate_recording import WellFile
 import pytest
@@ -148,12 +146,6 @@ GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
     }
 )
 GENERIC_BETA_2_START_RECORDING_COMMAND = copy.deepcopy(GENERIC_BASE_START_RECORDING_COMMAND)
-GENERIC_BETA_2_START_RECORDING_COMMAND["stim_running_statuses"] = [
-    bool(
-        GENERIC_STIM_PROTOCOL_ASSIGNMENTS[GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)]
-    )
-    for well_idx in range(24)
-]
 GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"].update(
     {
         UTC_BEGINNING_RECORDING_UUID: GENERIC_BASE_START_RECORDING_COMMAND[
@@ -167,11 +159,6 @@ GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
         MANTARRAY_NICKNAME_UUID: MantarrayMcSimulator.default_mantarray_nickname,
         BOOT_FLAGS_UUID: MantarrayMcSimulator.default_metadata_values[BOOT_FLAGS_UUID],
         TISSUE_SAMPLING_PERIOD_UUID: DEFAULT_SAMPLING_PERIOD,
-        STIMULATION_PROTOCOL_UUID: GENERIC_STIM_INFO,
-        UTC_BEGINNING_STIMULATION_UUID: GENERIC_BASE_START_RECORDING_COMMAND[
-            "metadata_to_copy_onto_main_file_attributes"
-        ][UTC_BEGINNING_DATA_ACQUISTION_UUID]
-        + datetime.timedelta(seconds=5),
         STIM_BARCODE_UUID: MantarrayMcSimulator.default_stim_barcode,
         STIM_BARCODE_IS_FROM_SCANNER_UUID: True,
         INITIAL_MAGNET_FINDING_PARAMS_UUID: json.dumps(

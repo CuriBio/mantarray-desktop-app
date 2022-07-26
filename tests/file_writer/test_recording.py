@@ -51,7 +51,6 @@ from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
-from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
 from pulse3D.constants import ORIGINAL_FILE_VERSION_UUID
 from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
@@ -71,7 +70,6 @@ from pulse3D.constants import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
-from pulse3D.constants import UTC_BEGINNING_STIMULATION_UUID
 from pulse3D.constants import WELL_COLUMN_UUID
 from pulse3D.constants import WELL_INDEX_UUID
 from pulse3D.constants import WELL_NAME_UUID
@@ -407,10 +405,6 @@ def test_FileWriterProcess__beta_2_mode__creates_files_for_all_active_wells__whe
     ][PLATE_BARCODE_UUID]
     this_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
 
-    # remove stim info
-    this_command["metadata_to_copy_onto_main_file_attributes"][STIMULATION_PROTOCOL_UUID] = None
-    this_command["stim_running_statuses"] = [False] * 24
-
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -440,9 +434,6 @@ def test_FileWriterProcess__beta_2_mode__creates_files_for_all_active_wells__whe
 
         # make sure stim metadata is correct
         assert this_file.attrs[str(STIMULATION_PROTOCOL_UUID)] == json.dumps(None), well_idx
-        assert this_file.attrs[str(UTC_BEGINNING_STIMULATION_UUID)] == str(
-            NOT_APPLICABLE_H5_METADATA
-        ), well_idx
 
     # test command receipt
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
@@ -461,6 +452,7 @@ def test_FileWriterProcess__beta_2_mode__creates_files_for_all_active_wells__whe
 def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_metadata__when_receiving_communication_to_start_recording(
     four_board_file_writer_process, mocker
 ):
+    # TODO
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
     populate_calibration_folder(file_writer_process)
@@ -472,7 +464,6 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
         "metadata_to_copy_onto_main_file_attributes"
     ][PLATE_BARCODE_UUID]
     this_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    this_command["stim_running_statuses"][0] = False
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
@@ -491,10 +482,6 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
         )
         for well_name, protocol_id in expected_stim_info["protocol_assignments"].items()
     }
-
-    expected_stim_timestamp_str = this_command["metadata_to_copy_onto_main_file_attributes"][
-        UTC_BEGINNING_STIMULATION_UUID
-    ].strftime("%Y-%m-%d %H:%M:%S.%f")
 
     # test created files
     actual_set_of_files = set(
@@ -521,11 +508,6 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
         assert this_file.attrs[str(STIMULATION_PROTOCOL_UUID)] == json.dumps(
             expected_protocols[well_name]
         ), well_idx
-        assert this_file.attrs[str(UTC_BEGINNING_STIMULATION_UUID)] == (
-            expected_stim_timestamp_str
-            if this_command["stim_running_statuses"][well_idx]
-            else str(NOT_APPLICABLE_H5_METADATA)
-        ), well_idx
 
 
 @pytest.mark.timeout(4)
@@ -543,7 +525,6 @@ def test_FileWriterProcess__beta_2_mode__creates_calibration_files_in_correct_fo
     ):
         this_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
         this_command["is_calibration_recording"] = True
-        this_command["stim_running_statuses"][0] = False
         # Tanner (12/13/21): only using different start time indices so each recording will have a different timestamp string
         this_command["timepoint_to_begin_recording_at"] = start_time_index
 

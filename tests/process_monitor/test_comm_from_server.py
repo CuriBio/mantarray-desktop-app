@@ -31,11 +31,9 @@ from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
 from pulse3D.constants import STIM_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import STIM_BARCODE_UUID
-from pulse3D.constants import STIMULATION_PROTOCOL_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
-from pulse3D.constants import UTC_BEGINNING_STIMULATION_UUID
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -254,7 +252,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
             "active_well_indices": list(range(24)),
             "is_calibration_recording": True,
             "timepoint_to_begin_recording_at": 0,
-            "stim_running_statuses": [False] * 24,
         }
     )
     expected_start_recording_command["metadata_to_copy_onto_main_file_attributes"].update(
@@ -267,8 +264,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
             UTC_BEGINNING_DATA_ACQUISTION_UUID: GENERIC_BETA_2_START_RECORDING_COMMAND[
                 "metadata_to_copy_onto_main_file_attributes"
             ][UTC_BEGINNING_RECORDING_UUID],
-            UTC_BEGINNING_STIMULATION_UUID: None,
-            STIMULATION_PROTOCOL_UUID: None,
             CUSTOMER_ACCOUNT_ID_UUID: NOT_APPLICABLE_H5_METADATA,
             USER_ACCOUNT_ID_UUID: NOT_APPLICABLE_H5_METADATA,
             INITIAL_MAGNET_FINDING_PARAMS_UUID: GENERIC_BETA_2_START_RECORDING_COMMAND[

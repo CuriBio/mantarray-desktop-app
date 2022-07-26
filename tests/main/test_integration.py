@@ -78,7 +78,6 @@ from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
-from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
 from pulse3D.constants import ORIGINAL_FILE_VERSION_UUID
 from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
@@ -98,7 +97,6 @@ from pulse3D.constants import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
-from pulse3D.constants import UTC_BEGINNING_STIMULATION_UUID
 from pulse3D.constants import UTC_FIRST_REF_DATA_POINT_UUID
 from pulse3D.constants import UTC_FIRST_TISSUE_DATA_POINT_UUID
 from pulse3D.constants import WELL_COLUMN_UUID
@@ -1201,18 +1199,13 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                         COMPUTER_NAME_HASH_UUID
                     ]
                 )
+                # TODO
                 if well_idx % 2 == 0:
                     assert this_file.attrs[str(STIMULATION_PROTOCOL_UUID)] == json.dumps(
                         test_stim_info["protocols"][0]
                     ), well_idx
-                    assert this_file.attrs[str(UTC_BEGINNING_STIMULATION_UUID)] != str(
-                        NOT_APPLICABLE_H5_METADATA
-                    ), well_idx
                 else:
                     assert this_file.attrs[str(STIMULATION_PROTOCOL_UUID)] == json.dumps(None), well_idx
-                    assert this_file.attrs[str(UTC_BEGINNING_STIMULATION_UUID)] == str(
-                        NOT_APPLICABLE_H5_METADATA
-                    ), well_idx
                 assert this_file.attrs[str(PLATE_BARCODE_UUID)] == expected_plate_barcode_1
                 assert (
                     bool(this_file.attrs[str(PLATE_BARCODE_IS_FROM_SCANNER_UUID)])
@@ -1291,11 +1284,9 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                     start_index_2 == expected_start_index_2
                 )
                 assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) in this_file.attrs
+                # TODO
                 assert this_file.attrs[str(STIMULATION_PROTOCOL_UUID)] == json.dumps(
                     test_stim_info["protocols"][well_idx % 2]
-                ), well_idx
-                assert this_file.attrs[str(UTC_BEGINNING_STIMULATION_UUID)] != str(
-                    NOT_APPLICABLE_H5_METADATA
                 ), well_idx
                 # test recorded magnetometer data
                 actual_time_index_data = get_time_index_dataset_from_file(this_file)
