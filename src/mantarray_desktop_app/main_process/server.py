@@ -51,6 +51,7 @@ from flask import Response
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from immutabledict import immutabledict
+from mantarray_desktop_app.main_process.shared_values import SharedValues
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
@@ -1222,30 +1223,27 @@ class ServerManager:
 
     def __init__(
         self,
-        to_main_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Dict[str, Any]
-        ],
+        to_main_queue: Queue[Dict[str, Any]],
         processes_queue_container: MantarrayQueueContainer,
-        values_from_process_monitor: Optional[Dict[str, Any]] = None,
+        values_from_process_monitor: Optional[SharedValues] = None,
         port: int = DEFAULT_SERVER_PORT_NUMBER,
         logging_level: int = logging.INFO,
-        lock: Optional[threading.Lock] = None,
     ) -> None:
         global _the_server_manager  # pylint:disable=global-statement,invalid-name # Eli (1/21/21): deliberately using a module-level global
         if _the_server_manager is not None:
             # TODO Tanner (8/10/21): look into ways to avoid using this as a singleton
             raise ServerManagerSingletonAlreadySetError()
 
-        self._lock = lock if lock is not None else threading.Lock()
         self._queue_container = processes_queue_container
         self._to_main_queue = to_main_queue
         self._port = port
         self._logging_level = logging_level
         if values_from_process_monitor is None:
-            values_from_process_monitor = dict()
+            # may be a dict inside tests
+            values_from_process_monitor: Union[Dict[str, Any], SharedValues] = dict()
+        self._values_from_process_monitor = values_from_process_monitor
 
         _the_server_manager = self
-        self._values_from_process_monitor = values_from_process_monitor
 
     def get_port_number(self) -> int:
         return self._port
@@ -1260,14 +1258,10 @@ class ServerManager:
         return self._queue_container
 
     def get_values_from_process_monitor(self) -> Dict[str, Any]:
-        """Get an immutable copy of the values.
-
-        In order to maintain thread safety, make a copy while a Lock is
-        acquired, only attempt to read from the copy, and don't attempt
-        to mutate it.
-        """
-        # Tanner (8/10/21): not sure if using a lock here is necessary as nothing else accessing this dictionary is using a lock before modifying it
-        with self._lock:
+        """Get an immutable copy of the values."""
+        if isinstance(self._values_from_process_monitor, SharedValues):
+            copied_values = self._values_from_process_monitor.deepcopy()
+        else:
             copied_values = deepcopy(self._values_from_process_monitor)
         immutable_version = immutabledict(copied_values)
         return immutable_version  # type: ignore

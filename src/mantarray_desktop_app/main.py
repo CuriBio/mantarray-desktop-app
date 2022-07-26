@@ -29,6 +29,7 @@ from eventlet.queue import LightQueue
 from stdlib_utils import configure_logging
 from stdlib_utils import is_port_in_use
 
+
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
@@ -37,6 +38,7 @@ from .constants import SOFTWARE_RELEASE_CHANNEL
 from .exceptions import InvalidBeta2FlagOptionError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import MultiprocessingNotSetToSpawnError
+from .main_process.shared_values import SharedValues
 from .main_process.process_manager import MantarrayProcessesManager
 from .main_process.process_monitor import MantarrayProcessesMonitor
 from .main_process.server import clear_the_server_manager
@@ -238,7 +240,7 @@ def main(
     if multiprocessing_start_method != "spawn":
         raise MultiprocessingNotSetToSpawnError(multiprocessing_start_method)
 
-    shared_values_dict: Dict[str, Any] = dict()
+    shared_values_dict = SharedValues()
 
     if parsed_args.initial_base64_settings:
         # Eli (7/15/20): Moved this ahead of the exit for debug_test_post_build so that it could be easily unit tested. The equals signs are adding padding..apparently a quirk in python https://stackoverflow.com/questions/2941995/python-ignore-incorrect-padding-error-when-base64-decoding
@@ -288,7 +290,7 @@ def main(
     shared_values_dict["system_status"] = SERVER_INITIALIZING_STATE
     if parsed_args.port_number is not None:
         shared_values_dict["server_port_number"] = parsed_args.port_number
-    global _server_port_number  # pylint:disable=global-statement,invalid-name# Eli (12/8/20) this is deliberately setting a global variable
+    global _server_port_number
     _server_port_number = shared_values_dict.get("server_port_number", DEFAULT_SERVER_PORT_NUMBER)
     msg = f"Using server port number: {_server_port_number}"
     logger.info(msg)

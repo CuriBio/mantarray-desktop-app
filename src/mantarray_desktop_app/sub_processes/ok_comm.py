@@ -369,7 +369,7 @@ def parse_scripting_log(script_type: str) -> Dict[str, Any]:
     """Parse a log to run to create a sequence of XEM commands."""
     file_name = f"xem_{script_type}.txt"
     relative_path = os.path.join("src", "xem_scripts", file_name)
-    absolute_path = os.path.normcase(os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir))
+    absolute_path = os.path.normcase(os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir, os.pardir))
     file_path = resource_path(relative_path, base_path=absolute_path)
 
     command_list: List[Dict[str, Any]] = list()

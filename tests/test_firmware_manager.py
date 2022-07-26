@@ -27,6 +27,8 @@ def test_sort_firmware_files__returns_sorted_list_of_all_firmware_files(mocker):
             os.path.dirname(get_current_file_abs_directory()),
             "src",
             "mantarray_desktop_app",
+            "utils",
+            os.pardir,
             os.pardir,
             os.pardir,
         )
@@ -70,6 +72,8 @@ def test_get_latest_firmware__returns_correct_path_to_latest_firmware_file(mocke
             os.path.dirname(get_current_file_abs_directory()),
             "src",
             "mantarray_desktop_app",
+            "utils",
+            os.pardir,
             os.pardir,
             os.pardir,
         )

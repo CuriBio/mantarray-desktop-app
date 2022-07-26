@@ -94,6 +94,8 @@ def test_parse_scripting_log__calls_resource_path_correctly(mocker):
             os.path.dirname(os.path.dirname(get_current_file_abs_directory())),
             "src",
             "mantarray_desktop_app",
+            "sub_processes",
+            os.pardir,
             os.pardir,
             os.pardir,
         )

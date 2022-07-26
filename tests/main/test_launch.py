@@ -29,6 +29,7 @@ from mantarray_desktop_app import wait_for_subprocesses_to_start
 from mantarray_desktop_app.constants import SOFTWARE_RELEASE_CHANNEL
 from mantarray_desktop_app.main_process import process_monitor
 from mantarray_desktop_app.main_process.server import get_server_address_components
+from mantarray_desktop_app.main_process.shared_values import SharedValues
 import pytest
 import requests
 from stdlib_utils import confirm_port_available
@@ -289,6 +290,7 @@ def test_main_entrypoint__correctly_assigns_shared_values_dictionary_to_process_
         test_process_monitor._values_to_share_to_server  # pylint: disable=protected-access
         is shared_values_dict
     )
+    assert isinstance(shared_values_dict, SharedValues)
     test_process_manager = object_access_dict["process_manager"]
     assert test_process_manager.get_values_to_share_to_server() is shared_values_dict
 

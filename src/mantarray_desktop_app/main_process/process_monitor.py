@@ -27,6 +27,7 @@ from stdlib_utils import InfiniteThread
 
 from .process_manager import MantarrayProcessesManager
 from .server import ServerManager
+from .shared_values import SharedValues
 from ..constants import ADC_CH_TO_24_WELL_INDEX
 from ..constants import ADC_CH_TO_IS_REF_SENSOR
 from ..constants import ADC_OFFSET_DESCRIPTION_TAG
@@ -88,7 +89,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
     def __init__(
         self,
-        values_to_share_to_server: Dict[str, Any],
+        values_to_share_to_server: SharedValues,
         process_manager: MantarrayProcessesManager,
         fatal_error_reporter: queue.Queue[str],  # pylint: disable=unsubscriptable-object
         the_lock: threading.Lock,

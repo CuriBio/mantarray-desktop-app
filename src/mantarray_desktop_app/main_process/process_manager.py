@@ -14,6 +14,7 @@ from typing import Union
 from stdlib_utils import InfiniteProcess
 
 from .queue_container import MantarrayQueueContainer
+from .shared_values import SharedValues
 from .server import ServerManager
 from ..constants import DEFAULT_SERVER_PORT_NUMBER
 from ..constants import INSTRUMENT_INITIALIZING_STATE
@@ -43,7 +44,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
 
     def __init__(
         self,
-        values_to_share_to_server: Dict[str, Any],
+        values_to_share_to_server: SharedValues,
         logging_level: int = logging.INFO,
     ) -> None:
         self._queue_container: MantarrayQueueContainer
@@ -60,7 +61,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self._all_processes: Optional[Dict[str, InfiniteProcess]] = None
         self._subprocesses_started: bool = False
 
-    def get_values_to_share_to_server(self) -> Dict[str, Any]:
+    def get_values_to_share_to_server(self) -> SharedValues:
         return self._values_to_share_to_server
 
     def queue_container(self) -> MantarrayQueueContainer:
