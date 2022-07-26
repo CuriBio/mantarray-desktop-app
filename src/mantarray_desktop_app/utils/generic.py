@@ -63,7 +63,6 @@ from ..constants import MICRO_TO_BASE_CONVERSION
 from ..constants import MICROSECONDS_PER_CENTIMILLISECOND
 from ..constants import REFERENCE_VOLTAGE
 from ..exceptions import RecordingFolderDoesNotExistError
-from ..main_process.shared_values import SharedValues
 from ..workers.file_uploader import FileUploader
 
 logger = logging.getLogger(__name__)
@@ -251,7 +250,7 @@ def _trim_barcode(barcode: str) -> str:
 
 
 def _create_start_recording_command(
-    shared_values_dict: SharedValues,
+    shared_values_dict: Dict[str, Any],
     *,
     recording_name: Optional[str] = None,
     time_index: Optional[Union[str, int]] = 0,
@@ -370,7 +369,7 @@ def _create_start_recording_command(
 
 
 def _check_scanned_barcode_vs_user_value(
-    barcode: str, barcode_type: str, shared_values_dict: SharedValues
+    barcode: str, barcode_type: str, shared_values_dict: Dict[str, Any]
 ) -> bool:
     board_idx = 0  # board index 0 hardcoded for now
     if "barcodes" not in shared_values_dict:
@@ -381,7 +380,7 @@ def _check_scanned_barcode_vs_user_value(
 
 
 def _get_timestamp_of_acquisition_sample_index_zero(  # pylint:disable=invalid-name # yeah, it's kind of long, but Eli (2/27/20) doesn't know a good way to shorten it
-    shared_values_dict: SharedValues,
+    shared_values_dict: Dict[str, Any],
 ) -> datetime.datetime:
     board_idx = 0  # board index 0 hardcoded for now
     timestamp_of_sample_idx_zero: datetime.datetime = shared_values_dict[

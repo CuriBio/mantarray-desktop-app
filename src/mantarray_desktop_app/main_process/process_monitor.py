@@ -293,12 +293,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 {"communication_type": "acquisition_manager", "command": "start_managed_acquisition"}
             )
 
-            shared_values_dict_copy = shared_values_dict.deepcopy()
-            if isinstance(self._values_from_process_monitor, SharedValues):
-                shared_values_dict_copy = self._values_from_process_monitor.deepcopy()
+            if isinstance(shared_values_dict, SharedValues):
+                shared_values_dict_copy = shared_values_dict.deepcopy()
             else:
                 # tests might use a regular dict, so keeping this here
-                shared_values_dict_copy = copy.deepcopy(self._values_from_process_monitor)
+                shared_values_dict_copy = copy.deepcopy(shared_values_dict)  # type: ignore
 
             # Tanner (12/10/21): set this manually here since a start_managed_acquisition command response has not been received yet
             shared_values_dict_copy["utc_timestamps_of_beginning_of_data_acquisition"] = [

@@ -155,7 +155,7 @@ def get_api_endpoint() -> str:
     return f"{protocol}://{host}:{port}/"
 
 
-def _get_values_from_process_monitor() -> SharedValues:
+def _get_values_from_process_monitor() -> Dict[str, Any]:
     return get_the_server_manager().get_values_from_process_monitor()
 
 
@@ -1240,7 +1240,7 @@ class ServerManager:
 
         # tests might not pass in a value for this, so just use a regular dict in that case
         self._values_from_process_monitor: Union[Dict[str, Any], SharedValues] = (
-            values_from_process_monitor or dict()
+            values_from_process_monitor or dict()  # type: ignore
         )
 
         _the_server_manager = self
