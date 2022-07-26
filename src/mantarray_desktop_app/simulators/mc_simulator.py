@@ -296,7 +296,9 @@ class MantarrayMcSimulator(InfiniteProcess):
         This function should only be called once.
         """
         relative_path = os.path.join("src", "simulated_data", "simulated_twitch.csv")
-        absolute_path = os.path.normcase(os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir, os.pardir))
+        absolute_path = os.path.normcase(
+            os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir, os.pardir)
+        )
         file_path = resource_path(relative_path, base_path=absolute_path)
         with open(file_path, newline="") as csvfile:
             simulated_data_timepoints = next(csv.reader(csvfile, delimiter=","))

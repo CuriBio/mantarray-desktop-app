@@ -14,8 +14,8 @@ from typing import Union
 from stdlib_utils import InfiniteProcess
 
 from .queue_container import MantarrayQueueContainer
-from .shared_values import SharedValues
 from .server import ServerManager
+from .shared_values import SharedValues
 from ..constants import DEFAULT_SERVER_PORT_NUMBER
 from ..constants import INSTRUMENT_INITIALIZING_STATE
 from ..constants import SUBPROCESS_JOIN_TIMEOUT_SECONDS

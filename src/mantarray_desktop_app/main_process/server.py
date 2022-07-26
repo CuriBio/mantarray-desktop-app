@@ -35,7 +35,6 @@ import json
 import logging
 import os
 from queue import Queue
-import threading
 from time import sleep
 from typing import Any
 from typing import Dict

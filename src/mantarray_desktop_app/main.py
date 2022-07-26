@@ -29,7 +29,6 @@ from eventlet.queue import LightQueue
 from stdlib_utils import configure_logging
 from stdlib_utils import is_port_in_use
 
-
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CURRENT_SOFTWARE_VERSION
 from .constants import DEFAULT_SERVER_PORT_NUMBER
@@ -38,7 +37,6 @@ from .constants import SOFTWARE_RELEASE_CHANNEL
 from .exceptions import InvalidBeta2FlagOptionError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import MultiprocessingNotSetToSpawnError
-from .main_process.shared_values import SharedValues
 from .main_process.process_manager import MantarrayProcessesManager
 from .main_process.process_monitor import MantarrayProcessesMonitor
 from .main_process.server import clear_the_server_manager
@@ -47,6 +45,7 @@ from .main_process.server import get_server_address_components
 from .main_process.server import get_the_server_manager
 from .main_process.server import ServerManagerNotInitializedError
 from .main_process.server import socketio
+from .main_process.shared_values import SharedValues
 from .utils.generic import redact_sensitive_info_from_path
 from .utils.log_formatter import SensitiveFormatter
 

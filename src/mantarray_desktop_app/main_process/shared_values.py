@@ -1,27 +1,29 @@
 # -*- coding: utf-8 -*-
 """Thread safe, dict-like object."""
 
-import re
-from typing import Dict, Any
-import threading, copy
+import copy
+import threading
+from typing import Any
+from typing import Dict
 
-class SharedValues():
+
+class SharedValues:
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._values = dict()
+        self._values: Dict[str, Any] = dict()
 
-    def __getitem__(self, key) -> Any:
+    def __getitem__(self, key: str) -> Any:
         with self._lock:
             return self._values[key]
 
-    def __setitem__(self, key, val) -> None:
+    def __setitem__(self, key: str, val: Any) -> None:
         with self._lock:
             self._values[key] = val
 
-    def __contains__(self, key) -> bool:
+    def __contains__(self, key: str) -> bool:
         return key in self._values
-    
-    def get(self, key, default: Any = None) -> Any:
+
+    def get(self, key: str, default: Any = None) -> Any:
         with self._lock:
             return self._values.get(key, default)
 
