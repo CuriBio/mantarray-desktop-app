@@ -25,57 +25,49 @@ from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import get_formatted_stack_trace
 from stdlib_utils import put_log_message_into_queue
 from stdlib_utils import resource_path
+from xem_wrapper import check_header
+from xem_wrapper import convert_sample_idx
+from xem_wrapper import convert_wire_value
+from xem_wrapper import DATA_FRAME_SIZE_WORDS
+from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
+from xem_wrapper import FrontPanelBase
+from xem_wrapper import FrontPanelSimulator
+from xem_wrapper import OpalKellyNoDeviceFoundError
+from xem_wrapper import open_board
 
-from .arch_utils import is_cpu_arm
-from .constants import ADC_GAIN_DESCRIPTION_TAG
-from .constants import BARCODE_CONFIRM_CLEAR_WAIT_SECONDS
-from .constants import BARCODE_GET_SCAN_WAIT_SECONDS
-from .constants import CALIBRATED_STATE
-from .constants import CALIBRATION_NEEDED_STATE
-from .constants import CLEARED_BARCODE_VALUE
-from .constants import DATA_FRAME_PERIOD
-from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
-from .constants import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
-from .constants import REF_INDEX_TO_24_WELL_INDEX
-from .constants import TIMESTEP_CONVERSION_FACTOR
-from .constants import VALID_SCRIPTING_COMMANDS
-from .exceptions import BarcodeNotClearedError
-from .exceptions import BarcodeScannerNotRespondingError
-from .exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
-from .exceptions import FirstManagedReadLessThanOneRoundRobinError
-from .exceptions import InstrumentCommIncorrectHeaderError
-from .exceptions import InvalidDataFramePeriodError
-from .exceptions import InvalidScriptCommandError
-from .exceptions import MismatchedScriptTypeError
-from .exceptions import ScriptDoesNotContainEndCommandError
-from .exceptions import UnrecognizedCommandFromMainToOkCommError
-from .exceptions import UnrecognizedDataFrameFormatNameError
-from .exceptions import UnrecognizedDebugConsoleCommandError
-from .exceptions import UnrecognizedMantarrayNamingCommandError
-from .fifo_simulator import RunningFIFOSimulator
 from .instrument_comm import InstrumentCommProcess
-from .mantarray_front_panel import MantarrayFrontPanel
-from .utils import _trim_barcode
-from .utils import check_barcode_is_valid
-
-try:
-    from xem_wrapper import check_header
-    from xem_wrapper import convert_sample_idx
-    from xem_wrapper import convert_wire_value
-    from xem_wrapper import DATA_FRAME_SIZE_WORDS
-    from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
-    from xem_wrapper import FrontPanelBase
-    from xem_wrapper import FrontPanelSimulator
-    from xem_wrapper import OpalKellyNoDeviceFoundError
-    from xem_wrapper import open_board
-except ImportError:  # no sec  # pragma: no cover
-    if not is_cpu_arm():
-        raise
-
-    pass
+from ..constants import ADC_GAIN_DESCRIPTION_TAG
+from ..constants import BARCODE_CONFIRM_CLEAR_WAIT_SECONDS
+from ..constants import BARCODE_GET_SCAN_WAIT_SECONDS
+from ..constants import CALIBRATED_STATE
+from ..constants import CALIBRATION_NEEDED_STATE
+from ..constants import CLEARED_BARCODE_VALUE
+from ..constants import DATA_FRAME_PERIOD
+from ..constants import NO_PLATE_DETECTED_BARCODE_VALUE
+from ..constants import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
+from ..constants import REF_INDEX_TO_24_WELL_INDEX
+from ..constants import TIMESTEP_CONVERSION_FACTOR
+from ..constants import VALID_SCRIPTING_COMMANDS
+from ..exceptions import BarcodeNotClearedError
+from ..exceptions import BarcodeScannerNotRespondingError
+from ..exceptions import FirmwareFileNameDoesNotMatchWireOutVersionError
+from ..exceptions import FirstManagedReadLessThanOneRoundRobinError
+from ..exceptions import InstrumentCommIncorrectHeaderError
+from ..exceptions import InvalidDataFramePeriodError
+from ..exceptions import InvalidScriptCommandError
+from ..exceptions import MismatchedScriptTypeError
+from ..exceptions import ScriptDoesNotContainEndCommandError
+from ..exceptions import UnrecognizedCommandFromMainToOkCommError
+from ..exceptions import UnrecognizedDataFrameFormatNameError
+from ..exceptions import UnrecognizedDebugConsoleCommandError
+from ..exceptions import UnrecognizedMantarrayNamingCommandError
+from ..simulators.fifo_simulator import RunningFIFOSimulator
+from ..utils.generic import _trim_barcode
+from ..utils.generic import check_barcode_is_valid
+from ..utils.mantarray_front_panel import MantarrayFrontPanel
 
 if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement
-    from .data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20): unsure why pylint is unable to recognize cython import...
+    from ..utils.data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20): unsure why pylint is unable to recognize cython import...
         parse_sensor_bytes,
     )
 
@@ -377,7 +369,9 @@ def parse_scripting_log(script_type: str) -> Dict[str, Any]:
     """Parse a log to run to create a sequence of XEM commands."""
     file_name = f"xem_{script_type}.txt"
     relative_path = os.path.join("src", "xem_scripts", file_name)
-    absolute_path = os.path.normcase(os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir))
+    absolute_path = os.path.normcase(
+        os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir, os.pardir)
+    )
     file_path = resource_path(relative_path, base_path=absolute_path)
 
     command_list: List[Dict[str, Any]] = list()

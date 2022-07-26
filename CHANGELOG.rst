@@ -2,6 +2,32 @@ Changelog for Mantarray Desktop App
 ===================================
 
 
+1.0.1 (unreleased)
+------------------
+
+Added:
+^^^^^^
+- Computer sleep and screen lock prevention when the app is running and connected to an instrument
+  (not simulation mode).
+- Automatic switching between Data Acquisition / Stim pages when sidebar tab changes.
+
+Changed:
+^^^^^^^^
+- Max recording time limit is now two minutes.
+- Tooltips:
+
+    - Specify that barcodes can not be manually changed while live view is active.
+    - Specify that Stim Config checks cannot be run while while live view is active.
+
+Fixed:
+^^^^^^
+- Stim protocol editor oveflow, now has a scroll bar.
+
+Removed
+^^^^^^^
+- Live view warnings after running for 5 minutes.
+
+
 1.0.0 (2022-06-30)
 ------------------
 
@@ -13,11 +39,14 @@ Added:
 - Better error messages.
 - Stim Lid barcode.
 - Stim Lid configuration check.
+- Support for M(L/S)YYDDD###-(1/2) barcode format.
 - Ability to specify a name for recording files.
 - Ability to perform magnet finding analysis of existing recordings locally:
 
-    - Data analysis tab that contains button that will prompty modal with list of existing recordings to select from.
-    - Modal will update to 'in progress' and prevent user from closing modal or performing other processes while a analysis is active.
+    - Data analysis tab that contains button that will prompty modal with list of existing recordings
+      to select from.
+    - Modal will update to 'in progress' and prevent user from closing modal or performing other processes
+      while a analysis is active.
     - Modal will upate on completion with successful recordings, failed recording, and location of csv files.
     - Prevention of starting an analysis while other process are already active.
     - Will prompt user to confirm window closure if an attempt is made and an analysis is running.

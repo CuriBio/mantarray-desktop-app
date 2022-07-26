@@ -14,7 +14,6 @@ from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import RecordingFolderDoesNotExistError
-from mantarray_desktop_app import server
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
@@ -25,6 +24,7 @@ from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.exceptions import LoginFailedError
+from mantarray_desktop_app.main_process import server
 import pytest
 
 from ..fixtures import fixture_generic_queue_container

@@ -11,8 +11,6 @@ from mantarray_desktop_app import CALIBRATION_RECORDING_DUR_SECONDS
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
-from mantarray_desktop_app import process_manager
-from mantarray_desktop_app import process_monitor
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
@@ -23,6 +21,8 @@ from mantarray_desktop_app import UnrecognizedRecordingCommandError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.constants import UPDATES_NEEDED_STATE
+from mantarray_desktop_app.main_process import process_manager
+from mantarray_desktop_app.main_process import process_monitor
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA

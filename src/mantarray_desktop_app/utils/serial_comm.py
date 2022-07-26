@@ -24,22 +24,22 @@ from pulse3D.constants import PCB_SERIAL_NUMBER_UUID
 from pulse3D.constants import TAMPER_FLAG_UUID
 from pulse3D.constants import TOTAL_WORKING_HOURS_UUID
 
-from .constants import GENERIC_24_WELL_DEFINITION
-from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
-from .constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
-from .constants import SERIAL_COMM_OKAY_CODE
-from .constants import SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES
-from .constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
-from .constants import SERIAL_COMM_TIMESTAMP_EPOCH
-from .constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-from .constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
-from .constants import STIM_MODULE_ID_TO_WELL_IDX
-from .constants import STIM_NO_PROTOCOL_ASSIGNED
-from .constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
-from .constants import STIM_SHORT_CIRCUIT_THRESHOLD_OHMS
-from .constants import STIM_WELL_IDX_TO_MODULE_ID
-from .constants import StimulatorCircuitStatuses
+from ..constants import GENERIC_24_WELL_DEFINITION
+from ..constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+from ..constants import SERIAL_COMM_MAGIC_WORD_BYTES
+from ..constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
+from ..constants import SERIAL_COMM_OKAY_CODE
+from ..constants import SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES
+from ..constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from ..constants import SERIAL_COMM_TIMESTAMP_EPOCH
+from ..constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from ..constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
+from ..constants import STIM_MODULE_ID_TO_WELL_IDX
+from ..constants import STIM_NO_PROTOCOL_ASSIGNED
+from ..constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
+from ..constants import STIM_SHORT_CIRCUIT_THRESHOLD_OHMS
+from ..constants import STIM_WELL_IDX_TO_MODULE_ID
+from ..constants import StimulatorCircuitStatuses
 
 
 # Tanner (3/18/21): If/When additional cython is needed to improve serial communication, this file may be worth investigating

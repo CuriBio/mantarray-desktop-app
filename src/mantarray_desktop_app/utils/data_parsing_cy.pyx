@@ -7,23 +7,23 @@ from libcpp.map cimport map
 from typing import List
 from typing import Tuple
 
-from .constants import ADC_CH_TO_24_WELL_INDEX
-from .constants import ADC_CH_TO_IS_REF_SENSOR
-from .constants import RAW_TO_SIGNED_CONVERSION_VALUE
-from .constants import SERIAL_COMM_PAYLOAD_INDEX
-from .constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
-from .constants import SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES
-from .constants import SERIAL_COMM_MAGIC_WORD_BYTES
-from .constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
-from .constants import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
-from .constants import SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES
-from .constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
-from .constants import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
-from .constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
-from .constants import STIM_MODULE_ID_TO_WELL_IDX
-from .constants import StimProtocolStatuses
-from .exceptions import SerialCommIncorrectChecksumFromInstrumentError
-from .exceptions import SerialCommIncorrectMagicWordFromMantarrayError
+from ..constants import ADC_CH_TO_24_WELL_INDEX
+from ..constants import ADC_CH_TO_IS_REF_SENSOR
+from ..constants import RAW_TO_SIGNED_CONVERSION_VALUE
+from ..constants import SERIAL_COMM_PAYLOAD_INDEX
+from ..constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+from ..constants import SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES
+from ..constants import SERIAL_COMM_MAGIC_WORD_BYTES
+from ..constants import SERIAL_COMM_MAGNETOMETER_DATA_PACKET_TYPE
+from ..constants import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
+from ..constants import SERIAL_COMM_PACKET_REMAINDER_SIZE_LENGTH_BYTES
+from ..constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
+from ..constants import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
+from ..constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
+from ..constants import STIM_MODULE_ID_TO_WELL_IDX
+from ..constants import StimProtocolStatuses
+from ..exceptions import SerialCommIncorrectChecksumFromInstrumentError
+from ..exceptions import SerialCommIncorrectMagicWordFromMantarrayError
 
 # Beta 1
 
@@ -98,7 +98,7 @@ import numpy as np
 cimport numpy as np
 np.import_array()
 
-cdef extern from "../zlib/zlib.h":
+cdef extern from "../../zlib/zlib.h":
     ctypedef unsigned char Bytef
     ctypedef unsigned long uLong
     ctypedef unsigned int uInt

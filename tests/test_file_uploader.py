@@ -5,19 +5,19 @@ import os
 import tempfile
 import zipfile
 
-from mantarray_desktop_app import file_uploader
-from mantarray_desktop_app import web_api_utils
 from mantarray_desktop_app.constants import CLOUD_PULSE3D_ENDPOINT
 from mantarray_desktop_app.exceptions import CloudAnalysisJobFailedError
 from mantarray_desktop_app.exceptions import PresignedUploadFailedError
-from mantarray_desktop_app.file_uploader import create_zip_file
-from mantarray_desktop_app.file_uploader import download_analysis_from_s3
-from mantarray_desktop_app.file_uploader import FileUploader
-from mantarray_desktop_app.file_uploader import get_file_md5
-from mantarray_desktop_app.file_uploader import get_upload_details
-from mantarray_desktop_app.file_uploader import start_analysis
-from mantarray_desktop_app.file_uploader import upload_file_to_s3
-from mantarray_desktop_app.web_api_utils import AuthTokens
+from mantarray_desktop_app.utils import web_api
+from mantarray_desktop_app.utils.web_api import AuthTokens
+from mantarray_desktop_app.workers import file_uploader
+from mantarray_desktop_app.workers.file_uploader import create_zip_file
+from mantarray_desktop_app.workers.file_uploader import download_analysis_from_s3
+from mantarray_desktop_app.workers.file_uploader import FileUploader
+from mantarray_desktop_app.workers.file_uploader import get_file_md5
+from mantarray_desktop_app.workers.file_uploader import get_upload_details
+from mantarray_desktop_app.workers.file_uploader import start_analysis
+from mantarray_desktop_app.workers.file_uploader import upload_file_to_s3
 import pytest
 import requests
 
@@ -230,7 +230,7 @@ def test_FileUploader_get_analysis_status__raises_error_if_analysis_job_errored(
 def test_FileUploader_job__does_not_create_new_zip_file_if_file_to_upload_is_a_zip_file(
     create_file_uploader, mocker
 ):
-    mocker.patch.object(web_api_utils, "get_cloud_api_tokens", autospec=True)
+    mocker.patch.object(web_api, "get_cloud_api_tokens", autospec=True)
     mocker.patch.object(file_uploader, "get_file_md5", autospec=True)
     mocker.patch.object(file_uploader, "get_upload_details", autospec=True)
     mocker.patch.object(file_uploader, "upload_file_to_s3", autospec=True)
@@ -249,7 +249,7 @@ def test_FileUploader_job__does_not_create_new_zip_file_if_file_to_upload_is_a_z
 def test_FileUploader__sleeps_in_between_polling_analysis_status_until_analysis_completes(
     create_file_uploader, mocker
 ):
-    mocker.patch.object(web_api_utils, "get_cloud_api_tokens", autospec=True)
+    mocker.patch.object(web_api, "get_cloud_api_tokens", autospec=True)
     mocker.patch.object(file_uploader, "get_file_md5", autospec=True)
     mocker.patch.object(file_uploader, "get_upload_details", autospec=True)
     mocker.patch.object(file_uploader, "upload_file_to_s3", autospec=True)
@@ -278,7 +278,7 @@ def test_FileUploader__runs_upload_procedure_correctly_for_recording(
     mocker.patch.object(os.path, "exists", autospec=True, return_value=user_dir_exists)
     mocked_makedirs = mocker.patch.object(os, "makedirs", autospec=True)
 
-    mocked_get_tokens = mocker.patch.object(web_api_utils, "get_cloud_api_tokens", autospec=True)
+    mocked_get_tokens = mocker.patch.object(web_api, "get_cloud_api_tokens", autospec=True)
     mocked_create_zip_file = mocker.patch.object(file_uploader, "create_zip_file", autospec=True)
     mocked_get_file_md5 = mocker.patch.object(file_uploader, "get_file_md5", autospec=True)
     mocked_get_upload_details = mocker.patch.object(file_uploader, "get_upload_details", autospec=True)
@@ -330,7 +330,7 @@ def test_FileUploader__runs_upload_procedure_correctly_for_recording(
 
 
 def test_FileUploader__runs_upload_procedure_correctly_for_log_files(mocker, create_file_uploader):
-    mocked_get_tokens = mocker.patch.object(web_api_utils, "get_cloud_api_tokens", autospec=True)
+    mocked_get_tokens = mocker.patch.object(web_api, "get_cloud_api_tokens", autospec=True)
     mocked_create_zip_file = mocker.patch.object(file_uploader, "create_zip_file", autospec=True)
     mocked_get_file_md5 = mocker.patch.object(file_uploader, "get_file_md5", autospec=True)
     mocked_get_upload_details = mocker.patch.object(file_uploader, "get_upload_details", autospec=True)

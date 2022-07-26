@@ -15,7 +15,6 @@ from mantarray_desktop_app import FirmwareFileNameDoesNotMatchWireOutVersionErro
 from mantarray_desktop_app import InstrumentCommIncorrectHeaderError
 from mantarray_desktop_app import InvalidDataFramePeriodError
 from mantarray_desktop_app import MantarrayFrontPanel
-from mantarray_desktop_app import ok_comm
 from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import parse_adc_metadata_byte
 from mantarray_desktop_app import parse_data_frame
@@ -31,6 +30,7 @@ from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 from mantarray_desktop_app import UnrecognizedCommandFromMainToOkCommError
 from mantarray_desktop_app import UnrecognizedDataFrameFormatNameError
 from mantarray_desktop_app import UnrecognizedMantarrayNamingCommandError
+from mantarray_desktop_app.sub_processes import ok_comm
 import numpy as np
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 import pytest

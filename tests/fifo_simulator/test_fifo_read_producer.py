@@ -5,7 +5,6 @@ import threading
 
 from mantarray_desktop_app import ADC_CH_TO_24_WELL_INDEX
 from mantarray_desktop_app import DATA_FRAME_PERIOD
-from mantarray_desktop_app import fifo_read_producer
 from mantarray_desktop_app import FIFO_READ_PRODUCER_DATA_OFFSET
 from mantarray_desktop_app import FIFO_READ_PRODUCER_REF_AMPLITUDE
 from mantarray_desktop_app import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
@@ -14,6 +13,7 @@ from mantarray_desktop_app import FIFOReadProducer
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
+from mantarray_desktop_app.simulators import fifo_read_producer
 import pytest
 from scipy import signal
 from stdlib_utils import invoke_process_run_and_check_errors

@@ -18,7 +18,6 @@ from mantarray_desktop_app import SERIAL_COMM_METADATA_BYTES_LENGTH
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_EPOCH
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-from mantarray_desktop_app import serial_comm_utils
 from mantarray_desktop_app import STIM_NO_PROTOCOL_ASSIGNED
 from mantarray_desktop_app import validate_checksum
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
@@ -27,8 +26,9 @@ from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from mantarray_desktop_app.constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
 from mantarray_desktop_app.constants import STIM_SHORT_CIRCUIT_THRESHOLD_OHMS
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
-from mantarray_desktop_app.serial_comm_utils import convert_adc_readings_to_circuit_status
-from mantarray_desktop_app.serial_comm_utils import convert_adc_readings_to_impedance
+from mantarray_desktop_app.utils import serial_comm
+from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_circuit_status
+from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_impedance
 import numpy as np
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
@@ -164,7 +164,7 @@ def test_convert_adc_readings_to_circuit_status__returns_correct_values(
     test_impedance, expected_status, mocker
 ):
     mocked_to_impedance = mocker.patch.object(
-        serial_comm_utils, "convert_adc_readings_to_impedance", autospec=True, return_value=test_impedance
+        serial_comm, "convert_adc_readings_to_impedance", autospec=True, return_value=test_impedance
     )
     # mocking convert_adc_readings_to_impedance so these values don't actually matter
     test_adc8 = randint(0, 0xFFFF)

@@ -37,16 +37,17 @@ from .constants import SOFTWARE_RELEASE_CHANNEL
 from .exceptions import InvalidBeta2FlagOptionError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import MultiprocessingNotSetToSpawnError
-from .log_formatter import SensitiveFormatter
-from .process_manager import MantarrayProcessesManager
-from .process_monitor import MantarrayProcessesMonitor
-from .server import clear_the_server_manager
-from .server import flask_app
-from .server import get_server_address_components
-from .server import get_the_server_manager
-from .server import ServerManagerNotInitializedError
-from .server import socketio
-from .utils import redact_sensitive_info_from_path
+from .main_process.process_manager import MantarrayProcessesManager
+from .main_process.process_monitor import MantarrayProcessesMonitor
+from .main_process.server import clear_the_server_manager
+from .main_process.server import flask_app
+from .main_process.server import get_server_address_components
+from .main_process.server import get_the_server_manager
+from .main_process.server import ServerManagerNotInitializedError
+from .main_process.server import socketio
+from .main_process.shared_values import SharedValues
+from .utils.generic import redact_sensitive_info_from_path
+from .utils.log_formatter import SensitiveFormatter
 
 
 logger = logging.getLogger(__name__)
@@ -238,7 +239,7 @@ def main(
     if multiprocessing_start_method != "spawn":
         raise MultiprocessingNotSetToSpawnError(multiprocessing_start_method)
 
-    shared_values_dict: Dict[str, Any] = dict()
+    shared_values_dict = SharedValues()
 
     if parsed_args.initial_base64_settings:
         # Eli (7/15/20): Moved this ahead of the exit for debug_test_post_build so that it could be easily unit tested. The equals signs are adding padding..apparently a quirk in python https://stackoverflow.com/questions/2941995/python-ignore-incorrect-padding-error-when-base64-decoding
@@ -288,7 +289,7 @@ def main(
     shared_values_dict["system_status"] = SERVER_INITIALIZING_STATE
     if parsed_args.port_number is not None:
         shared_values_dict["server_port_number"] = parsed_args.port_number
-    global _server_port_number  # pylint:disable=global-statement,invalid-name# Eli (12/8/20) this is deliberately setting a global variable
+    global _server_port_number
     _server_port_number = shared_values_dict.get("server_port_number", DEFAULT_SERVER_PORT_NUMBER)
     msg = f"Using server port number: {_server_port_number}"
     logger.info(msg)

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 from multiprocessing import Queue as MPQueue
 
-from mantarray_desktop_app import ok_comm
 from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app.sub_processes import ok_comm
 import pytest
 from stdlib_utils import TestingQueue
 from xem_wrapper import FrontPanelSimulator

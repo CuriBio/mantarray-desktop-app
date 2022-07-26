@@ -35,7 +35,6 @@ import json
 import logging
 import os
 from queue import Queue
-import threading
 from time import sleep
 from typing import Any
 from typing import Dict
@@ -51,6 +50,7 @@ from flask import Response
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from immutabledict import immutabledict
+from mantarray_desktop_app.main_process.shared_values import SharedValues
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
@@ -60,40 +60,40 @@ from semver import VersionInfo
 from stdlib_utils import drain_queue
 from stdlib_utils import is_port_in_use
 
-from .constants import BUFFERING_STATE
-from .constants import CALIBRATED_STATE
-from .constants import CALIBRATION_NEEDED_STATE
-from .constants import DEFAULT_SERVER_PORT_NUMBER
-from .constants import GENERIC_24_WELL_DEFINITION
-from .constants import LIVE_VIEW_ACTIVE_STATE
-from .constants import MICRO_TO_BASE_CONVERSION
-from .constants import MICROSECONDS_PER_CENTIMILLISECOND
-from .constants import RECORDING_STATE
-from .constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
-from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
-from .constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
-from .constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
-from .constants import STIM_MAX_PULSE_DURATION_MICROSECONDS
-from .constants import StimulatorCircuitStatuses
-from .constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
-from .constants import SUBPROCESS_POLL_DELAY_SECONDS
-from .constants import SYSTEM_STATUS_UUIDS
-from .constants import VALID_CONFIG_SETTINGS
-from .exceptions import LocalServerPortAlreadyInUseError
-from .exceptions import LoginFailedError
-from .exceptions import RecordingFolderDoesNotExistError
-from .exceptions import ServerManagerNotInitializedError
-from .exceptions import ServerManagerSingletonAlreadySetError
-from .ok_comm import check_mantarray_serial_number
 from .queue_container import MantarrayQueueContainer
-from .utils import _create_start_recording_command
-from .utils import _get_timestamp_of_acquisition_sample_index_zero
-from .utils import check_barcode_for_errors
-from .utils import convert_request_args_to_config_dict
-from .utils import get_current_software_version
-from .utils import get_redacted_string
-from .utils import validate_settings
-from .utils import validate_user_credentials
+from ..constants import BUFFERING_STATE
+from ..constants import CALIBRATED_STATE
+from ..constants import CALIBRATION_NEEDED_STATE
+from ..constants import DEFAULT_SERVER_PORT_NUMBER
+from ..constants import GENERIC_24_WELL_DEFINITION
+from ..constants import LIVE_VIEW_ACTIVE_STATE
+from ..constants import MICRO_TO_BASE_CONVERSION
+from ..constants import MICROSECONDS_PER_CENTIMILLISECOND
+from ..constants import RECORDING_STATE
+from ..constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
+from ..constants import START_MANAGED_ACQUISITION_COMMUNICATION
+from ..constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
+from ..constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+from ..constants import STIM_MAX_PULSE_DURATION_MICROSECONDS
+from ..constants import StimulatorCircuitStatuses
+from ..constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from ..constants import SUBPROCESS_POLL_DELAY_SECONDS
+from ..constants import SYSTEM_STATUS_UUIDS
+from ..constants import VALID_CONFIG_SETTINGS
+from ..exceptions import LocalServerPortAlreadyInUseError
+from ..exceptions import LoginFailedError
+from ..exceptions import RecordingFolderDoesNotExistError
+from ..exceptions import ServerManagerNotInitializedError
+from ..exceptions import ServerManagerSingletonAlreadySetError
+from ..sub_processes.ok_comm import check_mantarray_serial_number
+from ..utils.generic import _create_start_recording_command
+from ..utils.generic import _get_timestamp_of_acquisition_sample_index_zero
+from ..utils.generic import check_barcode_for_errors
+from ..utils.generic import convert_request_args_to_config_dict
+from ..utils.generic import get_current_software_version
+from ..utils.generic import get_redacted_string
+from ..utils.generic import validate_settings
+from ..utils.generic import validate_user_credentials
 
 
 logger = logging.getLogger(__name__)
@@ -1222,30 +1222,28 @@ class ServerManager:
 
     def __init__(
         self,
-        to_main_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Dict[str, Any]
-        ],
+        to_main_queue: Queue[Dict[str, Any]],
         processes_queue_container: MantarrayQueueContainer,
-        values_from_process_monitor: Optional[Dict[str, Any]] = None,
+        values_from_process_monitor: Optional[SharedValues] = None,
         port: int = DEFAULT_SERVER_PORT_NUMBER,
         logging_level: int = logging.INFO,
-        lock: Optional[threading.Lock] = None,
     ) -> None:
         global _the_server_manager  # pylint:disable=global-statement,invalid-name # Eli (1/21/21): deliberately using a module-level global
         if _the_server_manager is not None:
             # TODO Tanner (8/10/21): look into ways to avoid using this as a singleton
             raise ServerManagerSingletonAlreadySetError()
 
-        self._lock = lock if lock is not None else threading.Lock()
         self._queue_container = processes_queue_container
         self._to_main_queue = to_main_queue
         self._port = port
         self._logging_level = logging_level
-        if values_from_process_monitor is None:
-            values_from_process_monitor = dict()
+
+        # tests might not pass in a value for this, so just use a regular dict in that case
+        self._values_from_process_monitor: Union[Dict[str, Any], SharedValues] = (
+            values_from_process_monitor or dict()  # type: ignore
+        )
 
         _the_server_manager = self
-        self._values_from_process_monitor = values_from_process_monitor
 
     def get_port_number(self) -> int:
         return self._port
@@ -1260,14 +1258,11 @@ class ServerManager:
         return self._queue_container
 
     def get_values_from_process_monitor(self) -> Dict[str, Any]:
-        """Get an immutable copy of the values.
-
-        In order to maintain thread safety, make a copy while a Lock is
-        acquired, only attempt to read from the copy, and don't attempt
-        to mutate it.
-        """
-        # Tanner (8/10/21): not sure if using a lock here is necessary as nothing else accessing this dictionary is using a lock before modifying it
-        with self._lock:
+        """Get an immutable copy of the values."""
+        if isinstance(self._values_from_process_monitor, SharedValues):
+            copied_values = self._values_from_process_monitor.deepcopy()
+        else:
+            # tests might use a regular dict, so keeping this here
             copied_values = deepcopy(self._values_from_process_monitor)
         immutable_version = immutabledict(copied_values)
         return immutable_version  # type: ignore

@@ -2,7 +2,6 @@
 import csv
 import os
 
-from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_DATA_SAMPLE_LENGTH_BYTES
@@ -15,6 +14,7 @@ from mantarray_desktop_app import SERIAL_COMM_PAYLOAD_INDEX
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
+from mantarray_desktop_app.simulators import mc_simulator
 import numpy as np
 from scipy import interpolate
 from stdlib_utils import get_current_file_abs_directory

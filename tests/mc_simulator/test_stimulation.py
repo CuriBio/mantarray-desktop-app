@@ -7,7 +7,6 @@ from mantarray_desktop_app import convert_module_id_to_well_name
 from mantarray_desktop_app import convert_stim_dict_to_bytes
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
-from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_FAILURE_BYTE
 from mantarray_desktop_app import SERIAL_COMM_COMMAND_SUCCESS_BYTE
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
@@ -21,7 +20,8 @@ from mantarray_desktop_app import StimProtocolStatuses
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
 from mantarray_desktop_app.constants import STIM_WELL_IDX_TO_MODULE_ID
-from mantarray_desktop_app.serial_comm_utils import convert_adc_readings_to_circuit_status
+from mantarray_desktop_app.simulators import mc_simulator
+from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_circuit_status
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 

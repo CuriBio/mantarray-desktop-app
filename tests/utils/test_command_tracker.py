@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from mantarray_desktop_app.utils import CommandTracker
+from mantarray_desktop_app.utils.generic import CommandTracker
 import pytest
 
 

@@ -46,20 +46,20 @@ from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
 from streamz import Stream
 
-from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
-from .constants import CONSTRUCT_SENSORS_PER_REF_SENSOR
-from .constants import DATA_ANALYZER_BETA_1_BUFFER_SIZE
-from .constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
-from .constants import DEFAULT_SAMPLING_PERIOD
-from .constants import MICRO_TO_BASE_CONVERSION
-from .constants import MICROSECONDS_PER_CENTIMILLISECOND
-from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
-from .constants import MM_PER_MT_Z_AXIS_SENSOR_0
-from .constants import PERFOMANCE_LOGGING_PERIOD_SECS
-from .constants import REF_INDEX_TO_24_WELL_INDEX
-from .constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
-from .exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
-from .worker_thread import ErrorCatchingThread
+from ..constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
+from ..constants import CONSTRUCT_SENSORS_PER_REF_SENSOR
+from ..constants import DATA_ANALYZER_BETA_1_BUFFER_SIZE
+from ..constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
+from ..constants import DEFAULT_SAMPLING_PERIOD
+from ..constants import MICRO_TO_BASE_CONVERSION
+from ..constants import MICROSECONDS_PER_CENTIMILLISECOND
+from ..constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
+from ..constants import MM_PER_MT_Z_AXIS_SENSOR_0
+from ..constants import PERFOMANCE_LOGGING_PERIOD_SECS
+from ..constants import REF_INDEX_TO_24_WELL_INDEX
+from ..constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
+from ..exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
+from ..workers.worker_thread import ErrorCatchingThread
 
 
 METRIC_CALCULATORS = {

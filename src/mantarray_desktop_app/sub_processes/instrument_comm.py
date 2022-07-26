@@ -17,18 +17,10 @@ import serial
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
 from stdlib_utils import put_log_message_into_queue
+from xem_wrapper import FrontPanelBase
+from xem_wrapper import okCFrontPanel
 
-from .arch_utils import is_cpu_arm
-from .mc_simulator import MantarrayMcSimulator
-
-try:
-    from xem_wrapper import FrontPanelBase
-    from xem_wrapper import okCFrontPanel
-except ImportError:  # no sec  # pragma: no cover
-    if not is_cpu_arm():
-        raise
-    FrontPanelBase = "FrontPanelBase"
-    okCFrontPanel = "okCFrontPanel"
+from ..simulators.mc_simulator import MantarrayMcSimulator
 
 
 def _drain_board_queues(
