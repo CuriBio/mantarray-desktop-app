@@ -45,9 +45,6 @@ MAX_POSSIBLE_CONNECTED_BOARDS = 4
 
 GENERIC_24_WELL_DEFINITION = LabwareDefinition(row_count=4, column_count=6)
 
-CURI_BIO_ACCOUNT_UUID = uuid.UUID("73f52be0-368c-42d8-a1fd-660d49ba5604")
-CURI_BIO_USER_ACCOUNT_ID = uuid.UUID("455b93eb-c78f-4494-9f73-d3291130f126")
-
 DEFAULT_USER_CONFIG: immutabledict[str, str] = immutabledict({"customer_id": "", "user_name": ""})
 VALID_CONFIG_SETTINGS = frozenset(
     [

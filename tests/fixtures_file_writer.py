@@ -17,8 +17,6 @@ import h5py
 from labware_domain_models import LabwareDefinition
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
-from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
-from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import MantarrayMcSimulator
@@ -72,6 +70,10 @@ from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_e
 WELL_DEF_24 = LabwareDefinition(row_count=4, column_count=6)
 
 
+TEST_CUSTOMER_ID = uuid.UUID("73f52be0-368c-42d8-a1fd-660d49ba5604")
+TEST_USER_NAME = "test_user"
+
+
 # TODO make everything in here immutabledicts
 
 
@@ -117,8 +119,8 @@ GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
             year=2020, month=2, day=9, hour=19, minute=3, second=22, microsecond=332597
         ),
         START_RECORDING_TIME_INDEX_UUID: 298518 * 125,
-        CUSTOMER_ACCOUNT_ID_UUID: CURI_BIO_ACCOUNT_UUID,
-        USER_ACCOUNT_ID_UUID: CURI_BIO_USER_ACCOUNT_ID,
+        CUSTOMER_ACCOUNT_ID_UUID: TEST_CUSTOMER_ID,
+        USER_ACCOUNT_ID_UUID: TEST_USER_NAME,
         SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
         SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
         BACKEND_LOG_UUID: uuid.UUID("9a3d03f2-1f5a-4ecd-b843-0dc9ecde5f67"),

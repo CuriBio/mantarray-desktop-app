@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 from mantarray_desktop_app import clear_the_server_manager
-from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
-from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import flask_app
 from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_server_port_number
@@ -22,6 +20,8 @@ from .fixtures import fixture_generic_queue_container
 from .fixtures import fixture_patch_print
 from .fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from .fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
+from .fixtures_file_writer import TEST_CUSTOMER_ID
+from .fixtures_file_writer import TEST_USER_NAME
 from .fixtures_process_monitor import fixture_test_monitor
 
 __fixtures__ = [
@@ -80,10 +80,7 @@ def put_generic_beta_1_start_recording_info_in_dict(shared_values_dict):
         UTC_BEGINNING_DATA_ACQUISTION_UUID
     ]
     shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [timestamp]
-    shared_values_dict["config_settings"] = {
-        "customer_id": CURI_BIO_ACCOUNT_UUID,
-        "user_name": CURI_BIO_USER_ACCOUNT_ID,
-    }
+    shared_values_dict["config_settings"] = {"customer_id": TEST_CUSTOMER_ID, "user_name": TEST_USER_NAME}
     shared_values_dict["adc_gain"] = 32
     shared_values_dict["adc_offsets"] = dict()
     for well_idx in range(24):
@@ -124,10 +121,7 @@ def put_generic_beta_2_start_recording_info_in_dict(shared_values_dict):
         UTC_BEGINNING_DATA_ACQUISTION_UUID
     ]
     shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [timestamp]
-    shared_values_dict["config_settings"] = {
-        "customer_id": CURI_BIO_ACCOUNT_UUID,
-        "user_name": CURI_BIO_USER_ACCOUNT_ID,
-    }
+    shared_values_dict["config_settings"] = {"customer_id": TEST_CUSTOMER_ID, "user_name": TEST_USER_NAME}
     shared_values_dict["main_firmware_version"] = {
         board_idx: MantarrayMcSimulator.default_main_firmware_version
     }

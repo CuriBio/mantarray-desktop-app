@@ -8,8 +8,6 @@ import h5py
 from mantarray_desktop_app import CalibrationFilesMissingError
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
-from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
-from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
@@ -92,6 +90,8 @@ from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_UPDATE_USER_SETTINGS
 from ..fixtures_file_writer import open_the_generic_h5_file
 from ..fixtures_file_writer import populate_calibration_folder
+from ..fixtures_file_writer import TEST_CUSTOMER_ID
+from ..fixtures_file_writer import TEST_USER_NAME
 from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
@@ -192,8 +192,8 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         assert this_file.attrs[str(UTC_BEGINNING_RECORDING_UUID)] == start_recording_command[
             "metadata_to_copy_onto_main_file_attributes"
         ][UTC_BEGINNING_RECORDING_UUID].strftime("%Y-%m-%d %H:%M:%S.%f")
-        assert this_file.attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == str(CURI_BIO_ACCOUNT_UUID)
-        assert this_file.attrs[str(USER_ACCOUNT_ID_UUID)] == str(CURI_BIO_USER_ACCOUNT_ID)
+        assert this_file.attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == TEST_CUSTOMER_ID
+        assert this_file.attrs[str(USER_ACCOUNT_ID_UUID)] == TEST_USER_NAME
         actual_build_id = this_file.attrs[str(SOFTWARE_BUILD_NUMBER_UUID)]
         assert actual_build_id == COMPILED_EXE_BUILD_TIMESTAMP
         assert this_file.attrs[str(SOFTWARE_RELEASE_VERSION_UUID)] == CURRENT_SOFTWARE_VERSION
