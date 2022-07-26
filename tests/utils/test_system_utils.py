@@ -9,9 +9,9 @@ from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import system_state_eventually_equals
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
-from mantarray_desktop_app import system_utils
 from mantarray_desktop_app import SystemStartUpError
 from mantarray_desktop_app import wait_for_subprocesses_to_start
+from mantarray_desktop_app.utils import system
 import pytest
 import requests
 from requests import Response
@@ -21,7 +21,7 @@ from requests import Response
 def fixture_patch_api_endpoint(mocker):
     dummy_api_endpoint = "blahblah"
     mocker.patch.object(
-        system_utils, "get_api_endpoint", autospec=True, return_value=dummy_api_endpoint
+        system, "get_api_endpoint", autospec=True, return_value=dummy_api_endpoint
     )  # Eli (11/18/20) mocking so that the ServerManager doesn't need to be started
     yield dummy_api_endpoint
 
@@ -39,8 +39,8 @@ def test_system_state_eventually_equals__returns_True_after_system_state_equals_
     # mocker.patch.object(system_utils,'get_api_endpoint',autospec=True,return_value=dummy_api_endpoint) # Eli (11/18/20) mocking so that the ServerManager doesn't need to be started
     dummy_response = Response()
     mocker.patch.object(dummy_response, "json", side_effect=mocked_status_values)
-    mocker.patch.object(system_utils, "sleep", autospec=True)  # mock this to run the test faster
-    mocked_get = mocker.patch.object(system_utils.requests, "get", autospec=True, return_value=dummy_response)
+    mocker.patch.object(system, "sleep", autospec=True)  # mock this to run the test faster
+    mocked_get = mocker.patch.object(system.requests, "get", autospec=True, return_value=dummy_response)
 
     result = system_state_eventually_equals(expected_state, 2)
     assert result is True
@@ -58,7 +58,7 @@ def test_system_state_eventually_equals__returns_False_after_timeout_is_reached(
     mocked_json = {"ui_status_code": str(SYSTEM_STATUS_UUIDS[CALIBRATION_NEEDED_STATE])}
     dummy_response = Response()
     mocker.patch.object(dummy_response, "json", return_value=mocked_json)
-    mocked_get = mocker.patch.object(system_utils.requests, "get", autospec=True, return_value=dummy_response)
+    mocked_get = mocker.patch.object(system.requests, "get", autospec=True, return_value=dummy_response)
 
     result = system_state_eventually_equals(RECORDING_STATE, test_timeout)
     assert result is False
@@ -82,9 +82,7 @@ def test_wait_for_subprocesses_to_start__waits_until_system_status_route_is_read
     for i, response in enumerate(mocked_responses):
         mocker.patch.object(response, "json", return_value=mocked_json[i])
         mocker.patch.multiple(response, status_code=mocked_status_codes[i])
-    mocked_get = mocker.patch.object(
-        system_utils.requests, "get", autospec=True, side_effect=mocked_responses
-    )
+    mocked_get = mocker.patch.object(system.requests, "get", autospec=True, side_effect=mocked_responses)
     num_get_calls = len(mocked_responses)
     expected_get_calls = [mocker.call(f"{patch_api_endpoint}system_status") for _ in range(num_get_calls)]
 
@@ -102,8 +100,8 @@ def test_wait_for_subprocesses_to_start__raises_error_if_state_does_not_reach_se
     mocker.patch.multiple(mocked_response, status_code=200)
     mocker.patch.object(mocked_response, "json", return_value=mocked_json)
     mocker.patch.object(time, "perf_counter", side_effect=[0, 20])
-    mocker.patch.object(system_utils.requests, "get", autospec=True, return_value=mocked_response)
-    mocker.patch.object(system_utils, "system_state_eventually_equals", return_value=False)
+    mocker.patch.object(system.requests, "get", autospec=True, return_value=mocked_response)
+    mocker.patch.object(system, "system_state_eventually_equals", return_value=False)
 
     with pytest.raises(SystemStartUpError):
         wait_for_subprocesses_to_start()
@@ -114,7 +112,7 @@ def test_wait_for_subprocesses_to_start__raises_error_if_server_is_never_able_to
 ):
     mocker.patch.object(time, "perf_counter", side_effect=[0, 20])
     mocker.patch.object(
-        system_utils.requests,
+        system.requests,
         "get",
         autospec=True,
         side_effect=requests.exceptions.ConnectionError,

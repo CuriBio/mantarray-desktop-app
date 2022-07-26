@@ -3,8 +3,8 @@ from typing import List
 from typing import Union
 
 from mantarray_desktop_app import MantarrayFrontPanelMixIn
+from mantarray_desktop_app.utils.mantarray_front_panel import FrontPanelBase
 import pytest
-from xem_wrapper import FrontPanelBase
 
 
 class TestBarcodeSimulator(FrontPanelBase, MantarrayFrontPanelMixIn):

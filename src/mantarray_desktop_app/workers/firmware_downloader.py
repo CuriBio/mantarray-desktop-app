@@ -4,13 +4,13 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
-from mantarray_desktop_app.web_api_utils import get_cloud_api_tokens
+from mantarray_desktop_app.utils.web_api import get_cloud_api_tokens
 import requests
 from requests.exceptions import ConnectionError
 from requests.models import Response
 
-from .constants import CLOUD_API_ENDPOINT
-from .exceptions import FirmwareDownloadError
+from ..constants import CLOUD_API_ENDPOINT
+from ..exceptions import FirmwareDownloadError
 
 
 def call_firmware_download_route(url: str, error_message: str, **kwargs: Any) -> Response:

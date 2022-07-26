@@ -5,7 +5,6 @@ import shutil
 import time
 
 from freezegun import freeze_time
-from mantarray_desktop_app import data_analyzer
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
@@ -13,8 +12,9 @@ from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.constants import SERIAL_COMM_NUM_DATA_CHANNELS
-from mantarray_desktop_app.data_analyzer import get_force_signal
-from mantarray_desktop_app.mc_simulator import MantarrayMcSimulator
+from mantarray_desktop_app.simulators.mc_simulator import MantarrayMcSimulator
+from mantarray_desktop_app.sub_processes import data_analyzer
+from mantarray_desktop_app.sub_processes.data_analyzer import get_force_signal
 import numpy as np
 from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
 from pulse3D.constants import MEMSIC_CENTER_OFFSET

@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-from mantarray_desktop_app import web_api_utils
 from mantarray_desktop_app.constants import CLOUD_API_ENDPOINT
 from mantarray_desktop_app.exceptions import LoginFailedError
 from mantarray_desktop_app.exceptions import RefreshFailedError
-from mantarray_desktop_app.web_api_utils import AuthTokens
-from mantarray_desktop_app.web_api_utils import get_cloud_api_tokens
-from mantarray_desktop_app.web_api_utils import refresh_cloud_api_tokens
-from mantarray_desktop_app.web_api_utils import WebWorker
+from mantarray_desktop_app.utils import web_api
+from mantarray_desktop_app.utils.web_api import AuthTokens
+from mantarray_desktop_app.utils.web_api import get_cloud_api_tokens
+from mantarray_desktop_app.utils.web_api import refresh_cloud_api_tokens
+from mantarray_desktop_app.utils.web_api import WebWorker
 import pytest
 
 
@@ -18,7 +18,7 @@ class TestWebWorker(WebWorker):
 
 
 def test_get_cloud_api_tokens__return_tokens_if_login_successful(mocker):
-    mocked_post = mocker.patch.object(web_api_utils.requests, "post", autospec=True)
+    mocked_post = mocker.patch.object(web_api.requests, "post", autospec=True)
     mocked_post.return_value.status_code = 200
 
     expected_tokens = AuthTokens(access="access", refresh="refresh")
@@ -36,7 +36,7 @@ def test_get_cloud_api_tokens__return_tokens_if_login_successful(mocker):
 
 
 def test_get_cloud_api_tokens__raises_error_if_login_fails(mocker):
-    mocked_post = mocker.patch.object(web_api_utils.requests, "post", autospec=True)
+    mocked_post = mocker.patch.object(web_api.requests, "post", autospec=True)
     mocked_post.return_value.status_code = error_status_code = 401
 
     test_creds = {"customer_id": "cid", "username": "user", "password": "pw"}
@@ -46,7 +46,7 @@ def test_get_cloud_api_tokens__raises_error_if_login_fails(mocker):
 
 
 def test_refresh_cloud_api_tokens__return_tokens_if_refresh_successful(mocker):
-    mocked_post = mocker.patch.object(web_api_utils.requests, "post", autospec=True)
+    mocked_post = mocker.patch.object(web_api.requests, "post", autospec=True)
     mocked_post.return_value.status_code = 201
 
     expected_tokens = AuthTokens(access="new_access", refresh="new_refresh")
@@ -67,7 +67,7 @@ def test_refresh_cloud_api_tokens__return_tokens_if_refresh_successful(mocker):
 
 
 def test_refresh_cloud_api_tokens__raises_error_if_refresh_fails(mocker):
-    mocked_post = mocker.patch.object(web_api_utils.requests, "post", autospec=True)
+    mocked_post = mocker.patch.object(web_api.requests, "post", autospec=True)
     mocked_post.return_value.status_code = error_status_code = 401
 
     with pytest.raises(RefreshFailedError, match=str(error_status_code)):
@@ -83,7 +83,7 @@ def test_WebWorker__cannot_instantiate_if_abstract_methods_not_implemented():
 
 
 def test_WebWorker__does_not_run_when_created(mocker):
-    spied_get_tokens = mocker.spy(web_api_utils, "get_cloud_api_tokens")
+    spied_get_tokens = mocker.spy(web_api, "get_cloud_api_tokens")
     spied_job = mocker.spy(TestWebWorker, "job")
 
     TestWebWorker(None, None, None)
@@ -93,7 +93,7 @@ def test_WebWorker__does_not_run_when_created(mocker):
 
 
 def test_WebWorker__runs_correctly_when_called(mocker):
-    mocked_get_tokens = mocker.patch.object(web_api_utils, "get_cloud_api_tokens", autospec=True)
+    mocked_get_tokens = mocker.patch.object(web_api, "get_cloud_api_tokens", autospec=True)
     spied_job = mocker.spy(TestWebWorker, "job")
 
     test_creds = {"customer_id": "cid", "user_name": "user", "password": "pw"}
@@ -109,7 +109,7 @@ def test_WebWorker_request_with_refresh__immediately_returns_response_if_no_auth
     mocked_request_func = mocker.Mock()
     mocked_request_func.return_value.status_code = 200
 
-    spied_refresh_tokens = mocker.spy(web_api_utils, "refresh_cloud_api_tokens")
+    spied_refresh_tokens = mocker.spy(web_api, "refresh_cloud_api_tokens")
 
     test_ww = TestWebWorker(None, None, None)
 
@@ -126,7 +126,7 @@ def test_WebWorker_request_with_refresh__gets_new_auth_tokens_and_tries_request_
     mocked_request_func = mocker.Mock()
     mocked_request_func.return_value.status_code = 401
 
-    mocked_refresh_tokens = mocker.patch.object(web_api_utils, "refresh_cloud_api_tokens", autospec=True)
+    mocked_refresh_tokens = mocker.patch.object(web_api, "refresh_cloud_api_tokens", autospec=True)
     mocked_refresh_tokens.return_value = new_tokens = AuthTokens(access="access2", refresh="refresh2")
 
     test_ww = TestWebWorker(None, None, None)

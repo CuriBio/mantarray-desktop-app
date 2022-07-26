@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 import os
 
-from mantarray_desktop_app import firmware_manager
 from mantarray_desktop_app import get_latest_firmware
 from mantarray_desktop_app import get_latest_firmware_name
 from mantarray_desktop_app import get_latest_firmware_version
 from mantarray_desktop_app import sort_firmware_files
+from mantarray_desktop_app.utils import firmware_manager
 import pytest
 from stdlib_utils import get_current_file_abs_directory
 
@@ -27,6 +27,8 @@ def test_sort_firmware_files__returns_sorted_list_of_all_firmware_files(mocker):
             os.path.dirname(get_current_file_abs_directory()),
             "src",
             "mantarray_desktop_app",
+            "utils",
+            os.pardir,
             os.pardir,
             os.pardir,
         )
@@ -70,6 +72,8 @@ def test_get_latest_firmware__returns_correct_path_to_latest_firmware_file(mocke
             os.path.dirname(get_current_file_abs_directory()),
             "src",
             "mantarray_desktop_app",
+            "utils",
+            os.pardir,
             os.pardir,
             os.pardir,
         )

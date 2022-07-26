@@ -8,8 +8,8 @@ from mantarray_desktop_app.constants import CLOUD_API_ENDPOINT
 import requests
 from requests import Response
 
-from .exceptions import LoginFailedError
-from .exceptions import RefreshFailedError
+from ..exceptions import LoginFailedError
+from ..exceptions import RefreshFailedError
 
 
 AuthTokens = namedtuple("AuthTokens", ["access", "refresh"])

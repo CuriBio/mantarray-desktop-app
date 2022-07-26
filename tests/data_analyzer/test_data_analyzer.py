@@ -6,12 +6,12 @@ import random
 import tempfile
 import time
 
-from mantarray_desktop_app import data_analyzer
 from mantarray_desktop_app import DataAnalyzerProcess
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import UnrecognizedCommandFromMainToDataAnalyzerError
 from mantarray_desktop_app.constants import DEFAULT_SAMPLING_PERIOD
+from mantarray_desktop_app.sub_processes import data_analyzer
 import numpy as np
 from pulse3D.exceptions import PeakDetectionError
 import pytest

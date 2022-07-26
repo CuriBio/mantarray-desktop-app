@@ -8,7 +8,6 @@ import time
 
 from freezegun import freeze_time
 import h5py
-from mantarray_desktop_app import file_writer
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import get_data_slice_within_timepoints
 from mantarray_desktop_app import get_time_index_dataset_from_file
@@ -20,6 +19,7 @@ from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import UnrecognizedCommandFromMainToFileWriterError
 from mantarray_desktop_app.constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
+from mantarray_desktop_app.sub_processes import file_writer
 import numpy as np
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID

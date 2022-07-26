@@ -13,19 +13,20 @@ from typing import Union
 
 from stdlib_utils import InfiniteProcess
 
-from .constants import DEFAULT_SERVER_PORT_NUMBER
-from .constants import INSTRUMENT_INITIALIZING_STATE
-from .constants import SUBPROCESS_JOIN_TIMEOUT_SECONDS
-from .constants import SUBPROCESS_POLL_DELAY_SECONDS
-from .constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
-from .data_analyzer import DataAnalyzerProcess
-from .file_writer import FileWriterProcess
-from .firmware_manager import get_latest_firmware
-from .instrument_comm import InstrumentCommProcess
-from .mc_comm import McCommunicationProcess
-from .ok_comm import OkCommunicationProcess
 from .queue_container import MantarrayQueueContainer
 from .server import ServerManager
+from .shared_values import SharedValues
+from ..constants import DEFAULT_SERVER_PORT_NUMBER
+from ..constants import INSTRUMENT_INITIALIZING_STATE
+from ..constants import SUBPROCESS_JOIN_TIMEOUT_SECONDS
+from ..constants import SUBPROCESS_POLL_DELAY_SECONDS
+from ..constants import SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS
+from ..sub_processes.data_analyzer import DataAnalyzerProcess
+from ..sub_processes.file_writer import FileWriterProcess
+from ..sub_processes.instrument_comm import InstrumentCommProcess
+from ..sub_processes.mc_comm import McCommunicationProcess
+from ..sub_processes.ok_comm import OkCommunicationProcess
+from ..utils.firmware_manager import get_latest_firmware
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
 
     def __init__(
         self,
-        values_to_share_to_server: Dict[str, Any],
+        values_to_share_to_server: SharedValues,
         logging_level: int = logging.INFO,
     ) -> None:
         self._queue_container: MantarrayQueueContainer
@@ -60,7 +61,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self._all_processes: Optional[Dict[str, InfiniteProcess]] = None
         self._subprocesses_started: bool = False
 
-    def get_values_to_share_to_server(self) -> Dict[str, Any]:
+    def get_values_to_share_to_server(self) -> SharedValues:
         return self._values_to_share_to_server
 
     def queue_container(self) -> MantarrayQueueContainer:

@@ -24,9 +24,9 @@ from mantarray_desktop_app import main
 from mantarray_desktop_app import MantarrayProcessesManager
 from mantarray_desktop_app import MantarrayQueueContainer
 from mantarray_desktop_app import OkCommunicationProcess
-from mantarray_desktop_app import process_manager
-from mantarray_desktop_app import queue_container
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app.main_process import process_manager
+from mantarray_desktop_app.main_process import queue_container
 import pytest
 import requests
 from stdlib_utils import confirm_port_available

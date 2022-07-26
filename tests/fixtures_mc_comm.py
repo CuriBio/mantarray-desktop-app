@@ -2,9 +2,9 @@
 import time
 
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
-from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import McCommunicationProcess
 from mantarray_desktop_app import STM_VID
+from mantarray_desktop_app.sub_processes import mc_comm
 import pytest
 import serial
 from serial.tools.list_ports_common import ListPortInfo

@@ -6,14 +6,14 @@ from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import get_current_software_version
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import redact_sensitive_info_from_path
-from mantarray_desktop_app import utils
-from mantarray_desktop_app.utils import validate_user_credentials
+from mantarray_desktop_app.utils import generic
+from mantarray_desktop_app.utils.generic import validate_user_credentials
 import pytest
 from stdlib_utils import get_current_file_abs_directory
 
 
 def test_validate_user_credentials__pings_cloud_api_to_validate_user_creds(mocker):
-    mocked_get_tokens = mocker.patch.object(utils, "get_cloud_api_tokens", autospec=True)
+    mocked_get_tokens = mocker.patch.object(generic, "get_cloud_api_tokens", autospec=True)
 
     test_user_creds = {"customer_id": "cid", "user_name": "user", "user_password": "pw"}
     validate_user_credentials(test_user_creds)
@@ -22,7 +22,7 @@ def test_validate_user_credentials__pings_cloud_api_to_validate_user_creds(mocke
 
 
 def test_validate_user_credentials__does_not_ping_cloud_api_if_customer_id_not_given(mocker):
-    mocked_get_tokens = mocker.patch.object(utils, "get_cloud_api_tokens", autospec=True)
+    mocked_get_tokens = mocker.patch.object(generic, "get_cloud_api_tokens", autospec=True)
     validate_user_credentials({})
     mocked_get_tokens.assert_not_called()
 
@@ -41,7 +41,7 @@ def test_get_current_software_version__Given_code_is_not_bundled__When_the_funct
 def test_get_current_software_version__Given_code_is_mocked_as_being_bundled__When_the_function_is_called__Then_it_returns_version_from_constants_py(
     mocker,
 ):
-    mocker.patch.object(utils, "is_frozen_as_exe", autospec=True, return_value=True)
+    mocker.patch.object(generic, "is_frozen_as_exe", autospec=True, return_value=True)
 
     actual = get_current_software_version()
     assert actual == CURRENT_SOFTWARE_VERSION
@@ -127,12 +127,12 @@ def test_redact_sensitive_info_from_path__scrubs_everything_if_does_not_match_pa
 
 
 def test_upload_log_files_to_s3__no_user_creds_found(mocker):
-    spied_info = mocker.spy(utils.logger, "info")
-    spied_error = mocker.spy(utils.logger, "error")
-    mocked_uploader = mocker.patch.object(utils, "FileUploader", autospec=True)
-    mocked_tempdir = mocker.patch.object(utils.tempfile, "TemporaryDirectory", autospec=True)
+    spied_info = mocker.spy(generic.logger, "info")
+    spied_error = mocker.spy(generic.logger, "error")
+    mocked_uploader = mocker.patch.object(generic, "FileUploader", autospec=True)
+    mocked_tempdir = mocker.patch.object(generic.tempfile, "TemporaryDirectory", autospec=True)
 
-    utils.upload_log_files_to_s3({})
+    generic.upload_log_files_to_s3({})
 
     mocked_uploader.assert_not_called()
     mocked_tempdir.assert_not_called()
@@ -142,12 +142,12 @@ def test_upload_log_files_to_s3__no_user_creds_found(mocker):
 
 
 def test_upload_log_files_to_s3__log_file_is_None(mocker):
-    spied_info = mocker.spy(utils.logger, "info")
-    spied_error = mocker.spy(utils.logger, "error")
-    mocked_uploader = mocker.patch.object(utils, "FileUploader", autospec=True)
-    mocked_tempdir = mocker.patch.object(utils.tempfile, "TemporaryDirectory", autospec=True)
+    spied_info = mocker.spy(generic.logger, "info")
+    spied_error = mocker.spy(generic.logger, "error")
+    mocked_uploader = mocker.patch.object(generic, "FileUploader", autospec=True)
+    mocked_tempdir = mocker.patch.object(generic.tempfile, "TemporaryDirectory", autospec=True)
 
-    utils.upload_log_files_to_s3(
+    generic.upload_log_files_to_s3(
         {"customer_id": "cid", "user_name": "un", "user_password": "pw", "log_directory": None}
     )
 
@@ -159,11 +159,11 @@ def test_upload_log_files_to_s3__log_file_is_None(mocker):
 
 
 def test_upload_log_files_to_s3__successful_upload(mocker):
-    spied_info = mocker.spy(utils.logger, "info")
-    spied_error = mocker.spy(utils.logger, "error")
-    mocked_uploader = mocker.patch.object(utils, "FileUploader", autospec=True)
+    spied_info = mocker.spy(generic.logger, "info")
+    spied_error = mocker.spy(generic.logger, "error")
+    mocked_uploader = mocker.patch.object(generic, "FileUploader", autospec=True)
     mocked_tempdir = mocker.patch.object(
-        utils.tempfile, "TemporaryDirectory", autospec=True, return_value=mocker.MagicMock()
+        generic.tempfile, "TemporaryDirectory", autospec=True, return_value=mocker.MagicMock()
     )
 
     config_settings = {
@@ -172,7 +172,7 @@ def test_upload_log_files_to_s3__successful_upload(mocker):
         "user_name": "un",
         "user_password": "pw",
     }
-    utils.upload_log_files_to_s3(config_settings)
+    generic.upload_log_files_to_s3(config_settings)
 
     mocked_uploader.assert_called_once_with(
         os.path.dirname(config_settings["log_directory"]),
@@ -192,11 +192,11 @@ def test_upload_log_files_to_s3__successful_upload(mocker):
 
 
 def test_upload_log_files_to_s3__error_during_upload(mocker):
-    spied_info = mocker.spy(utils.logger, "info")
-    spied_error = mocker.spy(utils.logger, "error")
-    mocked_uploader = mocker.patch.object(utils, "FileUploader", autospec=True)
+    spied_info = mocker.spy(generic.logger, "info")
+    spied_error = mocker.spy(generic.logger, "error")
+    mocked_uploader = mocker.patch.object(generic, "FileUploader", autospec=True)
     mocked_tempdir = mocker.patch.object(
-        utils.tempfile, "TemporaryDirectory", autospec=True, return_value=mocker.MagicMock()
+        generic.tempfile, "TemporaryDirectory", autospec=True, return_value=mocker.MagicMock()
     )
 
     test_err = Exception("err_msg")
@@ -208,7 +208,7 @@ def test_upload_log_files_to_s3__error_during_upload(mocker):
         "user_name": "un",
         "user_password": "pw",
     }
-    utils.upload_log_files_to_s3(config_settings)
+    generic.upload_log_files_to_s3(config_settings)
 
     mocked_uploader.assert_called_once_with(
         os.path.dirname(config_settings["log_directory"]),

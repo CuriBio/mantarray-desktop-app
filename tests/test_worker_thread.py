@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import threading
 
-from mantarray_desktop_app.worker_thread import ErrorCatchingThread
+from mantarray_desktop_app.workers.worker_thread import ErrorCatchingThread
 
 
 def test_ErrorCatchingThread__run__calls_thread_init_correctly(mocker):

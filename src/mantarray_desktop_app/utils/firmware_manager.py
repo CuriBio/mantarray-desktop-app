@@ -17,7 +17,9 @@ SEMVER_REGEX = re.compile(r"\_(\d+)\_(\d+)_(\d+)\.bit$")
 
 
 def _get_firmware_dir() -> str:
-    absolute_path = os.path.normcase(os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir))
+    absolute_path = os.path.normcase(
+        os.path.join(get_current_file_abs_directory(), os.pardir, os.pardir, os.pardir)
+    )
     relative_path = os.path.join("src", "firmware")
     firmware_path: str = resource_path(relative_path, base_path=absolute_path)
     return firmware_path

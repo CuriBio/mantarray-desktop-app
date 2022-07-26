@@ -5,7 +5,6 @@ from random import randint
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import FirmwareGoingDormantError
 from mantarray_desktop_app import MantarrayMcSimulator
-from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -30,6 +29,7 @@ from mantarray_desktop_app import SerialCommUntrackedCommandResponseError
 from mantarray_desktop_app import UnrecognizedSerialCommPacketTypeError
 from mantarray_desktop_app.constants import SERIAL_COMM_GOING_DORMANT_PACKET_TYPE
 from mantarray_desktop_app.exceptions import SerialCommCommandProcessingError
+from mantarray_desktop_app.sub_processes import mc_comm
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 

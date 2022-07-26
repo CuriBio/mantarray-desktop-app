@@ -1,17 +1,16 @@
 # -*- coding: utf-8 -*-
 from queue import Queue
-import threading
 
 from immutabledict import immutabledict
 from mantarray_desktop_app import clear_server_singletons
 from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
 from mantarray_desktop_app import get_the_server_manager
 from mantarray_desktop_app import LocalServerPortAlreadyInUseError
-from mantarray_desktop_app import server
 from mantarray_desktop_app import ServerManager
 from mantarray_desktop_app import ServerManagerNotInitializedError
 from mantarray_desktop_app import ServerManagerSingletonAlreadySetError
 from mantarray_desktop_app import SUBPROCESS_POLL_DELAY_SECONDS
+from mantarray_desktop_app.main_process import server
 import pytest
 import requests
 
@@ -142,21 +141,14 @@ def test_ServerManager__get_values_from_process_monitor__acquires_lock_and_retur
 ):
     to_main_queue = Queue()
     initial_dict = {"some key here": "some other value"}
-    lock = threading.Lock()
 
-    sm = ServerManager(
-        to_main_queue,
-        generic_queue_container,
-        values_from_process_monitor=initial_dict,
-        lock=lock,
-    )
+    sm = ServerManager(to_main_queue, generic_queue_container, values_from_process_monitor=initial_dict)
 
     actual_dict = sm.get_values_from_process_monitor()
     assert isinstance(actual_dict, immutabledict)
     assert actual_dict == initial_dict  # assert same values in it
-    assert id(actual_dict) != id(
-        initial_dict
-    )  # assert they are not actually the same object in memory (it should be a copy)
+    # assert they are not actually the same object in memory (it should be a copy)
+    assert id(actual_dict) != id(initial_dict)
 
     clear_the_server_manager()
 

@@ -9,8 +9,6 @@ from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStartedError
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStoppedError
-from mantarray_desktop_app import mc_comm
-from mantarray_desktop_app import mc_simulator
 from mantarray_desktop_app import NUM_INITIAL_PACKETS_TO_DROP
 from mantarray_desktop_app import SamplingPeriodUpdateWhileDataStreamingError
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
@@ -22,6 +20,8 @@ from mantarray_desktop_app.constants import PERFOMANCE_LOGGING_PERIOD_SECS
 from mantarray_desktop_app.constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from mantarray_desktop_app.simulators import mc_simulator
+from mantarray_desktop_app.sub_processes import mc_comm
 import numpy as np
 import pytest
 from stdlib_utils import create_metrics_stats

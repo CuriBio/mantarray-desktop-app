@@ -6,7 +6,6 @@ from random import randint
 
 from freezegun import freeze_time
 from mantarray_desktop_app import create_data_packet
-from mantarray_desktop_app import mc_comm
 from mantarray_desktop_app import McCommunicationProcess
 from mantarray_desktop_app import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
@@ -17,7 +16,8 @@ from mantarray_desktop_app.constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app.exceptions import InstrumentFirmwareError
 from mantarray_desktop_app.exceptions import SerialCommCommandProcessingError
-from mantarray_desktop_app.serial_comm_utils import convert_status_code_bytes_to_dict
+from mantarray_desktop_app.sub_processes import mc_comm
+from mantarray_desktop_app.utils.serial_comm import convert_status_code_bytes_to_dict
 import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
