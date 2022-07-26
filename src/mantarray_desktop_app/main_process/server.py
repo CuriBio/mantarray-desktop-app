@@ -1261,6 +1261,7 @@ class ServerManager:
         if isinstance(self._values_from_process_monitor, SharedValues):
             copied_values = self._values_from_process_monitor.deepcopy()
         else:
+            # tests might use a regular dict, so keeping this here
             copied_values = deepcopy(self._values_from_process_monitor)
         immutable_version = immutabledict(copied_values)
         return immutable_version  # type: ignore
