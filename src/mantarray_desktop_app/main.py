@@ -339,7 +339,7 @@ def main(
         logger.info("Starting Flask SocketIO")
         _, host, _ = get_server_address_components()
 
-        data_queue_to_server = process_manager.queue_container().get_data_queue_to_server()
+        data_queue_to_server = process_manager.queue_container.to_server
 
         object_access_for_testing["data_sender"] = _set_up_socketio_handlers(data_queue_to_server)
 

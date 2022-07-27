@@ -202,10 +202,8 @@ def test_gain_value_is_parsed_and_saved_when_running_start_up_script(
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     ok_comm_process = test_process_manager.get_instrument_process()
-    from_ok_comm_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
-    )
-    to_ok_comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+    from_ok_comm_queue = test_process_manager.queue_container.from_instrument_comm(0)
+    to_ok_comm_queue = test_process_manager.queue_container.to_instrument_comm(0)
     ok_comm_process.set_board_connection(0, simulator)
 
     to_ok_comm_queue.put_nowait({"communication_type": "xem_scripts", "script_type": "start_up"})
@@ -270,10 +268,8 @@ def test_offset_values_are_parsed_and_saved_when_running_start_calibration_scrip
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     ok_comm_process = test_process_manager.get_instrument_process()
-    from_ok_comm_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(0)
-    )
-    to_ok_comm_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+    from_ok_comm_queue = test_process_manager.queue_container.from_instrument_comm(0)
+    to_ok_comm_queue = test_process_manager.queue_container.to_instrument_comm(0)
     ok_comm_process.set_board_connection(0, simulator)
 
     to_ok_comm_queue.put_nowait({"communication_type": "xem_scripts", "script_type": "start_calibration"})

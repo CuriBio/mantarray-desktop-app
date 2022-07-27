@@ -192,7 +192,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         assert this_file.attrs[str(UTC_BEGINNING_RECORDING_UUID)] == start_recording_command[
             "metadata_to_copy_onto_main_file_attributes"
         ][UTC_BEGINNING_RECORDING_UUID].strftime("%Y-%m-%d %H:%M:%S.%f")
-        assert this_file.attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == TEST_CUSTOMER_ID
+        assert this_file.attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == str(TEST_CUSTOMER_ID)
         assert this_file.attrs[str(USER_ACCOUNT_ID_UUID)] == TEST_USER_NAME
         actual_build_id = this_file.attrs[str(SOFTWARE_BUILD_NUMBER_UUID)]
         assert actual_build_id == COMPILED_EXE_BUILD_TIMESTAMP

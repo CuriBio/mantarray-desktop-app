@@ -490,9 +490,7 @@ def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_e
     assert next_call_args is None, f"Message: '{next_call_args}' not found"
 
     # assert socketio was set up correctly
-    ws_queue = (
-        app_info["object_access_inside_main"]["process_manager"].queue_container().get_data_queue_to_server()
-    )
+    ws_queue = app_info["object_access_inside_main"]["process_manager"].queue_container.to_server
     mocked_set_up.assert_called_once_with(ws_queue)
     # assert Flask was started correctly
     _, host, port = get_server_address_components()

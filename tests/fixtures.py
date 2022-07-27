@@ -77,6 +77,7 @@ def fixture_generic_queue_container():
 
 @pytest.fixture(scope="function", name="patch_print")
 def fixture_patch_print(mocker):
+    # TODO should probably just patch the error printing function instead of a builtin function
     mocker.patch("builtins.print", autospec=True)  # don't print all the error messages to console
 
 

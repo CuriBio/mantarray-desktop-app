@@ -111,7 +111,7 @@ def test_send_single_initialize_board_command_with_bit_file__populates_queue(
     )
     assert response.status_code == 200
 
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(board_idx)
+    comm_queue = test_server.queue_container.to_instrument_comm(board_idx)
 
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -136,7 +136,7 @@ def test_send_single_initialize_board_command_without_bit_file__populates_queue(
     response = test_client.get("/insert_xem_command_into_queue/initialize_board")
     assert response.status_code == 200
 
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(board_idx)
+    comm_queue = test_server.queue_container.to_instrument_comm(board_idx)
 
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -160,7 +160,7 @@ def test_send_single_get_status_command__populates_queue(
     response = test_client.get("/insert_xem_command_into_queue/get_status")
     assert response.status_code == 200
 
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
+    comm_queue = test_server.queue_container.to_instrument_comm(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -183,7 +183,7 @@ def test_send_single_activate_trigger_in_command__populates_queue(
     )
     assert response.status_code == 200
 
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
+    comm_queue = test_server.queue_container.to_instrument_comm(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -210,7 +210,7 @@ def test_send_single_activate_trigger_in_command__using_hex_notation__populates_
     )
     assert response.status_code == 200
 
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
+    comm_queue = test_server.queue_container.to_instrument_comm(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -237,7 +237,7 @@ def test_send_single_comm_delay_command__populates_queue(
     )
     assert response.status_code == 200
 
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
+    comm_queue = test_server.queue_container.to_instrument_comm(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -258,7 +258,7 @@ def test_send_single_get_num_words_fifo_command__populates_queue(
     response = test_client.get("/insert_xem_command_into_queue/get_num_words_fifo")
     assert response.status_code == 200
 
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
+    comm_queue = test_server.queue_container.to_instrument_comm(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -279,7 +279,7 @@ def test_send_single_set_device_id_command__populates_queue(
     response = test_client.get(f"/insert_xem_command_into_queue/set_device_id?new_id={test_id}")
     assert response.status_code == 200
 
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
+    comm_queue = test_server.queue_container.to_instrument_comm(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -301,7 +301,7 @@ def test_send_single_stop_acquisition_command__populates_queue(
     response = test_client.get("/insert_xem_command_into_queue/stop_acquisition")
     assert response.status_code == 200
 
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
+    comm_queue = test_server.queue_container.to_instrument_comm(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -321,7 +321,7 @@ def test_send_single_start_acquisition_command__populates_queue(
     response = test_client.get("/insert_xem_command_into_queue/start_acquisition")
     assert response.status_code == 200
 
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
+    comm_queue = test_server.queue_container.to_instrument_comm(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -341,7 +341,7 @@ def test_send_single_get_serial_number_command__populates_queue(
     response = test_client.get("/insert_xem_command_into_queue/get_serial_number")
     assert response.status_code == 200
 
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
+    comm_queue = test_server.queue_container.to_instrument_comm(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -361,7 +361,7 @@ def test_send_single_get_device_id_command__populates_queue(
     response = test_client.get("/insert_xem_command_into_queue/get_device_id")
     assert response.status_code == 200
 
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
+    comm_queue = test_server.queue_container.to_instrument_comm(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -381,7 +381,7 @@ def test_send_single_is_spi_running_command__populates_queue(
     response = test_client.get("/insert_xem_command_into_queue/is_spi_running")
     assert response.status_code == 200
 
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
+    comm_queue = test_server.queue_container.to_instrument_comm(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -400,7 +400,7 @@ def test_send_single_read_from_fifo_command__populates_queue(
 
     response = test_client.get("/insert_xem_command_into_queue/read_from_fifo?num_words_to_log=72")
     assert response.status_code == 200
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
+    comm_queue = test_server.queue_container.to_instrument_comm(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -420,7 +420,7 @@ def test_send_single_read_from_fifo_command_with_hex_notation__populates_queue(
     response = test_client.get("/insert_xem_command_into_queue/read_from_fifo?num_words_to_log=0x48")
     assert response.status_code == 200
 
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
+    comm_queue = test_server.queue_container.to_instrument_comm(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -444,7 +444,7 @@ def test_send_single_set_wire_in_command__populates_queue(
         f"/insert_xem_command_into_queue/set_wire_in?ep_addr={expected_ep_addr}&value={expected_value}&mask={expected_mask}"
     )
     assert response.status_code == 200
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
+    comm_queue = test_server.queue_container.to_instrument_comm(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -475,7 +475,7 @@ def test_send_single_set_wire_in_command__using_hex_notation__populates_queue(
     )
     assert response.status_code == 200
 
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
+    comm_queue = test_server.queue_container.to_instrument_comm(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -502,7 +502,7 @@ def test_send_single_xem_scripts_command__populates_queue(
     response = test_client.get(f"/xem_scripts?script_type={expected_script_type}")
     assert response.status_code == 200
 
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(0)
+    comm_queue = test_server.queue_container.to_instrument_comm(0)
     assert is_queue_eventually_not_empty(comm_queue) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "xem_scripts"
@@ -523,7 +523,7 @@ def test_send_single_read_wire_out_command__populates_queue__and_logs_response(
     response = test_client.get(f"/insert_xem_command_into_queue/read_wire_out?ep_addr={expected_ep_addr}")
     assert response.status_code == 200
 
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(board_idx)
+    comm_queue = test_server.queue_container.to_instrument_comm(board_idx)
     assert is_queue_eventually_of_size(comm_queue, 1) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -550,7 +550,7 @@ def test_send_single_read_wire_out_command_with_hex_notation__populates_queue(
     response = test_client.get(f"/insert_xem_command_into_queue/read_wire_out?ep_addr={expected_ep_addr}")
     assert response.status_code == 200
 
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(board_idx)
+    comm_queue = test_server.queue_container.to_instrument_comm(board_idx)
     assert is_queue_eventually_of_size(comm_queue, 1) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -577,7 +577,7 @@ def test_send_single_read_wire_out_command_with_description__populates_queue(
     )
     assert response.status_code == 200
 
-    comm_queue = test_server.queue_container().get_communication_to_instrument_comm_queue(board_idx)
+    comm_queue = test_server.queue_container.to_instrument_comm(board_idx)
     assert is_queue_eventually_of_size(comm_queue, 1) is True
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
@@ -735,7 +735,7 @@ def test_start_recording_command__populates_queue__with_correct_adc_offset_value
     response = test_client.get(f"/start_recording?plate_barcode={barcode}")
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    comm_queue = test_process_manager.queue_container.from_server
     confirm_queue_is_eventually_of_size(comm_queue, 1)
 
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -758,7 +758,7 @@ def test_start_recording_command__populates_queue__with_given_time_index_paramet
     )
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    comm_queue = test_process_manager.queue_container.from_server
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -785,7 +785,7 @@ def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_
     )
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    comm_queue = test_process_manager.queue_container.from_server
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -808,7 +808,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_correct_wel
     )
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    comm_queue = test_process_manager.queue_container.from_server
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -868,7 +868,7 @@ def test_start_recording_command__correctly_sets_plate_barcode_from_scanner_valu
     )
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    comm_queue = test_process_manager.queue_container.from_server
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -934,7 +934,7 @@ def test_start_recording_command__correctly_sets_stim_barcode_from_scanner_value
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    comm_queue = test_process_manager.queue_container.from_server
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -976,7 +976,7 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
     )
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    comm_queue = test_process_manager.queue_container.from_server
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -1104,7 +1104,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     )
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    comm_queue = test_process_manager.queue_container.from_server
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -1249,7 +1249,7 @@ def test_start_recording_command__beta_2_mode__populates_queue_with_stim_barcode
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    comm_queue = test_process_manager.queue_container.from_server
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -1274,7 +1274,7 @@ def test_start_recording_command__populates_queue_with_recording_file_name_corre
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    comm_queue = test_process_manager.queue_container.from_server
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"

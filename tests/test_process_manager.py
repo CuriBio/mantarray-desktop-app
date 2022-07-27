@@ -327,19 +327,19 @@ def test_MantarrayProcessesManager__hard_stop_and_join_processes__hard_stops_pro
 
     generic_manager.spawn_processes()
 
-    container = generic_manager.queue_container()
-    instrument_comm_to_main = container.get_communication_queue_from_instrument_comm_to_main(0)
+    container = generic_manager.queue_container
+    instrument_comm_to_main = container.from_instrument_comm(0)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         expected_ok_comm_item, instrument_comm_to_main
     )
-    file_writer_to_main = container.get_communication_queue_from_file_writer_to_main()
+    file_writer_to_main = container.from_file_writer
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         expected_file_writer_item, file_writer_to_main
     )
-    data_analyzer_to_main = container.get_communication_queue_from_data_analyzer_to_main()
+    data_analyzer_to_main = container.from_data_analyzer
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_da_item, data_analyzer_to_main)
 
-    server_to_main = container.get_communication_queue_from_server_to_main()
+    server_to_main = container.from_server
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_server_item, server_to_main)
 
     actual = generic_manager.hard_stop_and_join_processes(shutdown_server=shutdown_server)
@@ -397,9 +397,7 @@ def test_MantarrayProcessesManager__boot_up_instrument__populates_ok_comm_queue_
 ):
     generic_manager.create_processes()
     generic_manager.boot_up_instrument(load_firmware_file=load_firmware_file)
-    main_to_instrument_comm_queue = (
-        generic_manager.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    main_to_instrument_comm_queue = generic_manager.queue_container.to_instrument_comm(0)
     assert is_queue_eventually_of_size(main_to_instrument_comm_queue, 2) is True
     assert generic_manager.get_values_to_share_to_server()["system_status"] == INSTRUMENT_INITIALIZING_STATE
 

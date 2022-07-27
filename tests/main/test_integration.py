@@ -697,7 +697,7 @@ def test_full_datapath_in_beta_1_mode(
     # Tanner (12/30/20): Auto boot-up is completed when system reaches calibration_needed state
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
 
-    da_out = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
+    da_out = test_process_manager.queue_container.get_data_analyzer_data_out_queue()
 
     # Tanner (12/30/20): Start calibration in order to run managed_acquisition
     response = requests.get(f"{get_api_endpoint()}start_calibration")
@@ -963,7 +963,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
 
         sio, msg_list_container = test_socketio_client()
 
-        da_out = test_process_manager.queue_container().get_data_analyzer_data_out_queue()
+        da_out = test_process_manager.queue_container.get_data_analyzer_data_out_queue()
 
         response = requests.get(f"{get_api_endpoint()}start_calibration")
         assert response.status_code == 200

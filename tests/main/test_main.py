@@ -37,7 +37,7 @@ def test_get_server_port_number__returns_default_port_number_if_server_has_been_
 def test_get_server_port_number__returns_port_number_from_server_if_instantiated(
     generic_queue_container,
 ):
-    to_main_queue = generic_queue_container.get_communication_queue_from_server_to_main()
+    to_main_queue = generic_queue_container.from_server
     expected_port = 4321
 
     ServerManager(to_main_queue, generic_queue_container, port=expected_port)

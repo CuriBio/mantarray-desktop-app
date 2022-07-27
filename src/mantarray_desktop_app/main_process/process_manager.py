@@ -47,7 +47,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         values_to_share_to_server: SharedValues,
         logging_level: int = logging.INFO,
     ) -> None:
-        self._queue_container: MantarrayQueueContainer
+        self.queue_container: MantarrayQueueContainer
 
         self._logging_level = logging_level
 
@@ -62,35 +62,36 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         self._subprocesses_started: bool = False
 
     def get_values_to_share_to_server(self) -> SharedValues:
+        # TODO
         return self._values_to_share_to_server
-
-    def queue_container(self) -> MantarrayQueueContainer:
-        return self._queue_container
 
     def get_logging_level(self) -> int:
         return self._logging_level
 
     def get_instrument_process(self) -> InstrumentCommProcess:
+        # TODO
         return self._instrument_communication_process
 
     def get_file_writer_process(self) -> FileWriterProcess:
+        # TODO
         return self._file_writer_process
 
     def get_server_manager(self) -> ServerManager:
+        # TODO
         return self._server_manager
 
     def get_data_analyzer_process(self) -> DataAnalyzerProcess:
+        # TODO
         return self._data_analyzer_process
 
     def create_processes(self) -> None:
         """Create/init the processes."""
-        queue_container = MantarrayQueueContainer()
-        self._queue_container = queue_container
+        self.queue_container = MantarrayQueueContainer()
         beta_2_mode = self._values_to_share_to_server["beta_2_mode"]
 
         self._server_manager = ServerManager(
-            queue_container.get_communication_queue_from_server_to_main(),
-            queue_container,
+            self.queue_container.from_server,
+            self.queue_container,
             logging_level=self._logging_level,
             values_from_process_monitor=self._values_to_share_to_server,
             port=self._values_to_share_to_server.get("server_port_number", DEFAULT_SERVER_PORT_NUMBER),
@@ -98,26 +99,26 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
 
         instrument_comm_process = OkCommunicationProcess if not beta_2_mode else McCommunicationProcess
         self._instrument_communication_process = instrument_comm_process(
-            queue_container.get_instrument_comm_board_queues(),
-            queue_container.get_instrument_communication_error_queue(),
+            self.queue_container.instrument_comm_boards,
+            self.queue_container.instrument_comm_error,
             logging_level=self._logging_level,
         )
 
         self._file_writer_process = FileWriterProcess(
-            queue_container.get_file_writer_board_queues(),
-            queue_container.get_communication_queue_from_main_to_file_writer(),
-            queue_container.get_communication_queue_from_file_writer_to_main(),
-            queue_container.get_file_writer_error_queue(),
+            self.queue_container.file_writer_boards,
+            self.queue_container.to_file_writer,
+            self.queue_container.from_file_writer,
+            self.queue_container.file_writer_error,
             file_directory=self._values_to_share_to_server["config_settings"]["recording_directory"],
             logging_level=self._logging_level,
             beta_2_mode=beta_2_mode,
         )
 
         self._data_analyzer_process = DataAnalyzerProcess(
-            queue_container.get_data_analyzer_board_queues(),
-            queue_container.get_communication_queue_from_main_to_data_analyzer(),
-            queue_container.get_communication_queue_from_data_analyzer_to_main(),
-            queue_container.get_data_analyzer_error_queue(),
+            self.queue_container.data_analyzer_boards,
+            self.queue_container.to_data_analyzer,
+            self.queue_container.from_data_analyzer,
+            self.queue_container.data_analyzer_error,
             mag_analysis_output_dir=self._values_to_share_to_server["config_settings"][
                 "mag_analysis_output_dir"
             ],
@@ -158,7 +159,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         bit_file_name = None
         if load_firmware_file:
             bit_file_name = get_latest_firmware()
-        to_instrument_comm_queue = self.queue_container().get_communication_to_instrument_comm_queue(0)
+        to_instrument_comm_queue = self.queue_container.to_instrument_comm(0)
 
         self._values_to_share_to_server["system_status"] = INSTRUMENT_INITIALIZING_STATE
         boot_up_dict = {

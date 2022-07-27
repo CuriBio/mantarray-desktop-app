@@ -34,7 +34,7 @@ __fixtures__ = [
 @pytest.fixture(scope="function", name="server_manager")
 def fixture_server_manager(generic_queue_container):
     # Tanner (8/10/21): it is the responsibility of tests using this fixture to drain the queues used
-    to_main_queue = generic_queue_container.get_communication_queue_from_server_to_main()
+    to_main_queue = generic_queue_container.from_server
 
     sm = ServerManager(to_main_queue, generic_queue_container)
     shared_values_dict = sm._values_from_process_monitor  # pylint:disable=protected-access

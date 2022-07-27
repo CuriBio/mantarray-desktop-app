@@ -165,9 +165,7 @@ def queue_command_to_instrument_comm(comm_dict: Dict[str, Any]) -> Response:
     This is used by the test suite, so is not designated as private in
     order to make pylint happier.
     """
-    to_instrument_comm_queue = (
-        get_the_server_manager().queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    to_instrument_comm_queue = get_the_server_manager().queue_container.to_instrument_comm(0)
     comm_dict = dict(comm_dict)  # make a mutable version to pass into ok_comm
     to_instrument_comm_queue.put_nowait(comm_dict)
     response = Response(json.dumps(comm_dict), mimetype="application/json")
@@ -1223,17 +1221,17 @@ class ServerManager:
     def __init__(
         self,
         to_main_queue: Queue[Dict[str, Any]],
-        processes_queue_container: MantarrayQueueContainer,
+        queue_container: MantarrayQueueContainer,
         values_from_process_monitor: Optional[SharedValues] = None,
         port: int = DEFAULT_SERVER_PORT_NUMBER,
         logging_level: int = logging.INFO,
     ) -> None:
-        global _the_server_manager  # pylint:disable=global-statement,invalid-name # Eli (1/21/21): deliberately using a module-level global
+        global _the_server_manager
         if _the_server_manager is not None:
             # TODO Tanner (8/10/21): look into ways to avoid using this as a singleton
             raise ServerManagerSingletonAlreadySetError()
 
-        self._queue_container = processes_queue_container
+        self.queue_container = queue_container
         self._to_main_queue = to_main_queue
         self._port = port
         self._logging_level = logging_level
@@ -1248,14 +1246,11 @@ class ServerManager:
     def get_port_number(self) -> int:
         return self._port
 
-    def get_queue_to_main(self) -> Queue[Dict[str, Any]]:  # pylint: disable=unsubscriptable-object
+    def get_queue_to_main(self) -> Queue[Dict[str, Any]]:
         return self._to_main_queue
 
-    def get_data_queue_to_server(self) -> LightQueue:  # pylint: disable=unsubscriptable-object
-        return self._queue_container.get_data_queue_to_server()
-
-    def queue_container(self) -> MantarrayQueueContainer:
-        return self._queue_container
+    def get_data_queue_to_server(self) -> LightQueue:
+        return self.queue_container.to_server
 
     def get_values_from_process_monitor(self) -> Dict[str, Any]:
         """Get an immutable copy of the values."""
@@ -1290,5 +1285,5 @@ class ServerManager:
         queue_items = dict()
 
         queue_items["to_main"] = drain_queue(self._to_main_queue)
-        queue_items["outgoing_data"] = drain_queue(self.get_data_queue_to_server())
+        queue_items["outgoing_data"] = drain_queue(self.queue_container.to_server)
         return queue_items
