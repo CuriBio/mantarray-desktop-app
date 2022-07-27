@@ -1346,10 +1346,7 @@ def test_set_protocols__returns_error_code_if_a_single_well_is_missing_from_prot
 
 @pytest.mark.parametrize(
     "test_well_name,test_description",
-    [
-        ("Z1", "return error code with invalid well: Z1"),
-        ("A99", "return error code with invalid well: A99"),
-    ],
+    [("Z1", "return error code with invalid well: Z1"), ("A99", "return error code with invalid well: A99")],
 )
 def test_set_protocols__returns_error_code_with_invalid_well_name(
     client_and_server_manager_and_shared_values, test_well_name, test_description
