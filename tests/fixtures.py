@@ -77,6 +77,7 @@ def fixture_generic_queue_container():
 
 @pytest.fixture(scope="function", name="patch_print")
 def fixture_patch_print(mocker):
+    # TODO should probably just patch the error printing function instead of a builtin function
     mocker.patch("builtins.print", autospec=True)  # don't print all the error messages to console
 
 
@@ -166,7 +167,7 @@ def fixture_test_process_manager_creator(mocker):
                 )
             if create_processes:
                 manager.create_processes()
-                object_access_dict["fw_process"] = manager.get_file_writer_process()
+                object_access_dict["fw_process"] = manager.file_writer_process
             return manager
 
     yield _foo

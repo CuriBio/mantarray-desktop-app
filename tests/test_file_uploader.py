@@ -21,13 +21,14 @@ from mantarray_desktop_app.workers.file_uploader import upload_file_to_s3
 import pytest
 import requests
 
+from .fixtures_file_writer import TEST_CUSTOMER_ID
+from .fixtures_file_writer import TEST_USER_NAME
+
 TEST_FILEPATH = os.path.join("test", "recordings")
 TEST_LOGPATH = os.path.join("log", "directory")
 TEST_FILENAME = "test_filename"
 TEST_ZIPDIR = os.path.join("test", "zipped_recordings")
-TEST_CUSTOMER_ID = "cid"
 TEST_PASSWORD = "pw"
-TEST_USER_ID = "test_user"
 
 RECORDING_UPLOAD_TYPE = "recording"
 LOG_UPLOAD_TYPE = "logs"
@@ -40,7 +41,7 @@ def fixture_create_file_uploader():
         file_name=TEST_FILENAME,
         zipped_recordings_dir=TEST_ZIPDIR,
         customer_id=TEST_CUSTOMER_ID,
-        user_name=TEST_USER_ID,
+        user_name=TEST_USER_NAME,
         password=TEST_PASSWORD,
         create_tokens=False,
     ):
@@ -305,13 +306,13 @@ def test_FileUploader__runs_upload_procedure_correctly_for_recording(
     if user_dir_exists:
         mocked_makedirs.assert_not_called()
     else:
-        mocked_makedirs.assert_called_once_with(os.path.join(TEST_ZIPDIR, TEST_USER_ID))
+        mocked_makedirs.assert_called_once_with(os.path.join(TEST_ZIPDIR, TEST_USER_NAME))
 
     mocked_create_zip_file.assert_called_once_with(
-        TEST_FILEPATH, tmp_dir, os.path.join(TEST_ZIPDIR, TEST_USER_ID)
+        TEST_FILEPATH, tmp_dir, os.path.join(TEST_ZIPDIR, TEST_USER_NAME)
     )
 
-    mocked_get_tokens.assert_called_once_with(TEST_CUSTOMER_ID, TEST_USER_ID, TEST_PASSWORD)
+    mocked_get_tokens.assert_called_once_with(TEST_CUSTOMER_ID, TEST_USER_NAME, TEST_PASSWORD)
     mocked_get_file_md5.assert_called_once_with(expected_zipped_file_path)
     mocked_get_upload_details.assert_called_once_with(
         expected_access_token,
@@ -355,7 +356,7 @@ def test_FileUploader__runs_upload_procedure_correctly_for_log_files(mocker, cre
         test_file_uploader()
 
     mocked_create_zip_file.assert_called_once_with(TEST_LOGPATH, tmp_dir, TEST_ZIPDIR)
-    mocked_get_tokens.assert_called_once_with(TEST_CUSTOMER_ID, TEST_USER_ID, TEST_PASSWORD)
+    mocked_get_tokens.assert_called_once_with(TEST_CUSTOMER_ID, TEST_USER_NAME, TEST_PASSWORD)
     mocked_get_file_md5.assert_called_once_with(expected_zipped_file_path)
     mocked_get_upload_details.assert_called_once_with(
         expected_access_token, expected_zipped_file_name, expected_md5, LOG_UPLOAD_TYPE

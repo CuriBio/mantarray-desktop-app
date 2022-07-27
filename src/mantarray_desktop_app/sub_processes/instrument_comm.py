@@ -23,13 +23,7 @@ from xem_wrapper import okCFrontPanel
 from ..simulators.mc_simulator import MantarrayMcSimulator
 
 
-def _drain_board_queues(
-    board: Tuple[
-        Queue[Any],  # pylint: disable=unsubscriptable-object
-        Queue[Any],  # pylint: disable=unsubscriptable-object
-        Queue[Any],  # pylint: disable=unsubscriptable-object
-    ],
-) -> Dict[str, List[Any]]:
+def _drain_board_queues(board: Tuple[Queue[Any], Queue[Any], Queue[Any]]) -> Dict[str, List[Any]]:
     board_dict = dict()
     board_dict["main_to_instrument_comm"] = drain_queue(board[0])
     board_dict["instrument_comm_to_main"] = drain_queue(board[1])
@@ -48,19 +42,9 @@ class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
 
     def __init__(
         self,
-        board_queues: Tuple[
-            Tuple[
-                Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
-                Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
-                Queue[Any],  # pylint: disable=unsubscriptable-object
-            ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-            ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-        ],
-        fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Tuple[Exception, str]
-        ],
+        board_queues: Tuple[Tuple[Queue[Dict[str, Any]], Queue[Dict[str, Any]], Queue[Any]], ...],
+        fatal_error_reporter: Queue[Tuple[Exception, str]],
         suppress_setup_communication_to_main: bool = False,
-        # pylint: disable=duplicate-code
         logging_level: int = logging.INFO,
     ):
         super().__init__(fatal_error_reporter, logging_level=logging_level)

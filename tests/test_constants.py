@@ -31,8 +31,6 @@ from mantarray_desktop_app import CLOUD_ENDPOINT_VALID_OPTIONS
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import CONSTRUCT_SENSORS_PER_REF_SENSOR
-from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
-from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
@@ -214,11 +212,6 @@ def test_barcode_UUIDs():
     assert BARCODE_UNREADABLE_UUID == uuid.UUID("87525976-4c98-4783-a6f2-ae34a89dace6")
 
 
-def test_default_UUIDs():
-    assert CURI_BIO_ACCOUNT_UUID == uuid.UUID("73f52be0-368c-42d8-a1fd-660d49ba5604")
-    assert CURI_BIO_USER_ACCOUNT_ID == uuid.UUID("455b93eb-c78f-4494-9f73-d3291130f126")
-
-
 def test_running_fifo_simulator_constants():
     assert FIFO_READ_PRODUCER_SAWTOOTH_PERIOD == ((100000 // TIMESTEP_CONVERSION_FACTOR) / (2 * np.pi))
     assert FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE == 0xFFFFFFFF
@@ -281,7 +274,7 @@ def test_sensors_and_mappings():
 
 def test_current_file_versions():
     assert CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION == "0.4.2"
-    assert CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION == "1.1.0"
+    assert CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION == "1.2.0"
 
 
 def test_COMPILED_EXE_BUILD_TIMESTAMP():

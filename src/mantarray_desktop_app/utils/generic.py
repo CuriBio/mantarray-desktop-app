@@ -40,12 +40,10 @@ from pulse3D.constants import SOFTWARE_RELEASE_VERSION_UUID
 from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
 from pulse3D.constants import STIM_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import STIM_BARCODE_UUID
-from pulse3D.constants import STIMULATION_PROTOCOL_UUID
 from pulse3D.constants import TISSUE_SAMPLING_PERIOD_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
-from pulse3D.constants import UTC_BEGINNING_STIMULATION_UUID
 from pulse3D.constants import XEM_SERIAL_NUMBER_UUID
 from semver import VersionInfo
 from stdlib_utils import get_current_file_abs_directory
@@ -322,25 +320,16 @@ def _create_start_recording_command(
     }
     if shared_values_dict["beta_2_mode"]:
         instrument_metadata = shared_values_dict["instrument_metadata"][board_idx]
-        beginning_of_stim_timestamp = shared_values_dict["utc_timestamps_of_beginning_of_stimulation"][
-            board_idx
-        ]
-        stim_info_value = (
-            None if beginning_of_stim_timestamp is None else shared_values_dict["stimulation_info"]
-        )
         comm_dict["metadata_to_copy_onto_main_file_attributes"].update(
             {
                 BOOT_FLAGS_UUID: instrument_metadata[BOOT_FLAGS_UUID],
                 CHANNEL_FIRMWARE_VERSION_UUID: instrument_metadata[CHANNEL_FIRMWARE_VERSION_UUID],
                 TISSUE_SAMPLING_PERIOD_UUID: DEFAULT_SAMPLING_PERIOD,
-                STIMULATION_PROTOCOL_UUID: stim_info_value,
-                UTC_BEGINNING_STIMULATION_UUID: beginning_of_stim_timestamp,
                 INITIAL_MAGNET_FINDING_PARAMS_UUID: json.dumps(
                     dict(instrument_metadata[INITIAL_MAGNET_FINDING_PARAMS_UUID])
                 ),
             }
         )
-        comm_dict["stim_running_statuses"] = shared_values_dict["stimulation_running"]
     else:
         adc_offsets: Dict[int, Dict[str, int]]
         if is_hardware_test_recording:

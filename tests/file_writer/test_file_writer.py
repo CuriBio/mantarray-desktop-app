@@ -609,7 +609,7 @@ def test_FileWriterProcess_process_update_recording_name_command__renames_record
     drain_queue(to_main_queue)
 
 
-def test_FileWriterProcess_process_update_recording_name_command__will_not_renamed_if_directory_does_not_exist(
+def test_FileWriterProcess_process_update_recording_name_command__will_not_rename_if_directory_does_not_exist(
     four_board_file_writer_process, mocker
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -636,6 +636,21 @@ def test_FileWriterProcess_process_update_recording_name_command__will_not_renam
     invoke_process_run_and_check_errors(file_writer_process, 1)
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
     drain_queue(to_main_queue)
+
+
+# def test_FileWriterProcess__processes_set_protocols_command(
+#     four_board_file_writer_process,
+# ):
+#     file_writer_process = four_board_file_writer_process["fw_process"]
+#     file_writer_process.set_beta_2_mode()
+#     from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+#     expected_stim_info = copy.deepcopy(GENERIC_STIM_INFO)
+#     set_protocols_command = {
+#         "communication_type": "stimulation",
+#         "command": "set_protocols",
+#         "stim_info": expected_stim_info,
+#     }
 
 
 def test_FileWriterProcess_hard_stop__closes_all_beta_1_files_after_stop_recording_before_all_files_are_finalized__and_files_can_be_opened_after_process_stops(

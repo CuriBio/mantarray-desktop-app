@@ -31,8 +31,6 @@ from .constants import CLOUD_ENDPOINT_VALID_OPTIONS
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
 from .constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from .constants import CONSTRUCT_SENSORS_PER_REF_SENSOR
-from .constants import CURI_BIO_ACCOUNT_UUID
-from .constants import CURI_BIO_USER_ACCOUNT_ID
 from .constants import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from .constants import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from .constants import CURRENT_SOFTWARE_VERSION
@@ -403,8 +401,6 @@ __all__ = [
     "InvalidDataFramePeriodError",
     "MICROSECONDS_PER_CENTIMILLISECOND",
     "DEFAULT_SERVER_PORT_NUMBER",
-    "CURI_BIO_ACCOUNT_UUID",
-    "CURI_BIO_USER_ACCOUNT_ID",
     "MantarrayFrontPanelMixIn",
     "MantarrayFrontPanel",
     "RecordingFolderDoesNotExistError",

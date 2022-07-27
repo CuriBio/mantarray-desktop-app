@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import copy
 import json
 import os
 from random import randint
@@ -26,6 +27,7 @@ from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.exceptions import LoginFailedError
 from mantarray_desktop_app.main_process import server
 import pytest
+from tests.fixtures_file_writer import GENERIC_STIM_INFO
 
 from ..fixtures import fixture_generic_queue_container
 from ..fixtures_mc_simulator import create_random_stim_info
@@ -933,7 +935,8 @@ def test_set_stim_status__returns_error_code_and_message_if_called_before_protoc
 
 @pytest.mark.parametrize(
     "test_system_status",
-    set(SYSTEM_STATUS_UUIDS.keys()) - {CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE},
+    set(SYSTEM_STATUS_UUIDS.keys())
+    - {CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE},
 )
 def test_set_stim_status__returns_error_code_and_message_if_called_with_true_during_invalid_state(
     test_system_status,
@@ -1041,6 +1044,30 @@ def test_set_stim_status__returns_code_and_message_if_new_status_is_the_same_as_
     assert response.status.endswith("Status not updated") is True
 
 
+@pytest.mark.parametrize(
+    "test_system_status",
+    {CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE},
+)
+def test_set_stim_status__returns_no_error_code_if_called_correctly__with_true(
+    test_system_status,
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+
+    test_num_wells = 24
+
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = test_system_status
+    shared_values_dict["stimulation_running"] = [False] * 24
+    shared_values_dict["stimulation_info"] = create_random_stim_info()
+    shared_values_dict["stimulator_circuit_statuses"] = {
+        well_idx: StimulatorCircuitStatuses.MEDIA.name.lower() for well_idx in range(test_num_wells)
+    }
+
+    response = test_client.post("/set_stim_status?running=true")
+    assert response.status_code == 200
+
+
 def test_set_protocols__returns_error_code_if_called_in_beta_1_mode(
     client_and_server_manager_and_shared_values,
 ):
@@ -1067,7 +1094,8 @@ def test_set_protocols__returns_error_code_if_called_while_stimulation_is_runnin
 
 @pytest.mark.parametrize(
     "test_system_status",
-    set(SYSTEM_STATUS_UUIDS.keys()) - {CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE},
+    set(SYSTEM_STATUS_UUIDS.keys())
+    - {CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE},
 )
 def test_set_protocols__returns_error_code_if_called_during_invalid_system_status(
     test_system_status,
@@ -1318,10 +1346,7 @@ def test_set_protocols__returns_error_code_if_a_single_well_is_missing_from_prot
 
 @pytest.mark.parametrize(
     "test_well_name,test_description",
-    [
-        ("Z1", "return error code with invalid well: Z1"),
-        ("A99", "return error code with invalid well: A99"),
-    ],
+    [("Z1", "return error code with invalid well: Z1"), ("A99", "return error code with invalid well: A99")],
 )
 def test_set_protocols__returns_error_code_with_invalid_well_name(
     client_and_server_manager_and_shared_values, test_well_name, test_description
@@ -1439,6 +1464,29 @@ def test_set_protocols__returns_success_code_if_protocols_would_not_be_updated(
     shared_values_dict["stimulation_info"] = test_stim_info_dict
 
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "test_system_status",
+    {CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE},
+)
+def test_set_protocols__returns_no_error_code_if_called_correctly(
+    test_system_status, client_and_server_manager_and_shared_values, mocker
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["stimulation_running"] = [False] * 24
+    shared_values_dict["system_status"] = test_system_status
+
+    test_stim_info = copy.deepcopy(GENERIC_STIM_INFO)
+
+    # patch so route doesn't hang forever
+    mocker.patch.object(
+        server, "_get_stim_info_from_process_monitor", autospec=True, return_value=test_stim_info
+    )
+
+    response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info)})
     assert response.status_code == 200
 
 

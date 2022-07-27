@@ -188,9 +188,7 @@ def test_queue_command_to_instrument_comm_puts_in_a_mutable_version_of_the_dict(
 ):
     test_dict = immutabledict({"al": "gore"})
     server.queue_command_to_instrument_comm(test_dict)
-    to_instrument_queue = (
-        get_the_server_manager().queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    to_instrument_queue = get_the_server_manager().queue_container.to_instrument_comm(0)
     confirm_queue_is_eventually_of_size(to_instrument_queue, 1)
     actual = to_instrument_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == test_dict
