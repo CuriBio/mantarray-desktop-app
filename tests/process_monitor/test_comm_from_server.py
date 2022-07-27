@@ -791,6 +791,7 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     server_to_main_queue = test_process_manager.queue_container.from_server
     main_to_ic_queue = test_process_manager.queue_container.to_instrument_comm(0)
+    main_to_fw_queue = test_process_manager.queue_container.to_file_writer
 
     shared_values_dict["stimulation_running"] = [False] * 24
 
@@ -802,31 +803,21 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)
 
     invoke_process_run_and_check_errors(monitor_thread)
+
     assert shared_values_dict["stimulation_info"] == test_command["stim_info"]
 
     confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
-    actual = main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert actual == test_command
+    assert main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == test_command
+    confirm_queue_is_eventually_of_size(main_to_fw_queue, 1)
+    assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == test_command
 
 
 @pytest.mark.parametrize(
     "comm_type, command, queue_size",
     [
-        (
-            "mag_finding_analysis",
-            "start_mag_analysis",
-            1,
-        ),
-        (
-            "mag_finding_analysis",
-            "other_command",
-            0,
-        ),
-        (
-            "mag_analysis",
-            "start_mag_analysis",
-            0,
-        ),
+        ("mag_finding_analysis", "start_mag_analysis", 1),
+        ("mag_finding_analysis", "other_command", 0),
+        ("mag_analysis", "start_mag_analysis", 0),
     ],
 )
 def test_MantarrayProcessesMonitor__processes_start_mag_analysis_command(
