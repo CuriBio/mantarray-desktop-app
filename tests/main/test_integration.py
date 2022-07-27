@@ -187,7 +187,7 @@ def test_send_xem_scripts_command__gets_processed_in_fully_running_app(
     assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5)
 
     # Tanner (12/30/20): Soft stopping and joining this process in order to make assertions
-    instrument_process = test_process_manager.get_instrument_process()
+    instrument_process = test_process_manager.instrument_comm_process
     instrument_process.soft_stop()
     instrument_process.join()
 
@@ -815,9 +815,9 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
 
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
 
-        okc_process = test_process_manager.get_instrument_process()
-        fw_process = test_process_manager.get_file_writer_process()
-        da_process = test_process_manager.get_data_analyzer_process()
+        okc_process = test_process_manager.instrument_comm_process
+        fw_process = test_process_manager.file_writer_process
+        da_process = test_process_manager.data_analyzer_process
 
         # Tanner (12/29/20): use updated settings to set the recording directory to the TemporaryDirectory
         settings_dict = {

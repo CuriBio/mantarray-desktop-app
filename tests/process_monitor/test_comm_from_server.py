@@ -76,7 +76,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert test_process_manager.get_values_to_share_to_server()["mantarray_nickname"][0] == expected_nickname
+    assert test_process_manager.values_to_share_to_server["mantarray_nickname"][0] == expected_nickname
 
     main_to_instrument_comm = test_process_manager.queue_container.to_instrument_comm(0)
     confirm_queue_is_eventually_of_size(main_to_instrument_comm, 1)
@@ -102,7 +102,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert test_process_manager.get_values_to_share_to_server()["mantarray_nickname"][0] == expected_nickname
+    assert test_process_manager.values_to_share_to_server["mantarray_nickname"][0] == expected_nickname
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_serial_number_setting_by_setting_shared_values_dictionary_and_passing_command_to_instrument_comm(
@@ -122,9 +122,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert (
-        test_process_manager.get_values_to_share_to_server()["mantarray_serial_number"][0] == expected_serial
-    )
+    assert test_process_manager.values_to_share_to_server["mantarray_serial_number"][0] == expected_serial
 
     main_to_instrument_comm = test_process_manager.queue_container.to_instrument_comm(0)
     confirm_queue_is_eventually_of_size(main_to_instrument_comm, 1)
@@ -150,9 +148,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert (
-        test_process_manager.get_values_to_share_to_server()["mantarray_serial_number"][0] == expected_serial
-    )
+    assert test_process_manager.values_to_share_to_server["mantarray_serial_number"][0] == expected_serial
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raises_error_if_unrecognized_mantarray_naming_command(
@@ -182,7 +178,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert test_process_manager.get_values_to_share_to_server()["system_status"] == CALIBRATING_STATE
+    assert test_process_manager.values_to_share_to_server["system_status"] == CALIBRATING_STATE
 
     main_to_instrument_comm = test_process_manager.queue_container.to_instrument_comm(0)
     confirm_queue_is_eventually_of_size(main_to_instrument_comm, 1)
@@ -345,7 +341,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     )
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
-    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    shared_values_dict = test_process_manager.values_to_share_to_server
     assert shared_values_dict["system_status"] == BUFFERING_STATE
 
     main_to_instrument_comm = test_process_manager.queue_container.to_instrument_comm(0)
@@ -490,7 +486,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     actual = main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == communication
-    assert test_process_manager.get_values_to_share_to_server()["system_status"] == LIVE_VIEW_ACTIVE_STATE
+    assert test_process_manager.values_to_share_to_server["system_status"] == LIVE_VIEW_ACTIVE_STATE
 
 
 @freeze_time(
@@ -523,7 +519,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     actual = main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == communication
 
-    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    shared_values_dict = test_process_manager.values_to_share_to_server
     assert shared_values_dict["is_hardware_test_recording"] is True
     assert shared_values_dict["system_status"] == RECORDING_STATE
     assert (
@@ -601,9 +597,9 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     test_process_manager.start_processes()
 
-    okc_process = test_process_manager.get_instrument_process()
-    fw_process = test_process_manager.get_file_writer_process()
-    da_process = test_process_manager.get_data_analyzer_process()
+    okc_process = test_process_manager.instrument_comm_process
+    fw_process = test_process_manager.file_writer_process
+    da_process = test_process_manager.data_analyzer_process
 
     spied_okc_join = mocker.spy(okc_process, "join")
     spied_fw_join = mocker.spy(fw_process, "join")
@@ -636,9 +632,9 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     monitor_thread, *_ = test_monitor(test_process_manager)
     server_to_main_queue = test_process_manager.queue_container.from_server
 
-    okc_process = test_process_manager.get_instrument_process()
-    fw_process = test_process_manager.get_file_writer_process()
-    da_process = test_process_manager.get_data_analyzer_process()
+    okc_process = test_process_manager.instrument_comm_process
+    fw_process = test_process_manager.file_writer_process
+    da_process = test_process_manager.data_analyzer_process
     expected_okc_item = "item 1"
     expected_fw_item = "item 2"
     expected_da_item = "item 3"
@@ -704,7 +700,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     shared_values_dict["config_settings"] = {}
 
-    server_manager = test_process_manager.get_server_manager()
+    server_manager = test_process_manager.server_manager
     expected_server_item = "server item"
 
     spied_shutdown_server = mocker.spy(server_manager, "shutdown_server")

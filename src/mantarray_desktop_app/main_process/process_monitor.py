@@ -663,15 +663,15 @@ class MantarrayProcessesMonitor(InfiniteThread):
         for iter_error_queue, iter_process in (
             (
                 process_manager.queue_container.instrument_comm_error,
-                process_manager.get_instrument_process(),
+                process_manager.instrument_comm_process,
             ),
             (
                 process_manager.queue_container.file_writer_error,
-                process_manager.get_file_writer_process(),
+                process_manager.file_writer_process,
             ),
             (
                 process_manager.queue_container.data_analyzer_error,
-                process_manager.get_data_analyzer_process(),
+                process_manager.data_analyzer_process,
             ),
         ):
             try:
@@ -805,9 +805,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         shutdown_server = True
 
-        if process == self._process_manager.get_instrument_process() and isinstance(
-            this_err, InstrumentError
-        ):
+        if process == self._process_manager.instrument_comm_process and isinstance(this_err, InstrumentError):
             this_err_type_mro = type(this_err).mro()
             instrument_sub_error_class = this_err_type_mro[this_err_type_mro.index(InstrumentError) - 1]
             instrument_sub_error_name = instrument_sub_error_class.__name__

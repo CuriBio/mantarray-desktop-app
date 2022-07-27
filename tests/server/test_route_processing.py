@@ -94,7 +94,7 @@ def test_send_single_set_mantarray_nickname_command__gets_processed_and_stores_n
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     expected_nickname = "Surnom Français"
 
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
     comm_from_ok_queue = test_process_manager.queue_container.from_instrument_comm(0)
     comm_from_server_queue = test_process_manager.queue_container.from_server
@@ -133,7 +133,7 @@ def test_send_single_start_calibration_command__gets_processed_and_sets_system_s
 
     shared_values_dict["system_status"] = CALIBRATED_STATE
 
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
     set_connection_to_beta_1_board(ok_process, initialize_board=False)
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
     comm_from_server_queue = test_process_manager.queue_container.from_server
@@ -179,7 +179,7 @@ def test_send_single_initialize_board_command_with_bit_file__gets_processed(
     simulator = FrontPanelSimulator({})
 
     test_process_manager = test_process_manager_creator()
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
     ok_process.set_board_connection(board_idx, simulator)
 
     test_process_manager.start_processes()
@@ -217,7 +217,7 @@ def test_send_single_initialize_board_command_without_bit_file__gets_processed(
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
 
     board_idx = 0
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
     set_connection_to_beta_1_board(ok_process, initialize_board=False)
 
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(board_idx)
@@ -249,7 +249,7 @@ def test_send_single_initialize_board_command_with_reinitialization__gets_proces
     expected_bit_file_name = patched_firmware_folder
     expected_reinitialization = True
 
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
     set_connection_to_beta_1_board(ok_process, initialize_board=False)
 
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(board_idx)
@@ -277,7 +277,7 @@ def test_send_single_initialize_board_command_with_reinitialization__gets_proces
 
 def test_send_single_activate_trigger_in_command__gets_processed(test_process_manager_creator, test_client):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
     set_connection_to_beta_1_board(ok_process)
 
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
@@ -302,7 +302,7 @@ def test_send_single_activate_trigger_in_command__gets_processed(test_process_ma
 
 def test_send_single_comm_delay_command__gets_processed(test_process_manager_creator, test_client):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
     set_connection_to_beta_1_board(ok_process)
 
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
@@ -326,7 +326,7 @@ def test_send_single_comm_delay_command__gets_processed(test_process_manager_cre
 
 def test_send_single_get_num_words_fifo_command__gets_processed(test_process_manager_creator, test_client):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
 
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
     comm_from_ok_queue = test_process_manager.queue_container.from_instrument_comm(0)
@@ -355,7 +355,7 @@ def test_send_single_get_num_words_fifo_command__gets_processed(test_process_man
 
 def test_send_single_set_device_id_command__gets_processed(test_process_manager_creator, test_client):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
     set_connection_to_beta_1_board(ok_process)
 
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
@@ -376,7 +376,7 @@ def test_send_single_set_device_id_command__gets_processed(test_process_manager_
 
 def test_send_single_stop_acquisition_command__gets_processed(test_process_manager_creator, test_client):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
 
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
     comm_from_ok_queue = test_process_manager.queue_container.from_instrument_comm(0)
@@ -403,7 +403,7 @@ def test_send_single_stop_acquisition_command__gets_processed(test_process_manag
 
 def test_send_single_start_acquisition_command__gets_processed(test_process_manager_creator, test_client):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
     set_connection_to_beta_1_board(ok_process)
 
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
@@ -426,7 +426,7 @@ def test_send_single_start_acquisition_command__gets_processed(test_process_mana
 
 def test_send_single_get_serial_number_command__gets_processed(test_process_manager_creator, test_client):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
     set_connection_to_beta_1_board(ok_process)
 
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
@@ -446,7 +446,7 @@ def test_send_single_get_serial_number_command__gets_processed(test_process_mana
 
 def test_send_single_get_device_id_command__gets_processed(test_process_manager_creator, test_client):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
 
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
     comm_from_ok_queue = test_process_manager.queue_container.from_instrument_comm(0)
@@ -470,7 +470,7 @@ def test_send_single_get_device_id_command__gets_processed(test_process_manager_
 
 def test_send_single_is_spi_running_command__gets_processed(test_process_manager_creator, test_client):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
     set_connection_to_beta_1_board(ok_process)
 
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
@@ -500,7 +500,7 @@ def test_read_from_fifo_command__is_received_by_ok_comm__with_correct_num_words_
     test_num_words_to_log, test_description, test_process_manager_creator, test_client
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
 
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
     comm_from_ok_queue = test_process_manager.queue_container.from_instrument_comm(0)
@@ -536,7 +536,7 @@ def test_send_single_read_from_fifo_command__gets_processed_with_correct_num_wor
     test_client,
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
 
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
     comm_from_ok_queue = test_process_manager.queue_container.from_instrument_comm(0)
@@ -574,7 +574,7 @@ def test_send_single_read_from_fifo_command__gets_processed_with_correct_num_wor
 
 def test_send_single_set_wire_in_command__gets_processed(test_process_manager_creator, test_client):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
     set_connection_to_beta_1_board(ok_process)
 
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
@@ -601,7 +601,7 @@ def test_send_xem_scripts_command__gets_processed(
     test_process_manager_creator, test_client, patched_test_xem_scripts_folder, mocker
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
 
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
     comm_from_ok_queue = test_process_manager.queue_container.from_instrument_comm(0)
@@ -628,7 +628,7 @@ def test_send_xem_scripts_command__gets_processed(
 
 def test_send_single_read_wire_out_command__gets_processed(test_process_manager_creator, test_client):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
 
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
     comm_from_ok_queue = test_process_manager.queue_container.from_instrument_comm(0)
@@ -664,9 +664,9 @@ def test_send_single_stop_managed_acquisition_command__gets_processed(
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
 
-    ok_process = test_process_manager.get_instrument_process()
-    fw_process = test_process_manager.get_file_writer_process()
-    da_process = test_process_manager.get_data_analyzer_process()
+    ok_process = test_process_manager.instrument_comm_process
+    fw_process = test_process_manager.file_writer_process
+    da_process = test_process_manager.data_analyzer_process
 
     to_instrument_comm_queue = test_process_manager.queue_container.to_instrument_comm(0)
     to_file_writer_queue = test_process_manager.queue_container.to_file_writer
@@ -713,7 +713,7 @@ def test_send_single_set_mantarray_serial_number_command__gets_processed_and_sto
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
     comm_from_ok_queue = test_process_manager.queue_container.from_instrument_comm(0)
 
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
     set_connection_to_beta_1_board(ok_process)
 
     expected_serial_number = "M02001901"
@@ -752,7 +752,7 @@ def test_send_single_boot_up_command__gets_processed_and_sets_system_status_to_i
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
     comm_from_ok_queue = test_process_manager.queue_container.from_instrument_comm(0)
 
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
     simulator = RunningFIFOSimulator()
     ok_process.set_board_connection(0, simulator)
 
@@ -789,7 +789,7 @@ def test_send_single_boot_up_command__populates_ok_comm_error_queue_if_bit_file_
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
     comm_from_ok_queue = test_process_manager.queue_container.from_instrument_comm(0)
     ok_comm_error_queue = test_process_manager.queue_container.instrument_comm_error
@@ -831,9 +831,9 @@ def test_send_single_start_managed_acquisition_command__sets_system_status_to_bu
     to_da_queue = test_process_manager.queue_container.to_data_analyzer
     outgoing_data_queue = test_process_manager.queue_container.get_data_analyzer_data_out_queue()
 
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
     set_connection_to_beta_1_board(ok_process)
-    da_process = test_process_manager.get_data_analyzer_process()
+    da_process = test_process_manager.data_analyzer_process
 
     dummy_data = {"well_index": 0, "data": [[0, 1], [100, 200]]}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(dummy_data, outgoing_data_queue)
@@ -952,7 +952,7 @@ def test_single_update_settings_command_with_recording_dir__gets_processed_by_Fi
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    fw_process = test_process_manager.get_file_writer_process()
+    fw_process = test_process_manager.file_writer_process
     to_fw_queue = test_process_manager.queue_container.to_file_writer
     from_fw_queue = test_process_manager.queue_container.from_file_writer
 
@@ -1015,7 +1015,7 @@ def test_stop_recording_command__is_received_by_file_writer__with_given_time_ind
     response_json = response.get_json()
     assert response_json["command"] == "stop_recording"
 
-    file_writer_process = test_process_manager.get_file_writer_process()
+    file_writer_process = test_process_manager.file_writer_process
     invoke_process_run_and_check_errors(file_writer_process)
     confirm_queue_is_eventually_empty(comm_to_fw_queue)
 
@@ -1073,7 +1073,7 @@ def test_start_recording_command__gets_processed_with_given_time_index_parameter
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
 
-    fw_process = test_process_manager.get_file_writer_process()
+    fw_process = test_process_manager.file_writer_process
     to_fw_queue = test_process_manager.queue_container.to_file_writer
     fw_error_queue = test_process_manager.queue_container.file_writer_error
 
@@ -1133,7 +1133,7 @@ def test_start_recording_command__gets_processed_in_beta_1_mode__and_creates_a_f
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
 
-    fw_process = test_process_manager.get_file_writer_process()
+    fw_process = test_process_manager.file_writer_process
     to_fw_queue = test_process_manager.queue_container.to_file_writer
     fw_error_queue = test_process_manager.queue_container.file_writer_error
 
@@ -1186,7 +1186,7 @@ def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_all
 
     shared_values_dict["stimulation_info"] = create_random_stim_info()
 
-    fw_process = test_process_manager.get_file_writer_process()
+    fw_process = test_process_manager.file_writer_process
     populate_calibration_folder(fw_process)
     to_fw_queue = test_process_manager.queue_container.to_file_writer
     fw_error_queue = test_process_manager.queue_container.file_writer_error
@@ -1221,7 +1221,7 @@ def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_all
 
 def test_send_single_get_status_command__gets_processed(test_process_manager_creator, test_client):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    ok_process = test_process_manager.get_instrument_process()
+    ok_process = test_process_manager.instrument_comm_process
     set_connection_to_beta_1_board(ok_process, initialize_board=False)
 
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)

@@ -47,79 +47,57 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         values_to_share_to_server: SharedValues,
         logging_level: int = logging.INFO,
     ) -> None:
-        self.queue_container: MantarrayQueueContainer
-
         self._logging_level = logging_level
-
-        self._values_to_share_to_server = values_to_share_to_server
-        self._server_manager: ServerManager
-
-        self._instrument_communication_process: InstrumentCommProcess
-        self._file_writer_process: FileWriterProcess
-        self._data_analyzer_process: DataAnalyzerProcess
-
         self._all_processes: Optional[Dict[str, InfiniteProcess]] = None
         self._subprocesses_started: bool = False
 
-    def get_values_to_share_to_server(self) -> SharedValues:
-        # TODO
-        return self._values_to_share_to_server
+        self.values_to_share_to_server = values_to_share_to_server
+
+        self.queue_container: MantarrayQueueContainer
+        self.server_manager: ServerManager
+        self.instrument_comm_process: InstrumentCommProcess
+        self.file_writer_process: FileWriterProcess
+        self.data_analyzer_process: DataAnalyzerProcess
 
     def get_logging_level(self) -> int:
         return self._logging_level
 
-    def get_instrument_process(self) -> InstrumentCommProcess:
-        # TODO
-        return self._instrument_communication_process
-
-    def get_file_writer_process(self) -> FileWriterProcess:
-        # TODO
-        return self._file_writer_process
-
-    def get_server_manager(self) -> ServerManager:
-        # TODO
-        return self._server_manager
-
-    def get_data_analyzer_process(self) -> DataAnalyzerProcess:
-        # TODO
-        return self._data_analyzer_process
-
     def create_processes(self) -> None:
         """Create/init the processes."""
         self.queue_container = MantarrayQueueContainer()
-        beta_2_mode = self._values_to_share_to_server["beta_2_mode"]
+        beta_2_mode = self.values_to_share_to_server["beta_2_mode"]
 
-        self._server_manager = ServerManager(
+        self.server_manager = ServerManager(
             self.queue_container.from_server,
             self.queue_container,
             logging_level=self._logging_level,
-            values_from_process_monitor=self._values_to_share_to_server,
-            port=self._values_to_share_to_server.get("server_port_number", DEFAULT_SERVER_PORT_NUMBER),
+            values_from_process_monitor=self.values_to_share_to_server,
+            port=self.values_to_share_to_server.get("server_port_number", DEFAULT_SERVER_PORT_NUMBER),
         )
 
         instrument_comm_process = OkCommunicationProcess if not beta_2_mode else McCommunicationProcess
-        self._instrument_communication_process = instrument_comm_process(
+        self.instrument_comm_process = instrument_comm_process(
             self.queue_container.instrument_comm_boards,
             self.queue_container.instrument_comm_error,
             logging_level=self._logging_level,
         )
 
-        self._file_writer_process = FileWriterProcess(
+        self.file_writer_process = FileWriterProcess(
             self.queue_container.file_writer_boards,
             self.queue_container.to_file_writer,
             self.queue_container.from_file_writer,
             self.queue_container.file_writer_error,
-            file_directory=self._values_to_share_to_server["config_settings"]["recording_directory"],
+            file_directory=self.values_to_share_to_server["config_settings"]["recording_directory"],
             logging_level=self._logging_level,
             beta_2_mode=beta_2_mode,
         )
 
-        self._data_analyzer_process = DataAnalyzerProcess(
+        self.data_analyzer_process = DataAnalyzerProcess(
             self.queue_container.data_analyzer_boards,
             self.queue_container.to_data_analyzer,
             self.queue_container.from_data_analyzer,
             self.queue_container.data_analyzer_error,
-            mag_analysis_output_dir=self._values_to_share_to_server["config_settings"][
+            mag_analysis_output_dir=self.values_to_share_to_server["config_settings"][
                 "mag_analysis_output_dir"
             ],
             logging_level=self._logging_level,
@@ -127,9 +105,9 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         )
 
         self._all_processes = {
-            "Instrument Comm": self._instrument_communication_process,
-            "File Writer": self._file_writer_process,
-            "Data Analyzer": self._data_analyzer_process,
+            "Instrument Comm": self.instrument_comm_process,
+            "File Writer": self.file_writer_process,
+            "Data Analyzer": self.data_analyzer_process,
         }
 
     def start_processes(self) -> Dict[str, int]:
@@ -139,9 +117,9 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             iter_process.start()
         self._subprocesses_started = True
         return {
-            "Instrument Comm": self._instrument_communication_process.pid,
-            "File Writer": self._file_writer_process.pid,
-            "Data Analyzer": self._data_analyzer_process.pid,
+            "Instrument Comm": self.instrument_comm_process.pid,
+            "File Writer": self.file_writer_process.pid,
+            "Data Analyzer": self.data_analyzer_process.pid,
         }
 
     def spawn_processes(self) -> None:
@@ -161,7 +139,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             bit_file_name = get_latest_firmware()
         to_instrument_comm_queue = self.queue_container.to_instrument_comm(0)
 
-        self._values_to_share_to_server["system_status"] = INSTRUMENT_INITIALIZING_STATE
+        self.values_to_share_to_server["system_status"] = INSTRUMENT_INITIALIZING_STATE
         boot_up_dict = {
             "communication_type": "boot_up_instrument",
             "command": "initialize_board",
@@ -186,23 +164,23 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
         for iter_process in self._all_processes.values():
             iter_process.stop()
 
-        self.get_server_manager().shutdown_server()
+        self.server_manager.shutdown_server()
 
     def soft_stop_processes(self) -> None:
         if self._all_processes is None:
             raise NotImplementedError("Processes must be created first.")
         for iter_process in self._all_processes.values():
             iter_process.soft_stop()
-        self.get_server_manager().shutdown_server()
+        self.server_manager.shutdown_server()
 
     def hard_stop_processes(self, shutdown_server: bool = True) -> Dict[str, Any]:
         """Immediately stop subprocesses."""
         logger.info("Hard stopping Instrument Comm Process")
-        instrument_comm_items = self._instrument_communication_process.hard_stop()
+        instrument_comm_items = self.instrument_comm_process.hard_stop()
         logger.info("Hard stopping File Writer Process")
-        file_writer_items = self._file_writer_process.hard_stop()
+        file_writer_items = self.file_writer_process.hard_stop()
         logger.info("Hard stopping Data Analyzer Process")
-        data_analyzer_items = self._data_analyzer_process.hard_stop()
+        data_analyzer_items = self.data_analyzer_process.hard_stop()
         logger.info("All subprocesses hard stopped")
         process_items = {
             "instrument_comm_items": instrument_comm_items,
@@ -247,7 +225,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
 
     def shutdown_server(self) -> Dict[str, Any]:
         logger.info("Shutting down server")
-        server_manager = self.get_server_manager()
+        server_manager = self.server_manager
         server_manager.shutdown_server()
         return {"server_items": server_manager.drain_all_queues()}
 

@@ -262,13 +262,13 @@ def test_main_can_launch_server_and_processes__and_initial_boot_up_of_ok_comm_pr
 
     mocked_main_info_logger.assert_any_call(f"Main Process PID: {expected_main_pid}")
     mocked_main_info_logger.assert_any_call(
-        f"Instrument Comm PID: {test_process_manager.get_instrument_process().pid}"
+        f"Instrument Comm PID: {test_process_manager.instrument_comm_process.pid}"
     )
     mocked_main_info_logger.assert_any_call(
-        f"File Writer PID: {test_process_manager.get_file_writer_process().pid}"
+        f"File Writer PID: {test_process_manager.file_writer_process.pid}"
     )
     mocked_main_info_logger.assert_any_call(
-        f"Data Analyzer PID: {test_process_manager.get_data_analyzer_process().pid}"
+        f"Data Analyzer PID: {test_process_manager.data_analyzer_process.pid}"
     )
 
     shutdown_response = requests.get(f"{get_api_endpoint()}shutdown")
@@ -292,7 +292,7 @@ def test_main_entrypoint__correctly_assigns_shared_values_dictionary_to_process_
     )
     assert isinstance(shared_values_dict, SharedValues)
     test_process_manager = object_access_dict["process_manager"]
-    assert test_process_manager.get_values_to_share_to_server() is shared_values_dict
+    assert test_process_manager.values_to_share_to_server is shared_values_dict
 
 
 @pytest.mark.parametrize(

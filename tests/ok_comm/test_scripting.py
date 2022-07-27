@@ -201,7 +201,7 @@ def test_gain_value_is_parsed_and_saved_when_running_start_up_script(
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
-    ok_comm_process = test_process_manager.get_instrument_process()
+    ok_comm_process = test_process_manager.instrument_comm_process
     from_ok_comm_queue = test_process_manager.queue_container.from_instrument_comm(0)
     to_ok_comm_queue = test_process_manager.queue_container.to_instrument_comm(0)
     ok_comm_process.set_board_connection(0, simulator)
@@ -267,7 +267,7 @@ def test_offset_values_are_parsed_and_saved_when_running_start_calibration_scrip
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
-    ok_comm_process = test_process_manager.get_instrument_process()
+    ok_comm_process = test_process_manager.instrument_comm_process
     from_ok_comm_queue = test_process_manager.queue_container.from_instrument_comm(0)
     to_ok_comm_queue = test_process_manager.queue_container.to_instrument_comm(0)
     ok_comm_process.set_board_connection(0, simulator)

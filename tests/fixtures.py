@@ -167,7 +167,7 @@ def fixture_test_process_manager_creator(mocker):
                 )
             if create_processes:
                 manager.create_processes()
-                object_access_dict["fw_process"] = manager.get_file_writer_process()
+                object_access_dict["fw_process"] = manager.file_writer_process
             return manager
 
     yield _foo
