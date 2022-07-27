@@ -485,7 +485,7 @@ def set_protocols() -> Response:
     if _is_stimulating_on_any_well():
         return Response(status="403 Cannot change protocols while stimulation is running")
     system_status = _get_values_from_process_monitor()["system_status"]
-    if system_status not in (CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE):
+    if system_status not in (CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE):
         return Response(status=f"403 Cannot change protocols while {system_status}")
 
     stim_info = json.loads(request.get_json()["data"])
@@ -605,7 +605,7 @@ def set_stim_status() -> Response:
         return Response(status="406 Protocols have not been set")
     system_status = shared_values_dict["system_status"]
     if stim_status:
-        if system_status not in (CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE):
+        if system_status not in (CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE):
             return Response(status=f"403 Cannot start stimulation while {system_status}")
         if not _are_initial_stimulator_checks_complete():
             return Response(
