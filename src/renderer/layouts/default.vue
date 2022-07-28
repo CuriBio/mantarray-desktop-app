@@ -314,6 +314,7 @@ export default {
 body {
   background-color: #000000;
 }
+
 .div__nuxt-page {
   position: absolute;
   top: 0px;
@@ -324,14 +325,17 @@ body {
 #stim-studio-card {
   padding-bottom: 10px;
 }
+
 #data-acquisition-card {
   padding: 5px 0px 10px 0px;
 }
+
 .div__accordian-container {
   top: 45px;
   position: absolute;
   width: 287px;
 }
+
 .div__accordian-tabs {
   background-color: #000;
   color: #b7b7b7;
@@ -346,11 +350,13 @@ body {
   padding-top: 5px;
   padding-left: 15px;
 }
+
 .div__accordian-tabs:hover,
 .div__accordian-tabs-visible:hover {
   background-color: #b7b7b7c9;
   color: #000;
 }
+
 .div__accordian-tabs-visible {
   background-color: #b7b7b7;
   color: #000;
@@ -369,13 +375,16 @@ body {
   transition-duration: 0.3s;
   transition-timing-function: cubic-bezier(0.59, 1.39, 0.37, 1.01);
 }
+
 .expanded {
   transform: rotateZ(180deg) translateY(2px);
   border-top: 6px solid #000;
 }
+
 .arrow_hover {
   border-top: 6px solid #000;
 }
+
 .div__top-bar-above-waveforms {
   position: absolute;
   left: 289px;
@@ -383,6 +392,7 @@ body {
   height: 45px;
   width: 1629px;
 }
+
 .div__recording-top-bar-container {
   float: right;
   position: relative;
@@ -392,6 +402,7 @@ body {
   justify-content: space-between;
   text-align: left;
 }
+
 .div__sidebar {
   background-color: #1c1c1c;
   position: absolute;
@@ -400,6 +411,7 @@ body {
   height: 930px;
   width: 287px;
 }
+
 .div__sidebar-page-divider {
   position: absolute;
   top: 0px;
@@ -417,19 +429,23 @@ body {
   grid-template-columns: 50% 50%;
   justify-items: center;
 }
+
 .div__plate-barcode-container {
   position: relative;
   left: 0px;
 }
+
 .div__status-bar-container {
   position: relative;
   left: 0px;
 }
+
 .div__plate-navigator-container {
   position: relative;
   top: 5px;
   left: 0px;
 }
+
 .div__screen-view-options-text {
   line-height: 100%;
   position: relative;
@@ -443,12 +459,15 @@ body {
   text-align: left;
   margin: 10px;
 }
+
 .div__waveform-screen-view- {
   grid-column: 1 / 2;
 }
+
 .div__heatmap-screen-view- {
   grid-column: 2;
 }
+
 .div__player-controls-container {
   position: relative;
   left: 0px;
@@ -460,16 +479,20 @@ body {
   position: relative;
   margin-top: 8px;
 }
+
 .div__stim-barcode-container {
   position: relative;
   left: 0px;
   margin-top: 10px;
 }
+
 .div__stimulation_controls-controls-icon-container {
   position: relative;
   margin-top: 3px;
   left: 0px;
+  overflow: hidden;
 }
+
 .div__stim-studio-screen-view {
   position: absolute;
   top: 32px;
@@ -484,6 +507,7 @@ body {
   position: absolute;
   top: 875px;
 }
+
 .span__copyright {
   position: absolute;
   z-index: 99;
