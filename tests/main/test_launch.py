@@ -262,13 +262,13 @@ def test_main_can_launch_server_and_processes__and_initial_boot_up_of_ok_comm_pr
 
     mocked_main_info_logger.assert_any_call(f"Main Process PID: {expected_main_pid}")
     mocked_main_info_logger.assert_any_call(
-        f"Instrument Comm PID: {test_process_manager.get_instrument_process().pid}"
+        f"Instrument Comm PID: {test_process_manager.instrument_comm_process.pid}"
     )
     mocked_main_info_logger.assert_any_call(
-        f"File Writer PID: {test_process_manager.get_file_writer_process().pid}"
+        f"File Writer PID: {test_process_manager.file_writer_process.pid}"
     )
     mocked_main_info_logger.assert_any_call(
-        f"Data Analyzer PID: {test_process_manager.get_data_analyzer_process().pid}"
+        f"Data Analyzer PID: {test_process_manager.data_analyzer_process.pid}"
     )
 
     shutdown_response = requests.get(f"{get_api_endpoint()}shutdown")
@@ -292,7 +292,7 @@ def test_main_entrypoint__correctly_assigns_shared_values_dictionary_to_process_
     )
     assert isinstance(shared_values_dict, SharedValues)
     test_process_manager = object_access_dict["process_manager"]
-    assert test_process_manager.get_values_to_share_to_server() is shared_values_dict
+    assert test_process_manager.values_to_share_to_server is shared_values_dict
 
 
 @pytest.mark.parametrize(
@@ -462,7 +462,6 @@ def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_e
 
     shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
     assert shared_values_dict["latest_software_version"] is None
-    assert shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] == [None]
     assert shared_values_dict["stimulation_running"] == [False] * expected_num_wells
     assert shared_values_dict["stimulation_info"] is None
     assert shared_values_dict["stimulator_circuit_statuses"] == {}
@@ -491,9 +490,7 @@ def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_e
     assert next_call_args is None, f"Message: '{next_call_args}' not found"
 
     # assert socketio was set up correctly
-    ws_queue = (
-        app_info["object_access_inside_main"]["process_manager"].queue_container().get_data_queue_to_server()
-    )
+    ws_queue = app_info["object_access_inside_main"]["process_manager"].queue_container.to_server
     mocked_set_up.assert_called_once_with(ws_queue)
     # assert Flask was started correctly
     _, host, port = get_server_address_components()

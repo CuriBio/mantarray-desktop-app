@@ -609,7 +609,7 @@ def test_FileWriterProcess_process_update_recording_name_command__renames_record
     drain_queue(to_main_queue)
 
 
-def test_FileWriterProcess_process_update_recording_name_command__will_not_renamed_if_directory_does_not_exist(
+def test_FileWriterProcess_process_update_recording_name_command__will_not_rename_if_directory_does_not_exist(
     four_board_file_writer_process, mocker
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]

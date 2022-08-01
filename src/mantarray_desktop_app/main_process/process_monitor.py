@@ -117,9 +117,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
     def _check_and_handle_file_writer_to_main_queue(self) -> None:
         process_manager = self._process_manager
-        file_writer_to_main = (
-            process_manager.queue_container().get_communication_queue_from_file_writer_to_main()
-        )
+        file_writer_to_main = process_manager.queue_container.from_file_writer
         try:
             communication = file_writer_to_main.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
         except queue.Empty:
@@ -135,12 +133,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
             ):
                 self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
                 # stop managed acquisition
-                main_to_ic_queue = (
-                    self._process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
-                )
-                main_to_fw_queue = (
-                    self._process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
-                )
+                main_to_ic_queue = self._process_manager.queue_container.to_instrument_comm(0)
+                main_to_fw_queue = self._process_manager.queue_container.to_file_writer
                 # need to send stop command to the process the furthest downstream the data path first then move upstream
                 stop_managed_acquisition_comm: Dict[str, Any] = dict(STOP_MANAGED_ACQUISITION_COMMUNICATION)
                 stop_managed_acquisition_comm["is_calibration_recording"] = True
@@ -168,9 +162,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
             logger.info(msg)
 
     def _check_and_handle_server_to_main_queue(self) -> None:
-        # pylint: disable=too-many-branches, too-many-statements  # Tanner (4/23/21): temporarily need to add more than the allowed number of branches in order to support Beta 1 mode during transition to Beta 2 mode
         process_manager = self._process_manager
-        to_main_queue = process_manager.queue_container().get_communication_queue_from_server_to_main()
+        to_main_queue = process_manager.queue_container.from_server
         try:
             communication = to_main_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
         except queue.Empty:
@@ -219,9 +212,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         elif communication_type == "update_user_settings":
             new_values = communication["content"]
             if new_recording_directory := new_values.get("recording_directory"):
-                to_file_writer_queue = (
-                    process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
-                )
+                to_file_writer_queue = process_manager.queue_container.to_file_writer
                 to_file_writer_queue.put_nowait(
                     {"command": "update_directory", "new_directory": new_recording_directory}
                 )
@@ -235,9 +226,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     "user_name": new_values["user_name"],
                     "user_password": new_values["user_password"],
                 }
-                to_file_writer_queue = (
-                    process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
-                )
+                to_file_writer_queue = process_manager.queue_container.to_file_writer
                 to_file_writer_queue.put_nowait(
                     {"command": "update_user_settings", "config_settings": new_values}
                 )
@@ -271,6 +260,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             elif command == "set_protocols":
                 self._values_to_share_to_server["stimulation_info"] = communication["stim_info"]
                 self._put_communication_into_instrument_comm_queue(communication)
+                self._process_manager.queue_container.to_file_writer.put_nowait(communication)
             elif command == "start_stim_checks":
                 self._values_to_share_to_server["stimulator_circuit_statuses"] = {
                     well_idx: StimulatorCircuitStatuses.CALCULATING.name.lower()
@@ -304,9 +294,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 datetime.datetime.utcnow()
             ]
 
-            main_to_fw_queue = (
-                self._process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
-            )
+            main_to_fw_queue = self._process_manager.queue_container.to_file_writer
             main_to_fw_queue.put_nowait(
                 _create_start_recording_command(shared_values_dict_copy, is_calibration_recording=True)
             )
@@ -321,9 +309,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             )
         elif communication_type == "recording":
             command = communication["command"]
-            main_to_fw_queue = (
-                self._process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
-            )
+            main_to_fw_queue = self._process_manager.queue_container.to_file_writer
 
             if command == "stop_recording":
                 shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
@@ -350,21 +336,15 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     f"Invalid command: {command} for communication_type: {communication_type}"
                 )
         elif communication_type == "acquisition_manager":
-            main_to_ic_queue = (
-                self._process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
-            )
-            main_to_da_queue = (
-                self._process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
-            )
+            main_to_ic_queue = self._process_manager.queue_container.to_instrument_comm(0)
+            main_to_da_queue = self._process_manager.queue_container.to_data_analyzer
             command = communication["command"]
             if command == "start_managed_acquisition":
                 shared_values_dict["system_status"] = BUFFERING_STATE
                 main_to_ic_queue.put_nowait(communication)
                 main_to_da_queue.put_nowait(communication)
             elif command == "stop_managed_acquisition":
-                main_to_fw_queue = (
-                    self._process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
-                )
+                main_to_fw_queue = self._process_manager.queue_container.to_file_writer
                 # need to send stop command to the process the furthest downstream the data path first then move upstream
                 main_to_da_queue.put_nowait(communication)
                 main_to_fw_queue.put_nowait(communication)
@@ -375,23 +355,17 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 )
         elif communication_type == "mag_finding_analysis":
             if communication["command"] == "start_mag_analysis":
-                main_to_da_queue = (
-                    self._process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
-                )
+                main_to_da_queue = self._process_manager.queue_container.to_data_analyzer
                 main_to_da_queue.put_nowait(communication)
 
     def _put_communication_into_instrument_comm_queue(self, communication: Dict[str, Any]) -> None:
-        main_to_instrument_comm_queue = (
-            self._process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
-        )
+        main_to_instrument_comm_queue = self._process_manager.queue_container.to_instrument_comm(0)
         main_to_instrument_comm_queue.put_nowait(communication)
 
     def _check_and_handle_data_analyzer_to_main_queue(self) -> None:
         process_manager = self._process_manager
 
-        data_analyzer_to_main = (
-            process_manager.queue_container().get_communication_queue_from_data_analyzer_to_main()
-        )
+        data_analyzer_to_main = process_manager.queue_container.from_data_analyzer
         try:
             communication = data_analyzer_to_main.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
         except queue.Empty:
@@ -415,13 +389,13 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 # fmt: off
                 # remove any leftover outgoing items
                 da_data_out_queue = (
-                    self._process_manager.queue_container().get_data_analyzer_board_queues()[0][1]
+                    self._process_manager.queue_container.data_analyzer_boards[0][1]
                 )
                 # fmt: on
                 drain_queue(da_data_out_queue)
 
     def _check_and_handle_data_analyzer_data_out_queue(self) -> None:
-        da_data_out_queue = self._process_manager.queue_container().get_data_analyzer_board_queues()[0][1]
+        da_data_out_queue = self._process_manager.queue_container.data_analyzer_boards[0][1]
         try:
             outgoing_data_json = da_data_out_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
         except queue.Empty:
@@ -432,9 +406,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         # pylint: disable=too-many-branches,too-many-statements  # TODO Tanner (10/25/21): refactor this into smaller methods
         process_manager = self._process_manager
         board_idx = 0
-        instrument_comm_to_main = (
-            process_manager.queue_container().get_communication_queue_from_instrument_comm_to_main(board_idx)
-        )
+        instrument_comm_to_main = process_manager.queue_container.from_instrument_comm(board_idx)
         try:
             communication = instrument_comm_to_main.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
         except queue.Empty:
@@ -487,9 +459,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 )
         elif communication_type == "stimulation":
             if command == "start_stimulation":
-                self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [
-                    communication["timestamp"]
-                ]
                 stim_running_list = [False] * 24
                 protocol_assignments = self._values_to_share_to_server["stimulation_info"][
                     "protocol_assignments"
@@ -501,14 +470,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     stim_running_list[well_idx] = True
                 self._values_to_share_to_server["stimulation_running"] = stim_running_list
             elif command == "stop_stimulation":
-                self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [None]
                 self._values_to_share_to_server["stimulation_running"] = [False] * 24
             elif command == "status_update":
                 # ignore stim status updates if stim was already stopped manually
                 for well_idx in communication["wells_done_stimulating"]:
                     self._values_to_share_to_server["stimulation_running"][well_idx] = False
-                if not any(self._values_to_share_to_server["stimulation_running"]):
-                    self._values_to_share_to_server["utc_timestamps_of_beginning_of_stimulation"] = [None]
             elif command == "start_stim_checks":
                 key = "stimulator_circuit_statuses"
                 stimulator_circuit_statuses = communication[key]
@@ -647,10 +613,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     self._values_to_share_to_server["system_status"] = UPDATE_ERROR_STATE
                 else:
                     self._values_to_share_to_server["system_status"] = INSTALLING_UPDATES_STATE
-                    to_instrument_comm_queue = (
-                        self._process_manager.queue_container().get_communication_to_instrument_comm_queue(
-                            board_idx
-                        )
+                    to_instrument_comm_queue = self._process_manager.queue_container.to_instrument_comm(
+                        board_idx
                     )
                     # Tanner (1/13/22): send both firmware update commands at once, and make sure channel is sent first. If both are sent, the second will be ignored until the first install completes
                     for firmware_type in ("channel", "main"):
@@ -677,9 +641,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
     def _start_firmware_update(self) -> None:
         self._values_to_share_to_server["system_status"] = DOWNLOADING_UPDATES_STATE
         board_idx = 0
-        to_instrument_comm_queue = (
-            self._process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
-        )
+        to_instrument_comm_queue = self._process_manager.queue_container.to_instrument_comm(board_idx)
         to_instrument_comm_queue.put_nowait(
             {
                 "communication_type": "firmware_update",
@@ -700,16 +662,16 @@ class MantarrayProcessesMonitor(InfiniteThread):
         # check for errors first
         for iter_error_queue, iter_process in (
             (
-                process_manager.queue_container().get_instrument_communication_error_queue(),
-                process_manager.get_instrument_process(),
+                process_manager.queue_container.instrument_comm_error,
+                process_manager.instrument_comm_process,
             ),
             (
-                process_manager.queue_container().get_file_writer_error_queue(),
-                process_manager.get_file_writer_process(),
+                process_manager.queue_container.file_writer_error,
+                process_manager.file_writer_process,
             ),
             (
-                process_manager.queue_container().get_data_analyzer_error_queue(),
-                process_manager.get_data_analyzer_process(),
+                process_manager.queue_container.data_analyzer_error,
+                process_manager.data_analyzer_process,
             ),
         ):
             try:
@@ -744,11 +706,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 serial_number = self._values_to_share_to_server["instrument_metadata"][board_idx][
                     MANTARRAY_SERIAL_NUMBER_UUID
                 ]
-                to_instrument_comm_queue = (
-                    self._process_manager.queue_container().get_communication_to_instrument_comm_queue(
-                        board_idx
-                    )
-                )
+                to_instrument_comm_queue = self._process_manager.queue_container.to_instrument_comm(board_idx)
                 to_instrument_comm_queue.put_nowait(
                     {
                         "communication_type": "firmware_update",
@@ -794,9 +752,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             if self._last_barcode_clear_time is None:
                 self._last_barcode_clear_time = _get_barcode_clear_time()
             if _get_dur_since_last_barcode_clear(self._last_barcode_clear_time) >= BARCODE_POLL_PERIOD:
-                to_instrument_comm = (
-                    process_manager.queue_container().get_communication_to_instrument_comm_queue(board_idx)
-                )
+                to_instrument_comm = process_manager.queue_container.to_instrument_comm(board_idx)
                 barcode_poll_comm = {"communication_type": "barcode_comm", "command": "start_scan"}
                 to_instrument_comm.put_nowait(barcode_poll_comm)
                 self._last_barcode_clear_time = _get_barcode_clear_time()
@@ -833,7 +789,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         )
 
     def _queue_websocket_message(self, message_dict: Dict[str, Any]) -> None:
-        data_to_server_queue = self._process_manager.queue_container().get_data_queue_to_server()
+        data_to_server_queue = self._process_manager.queue_container.to_server
         data_to_server_queue.put_nowait(message_dict)
 
     def _handle_error_in_subprocess(
@@ -849,9 +805,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         shutdown_server = True
 
-        if process == self._process_manager.get_instrument_process() and isinstance(
-            this_err, InstrumentError
-        ):
+        if process == self._process_manager.instrument_comm_process and isinstance(this_err, InstrumentError):
             this_err_type_mro = type(this_err).mro()
             instrument_sub_error_class = this_err_type_mro[this_err_type_mro.index(InstrumentError) - 1]
             instrument_sub_error_name = instrument_sub_error_class.__name__

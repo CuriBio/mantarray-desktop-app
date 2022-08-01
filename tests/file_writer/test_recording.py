@@ -8,8 +8,6 @@ import h5py
 from mantarray_desktop_app import CalibrationFilesMissingError
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
-from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
-from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
@@ -33,7 +31,6 @@ from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
-from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import numpy as np
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import ADC_REF_OFFSET_UUID
@@ -51,7 +48,6 @@ from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
-from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
 from pulse3D.constants import ORIGINAL_FILE_VERSION_UUID
 from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
@@ -71,7 +67,6 @@ from pulse3D.constants import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
-from pulse3D.constants import UTC_BEGINNING_STIMULATION_UUID
 from pulse3D.constants import WELL_COLUMN_UUID
 from pulse3D.constants import WELL_INDEX_UUID
 from pulse3D.constants import WELL_NAME_UUID
@@ -90,10 +85,13 @@ from ..fixtures_file_writer import fixture_runnable_four_board_file_writer_proce
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_STIM_INFO
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_UPDATE_USER_SETTINGS
 from ..fixtures_file_writer import open_the_generic_h5_file
 from ..fixtures_file_writer import populate_calibration_folder
+from ..fixtures_file_writer import TEST_CUSTOMER_ID
+from ..fixtures_file_writer import TEST_USER_NAME
 from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
@@ -194,8 +192,8 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         assert this_file.attrs[str(UTC_BEGINNING_RECORDING_UUID)] == start_recording_command[
             "metadata_to_copy_onto_main_file_attributes"
         ][UTC_BEGINNING_RECORDING_UUID].strftime("%Y-%m-%d %H:%M:%S.%f")
-        assert this_file.attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == str(CURI_BIO_ACCOUNT_UUID)
-        assert this_file.attrs[str(USER_ACCOUNT_ID_UUID)] == str(CURI_BIO_USER_ACCOUNT_ID)
+        assert this_file.attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == str(TEST_CUSTOMER_ID)
+        assert this_file.attrs[str(USER_ACCOUNT_ID_UUID)] == TEST_USER_NAME
         actual_build_id = this_file.attrs[str(SOFTWARE_BUILD_NUMBER_UUID)]
         assert actual_build_id == COMPILED_EXE_BUILD_TIMESTAMP
         assert this_file.attrs[str(SOFTWARE_RELEASE_VERSION_UUID)] == CURRENT_SOFTWARE_VERSION
@@ -407,10 +405,6 @@ def test_FileWriterProcess__beta_2_mode__creates_files_for_all_active_wells__whe
     ][PLATE_BARCODE_UUID]
     this_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
 
-    # remove stim info
-    this_command["metadata_to_copy_onto_main_file_attributes"][STIMULATION_PROTOCOL_UUID] = None
-    this_command["stim_running_statuses"] = [False] * 24
-
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -440,9 +434,6 @@ def test_FileWriterProcess__beta_2_mode__creates_files_for_all_active_wells__whe
 
         # make sure stim metadata is correct
         assert this_file.attrs[str(STIMULATION_PROTOCOL_UUID)] == json.dumps(None), well_idx
-        assert this_file.attrs[str(UTC_BEGINNING_STIMULATION_UUID)] == str(
-            NOT_APPLICABLE_H5_METADATA
-        ), well_idx
 
     # test command receipt
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
@@ -458,7 +449,7 @@ def test_FileWriterProcess__beta_2_mode__creates_files_for_all_active_wells__whe
 
 
 @pytest.mark.timeout(4)
-def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_metadata__when_receiving_communication_to_start_recording(
+def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_metadata__when_receiving_communication_to_start_recording__after_protocols_have_been_set(
     four_board_file_writer_process, mocker
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -467,36 +458,33 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
+    # send set_protocols command
+    expected_stim_info = copy.deepcopy(GENERIC_STIM_INFO)
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": expected_stim_info,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
+    # send start_recording command after set_protocols command
     file_timestamp_str = "2020_02_09_190359"
     expected_plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND[
         "metadata_to_copy_onto_main_file_attributes"
     ][PLATE_BARCODE_UUID]
-    this_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    this_command["stim_running_statuses"][0] = False
+    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
+    # process both commands
+    invoke_process_run_and_check_errors(file_writer_process, num_iterations=2)
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
-    invoke_process_run_and_check_errors(file_writer_process)
-
-    expected_stim_info = this_command["metadata_to_copy_onto_main_file_attributes"][STIMULATION_PROTOCOL_UUID]
+    # test created files
     labeled_protocol_dict = {
         protocol["protocol_id"]: protocol for protocol in expected_stim_info["protocols"]
     }
     expected_protocols = {
-        well_name: (
-            None
-            if not this_command["stim_running_statuses"][
-                GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
-            ]
-            else labeled_protocol_dict[protocol_id]
-        )
+        well_name: labeled_protocol_dict.get(protocol_id)
         for well_name, protocol_id in expected_stim_info["protocol_assignments"].items()
     }
 
-    expected_stim_timestamp_str = this_command["metadata_to_copy_onto_main_file_attributes"][
-        UTC_BEGINNING_STIMULATION_UUID
-    ].strftime("%Y-%m-%d %H:%M:%S.%f")
-
-    # test created files
     actual_set_of_files = set(
         os.listdir(os.path.join(file_dir, f"{expected_plate_barcode}__{file_timestamp_str}"))
     )
@@ -521,10 +509,68 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
         assert this_file.attrs[str(STIMULATION_PROTOCOL_UUID)] == json.dumps(
             expected_protocols[well_name]
         ), well_idx
-        assert this_file.attrs[str(UTC_BEGINNING_STIMULATION_UUID)] == (
-            expected_stim_timestamp_str
-            if this_command["stim_running_statuses"][well_idx]
-            else str(NOT_APPLICABLE_H5_METADATA)
+
+
+@pytest.mark.timeout(4)
+def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_metadata__when_receiving_communication_to_start_recording__before_protocols_have_been_set(
+    four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    file_writer_process.set_beta_2_mode()
+    populate_calibration_folder(file_writer_process)
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
+
+    # send start_recording command before set_protocols command
+    file_timestamp_str = "2020_02_09_190359"
+    expected_plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND[
+        "metadata_to_copy_onto_main_file_attributes"
+    ][PLATE_BARCODE_UUID]
+    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
+    # send set_protocols command
+    expected_stim_info = copy.deepcopy(GENERIC_STIM_INFO)
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": expected_stim_info,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
+    # process both commands
+    invoke_process_run_and_check_errors(file_writer_process, num_iterations=2)
+
+    # test created files
+    labeled_protocol_dict = {
+        protocol["protocol_id"]: protocol for protocol in expected_stim_info["protocols"]
+    }
+    expected_protocols = {
+        well_name: labeled_protocol_dict.get(protocol_id)
+        for well_name, protocol_id in expected_stim_info["protocol_assignments"].items()
+    }
+
+    actual_set_of_files = set(
+        os.listdir(os.path.join(file_dir, f"{expected_plate_barcode}__{file_timestamp_str}"))
+    )
+    actual_set_of_files = {
+        file_path for file_path in actual_set_of_files if expected_plate_barcode in file_path
+    }
+    expected_set_of_files = {
+        f"{expected_plate_barcode}__{file_timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5"
+        for well_idx in range(24)
+    }
+    assert actual_set_of_files == expected_set_of_files
+    for well_idx in range(24):
+        well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
+        this_file = h5py.File(
+            os.path.join(
+                file_dir,
+                f"{expected_plate_barcode}__{file_timestamp_str}",
+                f"{expected_plate_barcode}__{file_timestamp_str}__{well_name}.h5",
+            ),
+            "r",
+        )
+        assert this_file.attrs[str(STIMULATION_PROTOCOL_UUID)] == json.dumps(
+            expected_protocols[well_name]
         ), well_idx
 
 
@@ -543,7 +589,6 @@ def test_FileWriterProcess__beta_2_mode__creates_calibration_files_in_correct_fo
     ):
         this_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
         this_command["is_calibration_recording"] = True
-        this_command["stim_running_statuses"][0] = False
         # Tanner (12/13/21): only using different start time indices so each recording will have a different timestamp string
         this_command["timepoint_to_begin_recording_at"] = start_time_index
 

@@ -48,7 +48,6 @@ from pulse3D.constants import TOTAL_WELL_COUNT_UUID
 from pulse3D.constants import TRIMMED_TIME_FROM_ORIGINAL_END_UUID
 from pulse3D.constants import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
-from pulse3D.constants import UTC_BEGINNING_STIMULATION_UUID
 from pulse3D.constants import UTC_FIRST_REF_DATA_POINT_UUID
 from pulse3D.constants import UTC_FIRST_TISSUE_DATA_POINT_UUID
 from pulse3D.constants import WELL_COLUMN_UUID
@@ -174,9 +173,8 @@ def _find_last_valid_data_index(
     return latest_index
 
 
-def _find_earliest_valid_stim_status_index(  # pylint: disable=invalid-name
-    time_index_buffer: Deque[int],  # pylint: disable=unsubscriptable-object
-    earliest_magnetometer_time_idx: int,
+def _find_earliest_valid_stim_status_index(
+    time_index_buffer: Deque[int], earliest_magnetometer_time_idx: int
 ) -> int:
     idx = len(time_index_buffer) - 1
     while idx > 0 and time_index_buffer[idx] > earliest_magnetometer_time_idx:
@@ -184,19 +182,13 @@ def _find_earliest_valid_stim_status_index(  # pylint: disable=invalid-name
     return idx
 
 
-def _drain_board_queues(
-    board: Tuple[
-        Queue[Any],  # pylint: disable=unsubscriptable-object
-        Queue[Any],  # pylint: disable=unsubscriptable-object
-    ],
-) -> Dict[str, List[Any]]:
+def _drain_board_queues(board: Tuple[Queue[Any], Queue[Any]]) -> Dict[str, List[Any]]:
     board_dict = dict()
     board_dict["instrument_comm_to_file_writer"] = drain_queue(board[0])
     board_dict["file_writer_to_data_analyzer"] = drain_queue(board[1])
     return board_dict
 
 
-# pylint: disable=too-many-instance-attributes
 class FileWriterProcess(InfiniteProcess):
     """Process that writes data to disk and uploads H5 files to the cloud.
 
@@ -221,18 +213,10 @@ class FileWriterProcess(InfiniteProcess):
 
     def __init__(
         self,
-        board_queues: Tuple[
-            Tuple[
-                Queue[Any],  # pylint: disable=unsubscriptable-object
-                Queue[Any],  # pylint: disable=unsubscriptable-object
-            ],  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-            ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-        ],
-        from_main_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
-        to_main_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
-        fatal_error_reporter: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-            Tuple[Exception, str]
-        ],
+        board_queues: Tuple[Tuple[Queue[Any], Queue[Any]], ...],
+        from_main_queue: Queue[Dict[str, Any]],
+        to_main_queue: Queue[Dict[str, Any]],
+        fatal_error_reporter: Queue[Tuple[Exception, str]],
         *,
         file_directory: str,
         logging_level: int = logging.INFO,
@@ -254,10 +238,9 @@ class FileWriterProcess(InfiniteProcess):
         # general recording values
         self._file_directory = file_directory
         self._is_recording = False
-        self._open_files: Tuple[
-            Dict[int, h5py.File],
-            ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
-        ] = tuple(dict() for _ in range(len(self._board_queues)))
+        self._open_files: Tuple[Dict[int, h5py.File], ...] = tuple(
+            dict() for _ in range(len(self._board_queues))
+        )
         self._end_of_data_stream_reached: List[Optional[bool]] = [False] * len(self._board_queues)
         self._start_recording_timestamps: List[Optional[Tuple[datetime.datetime, int]]] = list(
             [None] * len(self._board_queues)
@@ -268,28 +251,23 @@ class FileWriterProcess(InfiniteProcess):
             self.set_beta_2_mode()
         self._is_recording_calibration = False
         # magnetometer data recording values
-        self._data_packet_buffers: Tuple[
-            Deque[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
-            ...,  # noqa: W504 # flake8 doesn't understand the 3 dots for type definition
-        ] = tuple(deque() for _ in range(len(self._board_queues)))
-        self._latest_data_timepoints: Tuple[
-            Dict[int, int],
-            ...,  # noqa: W504 # flake8 doesn't understand the 3 dots for type definition
-        ] = tuple(dict() for _ in range(len(self._board_queues)))
+        self._data_packet_buffers: Tuple[Deque[Dict[str, Any]], ...] = tuple(
+            deque() for _ in range(len(self._board_queues))
+        )
+        self._latest_data_timepoints: Tuple[Dict[int, int], ...] = tuple(
+            dict() for _ in range(len(self._board_queues))
+        )
         # TODO Tanner (3/2/22): once beta 1 support is dropped, should either remove these values or refactor it into one value for every file
         self._tissue_data_finalized_for_recording: Tuple[Dict[int, bool], ...] = tuple(
             [dict()] * len(self._board_queues)
         )
-        self._reference_data_finalized_for_recording: Tuple[
-            Dict[int, bool],
-            ...,  # noqa: W504 # flake8 doesn't understand the 3 dots for type definition
-        ] = tuple(dict() for _ in range(len(self._board_queues)))
+        self._reference_data_finalized_for_recording: Tuple[Dict[int, bool], ...] = tuple(
+            dict() for _ in range(len(self._board_queues))
+        )
         # stimulation data recording values
+        self._stim_info: Dict[str, Any] = {}
         self._end_of_stim_stream_reached: List[Optional[bool]] = [False] * len(self._board_queues)
-        self._stim_data_buffers: Tuple[
-            Dict[int, Tuple[Deque[int], Deque[int]]],  # pylint: disable=unsubscriptable-object
-            ...,  # noqa: W504 # flake8 doesn't understand the 3 dots for type definition
-        ] = tuple(
+        self._stim_data_buffers: Tuple[Dict[int, Tuple[Deque[int], Deque[int]]], ...] = tuple(
             {well_idx: (deque(), deque()) for well_idx in range(self._num_wells)}
             for _ in range(len(self._board_queues))
         )
@@ -392,7 +370,7 @@ class FileWriterProcess(InfiniteProcess):
 
     def set_beta_2_mode(self) -> None:
         self._beta_2_mode = True
-        self._calibration_folder = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
+        self._calibration_folder = tempfile.TemporaryDirectory()
         self.calibration_file_directory = self._calibration_folder.name
 
     def get_upload_threads_container(self) -> List[Dict[str, Any]]:
@@ -513,13 +491,15 @@ class FileWriterProcess(InfiniteProcess):
         elif command == "update_user_settings":
             self._user_settings.update(communication["config_settings"])
             to_main.put_nowait({"communication_type": "command_receipt", "command": "update_user_settings"})
+        elif command == "set_protocols":
+            self._stim_info = communication["stim_info"]
+            self._add_protocols_to_recording_files()
         else:
             raise UnrecognizedCommandFromMainToFileWriterError(command)
         if not input_queue.empty():
             self._process_can_be_soft_stopped = False
 
     def _process_start_recording_command(self, communication: Dict[str, Any]) -> None:
-        # pylint: disable=too-many-locals, too-many-statements, too-many-branches  # Tanner (5/17/21): many variables and statements are needed to create files with all the necessary metadata
         self._is_recording = True
         self._is_recording_calibration = communication["is_calibration_recording"]
 
@@ -576,17 +556,6 @@ class FileWriterProcess(InfiniteProcess):
 
         communication["abs_path_to_file_folder"] = file_folder_dir
 
-        stim_protocols = None
-        labeled_protocol_dict = {}
-        if self._beta_2_mode:
-            stim_protocols = communication["metadata_to_copy_onto_main_file_attributes"][
-                STIMULATION_PROTOCOL_UUID
-            ]
-            if stim_protocols is not None:
-                labeled_protocol_dict = {
-                    protocol["protocol_id"]: protocol for protocol in stim_protocols["protocols"]
-                }
-
         tissue_status, reference_status = self.get_recording_finalization_statuses()
         tissue_status[board_idx].clear()
         reference_status[board_idx].clear()
@@ -625,18 +594,6 @@ class FileWriterProcess(InfiniteProcess):
                     this_file.attrs[str(ADC_TISSUE_OFFSET_UUID)] = this_attr_value[this_well_idx]["construct"]
                     this_file.attrs[str(ADC_REF_OFFSET_UUID)] = this_attr_value[this_well_idx]["ref"]
                     continue
-                if this_attr_name == STIMULATION_PROTOCOL_UUID:
-                    # extract stim configuration for well
-                    if communication["stim_running_statuses"][this_well_idx]:
-                        assigned_protocol_id = this_attr_value["protocol_assignments"][well_name]
-                        this_attr_value = json.dumps(labeled_protocol_dict[assigned_protocol_id])
-                    else:
-                        this_attr_value = json.dumps(None)
-                elif (
-                    this_attr_name == UTC_BEGINNING_STIMULATION_UUID
-                    and not communication["stim_running_statuses"][this_well_idx]
-                ):
-                    this_attr_value = NOT_APPLICABLE_H5_METADATA
                 # apply custom formatting to UTC datetime value
                 if (
                     METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith("UTC Timestamp")
@@ -703,6 +660,8 @@ class FileWriterProcess(InfiniteProcess):
             tissue_status[board_idx][this_well_idx] = False
             # TODO Tanner (5/19/21): replace this with False when ref data is added to beta 2 files
             reference_status[board_idx][this_well_idx] = self._beta_2_mode
+
+        self._add_protocols_to_recording_files()
 
         self.get_stop_recording_timestamps()[board_idx] = None
         data_packet_buffer = self._data_packet_buffers[board_idx]
@@ -1136,6 +1095,22 @@ class FileWriterProcess(InfiniteProcess):
         for well_buffers in self._stim_data_buffers[board_idx].values():
             well_buffers[0].clear()
             well_buffers[1].clear()
+
+    def _add_protocols_to_recording_files(self) -> None:
+        board_idx = 0
+
+        if self._stim_info:
+            labeled_protocol_dict = {
+                protocol["protocol_id"]: protocol for protocol in self._stim_info["protocols"]
+            }
+            for well_idx, well_h5_file in self._open_files[board_idx].items():
+                well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
+                assigned_protocol_id = self._stim_info["protocol_assignments"][well_name]
+                protocol_json = json.dumps(labeled_protocol_dict.get(assigned_protocol_id))
+                well_h5_file.attrs[str(STIMULATION_PROTOCOL_UUID)] = protocol_json
+        else:
+            for well_h5_file in self._open_files[board_idx].values():
+                well_h5_file.attrs[str(STIMULATION_PROTOCOL_UUID)] = json.dumps(None)
 
     def _handle_performance_logging(self) -> None:
         if logging.DEBUG >= self._logging_level:  # pragma: no cover

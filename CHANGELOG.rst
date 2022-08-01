@@ -10,14 +10,21 @@ Added:
 - Computer sleep and screen lock prevention when the app is running and connected to an instrument
   (not simulation mode).
 - Automatic switching between Data Acquisition / Stim pages when sidebar tab changes.
+- Prevention of edits to stimulation settings while either recording or actively stimulating.
+- Warning to unplug stim lid before proceeding with a firmware update.
 
 Changed:
 ^^^^^^^^
 - Max recording time limit is now two minutes.
+- Frequency in pulse settings modal can now be positive non-integers instead of only positive integers
 - Tooltips:
 
     - Specify that barcodes can not be manually changed while live view is active.
     - Specify that Stim Config checks cannot be run while while live view is active.
+
+- Beta 2 H5 file format version is now 1.2.0. Format Changes:
+
+  - Removed UTC_BEGINNING_STIMULATION_UUID value
 
 Fixed:
 ^^^^^^
@@ -26,6 +33,8 @@ Fixed:
 Removed
 ^^^^^^^
 - Live view warnings after running for 5 minutes.
+- Prevention from starting or stopping stimulation while recording.
+- Repeat feature in stimulation studio in favor of duplicate pulse feature.
 
 
 1.0.0 (2022-06-30)

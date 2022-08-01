@@ -272,7 +272,6 @@ def main(
     if shared_values_dict["beta_2_mode"]:
         num_wells = 24
         shared_values_dict["latest_software_version"] = None
-        shared_values_dict["utc_timestamps_of_beginning_of_stimulation"] = [None]
         shared_values_dict["stimulation_running"] = [False] * num_wells
         shared_values_dict["stimulation_info"] = None
         shared_values_dict["stimulator_circuit_statuses"] = {}
@@ -340,7 +339,7 @@ def main(
         logger.info("Starting Flask SocketIO")
         _, host, _ = get_server_address_components()
 
-        data_queue_to_server = process_manager.queue_container().get_data_queue_to_server()
+        data_queue_to_server = process_manager.queue_container.to_server
 
         object_access_for_testing["data_sender"] = _set_up_socketio_handlers(data_queue_to_server)
 

@@ -17,8 +17,6 @@ import h5py
 from labware_domain_models import LabwareDefinition
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
-from mantarray_desktop_app import CURI_BIO_ACCOUNT_UUID
-from mantarray_desktop_app import CURI_BIO_USER_ACCOUNT_ID
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import FileWriterProcess
 from mantarray_desktop_app import MantarrayMcSimulator
@@ -51,12 +49,10 @@ from pulse3D.constants import SOFTWARE_RELEASE_VERSION_UUID
 from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
 from pulse3D.constants import STIM_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import STIM_BARCODE_UUID
-from pulse3D.constants import STIMULATION_PROTOCOL_UUID
 from pulse3D.constants import TISSUE_SAMPLING_PERIOD_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
-from pulse3D.constants import UTC_BEGINNING_STIMULATION_UUID
 from pulse3D.constants import XEM_SERIAL_NUMBER_UUID
 from pulse3D.plate_recording import WellFile
 import pytest
@@ -72,6 +68,10 @@ from .helpers import confirm_queue_is_eventually_of_size
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 WELL_DEF_24 = LabwareDefinition(row_count=4, column_count=6)
+
+
+TEST_CUSTOMER_ID = uuid.UUID("73f52be0-368c-42d8-a1fd-660d49ba5604")
+TEST_USER_NAME = "test_user"
 
 
 # TODO make everything in here immutabledicts
@@ -119,8 +119,8 @@ GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
             year=2020, month=2, day=9, hour=19, minute=3, second=22, microsecond=332597
         ),
         START_RECORDING_TIME_INDEX_UUID: 298518 * 125,
-        CUSTOMER_ACCOUNT_ID_UUID: CURI_BIO_ACCOUNT_UUID,
-        USER_ACCOUNT_ID_UUID: CURI_BIO_USER_ACCOUNT_ID,
+        CUSTOMER_ACCOUNT_ID_UUID: TEST_CUSTOMER_ID,
+        USER_ACCOUNT_ID_UUID: TEST_USER_NAME,
         SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
         SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
         BACKEND_LOG_UUID: uuid.UUID("9a3d03f2-1f5a-4ecd-b843-0dc9ecde5f67"),
@@ -148,12 +148,6 @@ GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
     }
 )
 GENERIC_BETA_2_START_RECORDING_COMMAND = copy.deepcopy(GENERIC_BASE_START_RECORDING_COMMAND)
-GENERIC_BETA_2_START_RECORDING_COMMAND["stim_running_statuses"] = [
-    bool(
-        GENERIC_STIM_PROTOCOL_ASSIGNMENTS[GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)]
-    )
-    for well_idx in range(24)
-]
 GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"].update(
     {
         UTC_BEGINNING_RECORDING_UUID: GENERIC_BASE_START_RECORDING_COMMAND[
@@ -167,11 +161,6 @@ GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
         MANTARRAY_NICKNAME_UUID: MantarrayMcSimulator.default_mantarray_nickname,
         BOOT_FLAGS_UUID: MantarrayMcSimulator.default_metadata_values[BOOT_FLAGS_UUID],
         TISSUE_SAMPLING_PERIOD_UUID: DEFAULT_SAMPLING_PERIOD,
-        STIMULATION_PROTOCOL_UUID: GENERIC_STIM_INFO,
-        UTC_BEGINNING_STIMULATION_UUID: GENERIC_BASE_START_RECORDING_COMMAND[
-            "metadata_to_copy_onto_main_file_attributes"
-        ][UTC_BEGINNING_DATA_ACQUISTION_UUID]
-        + datetime.timedelta(seconds=5),
         STIM_BARCODE_UUID: MantarrayMcSimulator.default_stim_barcode,
         STIM_BARCODE_IS_FROM_SCANNER_UUID: True,
         INITIAL_MAGNET_FINDING_PARAMS_UUID: json.dumps(

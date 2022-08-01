@@ -31,11 +31,9 @@ from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
 from pulse3D.constants import STIM_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import STIM_BARCODE_UUID
-from pulse3D.constants import STIMULATION_PROTOCOL_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
-from pulse3D.constants import UTC_BEGINNING_STIMULATION_UUID
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -67,9 +65,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
     expected_nickname = "The Nautilus"
     expected_comm = {
         "communication_type": "mantarray_naming",
@@ -80,11 +76,9 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert test_process_manager.get_values_to_share_to_server()["mantarray_nickname"][0] == expected_nickname
+    assert test_process_manager.values_to_share_to_server["mantarray_nickname"][0] == expected_nickname
 
-    main_to_instrument_comm = (
-        test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    main_to_instrument_comm = test_process_manager.queue_container.to_instrument_comm(0)
     confirm_queue_is_eventually_of_size(main_to_instrument_comm, 1)
     actual_comm = main_to_instrument_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_comm == expected_comm
@@ -96,9 +90,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
     shared_values_dict["mantarray_nickname"] = {0: "The Nautilus 1"}
     expected_nickname = "The Nautilus 2"
     expected_comm = {
@@ -110,7 +102,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert test_process_manager.get_values_to_share_to_server()["mantarray_nickname"][0] == expected_nickname
+    assert test_process_manager.values_to_share_to_server["mantarray_nickname"][0] == expected_nickname
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_serial_number_setting_by_setting_shared_values_dictionary_and_passing_command_to_instrument_comm(
@@ -119,9 +111,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
     expected_serial = "M02001901"
     expected_comm = {
         "communication_type": "mantarray_naming",
@@ -132,13 +122,9 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert (
-        test_process_manager.get_values_to_share_to_server()["mantarray_serial_number"][0] == expected_serial
-    )
+    assert test_process_manager.values_to_share_to_server["mantarray_serial_number"][0] == expected_serial
 
-    main_to_instrument_comm = (
-        test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    main_to_instrument_comm = test_process_manager.queue_container.to_instrument_comm(0)
     confirm_queue_is_eventually_of_size(main_to_instrument_comm, 1)
     actual_comm = main_to_instrument_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_comm == expected_comm
@@ -150,9 +136,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, svd, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
     svd["mantarray_serial_number"] = {0: "M02001901"}
     expected_serial = "M02001902"
     expected_comm = {
@@ -164,9 +148,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert (
-        test_process_manager.get_values_to_share_to_server()["mantarray_serial_number"][0] == expected_serial
-    )
+    assert test_process_manager.values_to_share_to_server["mantarray_serial_number"][0] == expected_serial
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raises_error_if_unrecognized_mantarray_naming_command(
@@ -175,9 +157,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
     expected_command = "bad_command"
     expected_comm = {"communication_type": "mantarray_naming", "command": expected_command}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
@@ -192,19 +172,15 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     monitor_thread, svd, *_ = test_monitor(test_process_manager)
     svd["beta_2_mode"] = False
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
     expected_comm = {"communication_type": "xem_scripts", "script_type": "start_calibration"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert test_process_manager.get_values_to_share_to_server()["system_status"] == CALIBRATING_STATE
+    assert test_process_manager.values_to_share_to_server["system_status"] == CALIBRATING_STATE
 
-    main_to_instrument_comm = (
-        test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    main_to_instrument_comm = test_process_manager.queue_container.to_instrument_comm(0)
     confirm_queue_is_eventually_of_size(main_to_instrument_comm, 1)
     actual_comm = main_to_instrument_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_comm == expected_comm
@@ -227,13 +203,9 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     del svd["config_settings"]["customer_id"]
     del svd["config_settings"]["user_name"]
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
-    main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
-    main_to_fw_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
+    main_to_ic_queue = test_process_manager.queue_container.to_instrument_comm(0)
+    main_to_fw_queue = test_process_manager.queue_container.to_file_writer
 
     expected_comm = {"communication_type": "calibration", "command": "run_calibration"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
@@ -254,7 +226,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
             "active_well_indices": list(range(24)),
             "is_calibration_recording": True,
             "timepoint_to_begin_recording_at": 0,
-            "stim_running_statuses": [False] * 24,
         }
     )
     expected_start_recording_command["metadata_to_copy_onto_main_file_attributes"].update(
@@ -267,8 +238,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
             UTC_BEGINNING_DATA_ACQUISTION_UUID: GENERIC_BETA_2_START_RECORDING_COMMAND[
                 "metadata_to_copy_onto_main_file_attributes"
             ][UTC_BEGINNING_RECORDING_UUID],
-            UTC_BEGINNING_STIMULATION_UUID: None,
-            STIMULATION_PROTOCOL_UUID: None,
             CUSTOMER_ACCOUNT_ID_UUID: NOT_APPLICABLE_H5_METADATA,
             USER_ACCOUNT_ID_UUID: NOT_APPLICABLE_H5_METADATA,
             INITIAL_MAGNET_FINDING_PARAMS_UUID: GENERIC_BETA_2_START_RECORDING_COMMAND[
@@ -302,9 +271,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__passe
         "well_indices": test_wells,
     }
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         start_stim_checks_command, server_to_main_queue
     )
@@ -315,7 +282,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__passe
         well_idx: StimulatorCircuitStatuses.CALCULATING.name.lower() for well_idx in test_wells
     }
 
-    main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+    main_to_ic_queue = test_process_manager.queue_container.to_instrument_comm(0)
     confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
     assert main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == start_stim_checks_command
 
@@ -329,9 +296,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     mocker.patch.object(process_manager, "get_latest_firmware", autospec=True, return_value=None)
 
     spied_boot_up_instrument = mocker.spy(test_process_manager, "boot_up_instrument")
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
     expected_comm = {"communication_type": "to_instrument", "command": "boot_up"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
@@ -354,9 +319,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
     expected_command = "bad_command"
     expected_comm = {"communication_type": test_comm_type, "command": expected_command}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
@@ -370,9 +333,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
@@ -380,17 +341,15 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     )
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
-    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    shared_values_dict = test_process_manager.values_to_share_to_server
     assert shared_values_dict["system_status"] == BUFFERING_STATE
 
-    main_to_instrument_comm = (
-        test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
-    )
+    main_to_instrument_comm = test_process_manager.queue_container.to_instrument_comm(0)
     confirm_queue_is_eventually_of_size(main_to_instrument_comm, 1)
     actual_comm = main_to_instrument_comm.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_comm == START_MANAGED_ACQUISITION_COMMUNICATION
 
-    main_to_da = test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
+    main_to_da = test_process_manager.queue_container.to_data_analyzer
     confirm_queue_is_eventually_of_size(main_to_da, 1)
     actual_comm = main_to_da.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_comm == START_MANAGED_ACQUISITION_COMMUNICATION
@@ -402,13 +361,11 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
 
-    main_to_da = test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
-    main_to_fw = test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
-    main_to_ic = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+    main_to_da = test_process_manager.queue_container.to_data_analyzer
+    main_to_fw = test_process_manager.queue_container.to_file_writer
+    main_to_ic = test_process_manager.queue_container.to_instrument_comm(0)
 
     mocked_to_ic_put_nowait = mocker.patch.object(main_to_ic, "put_nowait", autospec=True)
 
@@ -444,9 +401,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
 
     new_customer_id = "new_cid"
     new_username = "new_un"
@@ -491,9 +446,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
 
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         communication = {
@@ -505,9 +458,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
         invoke_process_run_and_check_errors(monitor_thread)
 
-        to_file_writer_queue = (
-            test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
-        )
+        to_file_writer_queue = test_process_manager.queue_container.to_file_writer
         confirm_queue_is_eventually_of_size(to_file_writer_queue, 1)
         communication = to_file_writer_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
         assert communication["command"] == "update_directory"
@@ -520,9 +471,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
     expected_timepoint = 55432
     communication = {
         "communication_type": "recording",
@@ -532,14 +481,12 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
-    main_to_fw_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
-    )
+    main_to_fw_queue = test_process_manager.queue_container.to_file_writer
     confirm_queue_is_eventually_of_size(main_to_fw_queue, 1)
 
     actual = main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == communication
-    assert test_process_manager.get_values_to_share_to_server()["system_status"] == LIVE_VIEW_ACTIVE_STATE
+    assert test_process_manager.values_to_share_to_server["system_status"] == LIVE_VIEW_ACTIVE_STATE
 
 
 @freeze_time(
@@ -551,9 +498,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
     # expected_timepoint = 55432
     adc_offsets = dict()
     for well_idx in range(24):
@@ -568,15 +513,13 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
-    main_to_fw_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
-    )
+    main_to_fw_queue = test_process_manager.queue_container.to_file_writer
     confirm_queue_is_eventually_of_size(main_to_fw_queue, 1)
 
     actual = main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == communication
 
-    shared_values_dict = test_process_manager.get_values_to_share_to_server()
+    shared_values_dict = test_process_manager.values_to_share_to_server
     assert shared_values_dict["is_hardware_test_recording"] is True
     assert shared_values_dict["system_status"] == RECORDING_STATE
     assert (
@@ -591,9 +534,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
     adc_offsets = dict()
     for well_idx in range(24):
         adc_offsets[well_idx] = {"construct": 0, "ref": 0}
@@ -611,12 +552,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__adds_
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
-    main_to_fw_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_main_to_file_writer()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
+    main_to_fw_queue = test_process_manager.queue_container.to_file_writer
 
     communication = {
         "communication_type": "recording",
@@ -641,9 +578,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         test_process_manager, "hard_stop_and_join_processes", autospec=True
     )  # Eli (11/17/20): mocking instead of spying because processes can't be joined unless they were actually started, and we're just doing a create_processes here
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
 
     communication = {"communication_type": "shutdown", "command": "hard_stop"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
@@ -662,9 +597,9 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     test_process_manager.start_processes()
 
-    okc_process = test_process_manager.get_instrument_process()
-    fw_process = test_process_manager.get_file_writer_process()
-    da_process = test_process_manager.get_data_analyzer_process()
+    okc_process = test_process_manager.instrument_comm_process
+    fw_process = test_process_manager.file_writer_process
+    da_process = test_process_manager.data_analyzer_process
 
     spied_okc_join = mocker.spy(okc_process, "join")
     spied_fw_join = mocker.spy(fw_process, "join")
@@ -674,9 +609,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     spied_fw_hard_stop = mocker.spy(fw_process, "hard_stop")
     spied_da_hard_stop = mocker.spy(da_process, "hard_stop")
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
 
     communication = {"communication_type": "shutdown", "command": "hard_stop"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
@@ -697,13 +630,11 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
 
-    okc_process = test_process_manager.get_instrument_process()
-    fw_process = test_process_manager.get_file_writer_process()
-    da_process = test_process_manager.get_data_analyzer_process()
+    okc_process = test_process_manager.instrument_comm_process
+    fw_process = test_process_manager.file_writer_process
+    da_process = test_process_manager.data_analyzer_process
     expected_okc_item = "item 1"
     expected_fw_item = "item 2"
     expected_da_item = "item 3"
@@ -737,9 +668,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
 
     shared_values_dict["config_settings"] = {"config": "settings"}
 
@@ -767,21 +696,17 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
 
     shared_values_dict["config_settings"] = {}
 
-    server_manager = test_process_manager.get_server_manager()
+    server_manager = test_process_manager.server_manager
     expected_server_item = "server item"
 
     spied_shutdown_server = mocker.spy(server_manager, "shutdown_server")
     mocker.patch.object(server_manager, "drain_all_queues", autospec=True, return_value=expected_server_item)
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
 
     communication = {"communication_type": "shutdown", "command": "shutdown_server"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
@@ -798,7 +723,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_manta
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
 
-    to_main_queue = test_process_manager.queue_container().get_communication_queue_from_server_to_main()
+    to_main_queue = test_process_manager.queue_container.from_server
 
     test_nickname = "The Nautilus"
     test_comm = {
@@ -827,10 +752,8 @@ def test_MantarrayProcessesMonitor__processes_set_stim_status_command(
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
-    main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+    server_to_main_queue = test_process_manager.queue_container.from_server
+    main_to_ic_queue = test_process_manager.queue_container.to_instrument_comm(0)
 
     test_well_names = ["A1", "A2", "B1"]
     test_well_indices = [
@@ -862,10 +785,9 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
-    main_to_ic_queue = test_process_manager.queue_container().get_communication_to_instrument_comm_queue(0)
+    server_to_main_queue = test_process_manager.queue_container.from_server
+    main_to_ic_queue = test_process_manager.queue_container.to_instrument_comm(0)
+    main_to_fw_queue = test_process_manager.queue_container.to_file_writer
 
     shared_values_dict["stimulation_running"] = [False] * 24
 
@@ -877,31 +799,21 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)
 
     invoke_process_run_and_check_errors(monitor_thread)
+
     assert shared_values_dict["stimulation_info"] == test_command["stim_info"]
 
     confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
-    actual = main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert actual == test_command
+    assert main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == test_command
+    confirm_queue_is_eventually_of_size(main_to_fw_queue, 1)
+    assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == test_command
 
 
 @pytest.mark.parametrize(
     "comm_type, command, queue_size",
     [
-        (
-            "mag_finding_analysis",
-            "start_mag_analysis",
-            1,
-        ),
-        (
-            "mag_finding_analysis",
-            "other_command",
-            0,
-        ),
-        (
-            "mag_analysis",
-            "start_mag_analysis",
-            0,
-        ),
+        ("mag_finding_analysis", "start_mag_analysis", 1),
+        ("mag_finding_analysis", "other_command", 0),
+        ("mag_analysis", "start_mag_analysis", 0),
     ],
 )
 def test_MantarrayProcessesMonitor__processes_start_mag_analysis_command(
@@ -909,12 +821,8 @@ def test_MantarrayProcessesMonitor__processes_start_mag_analysis_command(
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
-    main_to_da_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_main_to_data_analyzer()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
+    main_to_da_queue = test_process_manager.queue_container.to_data_analyzer
 
     test_command = {
         "communication_type": comm_type,
@@ -940,10 +848,8 @@ def test_MantarrayProcessesMonitor__processes_set_latest_software_version_comman
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
-    queue_to_server_ws = test_process_manager.queue_container().get_data_queue_to_server()
+    server_to_main_queue = test_process_manager.queue_container.from_server
+    queue_to_server_ws = test_process_manager.queue_container.to_server
 
     mocker.patch.object(process_monitor, "CURRENT_SOFTWARE_VERSION", current_version)
 
@@ -972,9 +878,7 @@ def test_MantarrayProcessesMonitor__processes_firmware_update_confirmation_comma
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     shared_values_dict["system_status"] = UPDATES_NEEDED_STATE
 
-    server_to_main_queue = (
-        test_process_manager.queue_container().get_communication_queue_from_server_to_main()
-    )
+    server_to_main_queue = test_process_manager.queue_container.from_server
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"communication_type": "firmware_update_confirmation", "update_accepted": update_accepted},
