@@ -89,5 +89,6 @@ export default {
   justify-content: center;
   align-items: center;
   background-color: #4c4c4c;
+  z-index: 1;
 }
 </style>
