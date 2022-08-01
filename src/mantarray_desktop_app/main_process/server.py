@@ -43,7 +43,6 @@ from typing import Tuple
 from typing import Union
 from uuid import UUID
 
-from eventlet.queue import LightQueue
 from flask import Flask
 from flask import request
 from flask import Response
@@ -1248,9 +1247,6 @@ class ServerManager:
 
     def get_queue_to_main(self) -> Queue[Dict[str, Any]]:
         return self._to_main_queue
-
-    def get_data_queue_to_server(self) -> LightQueue:
-        return self.queue_container.to_server
 
     def get_values_from_process_monitor(self) -> Dict[str, Any]:
         """Get an immutable copy of the values."""
