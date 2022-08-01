@@ -1199,13 +1199,10 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                         COMPUTER_NAME_HASH_UUID
                     ]
                 )
-                # TODO
-                if well_idx % 2 == 0:
-                    assert this_file.attrs[str(STIMULATION_PROTOCOL_UUID)] == json.dumps(
-                        test_stim_info["protocols"][0]
-                    ), well_idx
-                else:
-                    assert this_file.attrs[str(STIMULATION_PROTOCOL_UUID)] == json.dumps(None), well_idx
+                protocol_idx = well_idx % 2
+                assert this_file.attrs[str(STIMULATION_PROTOCOL_UUID)] == json.dumps(
+                    test_stim_info["protocols"][protocol_idx]
+                ), well_idx
                 assert this_file.attrs[str(PLATE_BARCODE_UUID)] == expected_plate_barcode_1
                 assert (
                     bool(this_file.attrs[str(PLATE_BARCODE_IS_FROM_SCANNER_UUID)])
