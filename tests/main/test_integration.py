@@ -1281,7 +1281,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                     start_index_2 == expected_start_index_2
                 )
                 assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) in this_file.attrs
-                # TODO
                 assert this_file.attrs[str(STIMULATION_PROTOCOL_UUID)] == json.dumps(
                     test_stim_info["protocols"][well_idx % 2]
                 ), well_idx
