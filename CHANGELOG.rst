@@ -29,6 +29,7 @@ Changed:
 Fixed:
 ^^^^^^
 - Stim protocol editor oveflow, now has a scroll bar.
+- Issue with stim protocols containing delays of over ~1.19hrs.
 
 Removed
 ^^^^^^^
