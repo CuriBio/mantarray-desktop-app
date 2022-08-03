@@ -263,7 +263,7 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_subprot
     # fmt: off
     expected_bytes = bytes(
         [
-            0x11, 1, 0, 0,  # phase_one_duration
+            0, 0, 0, 0,  # phase_one_duration (value is ignored when converting delay)
             0, 0,  # phase_one_charge
             0, 0, 0, 0,  # interphase_interval
             0, 0,  # interphase_interval amplitude (always 0)
