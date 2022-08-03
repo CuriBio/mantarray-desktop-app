@@ -212,8 +212,10 @@ def is_null_subprotocol(subprotocol_dict: Dict[str, int]) -> bool:
 
 def convert_subprotocol_dict_to_bytes(subprotocol_dict: Dict[str, int], is_voltage: bool = False) -> bytes:
     conversion_factor = 1 if is_voltage else 10
+    is_null = is_null_subprotocol(subprotocol_dict)
+    phase_one_duration = 0 if is_null else subprotocol_dict["phase_one_duration"]
     return (
-        subprotocol_dict["phase_one_duration"].to_bytes(4, byteorder="little")
+        phase_one_duration.to_bytes(4, byteorder="little")
         + (subprotocol_dict["phase_one_charge"] // conversion_factor).to_bytes(
             2, byteorder="little", signed=True
         )
@@ -226,7 +228,7 @@ def convert_subprotocol_dict_to_bytes(subprotocol_dict: Dict[str, int], is_volta
         + subprotocol_dict["repeat_delay_interval"].to_bytes(4, byteorder="little")
         + bytes(2)  # repeat_delay_interval amplitude (always 0)
         + subprotocol_dict["total_active_duration"].to_bytes(4, byteorder="little")
-        + bytes([is_null_subprotocol(subprotocol_dict)])
+        + bytes([is_null])
     )
 
 

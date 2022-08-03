@@ -22,6 +22,7 @@ from mantarray_desktop_app.constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PAC
 from mantarray_desktop_app.constants import STIM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app.simulators import mc_simulator
 from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_circuit_status
+from mantarray_desktop_app.utils.serial_comm import is_null_subprotocol
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -108,13 +109,19 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
     invoke_process_run_and_check_errors(simulator)
     # assert that stim info was stored
     actual = simulator.get_stim_info()
+    # don't loop over last test protocol ID because it's just a placeholder for no protocol
     for protocol_idx in range(len(test_protocol_ids) - 1):
-        del stim_info_dict["protocols"][protocol_idx][
-            "protocol_id"
-        ]  # the actual protocol ID letter is not included
+        # the actual protocol ID letter is not included
+        del stim_info_dict["protocols"][protocol_idx]["protocol_id"]
+        # adjust phase_one_duration for delays
+        for subprotocol in stim_info_dict["protocols"][protocol_idx]["subprotocols"]:
+            if is_null_subprotocol(subprotocol):
+                subprotocol["phase_one_duration"] = 0
+
         assert actual["protocols"][protocol_idx] == stim_info_dict["protocols"][protocol_idx], protocol_idx
+
     assert actual["protocol_assignments"] == {  # indices of the protocol are used instead
-        well_name: (None if protocol_id is None else test_protocol_ids.index(protocol_id))
+        well_name: (None if not protocol_id else test_protocol_ids.index(protocol_id))
         for well_name, protocol_id in stim_info_dict["protocol_assignments"].items()
     }
     # assert command response is correct

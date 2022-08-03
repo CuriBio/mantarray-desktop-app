@@ -29,9 +29,10 @@ Changed:
 Fixed:
 ^^^^^^
 - Stim protocol editor oveflow, now has a scroll bar.
+- Issue with stim protocols containing delays of over ~1.19hrs.
 
-Removed
-^^^^^^^
+Removed:
+^^^^^^^^
 - Live view warnings after running for 5 minutes.
 - Prevention from starting or stopping stimulation while recording.
 - Repeat feature in stimulation studio in favor of duplicate pulse feature.
