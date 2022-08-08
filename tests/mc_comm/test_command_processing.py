@@ -15,6 +15,7 @@ from mantarray_desktop_app.sub_processes import mc_comm
 from mantarray_desktop_app.utils.data_parsing_cy import sort_serial_packets
 from mantarray_desktop_app.utils.serial_comm import convert_status_code_bytes_to_dict
 from mantarray_desktop_app.utils.serial_comm import create_data_packet
+from mantarray_desktop_app.utils.serial_comm import is_null_subprotocol
 from mantarray_desktop_app.workers.firmware_downloader import download_firmware_updates
 from mantarray_desktop_app.workers.firmware_downloader import get_latest_firmware_versions
 from mantarray_desktop_app.workers.worker_thread import ErrorCatchingThread
@@ -415,9 +416,16 @@ def test_McCommunicationProcess__processes_set_protocols_command(
     invoke_process_run_and_check_errors(simulator)
     # assert that protocols were updated
     actual = simulator.get_stim_info()
+    # don't loop over last test protocol ID because it's just a placeholder for no protocol
     for protocol_idx in range(len(expected_protocol_ids) - 1):
         expected_protocol_copy = copy.deepcopy(expected_stim_info["protocols"][protocol_idx])
-        del expected_protocol_copy["protocol_id"]  # the actual protocol ID letter is not included
+        # the actual protocol ID letter is not included
+        del expected_protocol_copy["protocol_id"]
+        # adjust phase_one_duration for delays
+        for subprotocol in expected_protocol_copy["subprotocols"]:
+            if is_null_subprotocol(subprotocol):
+                subprotocol["phase_one_duration"] = 0
+
         assert actual["protocols"][protocol_idx] == expected_protocol_copy, protocol_idx
     assert actual["protocol_assignments"] == {  # indices of the protocol are used instead
         well_name: (None if protocol_id is None else expected_protocol_ids.index(protocol_id) - 1)
