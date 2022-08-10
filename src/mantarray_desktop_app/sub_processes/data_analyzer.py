@@ -188,7 +188,7 @@ def _mag_finding_analysis_thread(
         recordings: a list of paths to recording directories of h5 files
         output_dir: path to the time_force_data directory
         return_list: list to hold returned failed recordings
-        end_time: time point to stop analysis at
+        end_time: time point to stop analysis
     """
     analysis_dfs = list()
     for rec_path in recordings:
@@ -201,7 +201,7 @@ def _mag_finding_analysis_thread(
                 recording_name = os.path.basename(rec_path)
                 shutil.copytree(rec_path, os.path.join(tmpdir, recording_name))
 
-                pr = PlateRecording(tmpdir, end_time=end_time)
+                pr = PlateRecording(os.path.join(tmpdir, recording_name), end_time=end_time)
 
                 df, _ = pr.write_time_force_csv(output_dir)
 
@@ -668,10 +668,11 @@ class DataAnalyzerProcess(InfiniteProcess):
                 self._mag_analysis_thread_list = list()
 
     def _start_recording_snapshot_analysis(self, recording_path: str) -> None:
-        snapshot_df = _mag_finding_analysis_thread([recording_path], end_time=5)
-        snapshot_df = [list(snapshot_df[0][column].values) for column in snapshot_df[0].columns]
+        snapshot_dfs = _mag_finding_analysis_thread([recording_path], end_time=5)
+        snapshot_dict = snapshot_dfs[0].to_dict()
+        snapshot_dict = [list(snapshot_dict[key].values()) for key in snapshot_dict.keys()]
 
-        timepoints_sec = snapshot_df[0]
+        timepoints_sec = snapshot_dict[0]
         interpolated_timepoints_secs = np.arange(
             INTERPOLATED_DATA_PERIOD_US,
             timepoints_sec[-1] * MICRO_TO_BASE_CONVERSION,
@@ -679,7 +680,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         )
 
         new_force = list()
-        for well_force in snapshot_df[1:]:
+        for well_force in snapshot_dict[1:]:
             interp_time_len = len(interpolated_timepoints_secs)
             # fit interpolation function on recorded data
             interp_data_fn = interpolate.interp1d(interpolated_timepoints_secs, well_force[:interp_time_len])
