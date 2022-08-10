@@ -486,7 +486,7 @@ def test_DataAnalyzerProcess__correctly_handles_recording_snapshot_command(
         mocked_df[str(well)] = pd.Series([x for x in test_timepoints])
 
     time_force_df = pd.DataFrame(mocked_df)
-    mocker.patch.object(data_analyzer, "_mag_finding_analysis_thread", return_value=[time_force_df])
+    mocker.patch.object(PlateRecording, "write_time_force_csv", return_value=(time_force_df, ""))
     test_mag_analysis_command = copy.deepcopy(TEST_START_RECORDING_SNAPSHOT_COMMAND)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -503,7 +503,7 @@ def test_DataAnalyzerProcess__correctly_handles_recording_snapshot_command(
 
 
 def test_DataAnalyzerProcess__will_not_respond_to_incorrect_mag_analysis_commands(
-    four_board_analyzer_process_beta_2_mode, mocker
+    four_board_analyzer_process_beta_2_mode,
 ):
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
