@@ -443,7 +443,9 @@ def test_update_recording_name__returns_403_if_recording_name_exists(
     shared_values_dict["config_settings"]["recording_directory"] = "/test/recording/directory"
     mocker.patch.object(os.path, "exists", return_value=True)
 
-    response = test_client.post("/update_recording_name?new_name=new_recording_name&default_name=old_name")
+    response = test_client.post(
+        "/update_recording_name?new_name=new_recording_name&default_name=old_name&snapshot_enabled=false"
+    )
     assert response.status_code == 403
 
 
@@ -454,7 +456,9 @@ def test_update_recording_name__returns_200_if_recording_name_doesnt_exists(
     shared_values_dict["config_settings"]["recording_directory"] = "/test/recording/directory"
     mocker.patch.object(os.path, "exists", return_value=False)
 
-    response = test_client.post("/update_recording_name?new_name=new_recording_name&default_name=old_name")
+    response = test_client.post(
+        "/update_recording_name?new_name=new_recording_name&default_name=old_name&snapshot_enabled=true"
+    )
     assert response.status_code == 200
 
 
