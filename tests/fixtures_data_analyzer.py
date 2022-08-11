@@ -18,6 +18,11 @@ TEST_START_MAG_ANALYSIS_COMMAND = {
     "command": "start_mag_analysis",
     "recordings": [TEST_REC_DIR_PATH, TEST_REC_DIR_PATH],
 }
+TEST_START_RECORDING_SNAPSHOT_COMMAND = {
+    "communication_type": "mag_finding_analysis",
+    "command": "start_recording_snapshot",
+    "recording_path": TEST_REC_DIR_PATH,
+}
 
 
 def set_sampling_period(da_fixture, sampling_period):

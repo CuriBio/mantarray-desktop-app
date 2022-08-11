@@ -459,9 +459,11 @@ class FileWriterProcess(InfiniteProcess):
             self._process_update_name_command(communication)
             to_main.put_nowait(
                 {
-                    "communication_type": "command_receipt",
+                    "communication_type": "mag_finding_analysis"
+                    if communication["snapshot_enabled"]
+                    else "command_receipt",
                     "command": "update_recording_name",
-                    "recording_name": communication["new_name"],
+                    "recording_path": os.path.join(self._file_directory, communication["new_name"]),
                 }
             )
         elif command == "stop_managed_acquisition":
@@ -1253,7 +1255,6 @@ class FileWriterProcess(InfiniteProcess):
     def _process_update_name_command(self, comm: Dict[str, str]) -> None:
         """Rename recording directory and h5 files to kick off auto upload."""
         # only perform if new name is different from the original default name
-
         if self._current_recording_dir == comm["default_name"] != comm["new_name"]:
             new_recording_path = os.path.join(self._file_directory, comm["new_name"])
             if os.path.exists(new_recording_path):

@@ -148,6 +148,18 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     "data_json": json.dumps({"corrupt_files_found": corrupt_files}),
                 }
             )
+        elif (
+            communication_type == "mag_finding_analysis"
+            and communication["command"] == "update_recording_name"
+        ):
+            main_to_da_queue = self._process_manager.queue_container.to_data_analyzer
+            main_to_da_queue.put_nowait(
+                {
+                    "communication_type": "mag_finding_analysis",
+                    "command": "start_recording_snapshot",
+                    "recording_path": communication["recording_path"],
+                }
+            )
 
         # Tanner (12/13/21): redact file/folder path after handling comm in case the actual file path is needed
         for sensitive_field in ("file_path", "file_folder"):

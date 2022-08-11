@@ -1048,6 +1048,37 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
         }
 
 
+@pytest.mark.parametrize(
+    "communication_type,da_queue_size,command",
+    [
+        ("command_receipt", 0, "update_recording_name"),
+        ("mag_finding_analysis", 1, "update_recording_name"),
+        ("command_receipt", 0, "other_command"),
+    ],
+)
+def test_MantarrayProcessesMonitor__handles_recording_name_receipt_from_fw_correctly(
+    test_monitor, test_process_manager_creator, communication_type, da_queue_size, command
+):
+    test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
+
+    fw_data_out_queue = test_process_manager.queue_container.from_file_writer
+    to_data_analyzer = test_process_manager.queue_container.to_data_analyzer
+
+    test_command = {
+        "communication_type": communication_type,
+        "command": command,
+        "recording_path": "/test/path/",
+    }
+    # process command response
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, fw_data_out_queue)
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    confirm_queue_is_eventually_of_size(to_data_analyzer, da_queue_size)
+
+    drain_queue(to_data_analyzer)
+
+
 @pytest.mark.parametrize("user_creds_already_stored", [True, False])
 @pytest.mark.parametrize("update_accepted", [True, False])
 def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_beta_2_mode_correctly(
