@@ -1,7 +1,6 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-
 1.0.1 (unreleased)
 ------------------
 
@@ -12,6 +11,12 @@ Added:
 - Automatic switching between Data Acquisition / Stim pages when sidebar tab changes.
 - Prevention of edits to stimulation settings while either recording or actively stimulating.
 - Warning to unplug stim lid before proceeding with a firmware update.
+- Recording snapshot feature
+
+    - Ability for users to check the first five seconds of a recordings by running it through analysis and outputting to modal after a recording is stopped
+    - Modal contains graphs for all 24 wells in micronewtons(y-axis) and seconds(x-axis)
+    - Global enabling toggle switch can be found in the settings format
+    - Per recording enabling toggle switch can be found in the recording input modal
 
 Changed:
 ^^^^^^^^
@@ -25,6 +30,8 @@ Changed:
 - Beta 2 H5 file format version is now 1.2.0. Format Changes:
 
   - Removed UTC_BEGINNING_STIMULATION_UUID value
+
+- Toggle switch background is green when enabled
 
 Fixed:
 ^^^^^^
@@ -40,7 +47,6 @@ Removed:
 
 1.0.0 (2022-06-30)
 ------------------
-
 
 Added:
 ^^^^^^
