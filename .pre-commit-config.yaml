@@ -154,6 +154,7 @@ repos:
       #   exclude: '.*\~.*'
       #   verbose: true
       - id: python-check-no-print-statments
+        exclude: tools/
       - id: vuejs-check-no-console-log-statments
 
   - repo: https://github.com/pre-commit/mirrors-eslint

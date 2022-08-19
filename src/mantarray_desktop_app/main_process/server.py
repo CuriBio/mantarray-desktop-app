@@ -563,6 +563,7 @@ def set_protocols() -> Response:
         return Response(status=f"400 Protocol assignments contain invalid well: {actual_well_names.pop()}")
     # make sure all protocol IDs are valid and that no protocols are unassigned
     assigned_ids = set(protocol_assignments_dict.values())
+
     if None in assigned_ids:
         assigned_ids.remove(None)  # remove since checking for wells with not assignment is unnecessary
     for protocol_id in protocol_ids:
