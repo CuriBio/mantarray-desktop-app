@@ -178,7 +178,7 @@ def check_for_new_twitches(
 
 def _mag_finding_analysis_thread(
     recordings: List[str],
-    output_dir: str = "",
+    output_dir: Optional[str] = None,
     return_list: List[Any] = [],
     end_time: Union[float, int] = np.inf,
 ) -> List[Any]:
@@ -194,7 +194,7 @@ def _mag_finding_analysis_thread(
     for rec_path in recordings:
         try:
             with tempfile.TemporaryDirectory() as tmpdir:
-                if output_dir == "":
+                if not output_dir:
                     output_dir = tmpdir
 
                 # copy existing h5 directories to temp directory
