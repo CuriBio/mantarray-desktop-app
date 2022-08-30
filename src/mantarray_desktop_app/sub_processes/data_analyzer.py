@@ -26,6 +26,7 @@ import numpy as np
 from pulse3D.compression_cy import compress_filtered_magnetic_data
 from pulse3D.constants import AMPLITUDE_UUID
 from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
+from pulse3D.constants import INTERPOLATED_DATA_PERIOD_US
 from pulse3D.constants import MEMSIC_CENTER_OFFSET
 from pulse3D.constants import TWITCH_FREQUENCY_UUID
 from pulse3D.exceptions import PeakDetectionError
@@ -40,6 +41,7 @@ from pulse3D.transforms import calculate_displacement_from_voltage
 from pulse3D.transforms import calculate_force_from_displacement
 from pulse3D.transforms import calculate_voltage_from_gmr
 from pulse3D.transforms import create_filter
+from scipy import interpolate
 from stdlib_utils import create_metrics_stats
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
@@ -174,29 +176,42 @@ def check_for_new_twitches(
     return time_index_list[-1], per_twitch_metrics
 
 
-def _mag_finding_analysis_thread(recordings: List[str], output_dir: str, return_list: List[Any]) -> None:
+def _mag_finding_analysis_thread(
+    recordings: List[str],
+    output_dir: Optional[str] = None,
+    return_list: List[Any] = [],
+    end_time: Union[float, int] = np.inf,
+) -> List[Any]:
     """Thread to handle magnet finding analyses.
 
     Args:
         recordings: a list of paths to recording directories of h5 files
         output_dir: path to the time_force_data directory
         return_list: list to hold returned failed recordings
+        end_time: time point to stop analysis
     """
+    analysis_dfs = list()
     for rec_path in recordings:
         try:
             with tempfile.TemporaryDirectory() as tmpdir:
+                if not output_dir:
+                    output_dir = tmpdir
+
                 # copy existing h5 directories to temp directory
                 recording_name = os.path.basename(rec_path)
                 shutil.copytree(rec_path, os.path.join(tmpdir, recording_name))
-                prs = PlateRecording.from_directory(tmpdir)
 
-                for pr in prs:
-                    pr.write_time_force_csv(output_dir)
+                pr = PlateRecording(os.path.join(tmpdir, recording_name), end_time=end_time)
 
+                df, _ = pr.write_time_force_csv(output_dir)
+
+                analysis_dfs.append(df)
         except Exception as e:
             # keep track of failed analyses, but still continue to analyze all
             return_list.append({"name": recording_name, "error": str(e)})
             continue
+
+    return analysis_dfs
 
 
 def _get_secs_since_data_creation_start(start: float) -> float:
@@ -413,8 +428,12 @@ class DataAnalyzerProcess(InfiniteProcess):
             self._comm_to_main_queue.put_nowait(communication)
         elif communication_type == "mag_finding_analysis":
             if self._beta_2_mode:
-                recordings = communication["recordings"]
-                self._start_mag_finding_analysis(recordings)
+                if communication["command"] == "start_mag_analysis":
+                    recordings = communication["recordings"]
+                    self._start_mag_finding_analysis(recordings)
+                elif communication["command"] == "start_recording_snapshot":
+                    recording = communication["recording_path"]
+                    self._start_recording_snapshot_analysis(recording)
         else:
             raise UnrecognizedCommandFromMainToDataAnalyzerError(communication_type)
 
@@ -628,7 +647,6 @@ class DataAnalyzerProcess(InfiniteProcess):
 
             if not thread.is_alive():
                 thread.join()
-
                 mag_analysis_msg = {
                     "recordings": thread_dict["recordings"],
                     "output_dir": thread_dict["output_dir"],
@@ -640,6 +658,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                     "data_type": "data_analysis_complete",
                     "data_json": json.dumps(mag_analysis_msg),
                 }
+
                 self._comm_to_main_queue.put_nowait(
                     {"communication_type": "mag_analysis_complete", "content": outgoing_msg}
                 )
@@ -647,6 +666,42 @@ class DataAnalyzerProcess(InfiniteProcess):
                 # clean up
                 self._mag_analysis_active_thread = dict()
                 self._mag_analysis_thread_list = list()
+
+    def _start_recording_snapshot_analysis(self, recording_path: str) -> None:
+        snapshot_dfs = _mag_finding_analysis_thread([recording_path], end_time=5)
+        snapshot_dict = snapshot_dfs[0].to_dict()
+        snapshot_dict = [list(snapshot_dict[key].values()) for key in snapshot_dict.keys()]
+
+        timepoints_sec = snapshot_dict[0]
+        interpolated_timepoints_secs = np.arange(
+            INTERPOLATED_DATA_PERIOD_US,
+            timepoints_sec[-1] * MICRO_TO_BASE_CONVERSION,
+            INTERPOLATED_DATA_PERIOD_US,
+        )
+
+        new_force = list()
+        for well_force in snapshot_dict[1:]:
+            interp_time_len = len(interpolated_timepoints_secs)
+            # fit interpolation function on recorded data
+            interp_data_fn = interpolate.interp1d(interpolated_timepoints_secs, well_force[:interp_time_len])
+            # interpolate, normalize, and scale data
+            interpolated_force = interp_data_fn(interpolated_timepoints_secs)
+
+            min_value = min(interpolated_force)
+            interpolated_force -= min_value
+            interpolated_force *= int(1e6)
+
+            new_force.append(list(interpolated_force))
+
+        mag_analysis_msg = {"time": timepoints_sec[:interp_time_len], "force": new_force}
+        outgoing_msg = {
+            "data_type": "recording_snapshot",
+            "data_json": json.dumps(mag_analysis_msg),
+        }
+
+        self._comm_to_main_queue.put_nowait(
+            {"communication_type": "mag_analysis_complete", "content": outgoing_msg}
+        )
 
     def _handle_performance_logging(self) -> None:  # pragma: no cover
         if logging.DEBUG >= self._logging_level:

@@ -95,7 +95,7 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: [nptyping==1.4.0]
-        exclude: tests/utils
+        exclude: (tests/utils)|(tools/)
 
   - repo: https://github.com/Lucas-C/pre-commit-hooks-markup
     rev: v1.0.1
@@ -154,6 +154,7 @@ repos:
       #   exclude: '.*\~.*'
       #   verbose: true
       - id: python-check-no-print-statments
+        exclude: tools/
       - id: vuejs-check-no-console-log-statments
 
   - repo: https://github.com/pre-commit/mirrors-eslint

@@ -563,6 +563,7 @@ def set_protocols() -> Response:
         return Response(status=f"400 Protocol assignments contain invalid well: {actual_well_names.pop()}")
     # make sure all protocol IDs are valid and that no protocols are unassigned
     assigned_ids = set(protocol_assignments_dict.values())
+
     if None in assigned_ids:
         assigned_ids.remove(None)  # remove since checking for wells with not assignment is unnecessary
     for protocol_id in protocol_ids:
@@ -753,6 +754,7 @@ def update_recording_name() -> Response:
     recording_dir = _get_values_from_process_monitor()["config_settings"]["recording_directory"]
     new_recording_name = request.args["new_name"]
     default_recording_name = request.args["default_name"]
+    snapshot_enabled = request.args["snapshot_enabled"] == "true"
     dir_path = os.path.join(recording_dir, new_recording_name)
 
     if not request.args.get("replace_existing") and os.path.exists(dir_path):
@@ -763,6 +765,7 @@ def update_recording_name() -> Response:
         "command": "update_recording_name",
         "new_name": new_recording_name,
         "default_name": default_recording_name,
+        "snapshot_enabled": snapshot_enabled,
     }
 
     response = queue_command_to_main(comm)

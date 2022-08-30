@@ -25,3 +25,6 @@ NodeJS Dependencies:
 .. image:: https://david-dm.org/CuriBio/mantarray-desktop-app/dev-status.svg
    :target: https://david-dm.org/CuriBio/mantarray-desktop-app?type=dev
    :alt: NodeDevDependency Status
+
+MacOS Monterey:
+ - when pipenv installing - ``export SYSTEM_VERSION_COMPAT=1``
