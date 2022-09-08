@@ -1,7 +1,7 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.0.1 (2022-08-22)
+1.0.1 (unreleased)
 ------------------
 
 Added:
@@ -20,7 +20,6 @@ Added:
 
 Changed:
 ^^^^^^^^
-- Max recording time limit is now two minutes.
 - Frequency in pulse settings modal can now be positive non-integers instead of only positive integers
 - Tooltips:
 
@@ -50,7 +49,6 @@ Removed:
 
 Added:
 ^^^^^^
-
 - V1 instrument support.
 - Better error messages.
 - Stim Lid barcode.
@@ -70,10 +68,9 @@ Added:
 - Check to see if H5 files are corrupted immediately after recording completes.
 - Debug logging.
 
-
 Changed:
 ^^^^^^^^
-
+- Max recording time limit is now 2 minutes.
 - Additional Controls panel is now Stimulation Controls panel.
 - Beta 2 H5 file format version is now 1.1.0. Format Changes:
 
@@ -98,10 +95,8 @@ Changed:
 
 - Performance metrics and other misc. events only logged in debug mode.
 
-
 Fixed:
 ^^^^^^
-
 - Issue with Live View crashes when running it longer than 5 minutes.
 - Issue with SW auto updating not working in Beta 1 mode.
 
