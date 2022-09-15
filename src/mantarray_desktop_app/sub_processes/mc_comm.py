@@ -908,18 +908,6 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _process_status_beacon(self, packet_payload: bytes) -> None:
         board_idx = 0
         self._time_of_last_beacon_secs = perf_counter()
-        if (
-            self._time_of_reboot_start is not None
-        ):  # Tanner (4/1/21): want to check that reboot has actually started before considering a status beacon to mean that reboot has completed. It is possible (and has happened in unit tests) where a beacon is received in between sending the reboot command and the instrument actually beginning to reboot
-            self._is_waiting_for_reboot = False
-            self._time_of_reboot_start = None
-            self._board_queues[board_idx][1].put_nowait(
-                {
-                    "communication_type": "to_instrument",
-                    "command": "reboot",
-                    "message": "Instrument completed reboot",
-                }
-            )
         status_codes_dict = convert_status_code_bytes_to_dict(
             packet_payload[:SERIAL_COMM_STATUS_CODE_LENGTH_BYTES]
         )
@@ -1204,6 +1192,21 @@ class McCommunicationProcess(InstrumentCommProcess):
 
     def _handle_status_codes(self, status_codes_dict: Dict[str, int], comm_type: str) -> None:
         board_idx = 0
+        if (
+            self._time_of_reboot_start is not None
+        ):  # Tanner (4/1/21): want to check that reboot has actually started before considering a status beacon to mean that reboot has completed. It is possible (and has happened in unit tests) where a beacon is received in between sending the reboot command and the instrument actually beginning to reboot
+            self._is_waiting_for_reboot = False
+            self._time_of_reboot_start = None
+            self._board_queues[board_idx][1].put_nowait(
+                {
+                    "communication_type": "to_instrument",
+                    "command": "reboot",
+                    "message": "Instrument completed reboot",
+                }
+            )
+            # Tanner (9/15/22): reset this value now that comm has been received from the instrument following the reboot
+            # self._time_of_last_beacon_secs = perf_counter()
+
         status_codes_msg = f"{comm_type} received from instrument. Status Codes: {status_codes_dict}"
         if any(status_codes_dict.values()):
             self._send_data_packet(board_idx, SERIAL_COMM_ERROR_ACK_PACKET_TYPE)

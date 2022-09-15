@@ -126,7 +126,7 @@ def test_McCommunicationProcess_create_connections_to_all_available_boards__popu
     actual_serial_obj = actual_connections[board_idx]
     assert isinstance(actual_serial_obj, MantarrayMcSimulator)
     # Tanner (8/25/21): it's important that the simulator is created with no read timeout because the connection to a real instrument will not have one either
-    assert actual_serial_obj.get_read_timeout() == 0
+    assert actual_serial_obj._read_timeout_seconds == 0
 
     actual_message = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_message["communication_type"] == "board_connection_status_change"

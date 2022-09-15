@@ -108,7 +108,7 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
 
     invoke_process_run_and_check_errors(simulator)
     # assert that stim info was stored
-    actual = simulator.get_stim_info()
+    actual = simulator._stim_info
     # don't loop over last test protocol ID because it's just a placeholder for no protocol
     for protocol_idx in range(len(test_protocol_ids) - 1):
         # the actual protocol ID letter is not included
@@ -165,7 +165,7 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
 
     invoke_process_run_and_check_errors(simulator)
     # assert stim info was not updated
-    assert simulator.get_stim_info() == {}
+    assert simulator._stim_info == {}
     # assert command response is correct
     stim_command_response = simulator.read(size=get_full_packet_size_from_payload_len(1))
     assert_serial_packet_is_expected(
@@ -215,7 +215,7 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
 
     invoke_process_run_and_check_errors(simulator)
     # assert stim info was not updated
-    assert simulator.get_stim_info() == {}
+    assert simulator._stim_info == {}
     # assert command response is correct
     stim_command_response = simulator.read(size=get_full_packet_size_from_payload_len(1))
     assert_serial_packet_is_expected(
@@ -257,7 +257,7 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
 
     invoke_process_run_and_check_errors(simulator)
     # assert stim info was not updated
-    assert simulator.get_stim_info() == {}
+    assert simulator._stim_info == {}
     # assert command response is correct
     stim_command_response = simulator.read(size=get_full_packet_size_from_payload_len(1))
     assert_serial_packet_is_expected(
@@ -283,7 +283,7 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__before_proto
 
     invoke_process_run_and_check_errors(simulator)
     # assert that stimulation was not started on any wells
-    assert simulator.get_stim_running_statuses() == expected_stim_running_statuses
+    assert simulator._stim_running_statuses == expected_stim_running_statuses
     # assert command response is correct
     expected_size = get_full_packet_size_from_payload_len(1)
     stim_command_response = simulator.read(size=expected_size)
@@ -304,7 +304,7 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__after_protoc
     mocker.patch.object(mc_simulator, "_get_us_since_subprotocol_start", autospec=True, return_value=0)
 
     # set single arbitrary protocol applied to wells randomly
-    stim_info = simulator.get_stim_info()
+    stim_info = simulator._stim_info
     stim_info["protocols"] = [
         {
             "protocol_id": "A",
@@ -336,7 +336,7 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__after_protoc
 
         invoke_process_run_and_check_errors(simulator)
         # assert that stimulation was started on wells that were assigned a protocol
-        assert simulator.get_stim_running_statuses() == expected_stim_running_statuses
+        assert simulator._stim_running_statuses == expected_stim_running_statuses
         # assert command response is correct
         additional_bytes = bytes([response_byte_value])
         expected_size = get_full_packet_size_from_payload_len(len(additional_bytes))
@@ -352,7 +352,7 @@ def test_MantarrayMcSimulator__processes_stop_stimulation_command(mantarray_mc_s
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
     # set single arbitrary protocol applied to wells randomly
-    stim_info = simulator.get_stim_info()
+    stim_info = simulator._stim_info
     stim_info["protocols"] = [
         {
             "protocol_id": "B",
@@ -370,7 +370,7 @@ def test_MantarrayMcSimulator__processes_stop_stimulation_command(mantarray_mc_s
     initial_stim_running_statuses = {
         well_name: bool(protocol_id) for well_name, protocol_id in stim_info["protocol_assignments"].items()
     }
-    simulator.get_stim_running_statuses().update(initial_stim_running_statuses)
+    simulator._stim_running_statuses.update(initial_stim_running_statuses)
 
     for response_byte_value in (
         SERIAL_COMM_COMMAND_SUCCESS_BYTE,
@@ -387,7 +387,7 @@ def test_MantarrayMcSimulator__processes_stop_stimulation_command(mantarray_mc_s
         # make sure finished status updates are sent if command succeeded
         if response_byte_value == SERIAL_COMM_COMMAND_SUCCESS_BYTE:
             status_update_bytes = bytes([sum(initial_stim_running_statuses.values())])
-            for well_name in simulator.get_stim_running_statuses().keys():
+            for well_name in simulator._stim_running_statuses.keys():
                 if not initial_stim_running_statuses[well_name]:
                     continue
                 well_idx = GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
@@ -405,7 +405,7 @@ def test_MantarrayMcSimulator__processes_stop_stimulation_command(mantarray_mc_s
                 additional_bytes=status_update_bytes,
             )
         # assert that stimulation was stopped on all wells
-        assert simulator.get_stim_running_statuses() == {
+        assert simulator._stim_running_statuses == {
             convert_module_id_to_well_name(module_id): False for module_id in range(1, 25)
         }
         # assert command response is correct
