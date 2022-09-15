@@ -14,7 +14,6 @@ from mantarray_desktop_app import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PAYLOAD_INDEX
-from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app.constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app.simulators import mc_simulator
@@ -367,9 +366,7 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
     # set this value to anything other than None so mc_process thinks the first handshake has already been sent
     mc_process._time_of_last_handshake_secs = 0
     # mock so no beacons are sent
-    mocked_get_secs_since_beacon = mocker.patch.object(
-        mc_simulator, "_get_secs_since_last_status_beacon", autospec=True, return_value=0
-    )
+    mocker.patch.object(mc_simulator, "_get_secs_since_last_status_beacon", autospec=True, return_value=0)
 
     set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator)
 
@@ -463,6 +460,7 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
     )
     invoke_process_run_and_check_errors(simulator)
 
+    # set back to 0 so no beacon timeout error is raised
     mocked_get_secs_since_beacon.return_value = 0
 
     # process firmware update complete packet
@@ -479,14 +477,15 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
     prev_time_of_last_beacon = mc_process._time_of_last_beacon_secs
 
     # complete reboot and and acknowledge reboot completion
-    if complete_with_beacon:
-        mocked_get_secs_since_beacon.return_value = SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
-    else:  # complete with beacon
+    if not complete_with_beacon:
+        # complete with handshake
         mocked_get_secs_since_handshake.return_value = SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
+        # simulator will automatically send a beacon when it completes the reboot so need to prevent that
+        mocker.patch.object(simulator, "_send_status_beacon", autospec=True)
         invoke_process_run_and_check_errors(mc_process)
-
     invoke_process_run_and_check_errors(simulator)
     invoke_process_run_and_check_errors(mc_process)
+
     # make sure status beacon tracking timepoint was updated
     assert mc_process._time_of_last_beacon_secs > prev_time_of_last_beacon
 

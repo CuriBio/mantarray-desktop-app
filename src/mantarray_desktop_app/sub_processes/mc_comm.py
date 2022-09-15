@@ -1205,7 +1205,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 }
             )
             # Tanner (9/15/22): reset this value now that comm has been received from the instrument following the reboot
-            # self._time_of_last_beacon_secs = perf_counter()
+            self._time_of_last_beacon_secs = perf_counter()
 
         status_codes_msg = f"{comm_type} received from instrument. Status Codes: {status_codes_dict}"
         if any(status_codes_dict.values()):
