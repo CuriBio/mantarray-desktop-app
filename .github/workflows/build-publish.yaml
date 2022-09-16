@@ -31,7 +31,7 @@ jobs:
       fail-fast: false
 
     name: Check job inputs and package version
-    runs-on: "ubuntu-20.04"
+    runs-on: "ubuntu-22.04"
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -64,13 +64,13 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - "windows-2019"
+          - "windows-2022"
         python-version:
           - 3.8 # 3.9 # Eli (12/10/20): Cython package is giving issues with Python 3.9 currently
         node-version:
           - 14
         include:
-          - os: "windows-2019"
+          - os: "windows-2022"
             python-version: "3.8"
             node-version: "14"
             IS_DEPLOYMENT_CONFIG: true
