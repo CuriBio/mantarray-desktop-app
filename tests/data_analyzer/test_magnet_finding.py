@@ -2,6 +2,7 @@
 import json
 
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
+from mantarray_desktop_app.exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
 from mantarray_desktop_app.sub_processes import data_analyzer
 from mantarray_desktop_app.workers.magnet_finder import run_magnet_finding_alg
 import numpy as np
@@ -12,13 +13,14 @@ from stdlib_utils import confirm_queue_is_eventually_of_size
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
+from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
 from ..fixtures_data_analyzer import TEST_START_MAG_ANALYSIS_COMMAND
 from ..fixtures_data_analyzer import TEST_START_RECORDING_SNAPSHOT_COMMAND
 
 
-__fixtures__ = [fixture_four_board_analyzer_process_beta_2_mode]
+__fixtures__ = [fixture_patch_print, fixture_four_board_analyzer_process_beta_2_mode]
 
 
 def test_DataAnalyzerProcess__processes_start_mag_analysis_command_correctly(
@@ -134,3 +136,17 @@ def test_DataAnalyzerProcess__correctly_handles_recording_snapshot_command(
         assert len(parsed_data["time"]) == len(force_data)
 
     mocked_run_alg.assert_called_once_with({}, [test_command["recording_path"]], end_time=5)
+
+
+def test_DataAnalyzerProcess__raises_error_when_receiving_unrecognized_mag_finding_analysis_command(
+    four_board_analyzer_process_beta_2_mode, patch_print
+):
+    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
+    from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
+
+    expected_command = "fake_command"
+    test_comm = {"communication_type": "mag_finding_analysis", "command": expected_command}
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_comm, from_main_queue)
+    with pytest.raises(UnrecognizedCommandFromMainToDataAnalyzerError, match=expected_command):
+        invoke_process_run_and_check_errors(da_process)

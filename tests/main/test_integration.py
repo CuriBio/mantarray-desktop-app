@@ -640,6 +640,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
 
         time.sleep(10)  # Tanner (6/15/20): This allows data to be written to files
+        # TODO use shared_values_dict to wait until protocol B completes
 
         expected_stop_index_2 = expected_start_index_2 + int(1.5 * MICRO_TO_BASE_CONVERSION)
         response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_2}")

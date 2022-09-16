@@ -398,6 +398,10 @@ class DataAnalyzerProcess(InfiniteProcess):
             elif communication["command"] == "start_recording_snapshot":
                 recording = communication["recording_path"]
                 self._start_recording_snapshot_analysis(recording)
+            else:
+                raise UnrecognizedCommandFromMainToDataAnalyzerError(
+                    f"Invalid command: {communication['command']} for communication_type: {communication_type}"
+                )
         else:
             raise UnrecognizedCommandFromMainToDataAnalyzerError(communication_type)
 
