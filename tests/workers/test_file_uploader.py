@@ -21,8 +21,8 @@ from mantarray_desktop_app.workers.file_uploader import upload_file_to_s3
 import pytest
 import requests
 
-from .fixtures_file_writer import TEST_CUSTOMER_ID
-from .fixtures_file_writer import TEST_USER_NAME
+from ..fixtures_file_writer import TEST_CUSTOMER_ID
+from ..fixtures_file_writer import TEST_USER_NAME
 
 TEST_FILEPATH = os.path.join("test", "recordings")
 TEST_LOGPATH = os.path.join("log", "directory")

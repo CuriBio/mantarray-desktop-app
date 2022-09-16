@@ -50,6 +50,9 @@ __fixtures__ = [
 ]
 
 
+# TODO move unit tests on the actual worker code into a different file
+
+
 def test_call_firmware_download_route__calls_requests_get_correctly(mocker):
     mocked_get = mocker.patch.object(requests, "get", autospec=True)
     mocked_get.return_value.status_code = 200
@@ -222,6 +225,7 @@ def test_McCommunicationProcess__handles_error_in_firmware_update_worker_thread(
     mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
     # mock so thread will appear complete on the second iteration of mc_process
     mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, side_effect=[True, False])
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "join", autospec=True)
 
     # send command to mc_process. Using get_latest_firmware_versions here arbitrarily, but functionality should be the same for any worker thread
     test_command = {
@@ -268,9 +272,12 @@ def test_McCommunicationProcess__handles_successful_completion_of_get_latest_fir
 
     # mock init so it populates output dict immediately
     mocker.patch.object(mc_comm.ErrorCatchingThread, "__init__", autospec=True, side_effect=init_se)
-    mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
+    mocked_start = mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
     # mock so thread will appear complete on the second iteration of mc_process
     mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, side_effect=[True, False])
+    mocked_join = mocker.patch.object(
+        mc_comm.ErrorCatchingThread, "join", autospec=True, side_effect=[True, False]
+    )
 
     # send command to mc_process
     test_command = {
@@ -284,9 +291,13 @@ def test_McCommunicationProcess__handles_successful_completion_of_get_latest_fir
 
     # run first iteration and make sure command response not sent to main
     invoke_process_run_and_check_errors(mc_process)
+    mocked_start.assert_called_once()
+    mocked_join.assert_not_called()
     confirm_queue_is_eventually_empty(to_main_queue)
     # run second iteration and make sure correct command response sent to main
     invoke_process_run_and_check_errors(mc_process)
+    mocked_start.assert_called_once()
+    mocked_join.assert_called_once()
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
     command_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert command_response == {
@@ -311,9 +322,12 @@ def test_McCommunicationProcess__handles_successful_completion_of_download_firmw
 
     # mock init so it populates output dict immediately
     mocker.patch.object(mc_comm.ErrorCatchingThread, "__init__", autospec=True, side_effect=init_se)
-    mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
+    mocked_start = mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
     # mock so thread will appear complete on the second iteration of mc_process
     mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, side_effect=[True, False])
+    mocked_join = mocker.patch.object(
+        mc_comm.ErrorCatchingThread, "join", autospec=True, side_effect=[True, False]
+    )
 
     # send command to mc_process
     test_command = {
@@ -331,11 +345,15 @@ def test_McCommunicationProcess__handles_successful_completion_of_download_firmw
 
     # run first iteration and make sure command response not sent to main
     invoke_process_run_and_check_errors(mc_process)
+    mocked_start.assert_called_once()
+    mocked_join.assert_not_called()
     assert mc_process._main_firmware_update_bytes is None
     assert mc_process._channel_firmware_update_bytes is None
     confirm_queue_is_eventually_empty(to_main_queue)
     # run second iteration and make sure correct command response sent to main
     invoke_process_run_and_check_errors(mc_process)
+    mocked_start.assert_called_once()
+    mocked_join.assert_called_once()
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
     command_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert command_response == {

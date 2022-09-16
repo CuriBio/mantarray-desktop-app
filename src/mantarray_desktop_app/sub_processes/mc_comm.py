@@ -1226,15 +1226,16 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         simulator_has_error = not simulator_error_queue.empty()
         if simulator_has_error:
-            simulator_error_tuple = simulator_error_queue.get(
-                timeout=5  # Tanner (4/22/21): setting an arbitrary, very high value here to prevent possible hanging, even though if the queue is not empty it should not hang indefinitely
-            )
+            # Tanner (4/22/21): setting an arbitrary, very high timeout value here to prevent possible hanging, even though if the queue is not empty it should not hang indefinitely
+            simulator_error_tuple = simulator_error_queue.get(timeout=5)
             self._report_fatal_error(simulator_error_tuple[0])
         return simulator_has_error
 
     def _check_worker_thread(self) -> None:
         if self._fw_update_worker_thread is None or self._fw_update_worker_thread.is_alive():
             return
+
+        self._fw_update_worker_thread.join()
 
         if self._fw_update_thread_dict is None:
             raise NotImplementedError("_fw_update_thread_dict should never be None here")
