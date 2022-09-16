@@ -133,13 +133,7 @@ def fixture_mantarray_mc_simulator():
     testing_queue = TestingQueue()
     output_queue = TestingQueue()
     error_queue = TestingQueue()
-    simulator = MantarrayMcSimulator(
-        input_queue,
-        output_queue,
-        error_queue,
-        testing_queue,
-        read_timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
-    )
+    simulator = MantarrayMcSimulator(input_queue, output_queue, error_queue, testing_queue)
 
     items_dict = {
         "input_queue": input_queue,
@@ -169,13 +163,7 @@ def fixture_mantarray_mc_simulator_no_beacon():
     input_queue = TestingQueue()
     output_queue = TestingQueue()
     error_queue = TestingQueue()
-    simulator = MantarrayMcSimulatorNoBeacons(
-        input_queue,
-        output_queue,
-        error_queue,
-        testing_queue,
-        read_timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
-    )
+    simulator = MantarrayMcSimulatorNoBeacons(input_queue, output_queue, error_queue, testing_queue)
 
     items_dict = {
         "input_queue": input_queue,

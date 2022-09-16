@@ -109,6 +109,10 @@ def _perf_counter_us() -> int:
     return perf_counter_ns() // 10**3
 
 
+def _get_secs_since_read_start(start: float) -> float:
+    return perf_counter() - start
+
+
 def _get_secs_since_last_handshake(last_time: float) -> float:
     return perf_counter() - last_time
 
@@ -354,33 +358,12 @@ class MantarrayMcSimulator(InfiniteProcess):
             for module_id in range(1, self._num_wells + 1)
         }
 
-    def get_read_timeout(self) -> Union[int, float]:
-        """Mainly for use in unit tests."""
-        return self._read_timeout_seconds
-
-    def get_metadata_dict(self) -> Dict[UUID, bytes]:
-        """Mainly for use in unit tests."""
-        return self._metadata_dict
-
-    def get_sampling_period_us(self) -> int:
-        """Mainly for use in unit tests."""
-        return self._sampling_period_us
-
     def get_interpolated_data(self, sampling_period_us: int) -> NDArray[np.uint16]:
         """Return one second (one twitch) of interpolated data."""
         data_indices = np.arange(0, MICRO_TO_BASE_CONVERSION, sampling_period_us)
         return self._interpolator(data_indices).astype(np.uint16)
 
-    def get_stim_info(self) -> Dict[str, Any]:
-        """Mainly for use in unit tests."""
-        return self._stim_info
-
-    def get_stim_running_statuses(self) -> Dict[str, bool]:
-        """Mainly for use in unit tests."""
-        return self._stim_running_statuses
-
     def is_rebooting(self) -> bool:
-        """Mainly for use in unit tests."""
         return self._reboot_time_secs is not None
 
     def get_num_wells(self) -> int:
@@ -832,23 +815,43 @@ class MantarrayMcSimulator(InfiniteProcess):
             else StimProtocolStatuses.ACTIVE
         )
 
-    def read(self, size: int = 1) -> bytes:
-        """Read the given number of bytes from the simulator."""
+    def _continue_reading(self, read_bytes: bytes, read_size: Optional[int], read_dur_secs: float) -> bool:
+        continue_reading = True
+        if read_size:
+            continue_reading &= len(read_bytes) < read_size
+        if self._read_timeout_seconds:
+            continue_reading &= read_dur_secs < self._read_timeout_seconds
+        return continue_reading
+
+    def _read(self, size: Optional[int] = None) -> bytes:
+        if size is not None and size < 0:  # pragma: no cover
+            raise ValueError("size must be >= 0")
+
         # first check leftover bytes from last read
         read_bytes = bytes(0)
-        if len(self._leftover_read_bytes) > 0:
+        if self._leftover_read_bytes:
             read_bytes = self._leftover_read_bytes
             self._leftover_read_bytes = bytes(0)
+
         # try to get bytes until either timeout occurs or given size is reached or exceeded
         start = perf_counter()
         read_dur_secs = 0.0
-        while len(read_bytes) < size and read_dur_secs <= self._read_timeout_seconds:
-            read_dur_secs = perf_counter() - start
+        while self._continue_reading(read_bytes, size, read_dur_secs):
+            read_dur_secs = _get_secs_since_read_start(start)
             try:
                 next_bytes = self._output_queue.get_nowait()
-                read_bytes += next_bytes
             except queue.Empty:
-                pass
+                if not self._read_timeout_seconds:
+                    break
+            else:
+                read_bytes += next_bytes
+
+        return read_bytes
+
+    def read(self, size: int = 1) -> bytes:
+        """Read the given number of bytes from the simulator."""
+        read_bytes = self._read(size)
+
         # if this read exceeds given size then store extra bytes for the next read
         if len(read_bytes) > size:
             size_diff = len(read_bytes) - size
@@ -858,22 +861,7 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     def read_all(self) -> bytes:
         """Read all available bytes from the simulator."""
-        read_bytes = bytes(0)
-        if len(self._leftover_read_bytes) > 0:
-            read_bytes = self._leftover_read_bytes
-            self._leftover_read_bytes = bytes(0)
-
-        start = perf_counter()
-        read_dur_secs = 0.0
-        while read_dur_secs <= self._read_timeout_seconds:
-            read_dur_secs = perf_counter() - start
-            try:
-                next_bytes = self._output_queue.get_nowait()
-                read_bytes += next_bytes
-            except queue.Empty:
-                pass
-
-        return read_bytes
+        return self._read()
 
     def write(self, input_item: bytes) -> None:
         self._input_queue.put_nowait(input_item)

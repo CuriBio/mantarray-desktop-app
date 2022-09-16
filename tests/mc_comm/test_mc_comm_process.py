@@ -303,8 +303,10 @@ def test_McCommunicationProcess_teardown_after_loop__sends_reboot_command_if_err
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     mc_process.set_board_connection(0, board_connection)
 
+    # mock to avoid issues
+    mocker.patch.object(mc_comm, "unset_keepawake", autospec=True)
+
     spied_write = mocker.spy(board_connection, "write")
-    spied_timestamp = mocker.spy(mc_comm, "get_serial_comm_timestamp")
     # mock so error is raised
     mocked_cferi = mocker.patch.object(mc_process, "_commands_for_each_run_iteration", autospec=True)
     if error:
@@ -315,8 +317,8 @@ def test_McCommunicationProcess_teardown_after_loop__sends_reboot_command_if_err
     if in_simulation_mode or not error:
         spied_write.assert_not_called()
     else:
-        reboot_command_bytes = create_data_packet(spied_timestamp.spy_return, SERIAL_COMM_REBOOT_PACKET_TYPE)
-        spied_write.assert_called_once_with(reboot_command_bytes)
+        spied_write.assert_called_once()
+        assert_serial_packet_is_expected(spied_write.call_args[0][0], SERIAL_COMM_REBOOT_PACKET_TYPE)
 
 
 def test_McCommunicationProcess_teardown_after_loop__unsets_keepawake_if_not_in_simulation_mode(
