@@ -134,7 +134,7 @@ def test_McCommunicationProcess__processes_set_mantarray_nickname_command(
     invoke_process_run_and_check_errors(simulator)
     # complete reboot and make sure nickname was updated
     invoke_process_run_and_check_errors(simulator)
-    actual = simulator.get_metadata_dict()[MANTARRAY_NICKNAME_UUID]
+    actual = simulator._metadata_dict[MANTARRAY_NICKNAME_UUID]
     assert actual == expected_nickname
     # run mc_process one iteration to read response from simulator and send command completed response back to main
     invoke_process_run_and_check_errors(mc_process)
@@ -361,7 +361,7 @@ def test_McCommunicationProcess__processes_set_sampling_period_command(
     # run simulator to process command and send response
     invoke_process_run_and_check_errors(simulator)
     # assert that sampling period was updated
-    assert simulator.get_sampling_period_us() == expected_sampling_period
+    assert simulator._sampling_period_us == expected_sampling_period
     # run mc_process to process command response and send message back to main
     invoke_process_run_and_check_errors(mc_process)
     # confirm correct message sent to main
@@ -384,7 +384,7 @@ def test_McCommunicationProcess__processes_set_protocols_command(
     )
 
     # confirm preconditions
-    assert simulator.get_stim_info() == {}
+    assert simulator._stim_info == {}
 
     expected_protocol_ids = (None, "A", "B", "C")
     test_num_wells = 24
@@ -415,7 +415,7 @@ def test_McCommunicationProcess__processes_set_protocols_command(
     # run simulator to process command and send response
     invoke_process_run_and_check_errors(simulator)
     # assert that protocols were updated
-    actual = simulator.get_stim_info()
+    actual = simulator._stim_info
     # don't loop over last test protocol ID because it's just a placeholder for no protocol
     for protocol_idx in range(len(expected_protocol_ids) - 1):
         expected_protocol_copy = copy.deepcopy(expected_stim_info["protocols"][protocol_idx])

@@ -1074,9 +1074,11 @@ def test_MantarrayProcessesMonitor__handles_recording_name_receipt_from_fw_corre
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, fw_data_out_queue)
     invoke_process_run_and_check_errors(monitor_thread)
 
-    confirm_queue_is_eventually_of_size(to_data_analyzer, da_queue_size)
-
-    drain_queue(to_data_analyzer)
+    if da_queue_size:
+        confirm_queue_is_eventually_of_size(to_data_analyzer, da_queue_size)
+        drain_queue(to_data_analyzer)
+    else:
+        confirm_queue_is_eventually_empty(to_data_analyzer)
 
 
 @pytest.mark.parametrize("user_creds_already_stored", [True, False])

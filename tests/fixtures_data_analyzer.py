@@ -3,6 +3,7 @@ from multiprocessing import Queue as MPQueue
 import os
 import tempfile
 
+from immutabledict import immutabledict
 from mantarray_desktop_app import DataAnalyzerProcess
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -13,16 +14,20 @@ from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_e
 
 TEST_REC_DIR_PATH = os.path.join("recordings", "ML2021172153__2022_01_21_023323")
 
-TEST_START_MAG_ANALYSIS_COMMAND = {
-    "communication_type": "mag_finding_analysis",
-    "command": "start_mag_analysis",
-    "recordings": [TEST_REC_DIR_PATH, TEST_REC_DIR_PATH],
-}
-TEST_START_RECORDING_SNAPSHOT_COMMAND = {
-    "communication_type": "mag_finding_analysis",
-    "command": "start_recording_snapshot",
-    "recording_path": TEST_REC_DIR_PATH,
-}
+TEST_START_MAG_ANALYSIS_COMMAND = immutabledict(
+    {
+        "communication_type": "mag_finding_analysis",
+        "command": "start_mag_analysis",
+        "recordings": [TEST_REC_DIR_PATH, TEST_REC_DIR_PATH],
+    }
+)
+TEST_START_RECORDING_SNAPSHOT_COMMAND = immutabledict(
+    {
+        "communication_type": "mag_finding_analysis",
+        "command": "start_recording_snapshot",
+        "recording_path": TEST_REC_DIR_PATH,
+    }
+)
 
 
 def set_sampling_period(da_fixture, sampling_period):

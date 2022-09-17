@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import copy
 import json
-import shutil
 import time
 
 from freezegun import freeze_time
@@ -16,11 +15,9 @@ from mantarray_desktop_app.simulators.mc_simulator import MantarrayMcSimulator
 from mantarray_desktop_app.sub_processes import data_analyzer
 from mantarray_desktop_app.sub_processes.data_analyzer import get_force_signal
 import numpy as np
-import pandas as pd
 from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
 from pulse3D.constants import MEMSIC_CENTER_OFFSET
 from pulse3D.magnet_finding import fix_dropped_samples
-from pulse3D.plate_recording import PlateRecording
 from pulse3D.transforms import create_filter
 import pytest
 from stdlib_utils import drain_queue
@@ -32,8 +29,6 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
 from ..fixtures_data_analyzer import fixture_runnable_four_board_analyzer_process
 from ..fixtures_data_analyzer import set_sampling_period
-from ..fixtures_data_analyzer import TEST_START_MAG_ANALYSIS_COMMAND
-from ..fixtures_data_analyzer import TEST_START_RECORDING_SNAPSHOT_COMMAND
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
@@ -48,7 +43,6 @@ def fill_da_input_data_queue(input_queue, num_seconds):
     test_y_data = np.tile(simulator.get_interpolated_data(DEFAULT_SAMPLING_PERIOD), num_seconds)
     single_packet_duration = DEFAULT_SAMPLING_PERIOD * len(test_y_data)
     for seconds in range(num_seconds):
-        # test_data_arr = np.array([test_x_data, test_y_data.copy()], dtype=np.int64)
         data_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
         data_packet["time_indices"] = np.arange(
             seconds * single_packet_duration,
@@ -329,7 +323,7 @@ def test_DataAnalyzerProcess__does_not_process_any_packets_after_receiving_stop_
 
 
 def test_DataAnalyzerProcess__formats_and_passes_incoming_stim_packet_through_to_main(
-    four_board_analyzer_process_beta_2_mode, mocker
+    four_board_analyzer_process_beta_2_mode,
 ):
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     incoming_data_queue = four_board_analyzer_process_beta_2_mode["board_queues"][0][0]
@@ -351,166 +345,3 @@ def test_DataAnalyzerProcess__formats_and_passes_incoming_stim_packet_through_to
 
     assert outgoing_msg["data_type"] == "stimulation"
     assert outgoing_msg["data_json"] == json.dumps(expected_stim_data)
-
-
-def test_DataAnalyzerProcess__correctly_handles_command_from_main_to_start_mag_analysis(
-    four_board_analyzer_process_beta_2_mode, mocker
-):
-
-    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
-    from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
-    to_main_queue = four_board_analyzer_process_beta_2_mode["to_main_queue"]
-
-    spied_start_analysis = mocker.spy(da_process, "_start_mag_finding_analysis")
-    mocker.patch.object(data_analyzer, "_mag_finding_analysis_thread", autospec=True)
-
-    test_mag_analysis_command = copy.deepcopy(TEST_START_MAG_ANALYSIS_COMMAND)
-
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_mag_analysis_command, from_main_queue
-    )
-    invoke_process_run_and_check_errors(da_process, 1)
-    spied_start_analysis.assert_called_once_with(TEST_START_MAG_ANALYSIS_COMMAND["recordings"])
-
-    drain_queue(to_main_queue)
-
-
-def test_DataAnalyzerProcess__correctly_handles_command_from_main_to_prevent_start_if_beta_1(
-    runnable_four_board_analyzer_process, mocker
-):
-    da_process, _, from_main_queue, _, _, _ = runnable_four_board_analyzer_process
-
-    spied_start_analysis = mocker.spy(da_process, "_start_mag_finding_analysis")
-    mocker.patch.object(data_analyzer, "_mag_finding_analysis_thread", autospec=True)
-
-    test_mag_analysis_command = copy.deepcopy(TEST_START_MAG_ANALYSIS_COMMAND)
-
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_mag_analysis_command, from_main_queue
-    )
-    invoke_process_run_and_check_errors(da_process, 1)
-    spied_start_analysis.assert_not_called()
-
-
-def test_DataAnalyzerProcess__correctly_handles_thread_status_without_failures(
-    four_board_analyzer_process_beta_2_mode, mocker
-):
-    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
-    from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
-    to_main_queue = four_board_analyzer_process_beta_2_mode["to_main_queue"]
-    mag_analysis_output_dir = four_board_analyzer_process_beta_2_mode["mag_analysis_output_dir"]
-
-    mocker.patch.object(shutil, "copytree", autospec=True)
-    mocker.patch.object(PlateRecording, "write_time_force_csv", return_value=({}, ""))
-
-    test_mag_analysis_command = copy.deepcopy(TEST_START_MAG_ANALYSIS_COMMAND)
-
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_mag_analysis_command, from_main_queue
-    )
-    invoke_process_run_and_check_errors(da_process, 6)
-
-    msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-
-    thread_msg = {
-        "recordings": TEST_START_MAG_ANALYSIS_COMMAND["recordings"],
-        "output_dir": mag_analysis_output_dir,
-    }
-    assert msg == {
-        "communication_type": "mag_analysis_complete",
-        "content": {
-            "data_type": "data_analysis_complete",
-            "data_json": json.dumps(thread_msg),
-        },
-    }
-
-    drain_queue(to_main_queue)
-
-
-def test_DataAnalyzerProcess__correctly_handles_thread_status_with_failures(
-    four_board_analyzer_process_beta_2_mode, mocker
-):
-    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
-    from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
-    to_main_queue = four_board_analyzer_process_beta_2_mode["to_main_queue"]
-    mag_analysis_output_dir = four_board_analyzer_process_beta_2_mode["mag_analysis_output_dir"]
-
-    mocker.patch.object(shutil, "copytree", autospec=True)
-
-    mocker.patch.object(PlateRecording, "write_time_force_csv", side_effect=Exception("raised exception"))
-
-    test_mag_analysis_command = copy.deepcopy(TEST_START_MAG_ANALYSIS_COMMAND)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_mag_analysis_command, from_main_queue
-    )
-    invoke_process_run_and_check_errors(da_process, 7)
-    msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-
-    thread_msg = {
-        "recordings": TEST_START_MAG_ANALYSIS_COMMAND["recordings"],
-        "output_dir": mag_analysis_output_dir,
-        "failed_recordings": [
-            {"name": "ML2021172153__2022_01_21_023323", "error": "raised exception"},
-            {"name": "ML2021172153__2022_01_21_023323", "error": "raised exception"},
-        ],
-    }
-    assert msg == {
-        "communication_type": "mag_analysis_complete",
-        "content": {
-            "data_type": "data_analysis_complete",
-            "data_json": json.dumps(thread_msg),
-        },
-    }
-
-    drain_queue(to_main_queue)
-
-
-def test_DataAnalyzerProcess__correctly_handles_recording_snapshot_command(
-    four_board_analyzer_process_beta_2_mode, mocker
-):
-    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
-    from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
-    to_main_queue = four_board_analyzer_process_beta_2_mode["to_main_queue"]
-    mocker.patch.object(shutil, "copytree", autospec=True)
-
-    # mock returned dataframe from PlateRecording.write_time_force_xlsx
-    test_timepoints = np.arange(
-        10000,
-        2 * MICRO_TO_BASE_CONVERSION,
-        10000,
-    )
-    test_timepoints[-1] = 2
-
-    mocked_df = dict({"Time (s)": pd.Series([int(x) for x in test_timepoints])})
-    for well in range(24):
-        mocked_df[str(well)] = pd.Series([x for x in test_timepoints])
-
-    time_force_df = pd.DataFrame(mocked_df)
-    mocker.patch.object(PlateRecording, "write_time_force_csv", return_value=(time_force_df, ""))
-    test_mag_analysis_command = copy.deepcopy(TEST_START_RECORDING_SNAPSHOT_COMMAND)
-
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_mag_analysis_command, from_main_queue
-    )
-    invoke_process_run_and_check_errors(da_process, 2)
-    msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-
-    parsed_data = json.loads(msg["content"]["data_json"])
-    assert msg["communication_type"] == "mag_analysis_complete"
-    assert msg["content"]["data_type"] == "recording_snapshot"
-    for force_data in parsed_data["force"]:
-        assert len(parsed_data["time"]) == len(force_data)
-
-
-def test_DataAnalyzerProcess__will_not_respond_to_incorrect_mag_analysis_commands(
-    four_board_analyzer_process_beta_2_mode,
-):
-    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
-    from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
-    test_mag_analysis_command = copy.deepcopy(TEST_START_RECORDING_SNAPSHOT_COMMAND)
-    test_mag_analysis_command["command"] = "wrong_command"
-
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        test_mag_analysis_command, from_main_queue
-    )
-    invoke_process_run_and_check_errors(da_process, 2)

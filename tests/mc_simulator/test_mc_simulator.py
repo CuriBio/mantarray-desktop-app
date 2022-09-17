@@ -90,7 +90,7 @@ def test_MantarrayMcSimulator__init__sets_default_metadata_values(
     mantarray_mc_simulator,
 ):
     simulator = mantarray_mc_simulator["simulator"]
-    metadata_dict = simulator.get_metadata_dict()
+    metadata_dict = simulator._metadata_dict
     assert isinstance(metadata_dict, dict)
     assert not isinstance(metadata_dict, immutabledict)
 
@@ -150,7 +150,7 @@ def test_MantarrayMcSimulator_hard_stop__clears_all_queues_and_returns_lists_of_
     confirm_queue_is_eventually_empty(testing_queue)
 
 
-def test_MantarrayMcSimulator_read__gets_next_available_bytes(
+def test_MantarrayMcSimulator_read__no_timeout__gets_next_available_bytes(
     mantarray_mc_simulator_no_beacon,
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
@@ -164,35 +164,61 @@ def test_MantarrayMcSimulator_read__gets_next_available_bytes(
     assert actual_item == expected_bytes
 
 
-def test_MantarrayMcSimulator_read__returns_empty_bytes_if_no_bytes_to_read(
+def test_MantarrayMcSimulator_read__no_timeout__returns_empty_bytes_if_no_bytes_to_read(
     mantarray_mc_simulator,
 ):
     simulator = mantarray_mc_simulator["simulator"]
-    actual_item = simulator.read(size=1)
-    expected_item = bytes(0)
-    assert actual_item == expected_item
+    assert simulator.read(size=1) == bytes(0)
 
 
-def test_MantarrayMcSimulator_read_all__gets_all_available_bytes(
-    mantarray_mc_simulator_no_beacon,
+def test_MantarrayMcSimulator_read__with_timeout__pulls_from_queue_until_timeout_expires(
+    mantarray_mc_simulator, mocker
+):
+    simulator = mantarray_mc_simulator["simulator"]
+    output_queue = mantarray_mc_simulator["output_queue"]
+    simulator._read_timeout_seconds = test_timeout = 0.01
+
+    test_secs_since_start = [0, test_timeout * 0.9, test_timeout]
+    # mock to control the number of times the queue is polled
+    mocker.patch.object(
+        mc_simulator, "_get_secs_since_read_start", autospec=True, side_effect=test_secs_since_start
+    )
+
+    spied_get_nowait = mocker.spy(output_queue, "get_nowait")
+
+    assert simulator.read(size=1) == bytes(0)
+    assert spied_get_nowait.call_count == len(test_secs_since_start)
+
+
+def test_MantarrayMcSimulator_read_all__no_timeout__gets_all_available_bytes(
+    mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    output_queue = mantarray_mc_simulator_no_beacon["output_queue"]
 
-    test_reads = [b"11111", b"222"]
-    expected_bytes = test_reads[0] + test_reads[1]
-    test_item = {"command": "add_read_bytes", "read_bytes": expected_bytes}
+    spied_get_nowait = mocker.spy(output_queue, "get_nowait")
+
+    expected_bytes = b"11111222"
+    test_reads = [expected_bytes]
+    test_item = {"command": "add_read_bytes", "read_bytes": test_reads}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_item, testing_queue)
     invoke_process_run_and_check_errors(simulator)
     actual_item = simulator.read_all()
     assert actual_item == expected_bytes
 
+    # final call will be empty which will cause the function to quit reading
+    assert spied_get_nowait.call_count == len(test_reads) + 1
 
-def test_MantarrayMcSimulator_read_all__gets_all_available_bytes__after_partial_read(
-    mantarray_mc_simulator_no_beacon,
+
+def test_MantarrayMcSimulator_read_all__no_timeout__gets_all_available_bytes__after_partial_read(
+    mantarray_mc_simulator_no_beacon, mocker
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
+    output_queue = mantarray_mc_simulator_no_beacon["output_queue"]
+
+    spied_get_nowait = mocker.spy(output_queue, "get_nowait")
 
     test_reads = [b"11111", b"222"]
     expected_bytes = test_reads[0] + test_reads[1]
@@ -205,14 +231,35 @@ def test_MantarrayMcSimulator_read_all__gets_all_available_bytes__after_partial_
     actual_item = simulator.read_all()
     assert actual_item == expected_bytes[test_read_size:]
 
+    # final call will be empty which will cause the function to quit reading
+    assert spied_get_nowait.call_count == len(test_reads) + 1
 
-def test_MantarrayMcSimulator_read_all__returns_empty_bytes_if_no_bytes_to_read(
+
+def test_MantarrayMcSimulator_read_all__no_timeout__returns_empty_bytes_if_no_bytes_to_read(
     mantarray_mc_simulator,
 ):
     simulator = mantarray_mc_simulator["simulator"]
-    actual_item = simulator.read_all()
-    expected_item = bytes(0)
-    assert actual_item == expected_item
+    assert simulator.read_all() == bytes(0)
+
+
+def test_MantarrayMcSimulator_read_all__with_timeout__pulls_from_queue_until_timeout_expires(
+    mantarray_mc_simulator, mocker
+):
+    simulator = mantarray_mc_simulator["simulator"]
+    output_queue = mantarray_mc_simulator["output_queue"]
+    simulator._read_timeout_seconds = test_timeout = 0.01
+
+    spied_get_nowait = mocker.spy(output_queue, "get_nowait")
+
+    test_secs_since_start = [0, test_timeout * 0.9, test_timeout]
+    # mock to control the number of times the queue is polled
+    mocker.patch.object(
+        mc_simulator, "_get_secs_since_read_start", autospec=True, side_effect=test_secs_since_start
+    )
+
+    assert simulator.read_all() == bytes(0)
+
+    spied_get_nowait.call_count = len(test_secs_since_start)
 
 
 def test_MantarrayMcSimulator_in_waiting__getter_returns_number_of_bytes_available_for_read__and_does_not_affect_read_sizes(

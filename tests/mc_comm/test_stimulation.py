@@ -176,7 +176,7 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
         # run simulator to process command and send response
         invoke_process_run_and_check_errors(simulator)
         # assert that stim statuses were updated correctly
-        assert simulator.get_stim_running_statuses() == stim_running_statuses
+        assert simulator._stim_running_statuses == stim_running_statuses
         # run mc_process to process command response and send message back to main
         invoke_process_run_and_check_errors(mc_process)
         # confirm correct message sent to main

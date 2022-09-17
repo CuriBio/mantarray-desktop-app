@@ -304,7 +304,7 @@ def test_MantarrayMcSimulator__allows_mantarray_nickname_to_be_set_by_command_re
     # run one iteration to complete reboot, send packet, then start next reboot
     invoke_process_run_and_check_errors(simulator)
     # check that nickname is updated
-    assert simulator.get_metadata_dict()[MANTARRAY_NICKNAME_UUID] == expected_nickname
+    assert simulator._metadata_dict[MANTARRAY_NICKNAME_UUID] == expected_nickname
     # check that correct response is sent
     expected_response_size = get_full_packet_size_from_payload_len(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES)
     actual = simulator.read(size=expected_response_size)
@@ -486,7 +486,7 @@ def test_MantarrayMcSimulator__processes_set_sampling_period_command__when_data_
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     # assert that sampling period has not been set
-    assert simulator.get_sampling_period_us() == DEFAULT_SAMPLING_PERIOD
+    assert simulator._sampling_period_us == DEFAULT_SAMPLING_PERIOD
     # send command to set magnetometer configuration
     expected_sampling_period = DEFAULT_SAMPLING_PERIOD + 1000
     expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
@@ -506,7 +506,7 @@ def test_MantarrayMcSimulator__processes_set_sampling_period_command__when_data_
         additional_bytes=bytes([SERIAL_COMM_COMMAND_SUCCESS_BYTE]),
     )
     # assert that sampling period is updated
-    assert simulator.get_sampling_period_us() == expected_sampling_period
+    assert simulator._sampling_period_us == expected_sampling_period
 
 
 def test_MantarrayMcSimulator__processes_set_sampling_period_command__when_data_is_streaming(
@@ -549,7 +549,7 @@ def test_MantarrayMcSimulator__processes_set_sampling_period_command__when_data_
         additional_bytes=bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
     )
     # assert that sampling period is unchanged
-    assert simulator.get_sampling_period_us() == test_sampling_period
+    assert simulator._sampling_period_us == test_sampling_period
 
     simulator.hard_stop()  # prevent BrokenPipeErrors
 

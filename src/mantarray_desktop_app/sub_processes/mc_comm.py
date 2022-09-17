@@ -908,18 +908,6 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _process_status_beacon(self, packet_payload: bytes) -> None:
         board_idx = 0
         self._time_of_last_beacon_secs = perf_counter()
-        if (
-            self._time_of_reboot_start is not None
-        ):  # Tanner (4/1/21): want to check that reboot has actually started before considering a status beacon to mean that reboot has completed. It is possible (and has happened in unit tests) where a beacon is received in between sending the reboot command and the instrument actually beginning to reboot
-            self._is_waiting_for_reboot = False
-            self._time_of_reboot_start = None
-            self._board_queues[board_idx][1].put_nowait(
-                {
-                    "communication_type": "to_instrument",
-                    "command": "reboot",
-                    "message": "Instrument completed reboot",
-                }
-            )
         status_codes_dict = convert_status_code_bytes_to_dict(
             packet_payload[:SERIAL_COMM_STATUS_CODE_LENGTH_BYTES]
         )
@@ -1204,6 +1192,21 @@ class McCommunicationProcess(InstrumentCommProcess):
 
     def _handle_status_codes(self, status_codes_dict: Dict[str, int], comm_type: str) -> None:
         board_idx = 0
+        if (
+            self._time_of_reboot_start is not None
+        ):  # Tanner (4/1/21): want to check that reboot has actually started before considering a status beacon to mean that reboot has completed. It is possible (and has happened in unit tests) where a beacon is received in between sending the reboot command and the instrument actually beginning to reboot
+            self._is_waiting_for_reboot = False
+            self._time_of_reboot_start = None
+            self._board_queues[board_idx][1].put_nowait(
+                {
+                    "communication_type": "to_instrument",
+                    "command": "reboot",
+                    "message": "Instrument completed reboot",
+                }
+            )
+            # Tanner (9/15/22): reset this value now that comm has been received from the instrument following the reboot
+            self._time_of_last_beacon_secs = perf_counter()
+
         status_codes_msg = f"{comm_type} received from instrument. Status Codes: {status_codes_dict}"
         if any(status_codes_dict.values()):
             self._send_data_packet(board_idx, SERIAL_COMM_ERROR_ACK_PACKET_TYPE)
@@ -1223,15 +1226,16 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         simulator_has_error = not simulator_error_queue.empty()
         if simulator_has_error:
-            simulator_error_tuple = simulator_error_queue.get(
-                timeout=5  # Tanner (4/22/21): setting an arbitrary, very high value here to prevent possible hanging, even though if the queue is not empty it should not hang indefinitely
-            )
+            # Tanner (4/22/21): setting an arbitrary, very high timeout value here to prevent possible hanging, even though if the queue is not empty it should not hang indefinitely
+            simulator_error_tuple = simulator_error_queue.get(timeout=5)
             self._report_fatal_error(simulator_error_tuple[0])
         return simulator_has_error
 
     def _check_worker_thread(self) -> None:
         if self._fw_update_worker_thread is None or self._fw_update_worker_thread.is_alive():
             return
+
+        self._fw_update_worker_thread.join()
 
         if self._fw_update_thread_dict is None:
             raise NotImplementedError("_fw_update_thread_dict should never be None here")
