@@ -116,6 +116,7 @@ CALIBRATED_WAIT_TIME = 20
 STOP_MANAGED_ACQUISITION_WAIT_TIME = 40
 INTEGRATION_TEST_TIMEOUT = 300
 FIRST_METRIC_WAIT_TIME = 20
+PROTOCOL_COMPLETION_WAIT_TIME = 30
 
 
 def stimulation_running_status_eventually_equals(expected_status: bool, timeout: int) -> bool:
@@ -136,7 +137,7 @@ def stimulation_running_status_eventually_equals(expected_status: bool, timeout:
 @pytest.mark.slow
 @pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
 @freeze_time(datetime.datetime(year=2020, month=7, day=16, hour=14, minute=19, second=55, microsecond=313309))
-def test_full_datapath_in_beta_1_mode(
+def test_full_datapath_and_recorded_files_in_beta_1_mode(
     patched_xem_scripts_folder,
     patched_firmware_folder,
     fully_running_app_from_main_entrypoint,
@@ -495,6 +496,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         ],
         "protocol_assignments": test_protocol_assignments,
     }
+    expected_num_protocol_b_packets = len(test_stim_info["protocols"][1]["subprotocols"]) + 1
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         expected_recordings_dir = os.path.join(tmp_dir, "recordings")
@@ -617,6 +619,12 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
+        # Tanner (9/15/22): let data stream for a few seconds before starting to ensure that first stim packet idx falls within recording range
+        time.sleep(3)
+
+        # Tanner (9/15/22): Clear stim container before restarting stimulation
+        msg_list_container["stimulation"].clear()
+
         # Tanner (10/22/21): Restart stimulation
         response = requests.post(f"{get_api_endpoint()}set_stim_status?running=true")
         assert response.status_code == 200
@@ -625,9 +633,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         # Tanner (6/1/21): Use new barcode for second set of recordings, change experiment code from '000' to '001'
         expected_plate_barcode_2 = expected_plate_barcode_1.replace("000", "001")
         # Tanner (5/25/21): Start at a different timepoint to create a different timestamp in the names of the second set of files
-        expected_start_index_2 = (
-            MICRO_TO_BASE_CONVERSION + NUM_INITIAL_PACKETS_TO_DROP * DEFAULT_SAMPLING_PERIOD
-        )
+        expected_start_index_2 = 2 * MICRO_TO_BASE_CONVERSION
         # Tanner (6/1/21): Start recording with second barcode to create second set of files
         start_recording_params_2 = {
             "plate_barcode": expected_plate_barcode_2,
@@ -639,10 +645,23 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
 
-        time.sleep(10)  # Tanner (6/15/20): This allows data to be written to files
-        # TODO use shared_values_dict to wait until protocol B completes
+        # Tanner (9/16/22): Protocol B in this test is assigned to odd numbered wells and must complete in order for this test to pass, so need to wait for all the stim messages from those wells to come through
+        final_protocol_b_timepoint = None
+        start = time.perf_counter()
+        while time.perf_counter() - start < PROTOCOL_COMPLETION_WAIT_TIME:
+            protocol_b_messages = [
+                msg for msg_json in msg_list_container["stimulation"] if "1" in (msg := json.loads(msg_json))
+            ]
+            # using >= in case something very weird happens and more than the expected number of packets are sent
+            if len(protocol_b_messages) >= expected_num_protocol_b_packets:
+                final_protocol_b_timepoint = protocol_b_messages[-1]["1"][0][0]
+                break
+            time.sleep(0.5)
+        assert (
+            final_protocol_b_timepoint is not None
+        ), "timeout while waiting for all protocol B stim packets to be sent through websocket"
 
-        expected_stop_index_2 = expected_start_index_2 + int(1.5 * MICRO_TO_BASE_CONVERSION)
+        expected_stop_index_2 = final_protocol_b_timepoint
         response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_2}")
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
@@ -808,7 +827,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                 else:
                     assert actual_stim_data.shape[1] == 0, well_idx
 
-        expected_timestamp_2 = "2021_05_24_212305"
+        expected_timestamp_2 = "2021_05_24_212306"
         actual_set_of_files_2 = set(
             os.listdir(
                 os.path.join(
@@ -848,7 +867,8 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                 actual_time_index_data = get_time_index_dataset_from_file(this_file)
                 assert actual_time_index_data.shape == (num_recorded_data_points_2,), f"Well {well_idx}"
                 assert actual_time_index_data[0] == expected_start_index_2
-                assert actual_time_index_data[-1] == expected_stop_index_2
+                # Tanner (9/15/22): Since the final stim time index is now used as the stop time index, the final mag time index should be within one sampling period before the stop time index
+                assert expected_stop_index_2 - actual_time_index_data[-1] <= DEFAULT_SAMPLING_PERIOD
                 actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
                 assert actual_time_offset_data.shape == (
                     SERIAL_COMM_NUM_SENSORS_PER_WELL,
