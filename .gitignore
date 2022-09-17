@@ -78,12 +78,6 @@ recordings/
 analysis/
 
 
-# Spectron screenshots
-**/e2e/screenshots/**/*-actual.png
-**/e2e/screenshots/*-actual.png
-**/e2e/screenshots/**/*-actual-diff.png
-**/e2e/screenshots/*-actual-diff.png
-
 # Codebuild cache
 .windows_codebuild_cache/
 # config settings
