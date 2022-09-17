@@ -130,10 +130,7 @@ def test_DataAnalyzerProcess__raises_error_with_unrecognized_acquisition_manager
     p, _, comm_from_main_queue, _, _, _ = four_board_analyzer_process
 
     expected_command = "fake_command"
-    start_command = {
-        "communication_type": "acquisition_manager",
-        "command": expected_command,
-    }
+    start_command = {"communication_type": "acquisition_manager", "command": expected_command}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, comm_from_main_queue)
 
     with pytest.raises(UnrecognizedCommandFromMainToDataAnalyzerError, match=expected_command):

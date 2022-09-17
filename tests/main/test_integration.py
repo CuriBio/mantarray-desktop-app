@@ -2,11 +2,9 @@
 import base64
 import datetime
 import json
-import math
 import os
 import tempfile
 import time
-import uuid
 
 from freezegun import freeze_time
 import h5py
@@ -21,9 +19,6 @@ from mantarray_desktop_app import CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import DATA_FRAME_PERIOD
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
-from mantarray_desktop_app import FIFO_READ_PRODUCER_DATA_OFFSET
-from mantarray_desktop_app import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
-from mantarray_desktop_app import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from mantarray_desktop_app import FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 from mantarray_desktop_app import get_api_endpoint
 from mantarray_desktop_app import get_server_port_number
@@ -31,7 +26,6 @@ from mantarray_desktop_app import get_stimulation_dataset_from_file
 from mantarray_desktop_app import get_time_index_dataset_from_file
 from mantarray_desktop_app import get_time_offset_dataset_from_file
 from mantarray_desktop_app import get_tissue_dataset_from_file
-from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import main
 from mantarray_desktop_app import MantarrayMcSimulator
@@ -39,33 +33,25 @@ from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import NUM_INITIAL_PACKETS_TO_DROP
-from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
-from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
-from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import system_state_eventually_equals
-from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
-from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 from mantarray_desktop_app import wait_for_subprocesses_to_start
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.main_process import process_monitor
 from mantarray_desktop_app.main_process import server
-from mantarray_desktop_app.sub_processes.data_analyzer import get_force_signal
 from mantarray_desktop_app.utils import generic
-import numpy as np
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import ADC_REF_OFFSET_UUID
 from pulse3D.constants import ADC_TISSUE_OFFSET_UUID
 from pulse3D.constants import BACKEND_LOG_UUID
 from pulse3D.constants import BOOT_FLAGS_UUID
-from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import COMPUTER_NAME_HASH_UUID
@@ -104,10 +90,8 @@ from pulse3D.constants import WELL_INDEX_UUID
 from pulse3D.constants import WELL_NAME_UUID
 from pulse3D.constants import WELL_ROW_UUID
 from pulse3D.constants import XEM_SERIAL_NUMBER_UUID
-from pulse3D.transforms import create_filter
 import pytest
 import requests
-from scipy import signal
 from stdlib_utils import confirm_port_available
 
 from ..fixtures import fixture_fully_running_app_from_main_entrypoint
@@ -128,10 +112,11 @@ __fixtures__ = [
     fixture_test_socketio_client,
 ]
 LIVE_VIEW_ACTIVE_WAIT_TIME = 150
-CALIBRATED_WAIT_TIME = 10
+CALIBRATED_WAIT_TIME = 20
 STOP_MANAGED_ACQUISITION_WAIT_TIME = 40
 INTEGRATION_TEST_TIMEOUT = 300
 FIRST_METRIC_WAIT_TIME = 20
+PROTOCOL_COMPLETION_WAIT_TIME = 30
 
 
 def stimulation_running_status_eventually_equals(expected_status: bool, timeout: int) -> bool:
@@ -149,272 +134,26 @@ def stimulation_running_status_eventually_equals(expected_status: bool, timeout:
     return is_expected_status
 
 
-@pytest.mark.timeout(60)
-@pytest.mark.slow
-def test_send_xem_scripts_command__gets_processed_in_fully_running_app(
-    fully_running_app_from_main_entrypoint, patched_xem_scripts_folder, mocker
-):
-    test_dict = {
-        "recording_directory": ".",  # Tanner (5/2/22): no files created in this test, so this is ok
-        "mag_analysis_output_dir": ".",
-        "log_file_id": str(
-            GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-                BACKEND_LOG_UUID
-            ]
-        ),
-    }
-    json_str = json.dumps(test_dict)
-    b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
-    command_line_args = ["--skip-mantarray-boot-up", f"--initial-base64-settings={b64_encoded}"]
-
-    # Tanner (12/29/20): start up the app but skip automatic instrument boot-up process so we can manually test that xem_scripts are run
-    app_info = fully_running_app_from_main_entrypoint(command_line_args)
-    wait_for_subprocesses_to_start()
-
-    test_process_manager = app_info["object_access_inside_main"]["process_manager"]
-    test_process_monitor = app_info["object_access_inside_main"]["process_monitor"]
-    shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
-    monitor_error_queue = test_process_monitor.get_fatal_error_reporter()
-
-    # Tanner (12/29/20): init with no bit file since local development environment does not have any real bit files and we are using a simulator
-    response = requests.get(f"{get_api_endpoint()}insert_xem_command_into_queue/initialize_board")
-    assert response.status_code == 200
-
-    # Tanner (12/29/20): Test xem_scripts will run using start up script. When this script completes the system will be in calibration_needed state
-    expected_script_type = "start_up"
-    response = requests.get(f"{get_api_endpoint()}xem_scripts?script_type={expected_script_type}")
-    assert response.status_code == 200
-    assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5)
-
-    # Tanner (12/30/20): Soft stopping and joining this process in order to make assertions
-    instrument_process = test_process_manager.instrument_comm_process
-    instrument_process.soft_stop()
-    instrument_process.join()
-
-    # Tanner (12/29/20): Easiest way to assert the start up script successfully ran is to assert that shared_values_dict contains the correct value for "adc_gain" and make sure the error queue is empty
-    expected_gain_value = 16
-    assert shared_values_dict["adc_gain"] == expected_gain_value
-    confirm_queue_is_eventually_empty(monitor_error_queue)
-
-
 @pytest.mark.slow
 @pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
 @freeze_time(datetime.datetime(year=2020, month=7, day=16, hour=14, minute=19, second=55, microsecond=313309))
-def test_system_states_and_recording_files__with_file_directory_passed_in_cmd_line_args__and_skip_mantarray_boot_up_flag(
-    patched_xem_scripts_folder,
-    patched_firmware_folder,
-    fully_running_app_from_main_entrypoint,
-    mocker,
-):
-    # Tanner (12/29/20): Freeze time in order to make assertions on timestamps in the metadata
-    expected_time = datetime.datetime(
-        year=2020, month=7, day=16, hour=14, minute=19, second=55, microsecond=313309
-    )
-    mocker.patch.object(
-        server,
-        "_get_timestamp_of_acquisition_sample_index_zero",
-        return_value=expected_time,
-    )
-    expected_timestamp = "2020_07_16_141955"
-
-    # mock this so test doesn't actually try to hit cloud API
-    mocker.patch.object(server, "validate_user_credentials", autospec=True)
-
-    # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        # Tanner (12/29/20): Sending in alternate recording directory through command line args
-        expected_recordings_dir = os.path.join(tmp_dir, "recordings")
-        expected_analysis_output_dir = os.path.join(tmp_dir, "time_force_data")
-        test_dict = {
-            "recording_directory": expected_recordings_dir,
-            "mag_analysis_output_dir": expected_analysis_output_dir,
-            "log_file_id": str(
-                GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-                    BACKEND_LOG_UUID
-                ]
-            ),
-        }
-        json_str = json.dumps(test_dict)
-        b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
-        command_line_args = ["--skip-mantarray-boot-up", f"--initial-base64-settings={b64_encoded}"]
-        app_info = fully_running_app_from_main_entrypoint(command_line_args)
-        wait_for_subprocesses_to_start()
-        test_process_manager = app_info["object_access_inside_main"]["process_manager"]
-
-        # Tanner (12/30/20): Make sure we are in server_ready state before sending commands
-        response = requests.get(f"{get_api_endpoint()}system_status")
-        assert response.status_code == 200
-        assert response.json()["ui_status_code"] == str(SYSTEM_STATUS_UUIDS[SERVER_READY_STATE])
-
-        # Tanner (12/29/20): Manually boot up in order to start managed_acquisition and recording later
-        response = requests.get(f"{get_api_endpoint()}boot_up")
-        assert response.status_code == 200
-
-        # Tanner (12/30/20): Boot up will go through these two states before completing
-        assert system_state_eventually_equals(INSTRUMENT_INITIALIZING_STATE, 3) is True
-        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 3) is True
-
-        settings_dict = {
-            "customer_id": "test_id",
-            "user_password": "test_password",
-            "user_name": "test_user",
-            "recording_directory": expected_recordings_dir,
-            "auto_upload": False,
-            "auto_delete": False,
-        }
-        response = requests.get(f"{get_api_endpoint()}update_settings", params=settings_dict)
-        assert response.status_code == 200
-
-        # Tanner (12/30/20): Calibrate instrument in order to start managed_acquisition
-        response = requests.get(f"{get_api_endpoint()}start_calibration")
-        assert response.status_code == 200
-        assert system_state_eventually_equals(CALIBRATING_STATE, 3) is True
-        assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
-
-        # Tanner (12/29/20): Start acquiring and recording data for recording files
-        response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
-        assert response.status_code == 200
-        assert system_state_eventually_equals(BUFFERING_STATE, 3) is True
-        assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
-
-        # Tanner (12/30/20): Need to start recording in order to test that recorded files are in the correct directory
-        expected_plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
-            "metadata_to_copy_onto_main_file_attributes"
-        ][PLATE_BARCODE_UUID]
-        start_recording_params = {
-            "plate_barcode": expected_plate_barcode,
-            "is_hardware_test_recording": False,
-        }
-        response = requests.get(f"{get_api_endpoint()}start_recording", params=start_recording_params)
-        assert response.status_code == 200
-        assert system_state_eventually_equals(RECORDING_STATE, 3) is True
-
-        time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
-
-        # Tanner (12/30/20): Stop recording to finalize files
-        response = requests.get(f"{get_api_endpoint()}stop_recording")
-        assert response.status_code == 200
-        assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
-
-        # Tanner (12/29/20): stop managed acquisition in order to successfully soft-stop all processes
-        response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
-        assert response.status_code == 200
-        assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
-
-        # Tanner (8/18/21): Processes must be joined to avoid h5 errors with reading files, so hard-stopping before joining
-        test_process_manager.hard_stop_and_join_processes()
-
-        actual_set_of_files = set(
-            os.listdir(
-                os.path.join(expected_recordings_dir, f"{expected_plate_barcode}__{expected_timestamp}")
-            )
-        )
-        # Tanner (12/29/20): Only assert that files for all 24 wells are present
-        assert len(actual_set_of_files) == 24
-
-
-@pytest.mark.slow
-@pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
-def test_managed_acquisition_can_be_stopped_and_restarted_with_simulator(
+def test_full_datapath_and_recorded_files_in_beta_1_mode(
     patched_xem_scripts_folder,
     patched_firmware_folder,
     fully_running_app_from_main_entrypoint,
     test_socketio_client,
     mocker,
 ):
-    test_dict = {
-        "recording_directory": ".",  # Tanner (5/2/22): no files created in this test, so this is ok
-        "mag_analysis_output_dir": ".",
-        "log_file_id": str(
-            GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-                BACKEND_LOG_UUID
-            ]
-        ),
-    }
-    json_str = json.dumps(test_dict)
-    b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
-
-    app_info = fully_running_app_from_main_entrypoint([f"--initial-base64-settings={b64_encoded}"])
-    wait_for_subprocesses_to_start()
-    test_process_manager = app_info["object_access_inside_main"]["process_manager"]
-
-    sio, msg_list_container = test_socketio_client()
-
-    assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
-
-    # Tanner (12/30/20): Calibrate instrument in order to start managed_acquisition
-    response = requests.get(f"{get_api_endpoint()}start_calibration")
-    assert response.status_code == 200
-    assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
-
-    # First run
-    # Tanner (12/30/20): Run managed_acquisition until in live_view state. This will confirm that data passed through the system completely
-    response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
-    assert response.status_code == 200
-    assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
-    response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
-    assert response.status_code == 200
-    assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
-
-    # Tanner (6/21/21): Double check that the expected amount of data passed through the system
-    assert len(msg_list_container["waveform_data"]) >= 2
-
-    time.sleep(3)  # allow remaining data to pass through subprocesses
-
-    # Second run
-    # Tanner (12/30/20): Run managed_acquisition until in live_view state. This will confirm that data passed through the system completely
-    response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
-    assert response.status_code == 200
-    assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
-    response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
-    assert response.status_code == 200
-    assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
-
-    # Tanner (6/21/21): disconnect here to avoid problems with attempting to disconnect after the server stops
-    sio.disconnect()
-
-    # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests. This will also clear available data in Data Analyzer
-    test_process_manager.hard_stop_and_join_processes()
-
-
-@pytest.mark.slow
-@pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
-@freeze_time(datetime.datetime(year=2020, month=6, day=15, hour=14, minute=19, second=55, microsecond=313309))
-def test_system_states_and_recorded_metadata_with_update_to_file_writer_directory__and_files_after_stop_then_restart_recording_contain_waveform_data(
-    patched_xem_scripts_folder,
-    patched_firmware_folder,
-    fully_running_app_from_main_entrypoint,
-    mocker,
-):
-    # pylint: disable=too-many-locals,too-many-statements # Tanner (12/29/20): Freeze time in order to make assertions on timestamps in the metadata
-    expected_time = datetime.datetime(
-        year=2020, month=6, day=15, hour=14, minute=19, second=55, microsecond=313309
-    )
-    mocker.patch.object(
-        server,
-        "_get_timestamp_of_acquisition_sample_index_zero",
-        return_value=expected_time,
-    )
-    mocker.patch.object(
-        generic,
-        "_get_timestamp_of_acquisition_sample_index_zero",
-        return_value=expected_time,
-    )
-    expected_timestamp = "2020_06_15_141955"
-    # Tanner (12/29/20): Patching uuid4 so we get an expected UUID for the Log Files
-    mocker.patch.object(
-        uuid,
-        "uuid4",
-        autospec=True,
-        return_value=GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-            BACKEND_LOG_UUID
-        ],
-    )
-
     # mock this so test doesn't actually try to hit cloud API
     mocker.patch.object(server, "validate_user_credentials", autospec=True)
 
-    # Tanner (12/29/20): Use TemporaryDirectory so we can access the files without worrying about clean up
+    expected_time = datetime.datetime.now()
+    # Tanner (12/29/20): mock these in order to make assertions on timestamps in the metadata
+    for mod in (server, generic):
+        mocker.patch.object(
+            mod, "_get_timestamp_of_acquisition_sample_index_zero", return_value=expected_time
+        )
+
     with tempfile.TemporaryDirectory() as tmp_dir:
         expected_recordings_dir = os.path.join(tmp_dir, "recordings")
         expected_analysis_output_dir = os.path.join(tmp_dir, "time_force_data")
@@ -422,61 +161,61 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
             "recording_directory": expected_recordings_dir,
             "mag_analysis_output_dir": expected_analysis_output_dir,
             "log_file_id": str(
-                GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+                GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
                     BACKEND_LOG_UUID
                 ]
             ),
         }
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
-        command_line_args = [f"--initial-base64-settings={b64_encoded}", "--skip-mantarray-boot-up"]
 
-        # Tanner (12/30/20): Skip auto boot-up so we can set the recording directory before boot-up
-        app_info = fully_running_app_from_main_entrypoint(command_line_args)
+        app_info = fully_running_app_from_main_entrypoint([f"--initial-base64-settings={b64_encoded}"])
         wait_for_subprocesses_to_start()
 
         test_process_manager = app_info["object_access_inside_main"]["process_manager"]
+        svd = app_info["object_access_inside_main"]["values_to_share_to_server"]
 
-        assert system_state_eventually_equals(SERVER_READY_STATE, 5) is True
+        sio, msg_list_container = test_socketio_client()
 
-        # Tanner (12/29/20): Manually set recording directory through update_settings route
+        # Tanner (12/30/20): Auto boot-up is completed when system reaches calibration_needed state
+        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
+
+        da_out = test_process_manager.queue_container.get_data_analyzer_data_out_queue()
+
+        # Tanner (12/30/20): Start calibration in order to run managed_acquisition
+        response = requests.get(f"{get_api_endpoint()}start_calibration")
+        assert response.status_code == 200
+        assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
+
+        # Tanner (9/15/22): set user creds
         settings_dict = {
             "customer_id": "test_id",
             "user_password": "test_password",
             "user_name": "test_user",
-            "recording_directory": expected_recordings_dir,
             "auto_upload": False,
             "auto_delete": False,
         }
         response = requests.get(f"{get_api_endpoint()}update_settings", params=settings_dict)
         assert response.status_code == 200
 
-        # Tanner (12/29/20): Manually boot up in order to start managed_acquisition later
-        response = requests.get(f"{get_api_endpoint()}boot_up")
+        # Tanner (9/15/22): barcodes can take a while to be scanned in beta 1 mode
+        start = time.perf_counter()
+        while time.perf_counter() - start < 15:
+            if "barcodes" in svd:
+                break
+            time.sleep(0.5)
+
+        # Tanner (12/30/20): start managed_acquisition in order to get data moving through data path
+        acquisition_request = f"{get_api_endpoint()}start_managed_acquisition"
+        response = requests.get(acquisition_request)
         assert response.status_code == 200
-        assert system_state_eventually_equals(INSTRUMENT_INITIALIZING_STATE, 5) is True
-
-        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 3) is True
-        # Tanner (12/30/20): Calibrate instrument in order to start managed_acquisition
-        response = requests.get(f"{get_api_endpoint()}start_calibration")
-        assert response.status_code == 200
-        assert system_state_eventually_equals(CALIBRATING_STATE, 3) is True
-
-        assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
-
-        # Tanner (12/29/20): Start acquiring and recording data for recording files
-        response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
-        assert response.status_code == 200
-        assert system_state_eventually_equals(BUFFERING_STATE, 3) is True
-
-        # Tanner (12/30/20): Run managed_acquisition until in live_view state. This will confirm that data passed through the system completely
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
+
         expected_plate_barcode_1 = GENERIC_BETA_1_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
         ][PLATE_BARCODE_UUID]
         start_recording_time_index_1 = 9600
-        converted_start_recording_time_index_1 = 9600 / MICROSECONDS_PER_CENTIMILLISECOND
-        # Tanner (12/30/20): Start recording with barcode1 to create first set of files. Don't start recording at time index 0 since that data frame is discarded due to bit file issues
+        expected_start_index_1 = start_recording_time_index_1 // MICROSECONDS_PER_CENTIMILLISECOND
         start_recording_params_1 = {
             "plate_barcode": expected_plate_barcode_1,
             "time_index": start_recording_time_index_1,
@@ -485,47 +224,84 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
         response = requests.get(f"{get_api_endpoint()}start_recording", params=start_recording_params_1)
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
-        time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
-        # Tanner (12/30/20): End recording at a known timepoint so next recording can start at a known timepoint
-        expected_stop_index_1 = int(1.9 * CENTIMILLISECONDS_PER_SECOND)
+
+        # Tanner (7/14/21): Wait for data metric message to be produced
+        start = time.perf_counter()
+        while time.perf_counter() - start < FIRST_METRIC_WAIT_TIME:
+            if msg_list_container["twitch_metrics"]:
+                break
+            time.sleep(0.5)
+        # Tanner (7/14/21): Check that list was populated after loop
+        assert len(msg_list_container["twitch_metrics"]) > 0
+
+        # Tanner (6/1/21): End recording at a known timepoint
+        expected_stop_index_1 = expected_start_index_1 + int(2 * CENTIMILLISECONDS_PER_SECOND)
         response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_1}")
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
 
-        # Tanner (12/29/20): Use new barcode for second set of recordings, change last char of default barcode from '1' to '2'
-        expected_plate_barcode_2 = expected_plate_barcode_1[:-1] + "2"
-        # Tanner (12/30/20): Start recording with barcode2 to create second set of files. Use known timepoint a just after end of first set of data
-        expected_start_index_2 = expected_stop_index_1 + 1
+        # Tanner (12/30/20): Stop managed_acquisition now that we have a known min amount of data available
+        response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
+        assert response.status_code == 200
+        assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
+        # Tanner (7/14/21): Beta 1 data packets are sent once per second, so there should be at least one data packet for every second needed to run analysis, but sometimes the final data packet doesn't get sent in time
+        assert len(msg_list_container["waveform_data"]) >= MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 1
+        confirm_queue_is_eventually_empty(da_out, timeout_seconds=5)
+
+        # Tanner (6/1/21): Make sure managed_acquisition can be restarted
+        response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
+        assert response.status_code == 200
+        # Tanner (6/1/21): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer yet
+        assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
+        assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
+
+        # Tanner (6/1/21): Use new barcode for second set of recordings, change experiment code from '000' to '001'
+        expected_plate_barcode_2 = expected_plate_barcode_1.replace("000", "001")
+        # Tanner (5/25/21): Start at a different timepoint to create a different timestamp in the names of the second set of files
+        start_recording_time_index_2 = start_recording_time_index_1 + MICRO_TO_BASE_CONVERSION
+        expected_start_index_2 = start_recording_time_index_2 // MICROSECONDS_PER_CENTIMILLISECOND
+        # Tanner (6/1/21): Start recording with second barcode to create second set of files
         start_recording_params_2 = {
             "plate_barcode": expected_plate_barcode_2,
-            "time_index": expected_start_index_2,
+            "time_index": start_recording_time_index_2,
             "is_hardware_test_recording": False,
         }
         response = requests.get(f"{get_api_endpoint()}start_recording", params=start_recording_params_2)
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
+
         time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
-        response = requests.get(f"{get_api_endpoint()}stop_recording")
+
+        expected_stop_index_2 = expected_start_index_2 + int(1.5 * CENTIMILLISECONDS_PER_SECOND)
+        response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_2}")
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
 
-        # Tanner (12/30/20): Stop managed_acquisition so processes can be stopped
+        # Tanner (6/1/21): Stop managed_acquisition
         response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
+        confirm_queue_is_eventually_empty(da_out, timeout_seconds=5)
+
+        # Tanner (6/21/21): disconnect here to avoid problems with attempting to disconnect after the server stops
+        sio.disconnect()
 
         # Tanner (6/15/20): Processes must be joined to avoid h5 errors with reading files, so hard-stopping before joining
-        test_process_manager.hard_stop_and_join_processes()
+        remaining_queue_items = test_process_manager.hard_stop_and_join_processes()
+        # Tanner (12/31/20): Make sure that there were no errors in Data Analyzer
+        da_error_list = remaining_queue_items["data_analyzer_items"]["fatal_error_reporter"]
+        assert len(da_error_list) == 0
 
-        actual_set_of_files = set(
+        expected_timestamp_1 = "2020_07_16_141955"
+        actual_set_of_files_1 = set(
             os.listdir(
                 os.path.join(
                     expected_recordings_dir,
-                    f"{expected_plate_barcode_1}__{expected_timestamp}",
+                    f"{expected_plate_barcode_1}__{expected_timestamp_1}",
                 )
             )
         )
-        assert len(actual_set_of_files) == 24
+        assert len(actual_set_of_files_1) == 24
 
         # test first recording for all data and metadata
         for row_idx in range(4):
@@ -534,8 +310,8 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                 with h5py.File(
                     os.path.join(
                         expected_recordings_dir,
-                        f"{expected_plate_barcode_1}__{expected_timestamp}",
-                        f"{expected_plate_barcode_1}__{expected_timestamp}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
+                        f"{expected_plate_barcode_1}__{expected_timestamp_1}",
+                        f"{expected_plate_barcode_1}__{expected_timestamp_1}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
                     ),
                     "r",
                 ) as this_file:
@@ -552,10 +328,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     assert this_file.attrs[str(UTC_BEGINNING_DATA_ACQUISTION_UUID)] == expected_time.strftime(
                         "%Y-%m-%d %H:%M:%S.%f"
                     )
-                    assert (
-                        this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)]
-                        == converted_start_recording_time_index_1
-                    )
+                    assert this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)] == expected_start_index_1
                     assert this_file.attrs[str(UTC_BEGINNING_RECORDING_UUID)] == expected_time.strftime(
                         "%Y-%m-%d %H:%M:%S.%f"
                     )
@@ -563,7 +336,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                         expected_time
                         + datetime.timedelta(
                             seconds=(
-                                converted_start_recording_time_index_1
+                                expected_start_index_1
                                 + WELL_24_INDEX_TO_ADC_AND_CH_INDEX[well_idx][1] * DATA_FRAME_PERIOD
                             )
                             / CENTIMILLISECONDS_PER_SECOND
@@ -572,7 +345,7 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                     assert this_file.attrs[str(UTC_FIRST_REF_DATA_POINT_UUID)] == (
                         expected_time
                         + datetime.timedelta(
-                            seconds=(converted_start_recording_time_index_1 + DATA_FRAME_PERIOD)
+                            seconds=(expected_start_index_1 + DATA_FRAME_PERIOD)
                             / CENTIMILLISECONDS_PER_SECOND
                         )
                     ).strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -639,8 +412,23 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                         ][COMPUTER_NAME_HASH_UUID]
                     )
                     assert this_file.attrs[str(PLATE_BARCODE_UUID)] == expected_plate_barcode_1
-                    # Tanner (1/12/21): The barcode used for testing (which is passed to start_recording route) is the same as the simulator's barcode (the one that is 'scanned' in this test), so this should result to True
-                    assert bool(this_file.attrs[str(PLATE_BARCODE_IS_FROM_SCANNER_UUID)]) is True
+                    assert (
+                        bool(this_file.attrs[str(PLATE_BARCODE_IS_FROM_SCANNER_UUID)])
+                        is GENERIC_BETA_1_START_RECORDING_COMMAND[
+                            "metadata_to_copy_onto_main_file_attributes"
+                        ][PLATE_BARCODE_IS_FROM_SCANNER_UUID]
+                    )
+
+        expected_timestamp_2 = "2020_07_16_141956"
+        actual_set_of_files_2 = set(
+            os.listdir(
+                os.path.join(
+                    expected_recordings_dir,
+                    f"{expected_plate_barcode_2}__{expected_timestamp_2}",
+                )
+            )
+        )
+        assert len(actual_set_of_files_2) == 24
 
         # Tanner (12/30/20): test second recording (only make sure it contains waveform data)
         for row_idx in range(4):
@@ -648,16 +436,13 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
                 with h5py.File(
                     os.path.join(
                         expected_recordings_dir,
-                        f"{expected_plate_barcode_2}__{expected_timestamp}",
-                        f"{expected_plate_barcode_2}__{expected_timestamp}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
+                        f"{expected_plate_barcode_2}__{expected_timestamp_2}",
+                        f"{expected_plate_barcode_2}__{expected_timestamp_2}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
                     ),
                     "r",
                 ) as this_file:
                     assert str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
-                    start_index_2 = this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)]
-                    assert (  # Tanner (1/13/21): Here we are testing that the 'finalizing' state of File Writer is working correctly by asserting that the second set of recorded files start at the right time index
-                        start_index_2 == expected_start_index_2 / MICROSECONDS_PER_CENTIMILLISECOND
-                    )
+                    assert this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)] == expected_start_index_2
                     assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) in this_file.attrs
                     assert str(UTC_FIRST_REF_DATA_POINT_UUID) in this_file.attrs
                     actual_tissue_data = get_tissue_dataset_from_file(this_file)
@@ -666,241 +451,19 @@ def test_system_states_and_recorded_metadata_with_update_to_file_writer_director
 
 @pytest.mark.slow
 @pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
-def test_full_datapath_in_beta_1_mode(
-    patched_xem_scripts_folder,
-    patched_firmware_folder,
-    fully_running_app_from_main_entrypoint,
-    test_socketio_client,
-    mocker,
-):
-    # mock this so test doesn't actually try to hit cloud API
-    mocker.patch.object(server, "validate_user_credentials", autospec=True)
-
-    test_dict = {
-        "recording_directory": ".",  # Tanner (5/2/22): no files created in this test, so this is ok
-        "mag_analysis_output_dir": ".",
-        "log_file_id": str(
-            GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-                BACKEND_LOG_UUID
-            ]
-        ),
-    }
-    json_str = json.dumps(test_dict)
-    b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
-
-    app_info = fully_running_app_from_main_entrypoint([f"--initial-base64-settings={b64_encoded}"])
-    wait_for_subprocesses_to_start()
-    test_process_manager = app_info["object_access_inside_main"]["process_manager"]
-
-    sio, msg_list_container = test_socketio_client()
-
-    # Tanner (12/30/20): Auto boot-up is completed when system reaches calibration_needed state
-    assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
-
-    da_out = test_process_manager.queue_container.get_data_analyzer_data_out_queue()
-
-    # Tanner (12/30/20): Start calibration in order to run managed_acquisition
-    response = requests.get(f"{get_api_endpoint()}start_calibration")
-    assert response.status_code == 200
-    assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
-
-    # Tanner (12/30/20): start managed_acquisition in order to get data moving through data path
-    acquisition_request = f"{get_api_endpoint()}start_managed_acquisition"
-    response = requests.get(acquisition_request)
-    assert response.status_code == 200
-    assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
-
-    # Tanner (7/14/21): Wait for data metric message to be produced
-    start = time.perf_counter()
-    while time.perf_counter() - start < FIRST_METRIC_WAIT_TIME:
-        if msg_list_container["twitch_metrics"]:
-            break
-        time.sleep(0.5)
-    # Tanner (7/14/21): Check that list was populated after loop
-    assert len(msg_list_container["twitch_metrics"]) > 0
-
-    # Tanner (12/30/20): stop managed_acquisition now that we have a known min amount of data available
-    response = requests.get(f"{get_api_endpoint()}stop_managed_acquisition")
-    assert response.status_code == 200
-    assert system_state_eventually_equals(CALIBRATED_STATE, STOP_MANAGED_ACQUISITION_WAIT_TIME) is True
-    # Tanner (7/14/21): Beta 1 data packets are sent once per second, so there should be at least one data packet for every second needed to run analysis, but sometimes the final data packet doesn't get sent in time
-    assert len(msg_list_container["waveform_data"]) >= MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 1
-    confirm_queue_is_eventually_empty(da_out)
-
-    # Tanner (12/29/20): create expected data
-    test_well_index = 0
-    x_values = np.array(
-        [
-            ROUND_ROBIN_PERIOD * (i + 1) // TIMESTEP_CONVERSION_FACTOR
-            for i in range(math.ceil(CENTIMILLISECONDS_PER_SECOND / ROUND_ROBIN_PERIOD))
-        ]
-    )
-    sawtooth_points = signal.sawtooth(x_values / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5)
-    scaling_factor = test_well_index + 1
-    data_amplitude = int(FIFO_READ_PRODUCER_WELL_AMPLITUDE * scaling_factor)
-    test_data = np.array(
-        (
-            x_values * MICROSECONDS_PER_CENTIMILLISECOND,
-            (
-                (FIFO_READ_PRODUCER_DATA_OFFSET + data_amplitude * sawtooth_points)
-                - RAW_TO_SIGNED_CONVERSION_VALUE
-            ),
-        ),
-        dtype=np.int32,
-    )
-    test_data[1] -= min(test_data[1])
-    filter_coefficients = create_filter(
-        BUTTERWORTH_LOWPASS_30_UUID,
-        ROUND_ROBIN_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND,
-    )
-    expected_well_data = get_force_signal(test_data, filter_coefficients, is_beta_2_data=False)
-
-    # Tanner (12/29/20): Assert data is as expected for two wells
-    waveform_data_points = json.loads(msg_list_container["waveform_data"][0])["waveform_data"]["basic_data"][
-        "waveform_data_points"
-    ]
-    actual_well_0_y_data = waveform_data_points["0"]["y_data_points"]
-    np.testing.assert_almost_equal(
-        actual_well_0_y_data[0],
-        expected_well_data[1][0] * MICRO_TO_BASE_CONVERSION,
-        decimal=2,
-    )
-    np.testing.assert_almost_equal(
-        actual_well_0_y_data[2],
-        expected_well_data[1][2] * MICRO_TO_BASE_CONVERSION,
-        decimal=2,
-    )
-
-    # Tanner (6/21/21): disconnect here to avoid problems with attempting to disconnect after the server stops
-    sio.disconnect()
-
-    # Tanner (12/29/20): Good to do this at the end of tests to make sure they don't cause problems with other integration tests
-    remaining_queue_items = test_process_manager.hard_stop_and_join_processes()
-    # Tanner (12/31/20): Make sure that there were no errors in Data Analyzer
-    da_error_list = remaining_queue_items["data_analyzer_items"]["fatal_error_reporter"]
-    assert len(da_error_list) == 0
-
-
-@pytest.mark.slow
-@pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
-def test_app_shutdown__in_worst_case_while_recording_is_running(
-    patched_xem_scripts_folder, patched_firmware_folder, fully_running_app_from_main_entrypoint, mocker
-):
-    # mock this so test doesn't actually try to hit cloud API
-    mocker.patch.object(server, "validate_user_credentials", autospec=True)
-
-    spied_logger = mocker.spy(main.logger, "info")
-    # Tanner (12/29/20): Not making assertions on files, but still need a TemporaryDirectory to hold them
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        recording_dir = os.path.join(tmp_dir, "recordings")
-        expected_analysis_output_dir = os.path.join(tmp_dir, "time_force_data")
-        test_dict = {
-            "recording_directory": recording_dir,
-            "mag_analysis_output_dir": expected_analysis_output_dir,
-            "log_file_id": str(
-                GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-                    BACKEND_LOG_UUID
-                ]
-            ),
-        }
-        json_str = json.dumps(test_dict)
-        b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
-        command_line_args = [
-            f"--initial-base64-settings={b64_encoded}",
-        ]
-
-        app_info = fully_running_app_from_main_entrypoint(command_line_args)
-        wait_for_subprocesses_to_start()
-        test_process_manager = app_info["object_access_inside_main"]["process_manager"]
-
-        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
-
-        okc_process = test_process_manager.instrument_comm_process
-        fw_process = test_process_manager.file_writer_process
-        da_process = test_process_manager.data_analyzer_process
-
-        # Tanner (12/29/20): use updated settings to set the recording directory to the TemporaryDirectory
-        settings_dict = {
-            "customer_id": "test_id",
-            "user_password": "test_password",
-            "user_name": "test_user",
-            "auto_upload": False,
-            "auto_delete": False,
-        }
-        response = requests.get(f"{get_api_endpoint()}update_settings", params=settings_dict)
-        assert response.status_code == 200
-
-        # Tanner (12/30/20): Start calibration in order to run managed_acquisition
-        response = requests.get(f"{get_api_endpoint()}start_calibration")
-        assert response.status_code == 200
-        assert system_state_eventually_equals(CALIBRATING_STATE, 5) is True
-
-        assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
-
-        # Tanner (12/30/20): start managed_acquisition in order to start recording
-        response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
-        assert response.status_code == 200
-
-        # Tanner (12/30/20): managed_acquisition will take system through buffering state and then to live_view active state before recording can start
-        assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
-        assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
-
-        expected_plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
-            "metadata_to_copy_onto_main_file_attributes"
-        ][PLATE_BARCODE_UUID]
-        start_recording_params = {
-            "plate_barcode": expected_plate_barcode,
-            "is_hardware_test_recording": False,
-        }
-        response = requests.get(f"{get_api_endpoint()}start_recording", params=start_recording_params)
-        assert response.status_code == 200
-        assert system_state_eventually_equals(RECORDING_STATE, 5) is True
-
-        time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
-
-        # Tanner (12/29/20): Shutdown now that data is being acquired and actively written to files, which means each subprocess is doing something
-        response = requests.get(f"{get_api_endpoint()}shutdown")
-        assert response.status_code == 200
-
-        # Tanner (12/30/20): Confirming the port is available to make sure that the Flask server has shutdown
-        confirm_port_available(get_server_port_number(), timeout=10)
-        # Tanner (6/21/21): sleep to ensure program exit log message is produced
-        time.sleep(5)
-
-        # Tanner (12/30/20): This is the very last log message before the app is completely shutdown
-        spied_logger.assert_any_call("Program exiting")
-
-        # Tanner (12/29/20): If these are alive, this means that zombie processes will be created when the compiled desktop app EXE is running, so this assertion helps make sure that that won't happen
-        assert okc_process.is_alive() is False
-        assert fw_process.is_alive() is False
-        assert da_process.is_alive() is False
-
-
-@pytest.mark.slow
-@pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
 @freeze_time(datetime.datetime(year=2021, month=5, day=24, hour=21, minute=23, second=4, microsecond=141738))
 def test_full_datapath_and_recorded_files_in_beta_2_mode(
-    fully_running_app_from_main_entrypoint,
-    test_socketio_client,
-    mocker,
+    fully_running_app_from_main_entrypoint, test_socketio_client, mocker
 ):
     # mock this value so that only 2 seconds of recorded data are needed to complete calibration
     mocker.patch.object(process_monitor, "CALIBRATION_RECORDING_DUR_SECONDS", 2)
 
-    # Tanner (12/29/20): Freeze time in order to make assertions on timestamps in the metadata
-    expected_time = datetime.datetime(
-        year=2021, month=5, day=24, hour=21, minute=23, second=4, microsecond=141738
-    )
-    mocker.patch.object(
-        server,
-        "_get_timestamp_of_acquisition_sample_index_zero",
-        return_value=expected_time,
-    )
-    mocker.patch.object(
-        generic,
-        "_get_timestamp_of_acquisition_sample_index_zero",
-        return_value=expected_time,
-    )
+    expected_time = datetime.datetime.now()
+    # Tanner (12/29/20): mock these in order to make assertions on timestamps in the metadata
+    for mod in (server, generic):
+        mocker.patch.object(
+            mod, "_get_timestamp_of_acquisition_sample_index_zero", return_value=expected_time
+        )
 
     # mock this so test doesn't actually try to hit cloud API
     mocker.patch.object(server, "validate_user_credentials", autospec=True)
@@ -928,15 +491,12 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                 "protocol_id": "B",
                 "stimulation_type": "C",
                 "run_until_stopped": False,
-                "subprotocols": [
-                    get_random_subprotocol(total_active_duration=1000),
-                    get_random_subprotocol(total_active_duration=1000),
-                    get_random_subprotocol(total_active_duration=1000),
-                ],
+                "subprotocols": [get_random_subprotocol(total_active_duration=1000) for _ in range(3)],
             },
         ],
         "protocol_assignments": test_protocol_assignments,
     }
+    expected_num_protocol_b_packets = len(test_stim_info["protocols"][1]["subprotocols"]) + 1
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         expected_recordings_dir = os.path.join(tmp_dir, "recordings")
@@ -969,6 +529,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
 
+        # Tanner (9/15/22): set user creds
         settings_dict = {
             "customer_id": "test_id",
             "user_password": "test_password",
@@ -1033,7 +594,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert len(msg_list_container["stimulation"]) > 0
 
         # Tanner (6/1/21): End recording at a known timepoint
-        expected_stop_index_1 = expected_start_index_1 + int(2e6)
+        expected_stop_index_1 = expected_start_index_1 + (2 * MICRO_TO_BASE_CONVERSION)
         response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_1}")
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
@@ -1058,6 +619,12 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
+        # Tanner (9/15/22): let data stream for a few seconds before starting to ensure that first stim packet idx falls within recording range
+        time.sleep(3)
+
+        # Tanner (9/15/22): Clear stim container before restarting stimulation
+        msg_list_container["stimulation"].clear()
+
         # Tanner (10/22/21): Restart stimulation
         response = requests.post(f"{get_api_endpoint()}set_stim_status?running=true")
         assert response.status_code == 200
@@ -1066,9 +633,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         # Tanner (6/1/21): Use new barcode for second set of recordings, change experiment code from '000' to '001'
         expected_plate_barcode_2 = expected_plate_barcode_1.replace("000", "001")
         # Tanner (5/25/21): Start at a different timepoint to create a different timestamp in the names of the second set of files
-        expected_start_index_2 = (
-            MICRO_TO_BASE_CONVERSION + NUM_INITIAL_PACKETS_TO_DROP * DEFAULT_SAMPLING_PERIOD
-        )
+        expected_start_index_2 = 2 * MICRO_TO_BASE_CONVERSION
         # Tanner (6/1/21): Start recording with second barcode to create second set of files
         start_recording_params_2 = {
             "plate_barcode": expected_plate_barcode_2,
@@ -1080,9 +645,23 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         assert system_state_eventually_equals(RECORDING_STATE, 3) is True
 
-        time.sleep(10)  # Tanner (6/15/20): This allows data to be written to files
+        # Tanner (9/16/22): Protocol B in this test is assigned to odd numbered wells and must complete in order for this test to pass, so need to wait for all the stim messages from those wells to come through
+        final_protocol_b_timepoint = None
+        start = time.perf_counter()
+        while time.perf_counter() - start < PROTOCOL_COMPLETION_WAIT_TIME:
+            protocol_b_messages = [
+                msg for msg_json in msg_list_container["stimulation"] if "1" in (msg := json.loads(msg_json))
+            ]
+            # using >= in case something very weird happens and more than the expected number of packets are sent
+            if len(protocol_b_messages) >= expected_num_protocol_b_packets:
+                final_protocol_b_timepoint = protocol_b_messages[-1]["1"][0][0]
+                break
+            time.sleep(0.5)
+        assert (
+            final_protocol_b_timepoint is not None
+        ), "timeout while waiting for all protocol B stim packets to be sent through websocket"
 
-        expected_stop_index_2 = expected_start_index_2 + int(1.5e6)
+        expected_stop_index_2 = final_protocol_b_timepoint
         response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_2}")
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
@@ -1248,7 +827,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                 else:
                     assert actual_stim_data.shape[1] == 0, well_idx
 
-        expected_timestamp_2 = "2021_05_24_212305"
+        expected_timestamp_2 = "2021_05_24_212306"
         actual_set_of_files_2 = set(
             os.listdir(
                 os.path.join(
@@ -1288,7 +867,8 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                 actual_time_index_data = get_time_index_dataset_from_file(this_file)
                 assert actual_time_index_data.shape == (num_recorded_data_points_2,), f"Well {well_idx}"
                 assert actual_time_index_data[0] == expected_start_index_2
-                assert actual_time_index_data[-1] == expected_stop_index_2
+                # Tanner (9/15/22): Since the final stim time index is now used as the stop time index, the final mag time index should be within one sampling period before the stop time index
+                assert expected_stop_index_2 - actual_time_index_data[-1] <= DEFAULT_SAMPLING_PERIOD
                 actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
                 assert actual_time_offset_data.shape == (
                     SERIAL_COMM_NUM_SENSORS_PER_WELL,
@@ -1304,6 +884,102 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                     assert actual_stim_data.shape[1] >= 5, well_idx
                 else:
                     assert actual_stim_data.shape[1] == 4, well_idx
+
+
+# TODO Tanner (9/15/22): change this test so it uses beta 2 mode
+@pytest.mark.slow
+@pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
+def test_app_shutdown__in_worst_case_while_recording_is_running(
+    patched_xem_scripts_folder, patched_firmware_folder, fully_running_app_from_main_entrypoint, mocker
+):
+    # mock this so test doesn't actually try to hit cloud API
+    mocker.patch.object(server, "validate_user_credentials", autospec=True)
+
+    spied_logger = mocker.spy(main.logger, "info")
+    # Tanner (12/29/20): Not making assertions on files, but still need a TemporaryDirectory to hold them
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        recording_dir = os.path.join(tmp_dir, "recordings")
+        expected_analysis_output_dir = os.path.join(tmp_dir, "time_force_data")
+        test_dict = {
+            "recording_directory": recording_dir,
+            "mag_analysis_output_dir": expected_analysis_output_dir,
+            "log_file_id": str(
+                GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+                    BACKEND_LOG_UUID
+                ]
+            ),
+        }
+        json_str = json.dumps(test_dict)
+        b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
+        command_line_args = [
+            f"--initial-base64-settings={b64_encoded}",
+        ]
+
+        app_info = fully_running_app_from_main_entrypoint(command_line_args)
+        wait_for_subprocesses_to_start()
+        test_process_manager = app_info["object_access_inside_main"]["process_manager"]
+
+        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
+
+        okc_process = test_process_manager.instrument_comm_process
+        fw_process = test_process_manager.file_writer_process
+        da_process = test_process_manager.data_analyzer_process
+
+        # Tanner (9/15/22): set user creds
+        settings_dict = {
+            "customer_id": "test_id",
+            "user_password": "test_password",
+            "user_name": "test_user",
+            "auto_upload": False,
+            "auto_delete": False,
+        }
+        response = requests.get(f"{get_api_endpoint()}update_settings", params=settings_dict)
+        assert response.status_code == 200
+
+        # Tanner (12/30/20): Start calibration in order to run managed_acquisition
+        response = requests.get(f"{get_api_endpoint()}start_calibration")
+        assert response.status_code == 200
+        assert system_state_eventually_equals(CALIBRATING_STATE, 5) is True
+
+        assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
+
+        # Tanner (12/30/20): start managed_acquisition in order to start recording
+        response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
+        assert response.status_code == 200
+
+        # Tanner (12/30/20): managed_acquisition will take system through buffering state and then to live_view active state before recording can start
+        assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
+        assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
+
+        expected_plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
+            "metadata_to_copy_onto_main_file_attributes"
+        ][PLATE_BARCODE_UUID]
+        start_recording_params = {
+            "plate_barcode": expected_plate_barcode,
+            "is_hardware_test_recording": False,
+        }
+        response = requests.get(f"{get_api_endpoint()}start_recording", params=start_recording_params)
+        assert response.status_code == 200
+        assert system_state_eventually_equals(RECORDING_STATE, 5) is True
+
+        time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
+
+        # Tanner (12/29/20): Shutdown now that data is being acquired and actively written to files, which means each subprocess is doing something
+        response = requests.get(f"{get_api_endpoint()}shutdown")
+        assert response.status_code == 200
+
+        # Tanner (12/30/20): Confirming the port is available to make sure that the Flask server has shutdown
+        confirm_port_available(get_server_port_number(), timeout=10)
+        # Tanner (6/21/21): sleep to ensure program exit log message is produced
+        time.sleep(5)
+
+        # Tanner (12/30/20): This is the very last log message before the app is completely shutdown
+        spied_logger.assert_any_call("Program exiting")
+
+        # Tanner (12/29/20): If these are alive, this means that zombie processes will be created when the compiled desktop app EXE is running, so this assertion helps make sure that that won't happen
+        assert okc_process.is_alive() is False
+        assert fw_process.is_alive() is False
+        assert da_process.is_alive() is False
 
 
 # TODO Tanner (1/18/21): eventually remove Beta 1 integration tests and add one for a successful auto FW update

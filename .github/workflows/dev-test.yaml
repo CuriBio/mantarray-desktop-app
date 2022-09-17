@@ -30,8 +30,8 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - "ubuntu-20.04"
-          - "windows-2019"
+          - "ubuntu-22.04"
+          - "windows-2022"
         python-version:
           - 3.8
           # - 3.9 # Eli (12/10/20): Cython package is giving issues with Python 3.9 currently
@@ -39,11 +39,11 @@ jobs:
           - 14
         include:
           # only enable coverage on the fastest job
-          - os: "ubuntu-20.04"
+          - os: "ubuntu-22.04"
             python-version: "3.8"
             node-version: "14"
             IS_FASTEST_JOB: true
-          - os: "windows-2019"
+          - os: "windows-2022"
             python-version: "3.8"
             node-version: "14"
             IS_DEPLOYMENT_CONFIG: true
