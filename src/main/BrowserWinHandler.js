@@ -55,7 +55,6 @@ export default class BrowserWinHandler {
       this.options.height = height;
       this.options.width = width;
     }
-    // this.options.webPreferences.zoomFactor = this.options.webPreferences.zoomFactor / scale_factor;
 
     this.browserWindow = new BrowserWindow({
       ...this.options,

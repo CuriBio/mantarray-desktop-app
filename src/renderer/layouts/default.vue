@@ -155,8 +155,6 @@ const log = require("electron-log");
 import path from "path";
 import Vue from "vue";
 
-console.log("!!!!!!!!!!!!!!!!!!!! default.vue");
-
 import { VBPopover, VBToggle, BCollapse } from "bootstrap-vue";
 // Note: Vue automatically prefixes the directive name with 'v-'
 Vue.directive("b-popover", VBPopover);
@@ -218,11 +216,6 @@ export default {
     },
   },
   created: async function () {
-    // TODO make this dynamic and conditionally called.
-    // Try to set it up so that the zoom is always as big as possible without going off the screen.
-    // Could also try to update it whenever the screen dim updates
-    // webFrame.setZoomFactor(0.8);
-
     ipcRenderer.on("logs_flask_dir_response", (e, log_dir_name) => {
       this.$store.commit("settings/set_log_path", log_dir_name);
       this.log_dir_name = log_dir_name;
