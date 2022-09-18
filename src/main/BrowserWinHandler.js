@@ -1,8 +1,9 @@
 /* eslint-disable */
 import { EventEmitter } from "events";
 import { BrowserWindow, app, screen, ipcMain } from "electron";
-
+const DEV_SERVER_URL = process.env.DEV_SERVER_URL;
 const isProduction = process.env.NODE_ENV === "production";
+const isDev = process.env.NODE_ENV === "development";
 
 import main_utils from "./utils.js"; // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
 
@@ -136,12 +137,13 @@ export default class BrowserWinHandler {
     });
   }
 
-  // async loadPage(pagePath) {
-  //   if (!this.browserWindow) return Promise.reject(new Error('The page could not be loaded before win \'created\' event'))
-  //   const serverUrl = isDev ? DEV_SERVER_URL : 'app://./index.html'
-  //   const fullPath = serverUrl + '#' + pagePath;
-  //   await this.browserWindow.loadURL(fullPath)
-  // }
+  async loadPage(pagePath) {
+    if (!this.browserWindow)
+      return Promise.reject(new Error("The page could not be loaded before win 'created' event"));
+    const serverUrl = isDev ? DEV_SERVER_URL : "app://./index.html";
+    const fullPath = serverUrl + "#" + pagePath;
+    await this.browserWindow.loadURL(fullPath);
+  }
 
   /**
    *

@@ -1,12 +1,7 @@
-import path from "path";
 const { Menu } = require("electron");
 const { centerWindow } = require("electron-util");
 
 import BrowserWinHandler from "./BrowserWinHandler";
-const isDev = process.env.NODE_ENV === "development";
-
-const INDEX_PATH = path.join(__dirname, "..", "renderer", "index.html");
-const DEV_SERVER_URL = process.env.DEV_SERVER_URL; // eslint-disable-line prefer-destructuring
 
 const winHandler = new BrowserWinHandler({
   target_height: 930,
@@ -29,11 +24,7 @@ winHandler.onCreated((browserWindow) => {
   const window_x = browserWindow.getPosition()[0];
   browserWindow.setPosition(window_x, 0);
 
-  if (isDev) {
-    browserWindow.loadURL(DEV_SERVER_URL);
-  } else {
-    browserWindow.loadFile(INDEX_PATH);
-  }
+  winHandler.loadPage("/");
 });
 
 const template = [
