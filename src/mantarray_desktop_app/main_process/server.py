@@ -759,7 +759,6 @@ def update_recording_name() -> Response:
 
     if not shared_values_dict["beta_2_mode"] and snapshot_enabled:
         return Response(status="403 Cannot run recording snapshot in Beta 1 mode")
-    # TODO 403 error if snapshot_enabled in beta 1 mode
     if not request.args.get("replace_existing") and os.path.exists(
         os.path.join(recording_dir, new_recording_name)
     ):
