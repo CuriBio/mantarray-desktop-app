@@ -436,24 +436,45 @@ def test_start_stim_checks__returns_error_code_and_message_if_called_with_empty_
     assert response.status.endswith("No well indices given") is True
 
 
-def test_update_recording_name__returns_403_if_recording_name_exists(
+def test_update_recording_name__returns_error_code_if_recording_name_exists(
     client_and_server_manager_and_shared_values, mocker
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
     shared_values_dict["config_settings"]["recording_directory"] = "/test/recording/directory"
+
     mocker.patch.object(os.path, "exists", return_value=True)
 
     response = test_client.post(
         "/update_recording_name?new_name=new_recording_name&default_name=old_name&snapshot_enabled=false"
     )
     assert response.status_code == 403
+    assert response.status.endswith("Recording name already exists")
 
 
-def test_update_recording_name__returns_200_if_recording_name_doesnt_exists(
+def test_update_recording_name__returns_error_code_if_called_in_beta_1_mode(
     client_and_server_manager_and_shared_values, mocker
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = False
     shared_values_dict["config_settings"]["recording_directory"] = "/test/recording/directory"
+
+    mocker.patch.object(os.path, "exists", return_value=True)
+
+    response = test_client.post(
+        "/update_recording_name?new_name=new_recording_name&default_name=old_name&snapshot_enabled=true"
+    )
+    assert response.status_code == 403
+    assert response.status.endswith("Cannot run recording snapshot in Beta 1 mode")
+
+
+def test_update_recording_name__returns_ok_if_recording_name_doesnt_exist(
+    client_and_server_manager_and_shared_values, mocker
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["config_settings"]["recording_directory"] = "/test/recording/directory"
+
     mocker.patch.object(os.path, "exists", return_value=False)
 
     response = test_client.post(
