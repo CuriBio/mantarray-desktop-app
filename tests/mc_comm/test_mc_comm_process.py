@@ -283,8 +283,8 @@ def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_
     teardown_messages = drain_queue(output_queue)
     actual = teardown_messages[-1]
     assert "message" in actual, f"Correct message not found. Full message dict: {actual}"
-    assert str(test_cache_bytes) in actual["message"]
-    assert str(test_buffer_bytes) in actual["message"]
+    assert str(list(test_cache_bytes)) in actual["message"]
+    assert str(list(test_buffer_bytes)) in actual["message"]
 
 
 @pytest.mark.parametrize("error", [True, False])

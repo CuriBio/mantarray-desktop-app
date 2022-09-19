@@ -325,7 +325,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             # log any data in cache, flush and log remaining serial data
             put_log_message_into_queue(
                 logging.INFO,
-                f"Remaining serial data in cache: {str(self._serial_packet_cache)}, in buffer: {str(board.read_all())}",
+                f"Remaining serial data in cache: {list(self._serial_packet_cache)}, in buffer: {list(board.read_all())}",
                 self._board_queues[board_idx][1],
                 self.get_logging_level(),
             )

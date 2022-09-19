@@ -1,4 +1,3 @@
-/* globals INCLUDE_RESOURCES_PATH */
 const { app, ipcMain } = require("electron");
 
 // Tanner (1/27/22): before doing anything else, make sure no other instance of the app is open
@@ -35,9 +34,6 @@ console.error = log.error;
 console.log("Electron store at: '" + main_utils.redact_username_from_logs(store.path) + "'");
 
 global.__resources = undefined; // eslint-disable-line no-underscore-dangle
-// noinspection BadExpressionStatementJS
-INCLUDE_RESOURCES_PATH; // eslint-disable-line no-unused-expressions
-// Eli (1/15/21): this code is straight from the template, so unclear what would happen if it was changed and how `__resources` may or may not be being injected into this somehow
 // eslint-disable-next-line no-undef
 if (__resources === undefined) console.error("[Main-process]: Resources path is undefined");
 

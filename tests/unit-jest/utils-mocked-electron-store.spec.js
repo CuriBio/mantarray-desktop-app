@@ -18,16 +18,10 @@ jest.mock("@/main/electron_store", () => {
   });
 });
 
-const sinon = require("sinon");
-
-const sandbox = sinon.createSandbox({
-  useFakeTimers: false, // Eli (6/14/20): fakeTimers can mess with Jest's builtin timers for timeouts for the tests. If you need to fake things about time, do so carefully, such as with sandbox.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
-});
 describe("electron_store", () => {
   afterEach(() => {
     jest.restoreAllMocks();
     ElectronStore.mockClear();
-    sandbox.restore();
   });
 
   describe("create_store", () => {

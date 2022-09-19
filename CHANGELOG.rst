@@ -7,13 +7,17 @@ Changelog for Mantarray Desktop App
 
 Changed:
 ^^^^^^^^
-
+- App window size and zoom automatically set based on the screen size and resolution of the machine.
 - Instrument reboot confirmation:
 
   - Wait 15 seconds for a message from the instrument to confirm it successfully rebooted itself (was
     10 seconds).
   - Will now also look for responses to a specific command that is sent to the firmware periodically to
     indicate that the reboot completed.
+
+Fixed:
+^^^^^^
+- Minor issue with styling of stim controls in sidebar.
 
 
 1.0.1 (2022-09-09)

@@ -7,10 +7,7 @@ const nuxt = new Nuxt(nuxtConfig);
 process.on("message", async ({ action, target }) => {
   if (action !== "build") {
     console.warn("Unknown action");
-    process.send({
-      status: "error",
-      err: `Nuxt process: unknown action ('${action}')`,
-    });
+    process.send({ status: "error", err: `Nuxt process: unknown action ('${action}')` });
     return;
   }
 
@@ -38,11 +35,7 @@ process.on("message", async ({ action, target }) => {
       .generate({ build: true, init: true })
       .then(({ errors }) => {
         if (errors.length === 0) process.send({ status: "ok" });
-        else
-          process.send({
-            status: "error",
-            err: "Error occurred while generating pages",
-          });
+        else process.send({ status: "error", err: "Error occurred while generating pages" });
       })
       .catch((err) => {
         console.error(err);

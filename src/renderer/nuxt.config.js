@@ -27,49 +27,9 @@ module.exports = {
   rules: [
     { test: /\.css$/, use: "css-loader/locals" }, // https://github.com/aspnet/JavaScriptServices/issues/1154
   ],
-  // build: {
-  //   /*
-  //   ** Run ESLint on save
-  //   */
-  //   extend(config, { isDev, isClient }) {
-  //     if (isDev && isClient) {
-  //       config.module.rules.push({
-  //         enforce: "pre",
-  //         test: /\.(js|vue)$/,
-  //         loader: "eslint-loader",
-  //         exclude: /(node_modules)/,
-  //       });
-  //     }
-  //   },
-  // },
 
   server: {
     port: 8080, // default: 3000
     host: "localhost", // default: localhost
   },
-  // plugins: [
-  //   {{#unless_eq iconSet 'none'}}{ssr: true, src: '@/plugins/icons.js'},{{/unless_eq}}
-  //   {{#if_eq cssFramework 'buefy'}}{ssr: true, src: '@/plugins/buefy.js'},{{/if_eq}}
-  //   {{#if_eq cssFramework 'element'}}{ssr: true, src: '@/plugins/element.js'},{{/if_eq}}
-  // ],
-  // buildModules: [
-  //   {{#if typescript}}'@nuxt/typescript-build',{{/if}}
-  // ],
-  // modules: [
-  //   {{#if_eq cssFramework 'vuetify'}}'@nuxtjs/vuetify',{{/if_eq}}
-  // ],
-  // {{#if_eq cssFramework 'vuetify'}}
-  //         vuetify: {
-  //           theme: {
-  //             themes: {
-  //               light: {
-  //                 primary: '#1867c0',
-  //                 secondary: '#b0bec5',
-  //                 accent: '#8c9eff',
-  //                 error: '#b71c1c',
-  //               },
-  //             },
-  //           }
-  //         }
-  // {{/if_eq}}
 };

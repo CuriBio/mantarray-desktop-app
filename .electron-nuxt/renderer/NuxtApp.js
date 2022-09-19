@@ -17,10 +17,7 @@ class NuxtApp {
     this.nuxtProcess = fork(NUXT_PROCESS_PATH, { silent: true });
     this.redirectStdout();
     return new Promise((resolve, reject) => {
-      this.nuxtProcess.send({
-        action: "build",
-        target: isDev ? "development" : "production",
-      });
+      this.nuxtProcess.send({ action: "build", target: isDev ? "development" : "production" });
       this.nuxtProcess.once("message", ({ status, err }) => {
         if (status === "ok") resolve();
         else reject(err);

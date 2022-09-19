@@ -1,16 +1,11 @@
-import path from "path";
 const { Menu } = require("electron");
 const { centerWindow } = require("electron-util");
 
 import BrowserWinHandler from "./BrowserWinHandler";
-const isDev = process.env.NODE_ENV === "development";
-
-const INDEX_PATH = path.join(__dirname, "..", "renderer", "index.html");
-const DEV_SERVER_URL = process.env.DEV_SERVER_URL; // eslint-disable-line prefer-destructuring
 
 const winHandler = new BrowserWinHandler({
-  height: 930,
-  width: 1920,
+  target_height: 930,
+  target_width: 1920,
   maxHeight: 989, // required to offset the hidden menu bar that holds keyboard shortcuts
   x: 0, //  have the window launch in the top left corner of the screen. This is necessary since it takes the full width of the screen and so normally would try some weird way to center itself
   y: 0,
@@ -29,11 +24,7 @@ winHandler.onCreated((browserWindow) => {
   const window_x = browserWindow.getPosition()[0];
   browserWindow.setPosition(window_x, 0);
 
-  if (isDev) {
-    browserWindow.loadURL(DEV_SERVER_URL);
-  } else {
-    browserWindow.loadFile(INDEX_PATH);
-  }
+  winHandler.loadPage("/");
 });
 
 const template = [

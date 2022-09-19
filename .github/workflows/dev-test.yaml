@@ -36,16 +36,16 @@ jobs:
           - 3.8
           # - 3.9 # Eli (12/10/20): Cython package is giving issues with Python 3.9 currently
         node-version:
-          - 14
+          - 16
         include:
           # only enable coverage on the fastest job
           - os: "ubuntu-22.04"
             python-version: "3.8"
-            node-version: "14"
+            node-version: "16"
             IS_FASTEST_JOB: true
           - os: "windows-2022"
             python-version: "3.8"
-            node-version: "14"
+            node-version: "16"
             IS_DEPLOYMENT_CONFIG: true
 
     name: Python ${{ matrix.python-version }} with Node ${{ matrix.node-version }} on ${{ matrix.os }}
@@ -259,18 +259,6 @@ jobs:
           env_vars: OS,PYTHON
           name: codecov-umbrella
           fail_ci_if_error: true
-
-      # - name: Run E2E Tests (Windows)
-      #   timeout-minutes: 3
-      #   if: runner.os == 'Windows'
-      #   run: pipenv run npm run test:e2e-ci
-
-      # - name: Archive visual regression
-      #   if: ${{ failure() }}
-      #   uses: actions/upload-artifact@v2
-      #   with:
-      #     name: visual-regression-screenshots--${{ matrix.os }}--${{ matrix.node-version }}--${{ matrix.python-version }}
-      #     path: "tests/e2e/screenshots/**/*"
 
       - name: Archive Installer File
         if: runner.os == 'Windows'

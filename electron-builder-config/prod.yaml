@@ -13,8 +13,8 @@ files:
     to: "dist/main/"
   - from: "dist/renderer/"
     to: "dist/renderer/"
-  - from: "src/resources/"
-    to: "dist/resources/"
+  - from: "src/extraResources/"
+    to: ""
 win:
   target: "nsis"
   artifactName: "MantarrayController-Setup-prod-${version}.${ext}"

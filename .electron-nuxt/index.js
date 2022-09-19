@@ -27,15 +27,16 @@ const launcher = new ElectronLauncher({
   electronOptions: process.argv.slice(2),
 });
 
-let builder_config_path;
-builder_config_path = path.join(__dirname, "..", "electron-builder-config", `${channel}.yaml`);
+let builder_config_path = path.join(__dirname, "..", "electron-builder-config", `${channel}.yaml`);
 
 const builder = new ElectronBuilder({
   processArgv: ["--config", builder_config_path, "--publish", "never"],
 });
 
 const webpackConfig = Webpack.getBaseConfig({
-  entry: isDev ? path.join(MAIN_PROCESS_DIR, "index.dev.js") : path.join(MAIN_PROCESS_DIR, "index.js"),
+  entry: isDev
+    ? path.join(MAIN_PROCESS_DIR, "boot", "index.dev.js")
+    : path.join(MAIN_PROCESS_DIR, "boot", "index.prod.js"),
   output: {
     filename: "index.js",
     path: path.join(DIST_DIR, "main"),
