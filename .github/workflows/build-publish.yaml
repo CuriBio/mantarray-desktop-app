@@ -17,7 +17,7 @@ on:
       api_endpoint:
         description: "Cloud API endpoint"
         required: true
-        default: "prod"
+        default: "test"
         type: choice
         options:
           - test
@@ -57,6 +57,11 @@ jobs:
         run: |
           if [ "${{github.event.inputs.api_endpoint}}" = "prod" ] ; then echo "Using prod API endpoint, can proceed to publish"; else exit 1; fi
           if [ "${{ steps.extract_branch.outputs.sha-of-current-branch}}" = "${{ steps.extract_branch.outputs.sha-of-main-branch}}" ] ; then echo "Running on main branch, can proceed to publish"; else exit 1; fi
+
+      - name: Fail if attempting to publish to unstable release channel incorrectly
+        if: github.event.inputs.release_channel == 'unstable'
+        run: |
+          if [ "${{github.event.inputs.api_endpoint}}" = "test" ] ; then echo "Using prod API endpoint, can proceed to publish"; else exit 1; fi
 
   publish:
     needs: [check_inputs]
