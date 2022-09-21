@@ -390,14 +390,13 @@ class FileWriterProcess(InfiniteProcess):
         self._check_dirs()
 
     def _teardown_after_loop(self) -> None:
-        to_main_queue = self._to_main_queue
         msg = f"File Writer Process beginning teardown at {_get_formatted_utc_now()}"
-        put_log_message_into_queue(logging.INFO, msg, to_main_queue, self.get_logging_level())
+        put_log_message_into_queue(logging.INFO, msg, self._to_main_queue, self.get_logging_level())
         if self._board_has_open_files(0):
             msg = (
                 "Data is still be written to file. Stopping recording and closing files to complete teardown"
             )
-            put_log_message_into_queue(logging.INFO, msg, to_main_queue, self.get_logging_level())
+            put_log_message_into_queue(logging.INFO, msg, self._to_main_queue, self.get_logging_level())
             self.close_all_files()
         # clean up temporary calibration recording folder
         if self._beta_2_mode:
@@ -457,13 +456,15 @@ class FileWriterProcess(InfiniteProcess):
             )
         elif command == "update_recording_name":
             self._process_update_name_command(communication)
+            if self._current_recording_dir is None:
+                raise NotImplementedError("self._current_recording_dir should never be None here")
             to_main.put_nowait(
                 {
-                    "communication_type": "mag_finding_analysis"
-                    if communication["snapshot_enabled"]
-                    else "command_receipt",
+                    "communication_type": (
+                        "mag_finding_analysis" if communication["snapshot_enabled"] else "command_receipt"
+                    ),
                     "command": "update_recording_name",
-                    "recording_path": os.path.join(self._file_directory, communication["new_name"]),
+                    "recording_path": os.path.join(self._file_directory, self._current_recording_dir),
                 }
             )
         elif command == "stop_managed_acquisition":
@@ -1152,7 +1153,6 @@ class FileWriterProcess(InfiniteProcess):
         auto_delete = self._user_settings["auto_delete_local_files"]
         customer_id = self._user_settings["customer_id"]
         user_name = self._user_settings["user_name"]
-        user_password = self._user_settings["user_password"]
 
         file_uploader = FileUploader(
             self._file_directory,
@@ -1160,7 +1160,8 @@ class FileWriterProcess(InfiniteProcess):
             self._zipped_files_dir,
             customer_id,
             user_name,
-            user_password,
+            self._user_settings["user_password"],
+            self._user_settings["pulse3d_version"],
         )
 
         upload_thread = ErrorCatchingThread(target=file_uploader)
@@ -1262,7 +1263,6 @@ class FileWriterProcess(InfiniteProcess):
                 shutil.rmtree(new_recording_path)
 
             old_recording_path = os.path.join(self._file_directory, self._current_recording_dir)
-            # if os.path.exists(old_recording_path):
 
             # rename directory
             os.rename(old_recording_path, new_recording_path)
@@ -1278,6 +1278,8 @@ class FileWriterProcess(InfiniteProcess):
         # after all files are finalized, upload them if necessary
         if self._user_settings["auto_upload_on_completion"]:
             self._start_new_file_upload()
+            msg = f"Started auto upload for file {self._current_recording_dir}"
+            put_log_message_into_queue(logging.INFO, msg, self._to_main_queue, self.get_logging_level())
         elif self._user_settings["auto_delete_local_files"]:
             self._delete_local_files(sub_dir=self._current_recording_dir)
 

@@ -6,6 +6,7 @@ import shutil
 
 from mantarray_desktop_app.sub_processes import file_writer
 import pytest
+from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import fixture_patch_print
@@ -36,10 +37,7 @@ def test_FileWriterProcess__updates_customer_settings_and_responds_to_main_queue
     assert file_writer_process._user_settings == GENERIC_UPDATE_USER_SETTINGS["config_settings"]
 
     command_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert command_response == {
-        "communication_type": "command_receipt",
-        "command": "update_user_settings",
-    }
+    assert command_response == {"communication_type": "command_receipt", "command": "update_user_settings"}
 
 
 def test_FileWriterProcess__does_not_start_upload_thread_after_all_calibration_files_finalized(
@@ -278,16 +276,15 @@ def test_FileWriterProcess__upload_thread_errors_sent_to_main_correctly(
     mocked_ect = mocker.patch.object(file_writer, "ErrorCatchingThread", autospec=True)
     mocked_ect.return_value.error = "error"
 
-    update_recording_name_command = copy.deepcopy(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
-    update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
-
-    create_and_close_beta_1_h5_files(four_board_file_writer_process, update_user_settings_command)
-    sub_dir_name = file_writer_process.get_sub_dir_name()
+    create_and_close_beta_1_h5_files(
+        four_board_file_writer_process, copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+    )
 
     board_idx = 0
     assert file_writer_process.get_stop_recording_timestamps()[board_idx] is not None
     assert file_writer_process._is_finalizing_files_after_recording() is False
 
+    update_recording_name_command = copy.deepcopy(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         update_recording_name_command, from_main_queue
     )
@@ -295,15 +292,13 @@ def test_FileWriterProcess__upload_thread_errors_sent_to_main_correctly(
     # create and process error
     mocked_ect.return_value.is_alive.return_value = False
     invoke_process_run_and_check_errors(file_writer_process)
-    confirm_queue_is_eventually_of_size(to_main_queue, 2)
+    # upload log msg, update_recording_name response, update_upload_status
+    confirm_queue_is_eventually_of_size(to_main_queue, 3)
 
-    # get command receipt for updating recording name
-    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    update_upload_status_msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-
+    update_upload_status_msg = drain_queue(to_main_queue)[-1]
     assert update_upload_status_msg["communication_type"] == "update_upload_status"
     update_upload_status_json = json.loads(update_upload_status_msg["content"]["data_json"])
-    assert update_upload_status_json["file_name"] == sub_dir_name
+    assert update_upload_status_json["file_name"] == file_writer_process.get_sub_dir_name()
     assert update_upload_status_json["error"] == mocked_ect.return_value.error
 
 
@@ -363,11 +358,10 @@ def test_FileWriterProcess__status_successfully_gets_added_to_main_queue_when_au
     # stop thread and make sure no errors in message to main
     mocked_ect.return_value.is_alive.return_value = False
     invoke_process_run_and_check_errors(file_writer_process)
-
-    # get command receipt for updating recording name
-    to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    # upload log msg, update_recording_name response, update_upload_status
+    confirm_queue_is_eventually_of_size(to_main_queue, 3)
 
     # make sure no errors in message to main
-    update_upload_status_msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    update_upload_status_msg = drain_queue(to_main_queue)[-1]
     assert update_upload_status_msg["communication_type"] == "update_upload_status"
     assert "error" not in json.loads(update_upload_status_msg["content"]["data_json"])

@@ -31,7 +31,7 @@ log.transports.file.resolvePath = () => {
 };
 console.log = log.log;
 console.error = log.error;
-console.log("Electron store at: '" + main_utils.redact_username_from_logs(store.path) + "'");
+console.log("Electron store at: '" + main_utils.redact_username_from_logs(store.path) + "'"); // allow-log
 
 global.__resources = undefined; // eslint-disable-line no-underscore-dangle
 // eslint-disable-next-line no-undef
@@ -138,6 +138,29 @@ const boot_up_flask = function () {
 
 // start the Flask server
 boot_up_flask();
+
+const CLOUD_ENDPOINT_USER_OPTION = "REPLACETHISWITHENDPOINTDURINGBUILD";
+const CLOUD_ENDPOINT_VALID_OPTIONS = { test: "curibio-test", prod: "curibio" };
+const CLOUD_DOMAIN = CLOUD_ENDPOINT_VALID_OPTIONS[CLOUD_ENDPOINT_USER_OPTION] || "curibio-test";
+// const CLOUD_API_ENDPOINT = `apiv2.${CLOUD_DOMAIN}.com`;
+const CLOUD_PULSE3D_ENDPOINT = `pulse3d.${CLOUD_DOMAIN}.com`;
+
+ipcMain.once("pulse3d_versions_request", (event) => {
+  axios
+    .get(`https://${CLOUD_PULSE3D_ENDPOINT}/versions`)
+    .then((response) => {
+      const versions = response.data;
+      console.log(`Found pulse3d versions: ${versions}`); // allow-log
+      event.reply("pulse3d_versions_response", versions);
+    })
+    .catch((response) => {
+      console.log(
+        // allow-log
+        `Error getting pulse3d versions: ${response.status} ${response.statusText}`
+      );
+      event.reply("pulse3d_versions_response", []);
+    });
+});
 
 // save customer id after it's verified by /users/login
 ipcMain.on("save_customer_id", (e, customer_id) => {

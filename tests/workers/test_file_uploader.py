@@ -8,6 +8,7 @@ import zipfile
 from mantarray_desktop_app.constants import CLOUD_PULSE3D_ENDPOINT
 from mantarray_desktop_app.exceptions import CloudAnalysisJobFailedError
 from mantarray_desktop_app.exceptions import PresignedUploadFailedError
+from mantarray_desktop_app.exceptions import RecordingUploadMissingPulse3dVersionError
 from mantarray_desktop_app.utils import web_api
 from mantarray_desktop_app.utils.web_api import AuthTokens
 from mantarray_desktop_app.workers import file_uploader
@@ -29,6 +30,7 @@ TEST_LOGPATH = os.path.join("log", "directory")
 TEST_FILENAME = "test_filename"
 TEST_ZIPDIR = os.path.join("test", "zipped_recordings")
 TEST_PASSWORD = "pw"
+TEST_PULSE3D_VERSION = "6.7.9"
 
 RECORDING_UPLOAD_TYPE = "recording"
 LOG_UPLOAD_TYPE = "logs"
@@ -43,10 +45,17 @@ def fixture_create_file_uploader():
         customer_id=TEST_CUSTOMER_ID,
         user_name=TEST_USER_NAME,
         password=TEST_PASSWORD,
+        pulse3d_version=TEST_PULSE3D_VERSION,
         create_tokens=False,
     ):
         test_file_uploader = FileUploader(
-            file_directory, file_name, zipped_recordings_dir, customer_id, user_name, password
+            file_directory,
+            file_name,
+            zipped_recordings_dir,
+            customer_id,
+            user_name,
+            password,
+            pulse3d_version,
         )
         if create_tokens:
             test_file_uploader.tokens = AuthTokens(access="test_access_token", refresh="test_refresh_token")
@@ -125,13 +134,14 @@ def test_start_analysis__starts_analysis_job_correctly__and_returns_job_id(mocke
 
     test_access_token = "token"
     test_id = "id"
+    test_version = "1.2.3"
 
-    job_id = start_analysis(test_access_token, test_id)
+    job_id = start_analysis(test_access_token, test_id, test_version)
 
     assert job_id == mocked_post.return_value.json()["id"]
     mocked_post.assert_called_once_with(
         f"https://{CLOUD_PULSE3D_ENDPOINT}/jobs",
-        json={"upload_id": test_id},
+        json={"upload_id": test_id, "version": test_version},
         headers={"Authorization": f"Bearer {test_access_token}"},
     )
 
@@ -163,6 +173,14 @@ def test_download_analysis_from_s3__downloads_content_and_writes_to_file_in_down
     mocked_get.assert_called_once_with(test_presigned_url)
     mocked_open.assert_called_once_with(expected_download_file_path, "wb")
     mocked_file_handle.write.assert_called_once_with(mocked_get.return_value.content)
+
+
+def test_FileUploader_init__raises_error_if_uploading_a_recording_and_pulse3d_version_not_given(
+    create_file_uploader, mocker
+):
+    with pytest.raises(RecordingUploadMissingPulse3dVersionError, match=TEST_FILENAME):
+        # this will do a recording upload by default
+        create_file_uploader(pulse3d_version=None)
 
 
 def test_FileUploader_get_analysis_status__requests_with_refresh__and_returns_analysis_status_correctly(
@@ -323,7 +341,9 @@ def test_FileUploader__runs_upload_procedure_correctly_for_recording(
     mocked_upload_file.assert_called_once_with(
         expected_zipped_file_path, expected_zipped_file_name, expected_upload_details
     )
-    mocked_start_analysis.assert_called_once_with(expected_access_token, expected_upload_details["id"])
+    mocked_start_analysis.assert_called_once_with(
+        expected_access_token, expected_upload_details["id"], TEST_PULSE3D_VERSION
+    )
     mocked_get_analysis_status.assert_called_once_with(mocked_start_analysis.return_value)
     mocked_download_analaysis.assert_called_once_with(
         mocked_get_analysis_status.return_value["url"], expected_zipped_file_name

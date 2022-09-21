@@ -751,20 +751,24 @@ def update_recording_name() -> Response:
 
     Can be invoked by: curl http://localhost:4567/update_recording_name
     """
-    recording_dir = _get_values_from_process_monitor()["config_settings"]["recording_directory"]
-    new_recording_name = request.args["new_name"]
-    default_recording_name = request.args["default_name"]
-    snapshot_enabled = request.args["snapshot_enabled"] == "true"
-    dir_path = os.path.join(recording_dir, new_recording_name)
+    shared_values_dict = _get_values_from_process_monitor()
+    recording_dir = shared_values_dict["config_settings"]["recording_directory"]
 
-    if not request.args.get("replace_existing") and os.path.exists(dir_path):
+    new_recording_name = request.args["new_name"]
+    snapshot_enabled = request.args["snapshot_enabled"] == "true"
+
+    if not shared_values_dict["beta_2_mode"] and snapshot_enabled:
+        return Response(status="403 Cannot run recording snapshot in Beta 1 mode")
+    if not request.args.get("replace_existing") and os.path.exists(
+        os.path.join(recording_dir, new_recording_name)
+    ):
         return Response(status="403 Recording name already exists")
 
     comm = {
         "communication_type": "recording",
         "command": "update_recording_name",
         "new_name": new_recording_name,
-        "default_name": default_recording_name,
+        "default_name": request.args["default_name"],
         "snapshot_enabled": snapshot_enabled,
     }
 

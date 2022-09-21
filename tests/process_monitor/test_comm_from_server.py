@@ -395,7 +395,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     mocked_to_ic_put_nowait.assert_called_once_with(STOP_MANAGED_ACQUISITION_COMMUNICATION)
 
 
-def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_update_shared_values_by_updating_shared_values_dictionary__and_overriding_existing_value(
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_update_shared_values_by_updating_shared_values_dictionary__and_sends_update_message_to_file_writer(
     test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -415,10 +415,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     shared_values_dict["config_settings"] = copy.deepcopy(shared_values_dict["user_creds"])
     shared_values_dict["config_settings"].update(
-        {"auto_upload_on_completion": False, "auto_delete_local_files": True}
+        {"auto_upload_on_completion": False, "auto_delete_local_files": True, "pulse3d_version": "1.2.3"}
     )
 
-    communication = {
+    comm_from_server = {
         "communication_type": "update_user_settings",
         "content": {
             "customer_id": new_customer_id,
@@ -426,18 +426,24 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
             "user_password": new_pass_key,
             "auto_upload_on_completion": True,
             "auto_delete_local_files": False,
+            "pulse3d_version": "6.7.9",
         },
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(comm_from_server, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert shared_values_dict["config_settings"] == communication["content"]
+    assert shared_values_dict["config_settings"] == comm_from_server["content"]
     assert shared_values_dict["user_creds"] == {
         "customer_id": new_customer_id,
         "user_name": new_username,
         "user_password": new_pass_key,
     }
+
+    to_file_writer_queue = test_process_manager.queue_container.to_file_writer
+    confirm_queue_is_eventually_of_size(to_file_writer_queue, 1)
+    comm_from_fw = to_file_writer_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert comm_from_fw == {"command": "update_user_settings", "config_settings": comm_from_server["content"]}
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_update_shared_values__by_populating_file_writer_queue_when_recording_directory_updated(

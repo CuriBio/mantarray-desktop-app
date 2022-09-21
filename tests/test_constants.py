@@ -376,10 +376,7 @@ def test_system_status_uuids():
 
 
 def test_user_config():
-    assert DEFAULT_USER_CONFIG == {
-        "customer_id": "",
-        "user_name": "",
-    }
+    assert DEFAULT_USER_CONFIG == {"customer_id": "", "user_name": ""}
     assert VALID_CONFIG_SETTINGS == frozenset(
         [
             "customer_id",
@@ -388,6 +385,7 @@ def test_user_config():
             "recording_directory",
             "auto_upload",
             "auto_delete",
+            "pulse3d_version",
         ]
     )
 

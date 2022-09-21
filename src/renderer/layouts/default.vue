@@ -178,6 +178,7 @@ export default {
       package_version: "",
       current_year: "2022", // TODO look into better ways of handling this. Not sure if just using the system's current year is the best approach
       beta_2_mode: process.env.SPECTRON || undefined,
+      pulse3d_versions: undefined,
       log_dir_name: undefined,
       data_acquisition_visibility: true,
       stim_studio_visibility: false,
@@ -264,18 +265,26 @@ export default {
       this.$store.commit("settings/set_confirmation_request", true);
     });
 
+    ipcRenderer.on("pulse3d_versions_response", (_, pulse3d_versions) => {
+      this.pulse3d_versions = pulse3d_versions;
+      this.$store.commit("settings/set_pulse3d_versions", pulse3d_versions);
+    });
+    if (this.pulse3d_versions === undefined) {
+      ipcRenderer.send("pulse3d_versions_request");
+    }
+
     ipcRenderer.on("beta_2_mode_response", (_, beta_2_mode) => {
       this.beta_2_mode = beta_2_mode;
       this.$store.commit("settings/set_beta_2_mode", beta_2_mode);
     });
+    if (this.beta_2_mode === undefined) {
+      ipcRenderer.send("beta_2_mode_request");
+    }
+
     ipcRenderer.on("stored_customer_id_response", (_, stored_customer_id) => {
       this.request_stored_customer_id = false;
       this.$store.commit("settings/set_stored_customer_id", stored_customer_id);
     });
-
-    if (this.beta_2_mode === undefined) {
-      ipcRenderer.send("beta_2_mode_request");
-    }
     if (this.request_stored_customer_id) {
       ipcRenderer.send("stored_customer_id_request");
     }

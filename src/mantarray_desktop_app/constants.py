@@ -54,6 +54,7 @@ VALID_CONFIG_SETTINGS = frozenset(
         "recording_directory",
         "auto_upload",
         "auto_delete",
+        "pulse3d_version",
     ]
 )
 

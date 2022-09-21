@@ -29,13 +29,13 @@
     "org-imports": "organize-imports-cli src/main/index.dev.js"
   },
   "engines": {
-    "node": "~16.16.0"
+    "node": "^16.17.0"
   },
   "resolutions": {
     "@types/node": "16.15.1"
   },
   "dependencies": {
-    "@curi-bio/mantarray-frontend-components": "1.1.5",
+    "@curi-bio/mantarray-frontend-components": "1.2.0",
     "@electron/remote": "~1.0.2",
     "axios": "~0.21.2",
     "current-script-polyfill": "~1.0.0",

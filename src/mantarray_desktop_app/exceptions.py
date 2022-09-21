@@ -74,6 +74,10 @@ class CalibrationFilesMissingError(Exception):
     pass
 
 
+class RecordingUploadMissingPulse3dVersionError(Exception):
+    pass
+
+
 # Beta 1 errors
 class UnrecognizedCommandFromMainToOkCommError(Exception):
     pass
