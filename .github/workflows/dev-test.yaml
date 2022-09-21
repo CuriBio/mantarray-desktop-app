@@ -222,6 +222,7 @@ jobs:
           ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$env:build_number") | Set-Content -Path src\mantarray_desktop_app\constants.py
           ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHVERSIONDURINGBUILD',"${{steps.software-version.outputs.prop}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
           ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHENDPOINTDURINGBUILD',"${{github.event.inputs.api_endpoint}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
+          ((Get-Content -path src\main\index.js -Raw) -replace 'REPLACETHISWITHENDPOINTDURINGBUILD',"${{env.API_ENDPOINT}}") | Set-Content -Path src\main\index.js
 
       - name: Insert the Build Number and Software Version into the code (Linux)
         if: runner.os == 'Linux'
@@ -232,6 +233,7 @@ jobs:
           sed -i 's/REPLACETHISWITHTIMESTAMPDURINGBUILD/'"$(date +'%y%m%d%H%M%S')"'--$build_number/g' src/mantarray_desktop_app/constants.py
           sed -i 's/REPLACETHISWITHVERSIONDURINGBUILD/'"${{steps.software-version.outputs.prop}}"'/g' src/mantarray_desktop_app/constants.py
           sed -i 's/REPLACETHISWITHENDPOINTDURINGBUILD/'"${{github.event.inputs.api_endpoint}}"'/g' src/mantarray_desktop_app/constants.py
+          sed -i 's/REPLACETHISWITHENDPOINTDURINGBUILD/'"${{github.event.inputs.api_endpoint}}"'/g' src/main/index.js
 
       - name: Compile the Python Executable
         run: pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
