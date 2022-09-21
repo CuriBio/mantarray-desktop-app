@@ -6,6 +6,7 @@ import os
 from time import sleep
 from typing import Any
 from typing import Dict
+from typing import Optional
 import zipfile
 
 from mantarray_desktop_app.exceptions import CloudAnalysisJobFailedError
@@ -102,18 +103,20 @@ def upload_file_to_s3(file_path: str, file_name: str, upload_details: Dict[Any, 
         raise PresignedUploadFailedError(f"{response.status_code} {response.reason}")
 
 
-def start_analysis(access_token: str, upload_id: str) -> str:
+def start_analysis(access_token: str, upload_id: str, version: str) -> str:
     """Post to start cloud analysis of an uploaded file.
 
     Args:
+        access_token: the JWT used in the request
         upload_id: UUID str of uploaded file
+        version: the version of pulse3d to use in the analysis job
 
     Returns:
         The ID of the job created to run analysis on the uploaded file
     """
     response = requests.post(
         f"https://{CLOUD_PULSE3D_ENDPOINT}/jobs",
-        json={"upload_id": upload_id},
+        json={"upload_id": upload_id, "version": version},
         headers={"Authorization": f"Bearer {access_token}"},
     )
     jobs_id: str = response.json()["id"]
@@ -155,11 +158,15 @@ class FileUploader(WebWorker):
         customer_id: str,
         user_name: str,
         password: str,
+        pulse3d_version: Optional[str] = None,  # TODO unit test
     ) -> None:
         super().__init__(customer_id, user_name, password)
         self.file_directory = file_directory
         self.file_name = file_name
         self.zipped_recordings_dir = zipped_recordings_dir
+        # this value is only needed for recording uploads
+        if pulse3d_version:
+            self.pulse3d_version = pulse3d_version
 
     def job(self) -> None:
         # TODO Tanner (5/27/22): Should probably just pass in the upload type
@@ -193,7 +200,7 @@ class FileUploader(WebWorker):
             return
 
         # start analysis and wait for analysis to complete
-        analysis_job_id = start_analysis(self.tokens.access, upload_details["id"])
+        analysis_job_id = start_analysis(self.tokens.access, upload_details["id"], self.pulse3d_version)
 
         while (status_dict := self.get_analysis_status(analysis_job_id))["status"] == "pending":
             sleep(5)

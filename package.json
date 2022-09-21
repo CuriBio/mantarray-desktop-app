@@ -29,7 +29,7 @@
     "org-imports": "organize-imports-cli src/main/index.dev.js"
   },
   "engines": {
-    "node": "~16.16.0"
+    "node": "^16.17.0"
   },
   "resolutions": {
     "@types/node": "16.15.1"

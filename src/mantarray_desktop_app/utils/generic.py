@@ -132,20 +132,18 @@ def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[st
     Args should be validated before being passed to this function.
     """
     config_dict: Dict[str, Any] = dict()
-    if customer_id := request_args.get("customer_id"):
-        config_dict["customer_id"] = customer_id
-    if user_password := request_args.get("user_password"):
-        config_dict["user_password"] = user_password
-    if user_name := request_args.get("user_name"):
-        config_dict["user_name"] = user_name
-    if recording_directory := request_args.get("recording_directory"):
-        config_dict["recording_directory"] = recording_directory
-    if auto_upload_on_completion := request_args.get("auto_upload"):
-        auto_upload_bool = auto_upload_on_completion.lower() == "true"
-        config_dict["auto_upload_on_completion"] = auto_upload_bool
-    if auto_delete_local_files := request_args.get("auto_delete"):
-        auto_delete_bool = auto_delete_local_files.lower() == "true"
-        config_dict["auto_delete_local_files"] = auto_delete_bool
+
+    for arg in ("customer_id", "user_password", "user_name", "recording_directory", "pulse3d_version"):
+        if arg_val := request_args.get(arg):
+            config_dict[arg] = arg_val
+
+    for arg, new_arg_name in (
+        ("auto_upload", "auto_upload_on_completion"),
+        ("auto_delete", "auto_delete_local_files"),
+    ):
+        if arg_bool_str := request_args.get(arg):
+            config_dict[new_arg_name] = arg_bool_str.lower() == "true"
+
     return config_dict
 
 

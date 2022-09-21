@@ -147,7 +147,7 @@ const CLOUD_PULSE3D_ENDPOINT = `pulse3d.${CLOUD_DOMAIN}.com`;
 
 ipcMain.once("pulse3d_versions_request", (event) => {
   axios
-    .get(`${CLOUD_PULSE3D_ENDPOINT}/versions`)
+    .get(`https://${CLOUD_PULSE3D_ENDPOINT}/versions`)
     .then((response) => {
       const versions = response.data;
       console.log(`Found pulse3d versions: ${versions}`); // allow-log
@@ -156,7 +156,7 @@ ipcMain.once("pulse3d_versions_request", (event) => {
     .catch((response) => {
       console.log(
         // allow-log
-        `Error getting pulse3d Versions: ${response.status} ${response.statusText}`
+        `Error getting pulse3d versions: ${response.status} ${response.statusText}`
       );
       event.reply("pulse3d_versions_response", []);
     });

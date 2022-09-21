@@ -191,6 +191,7 @@ GENERIC_UPDATE_USER_SETTINGS: Dict[str, Any] = {
         "user_name": "test_user",
         "auto_upload_on_completion": True,
         "auto_delete_local_files": False,
+        "pulse3d_version": "1.2.3",
     },
 }
 
