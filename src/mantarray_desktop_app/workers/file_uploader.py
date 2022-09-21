@@ -9,11 +9,12 @@ from typing import Dict
 from typing import Optional
 import zipfile
 
-from mantarray_desktop_app.exceptions import CloudAnalysisJobFailedError
-from mantarray_desktop_app.exceptions import PresignedUploadFailedError
 import requests
 
 from ..constants import CLOUD_PULSE3D_ENDPOINT
+from ..exceptions import CloudAnalysisJobFailedError
+from ..exceptions import PresignedUploadFailedError
+from ..exceptions import RecordingUploadMissingPulse3dVersionError
 from ..utils.web_api import WebWorker
 
 
@@ -158,24 +159,27 @@ class FileUploader(WebWorker):
         customer_id: str,
         user_name: str,
         password: str,
-        pulse3d_version: Optional[str] = None,  # TODO unit test
+        pulse3d_version: Optional[str] = None,
     ) -> None:
         super().__init__(customer_id, user_name, password)
         self.file_directory = file_directory
         self.file_name = file_name
         self.zipped_recordings_dir = zipped_recordings_dir
+        self.upload_type = "recording" if "recording" in self.file_directory else "logs"
+
         # this value is only needed for recording uploads
-        if pulse3d_version:
+        if self.upload_type == "recording":
+            if not pulse3d_version:
+                raise RecordingUploadMissingPulse3dVersionError(file_name)
             self.pulse3d_version = pulse3d_version
 
     def job(self) -> None:
         # TODO Tanner (5/27/22): Should probably just pass in the upload type
-        upload_type = "recording" if "recording" in self.file_directory else "logs"
 
         file_path = os.path.join(os.path.abspath(self.file_directory), self.file_name)
         # Failed uploads will call function with zip file, not directory of well data
         if os.path.isdir(file_path):
-            if upload_type == "recording":
+            if self.upload_type == "recording":
                 # store zipped files under user specific sub dir of static zipped dir
                 user_recordings_dir = os.path.join(self.zipped_recordings_dir, self.user_name)
                 if not os.path.exists(user_recordings_dir):
@@ -192,11 +196,11 @@ class FileUploader(WebWorker):
 
         # upload file
         file_md5 = get_file_md5(zipped_file_path)
-        upload_details = get_upload_details(self.tokens.access, self.file_name, file_md5, upload_type)
+        upload_details = get_upload_details(self.tokens.access, self.file_name, file_md5, self.upload_type)
         upload_file_to_s3(zipped_file_path, self.file_name, upload_details)
 
         # nothing else to do if just uploading a log file
-        if upload_type == "logs":
+        if self.upload_type == "logs":
             return
 
         # start analysis and wait for analysis to complete
