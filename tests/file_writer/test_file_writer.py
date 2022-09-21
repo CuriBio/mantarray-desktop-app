@@ -225,21 +225,6 @@ def test_FileWriterProcess__recording_dirs_update_correctly(four_board_file_writ
     assert fw_process._failed_uploads_dir == os.path.join(expected_new_dir, "failed_uploads")
 
 
-def test_FileWriterProcess__correctly_responds_to_update_recording_name_command(
-    four_board_file_writer_process, mocker
-):
-    fw_process = four_board_file_writer_process["fw_process"]
-    from_main_queue = four_board_file_writer_process["from_main_queue"]
-
-    spied_process_update_recording_name = mocker.spy(fw_process, "_process_update_name_command")
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        GENERIC_UPDATE_RECORDING_NAME_COMMAND, from_main_queue
-    )
-    invoke_process_run_and_check_errors(fw_process)
-
-    spied_process_update_recording_name.assert_called_once()
-
-
 def test_FileWriterProcess__soft_stop_not_allowed_if_command_from_main_still_in_queue(
     four_board_file_writer_process,
 ):
@@ -574,6 +559,50 @@ def test_FileWriterProcess_hard_stop__calls_close_all_files__when_still_recordin
     spied_close_all_files.assert_called_once()
 
 
+@pytest.mark.parametrize("auto_upload", [True, False])
+def test_FileWriterProcess_process_update_recording_name_command__handles_auto_upload_correctly(
+    auto_upload, four_board_file_writer_process, mocker
+):
+    file_writer_process = four_board_file_writer_process["fw_process"]
+    to_main_queue = four_board_file_writer_process["to_main_queue"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    # mock so auto upload doesn't actually happen
+    mocked_start_upload = mocker.patch.object(file_writer_process, "_start_new_file_upload", autospec=True)
+
+    # complete a recording so the update_recording_name command can be processed correctly
+    update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+    update_user_settings_command["config_settings"]["auto_upload_on_completion"] = auto_upload
+    create_and_close_beta_1_h5_files(four_board_file_writer_process, update_user_settings_command)
+
+    update_rec_name_command = copy.deepcopy(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
+    update_rec_name_command["default_name"] = file_writer_process._current_recording_dir
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(update_rec_name_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    assert mocked_start_upload.call_count == int(auto_upload)
+
+    new_rec_name = GENERIC_UPDATE_RECORDING_NAME_COMMAND["new_name"]
+
+    if auto_upload:
+        confirm_queue_is_eventually_of_size(to_main_queue, 2)
+        auto_upload_confirmation = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+        assert auto_upload_confirmation == {
+            "communication_type": "log",
+            "log_level": 20,
+            "message": f"Started auto upload for file {new_rec_name}",
+        }
+    else:
+        confirm_queue_is_eventually_of_size(to_main_queue, 1)
+
+    update_rec_name_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert update_rec_name_response == {
+        "command": "update_recording_name",
+        "communication_type": "command_receipt",
+        "recording_path": os.path.join(file_writer_process._file_directory, new_rec_name),
+    }
+
+
 def test_FileWriterProcess_process_update_recording_name_command__renames_recording_dir_and_h5_files_after_all_files_are_closed(
     four_board_file_writer_process, mocker
 ):
@@ -582,18 +611,16 @@ def test_FileWriterProcess_process_update_recording_name_command__renames_record
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     spied_rename = mocker.spy(os, "rename")
-    # prevent kicking off upload/delete processes
-    mocker.patch.object(file_writer_process, "_start_new_file_upload", autospec=True)
 
-    update_recording_name_command = copy.deepcopy(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
     update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
+    update_user_settings_command["config_settings"]["auto_upload_on_completion"] = False
     create_and_close_beta_1_h5_files(four_board_file_writer_process, update_user_settings_command)
     assert file_writer_process.get_stop_recording_timestamps()[0] is not None
     assert file_writer_process._is_finalizing_files_after_recording() is False
 
     # needs to be the same name to pass conditional
-    sub_dir_name = file_writer_process.get_sub_dir_name()
-    update_recording_name_command["default_name"] = sub_dir_name
+    update_recording_name_command = copy.deepcopy(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
+    update_recording_name_command["default_name"] = file_writer_process.get_sub_dir_name()
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         update_recording_name_command, from_main_queue

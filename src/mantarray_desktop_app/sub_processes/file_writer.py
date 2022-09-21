@@ -454,17 +454,17 @@ class FileWriterProcess(InfiniteProcess):
                     "timepoint_to_stop_recording_at": communication["timepoint_to_stop_recording_at"],
                 }
             )
-        elif (
-            command == "update_recording_name"
-        ):  # TODO write test for FW processing this and returning log message for auto upload
+        elif command == "update_recording_name":
             self._process_update_name_command(communication)
+            if self._current_recording_dir is None:
+                raise NotImplementedError("self._current_recording_dir should never be None here")
             to_main.put_nowait(
                 {
-                    "communication_type": "mag_finding_analysis"
-                    if communication["snapshot_enabled"]
-                    else "command_receipt",
+                    "communication_type": (
+                        "mag_finding_analysis" if communication["snapshot_enabled"] else "command_receipt"
+                    ),
                     "command": "update_recording_name",
-                    "recording_path": os.path.join(self._file_directory, communication["new_name"]),
+                    "recording_path": os.path.join(self._file_directory, self._current_recording_dir),
                 }
             )
         elif command == "stop_managed_acquisition":
@@ -1278,7 +1278,7 @@ class FileWriterProcess(InfiniteProcess):
         # after all files are finalized, upload them if necessary
         if self._user_settings["auto_upload_on_completion"]:
             self._start_new_file_upload()
-            msg = f"Started auto upload for file {new_recording_path}"
+            msg = f"Started auto upload for file {self._current_recording_dir}"
             put_log_message_into_queue(logging.INFO, msg, self._to_main_queue, self.get_logging_level())
         elif self._user_settings["auto_delete_local_files"]:
             self._delete_local_files(sub_dir=self._current_recording_dir)
