@@ -2,7 +2,7 @@ Changelog for Mantarray Desktop App
 ===================================
 
 
-1.0.2 (unreleased)
+1.0.2 (2022-09-27)
 ------------------
 
 Changed:
@@ -17,6 +17,7 @@ Changed:
 
 Fixed:
 ^^^^^^
+- Large difference between force amplitude estimate in Live View and force amplitude in Pulse3D analysis.
 - Minor issue with styling of stim controls in sidebar.
 
 
