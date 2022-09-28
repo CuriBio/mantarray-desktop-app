@@ -1,6 +1,13 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+1.0.3 (2022-09-28)
+------------------
+
+Fixed:
+^^^^^^
+- Auto upload crashing entire app when no pulse3d versions found.
+
 
 1.0.2 (2022-09-27)
 ------------------
