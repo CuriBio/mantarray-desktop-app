@@ -94,7 +94,7 @@ repos:
     rev: v0.981 # pick a git hash / tag to point to
     hooks:
       - id: mypy
-        additional_dependencies: [nptyping==1.4.0]
+        additional_dependencies: [nptyping==1.4.0, types-requests==2.28.11]
         exclude: (tests/.*)|(tools/)
 
   - repo: https://github.com/Lucas-C/pre-commit-hooks-markup
