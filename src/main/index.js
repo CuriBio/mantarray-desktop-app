@@ -158,7 +158,7 @@ ipcMain.once("pulse3d_versions_request", (event) => {
         // allow-log
         `Error getting pulse3d versions: ${response.status} ${response.statusText}`
       );
-      event.reply("pulse3d_versions_response", []);
+      event.reply("pulse3d_versions_response", null);
     });
 });
 

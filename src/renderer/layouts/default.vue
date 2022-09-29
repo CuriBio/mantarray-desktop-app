@@ -267,7 +267,10 @@ export default {
 
     ipcRenderer.on("pulse3d_versions_response", (_, pulse3d_versions) => {
       this.pulse3d_versions = pulse3d_versions;
-      this.$store.commit("settings/set_pulse3d_versions", pulse3d_versions);
+      if (pulse3d_versions) {
+        // only update values if versions were actually retrieved
+        this.$store.commit("settings/set_pulse3d_versions", pulse3d_versions);
+      }
     });
     if (this.pulse3d_versions === undefined) {
       ipcRenderer.send("pulse3d_versions_request");
