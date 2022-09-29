@@ -9,8 +9,25 @@ Fixed:
 - Auto upload crashing entire app when no pulse3d versions found.
 
 
+1.0.3 (unreleased)
+------------------
+
+Changed:
+^^^^^^^^
+- Subprotocols can now be defined in terms of number of cycles or active duration.
+
+Fixed:
+^^^^^^
+- Auto upload crashing entire app when no pulse3d versions found.
+- Invalid subprotocols no longer allowed.
+
+
 1.0.2 (2022-09-27)
 ------------------
+
+Added:
+^^^^^^
+- Ability to choose pulse3d version to use in auto upload.
 
 Changed:
 ^^^^^^^^
