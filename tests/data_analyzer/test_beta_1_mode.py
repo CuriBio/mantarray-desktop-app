@@ -18,6 +18,7 @@ from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
+from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 from mantarray_desktop_app.sub_processes import data_analyzer
@@ -32,7 +33,6 @@ from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
-from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process
 from ..fixtures_data_analyzer import fixture_runnable_four_board_analyzer_process
@@ -92,7 +92,7 @@ def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
+        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
         comm_from_main_queue,
     )
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
@@ -124,7 +124,7 @@ def test_DataAnalyzerProcess_beta_1_performance__first_second_of_data_with_analy
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
+        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
         comm_from_main_queue,
     )
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
@@ -160,7 +160,7 @@ def test_DataAnalyzerProcess_beta_1_performance__single_data_packet_per_well_wit
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
+        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
         comm_from_main_queue,
     )
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
@@ -227,7 +227,7 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
     incoming_data = board_queues[0][0]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
+        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
         comm_from_main_queue,
     )
     invoke_process_run_and_check_errors(p)
@@ -273,7 +273,7 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
     incoming_data = board_queues[0][0]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
+        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
         comm_from_main_queue,
     )
     invoke_process_run_and_check_errors(p)
@@ -303,7 +303,7 @@ def test_DataAnalyzerProcess__correctly_pairs_ascending_order_ref_sensor_data_in
     incoming_data = board_queues[0][0]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
+        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
         comm_from_main_queue,
     )
     invoke_process_run_and_check_errors(p)
@@ -342,7 +342,7 @@ def test_DataAnalyzerProcess__correctly_pairs_descending_order_ref_sensor_data_i
     incoming_data = board_queues[0][0]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
+        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
         comm_from_main_queue,
     )
     invoke_process_run_and_check_errors(p)
@@ -589,7 +589,7 @@ def test_DataAnalyzerProcess__processes_stop_managed_acquisition_command(
     p, _, comm_from_main_queue, _, _, _ = four_board_analyzer_process
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
+        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
         comm_from_main_queue,
     )
     invoke_process_run_and_check_errors(p)

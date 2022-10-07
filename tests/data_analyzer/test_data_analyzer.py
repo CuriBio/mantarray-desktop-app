@@ -8,6 +8,7 @@ import time
 
 from mantarray_desktop_app import DataAnalyzerProcess
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
+from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import UnrecognizedCommandFromMainToDataAnalyzerError
 from mantarray_desktop_app.constants import DEFAULT_SAMPLING_PERIOD
@@ -22,7 +23,6 @@ from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 from ..fixtures import fixture_patch_print
-from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
@@ -142,7 +142,7 @@ def test_DataAnalyzerProcess__processes_start_managed_acquisition_command__by_dr
 ):
     p, board_queues, comm_from_main_queue, _, _, _ = four_board_analyzer_process
 
-    start_command = get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
+    start_command = dict(START_MANAGED_ACQUISITION_COMMUNICATION)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, comm_from_main_queue)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty("item", board_queues[0][1])
@@ -263,7 +263,7 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_dat
     mocker.patch.object(data_analyzer, "peak_detector", autospec=True, side_effect=PeakDetectionError())
 
     # start managed acquisition
-    start_command = get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
+    start_command = dict(START_MANAGED_ACQUISITION_COMMUNICATION)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
     invoke_process_run_and_check_errors(da_process)
     # remove command receipt

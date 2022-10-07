@@ -26,6 +26,7 @@ from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import RunningFIFOSimulator
+from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 from mantarray_desktop_app import UnrecognizedCommandFromMainToOkCommError
 from mantarray_desktop_app import UnrecognizedDataFrameFormatNameError
@@ -47,7 +48,6 @@ from xem_wrapper import HEADER_MAGIC_NUMBER
 from xem_wrapper import okCFrontPanel
 
 from ..fixtures import fixture_patched_firmware_folder
-from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_ok_comm import fixture_four_board_comm_process
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
@@ -1136,7 +1136,7 @@ def test_OkCommunicationProcess_teardown_after_loop__can_teardown_while_managed_
             "bit_file_name": None,
         }
     )
-    input_queue.put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+    input_queue.put_nowait(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     confirm_queue_is_eventually_of_size(input_queue, 2)
     ok_process.resume()
     ok_process.soft_stop()
@@ -1171,7 +1171,7 @@ def test_OkCommunicationProcess_teardown_after_loop__logs_message_indicating_acq
             "bit_file_name": None,
         }
     )
-    input_queue.put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+    input_queue.put_nowait(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     confirm_queue_is_eventually_of_size(input_queue, 2)
     invoke_process_run_and_check_errors(ok_process, num_iterations=2, perform_teardown_after_loop=True)
 
