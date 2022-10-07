@@ -125,7 +125,7 @@ def test_DataAnalyzerProcess__drain_all_queues__drains_all_queues_except_error_q
 
 
 def test_DataAnalyzerProcess__raises_error_with_unrecognized_acquisition_manager_command(
-    four_board_analyzer_process, mocker, patch_print
+    four_board_analyzer_process, patch_print
 ):
     p, _, comm_from_main_queue, _, _, _ = four_board_analyzer_process
 
@@ -137,7 +137,7 @@ def test_DataAnalyzerProcess__raises_error_with_unrecognized_acquisition_manager
         invoke_process_run_and_check_errors(p)
 
 
-def test_DataAnalyzerProcess__processes_start_managed_acquisition_command__by_draining_outgoing_data_queue(
+def test_DataAnalyzerProcess__processes_start_managed_acquisition_command__by_draining_outgoing_data_queue__and_storing_barcode(
     four_board_analyzer_process,
 ):
     p, board_queues, comm_from_main_queue, _, _, _ = four_board_analyzer_process

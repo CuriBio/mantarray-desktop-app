@@ -53,6 +53,7 @@ from ..constants import RECORDING_STATE
 from ..constants import SECONDS_TO_WAIT_WHEN_POLLING_QUEUES
 from ..constants import SERVER_INITIALIZING_STATE
 from ..constants import SERVER_READY_STATE
+from ..constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from ..constants import StimulatorCircuitStatuses
 from ..constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from ..constants import UPDATE_ERROR_STATE
@@ -291,9 +292,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         elif communication_type == "calibration":
             # Tanner (12/10/21): run_calibration is currently the only calibration command
             shared_values_dict["system_status"] = CALIBRATING_STATE
-            self._put_communication_into_instrument_comm_queue(
-                {"communication_type": "acquisition_manager", "command": "start_managed_acquisition"}
-            )
+            self._put_communication_into_instrument_comm_queue(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
 
             if isinstance(shared_values_dict, SharedValues):
                 shared_values_dict_copy = shared_values_dict.deepcopy()
