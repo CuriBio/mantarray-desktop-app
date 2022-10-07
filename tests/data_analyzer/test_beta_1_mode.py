@@ -18,9 +18,9 @@ from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
-from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
+from mantarray_desktop_app.simulators.fifo_simulator import RunningFIFOSimulator
 from mantarray_desktop_app.sub_processes import data_analyzer
 from mantarray_desktop_app.sub_processes.data_analyzer import get_force_signal
 import numpy as np
@@ -36,6 +36,7 @@ from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_sti
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process
 from ..fixtures_data_analyzer import fixture_runnable_four_board_analyzer_process
+from ..fixtures_data_analyzer import TEST_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 
@@ -92,7 +93,7 @@ def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
+        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION),
         comm_from_main_queue,
     )
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
@@ -124,7 +125,7 @@ def test_DataAnalyzerProcess_beta_1_performance__first_second_of_data_with_analy
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
+        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION),
         comm_from_main_queue,
     )
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
@@ -160,7 +161,7 @@ def test_DataAnalyzerProcess_beta_1_performance__single_data_packet_per_well_wit
 
     p, board_queues, comm_from_main_queue, comm_to_main_queue, _, _ = runnable_four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
+        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION),
         comm_from_main_queue,
     )
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
@@ -227,7 +228,7 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
     incoming_data = board_queues[0][0]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
+        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION),
         comm_from_main_queue,
     )
     invoke_process_run_and_check_errors(p)
@@ -273,7 +274,7 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
     incoming_data = board_queues[0][0]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
+        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION),
         comm_from_main_queue,
     )
     invoke_process_run_and_check_errors(p)
@@ -303,7 +304,7 @@ def test_DataAnalyzerProcess__correctly_pairs_ascending_order_ref_sensor_data_in
     incoming_data = board_queues[0][0]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
+        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION),
         comm_from_main_queue,
     )
     invoke_process_run_and_check_errors(p)
@@ -342,7 +343,7 @@ def test_DataAnalyzerProcess__correctly_pairs_descending_order_ref_sensor_data_i
     incoming_data = board_queues[0][0]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
+        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION),
         comm_from_main_queue,
     )
     invoke_process_run_and_check_errors(p)
@@ -433,17 +434,15 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
     p, board_queues, _, _, _, _ = four_board_analyzer_process
     outgoing_data = board_queues[0][1]
 
+    p._barcode = RunningFIFOSimulator.default_barcode
+
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
     data_buffer = p._data_buffer  # pylint:disable=protected-access
     for well_index in range(24):
         data_buffer[well_index]["construct_data"] = np.array(
-            [expected_x_vals, expected_y_vals[well_index]],
-            dtype=np.int32,
+            [expected_x_vals, expected_y_vals[well_index]], dtype=np.int32
         )
-        data_buffer[well_index]["ref_data"] = np.array(
-            [expected_x_vals, [0, 0]],
-            dtype=np.int32,
-        )
+        data_buffer[well_index]["ref_data"] = np.array([expected_x_vals, [0, 0]], dtype=np.int32)
 
     invoke_process_run_and_check_errors(p)
 
@@ -511,6 +510,9 @@ def test_DataAnalyzerProcess__create_outgoing_data__normalizes_and_flips_raw_dat
     p, _, _, _, _, _ = four_board_analyzer_process
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
 
+    test_barcode = RunningFIFOSimulator.default_barcode
+    p._barcode = test_barcode
+
     timepoint_end = math.ceil(DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS / ROUND_ROBIN_PERIOD)
     timepoints = np.array(
         [(ROUND_ROBIN_PERIOD * (i + 1) // TIMESTEP_CONVERSION_FACTOR) for i in range(timepoint_end)]
@@ -533,23 +535,23 @@ def test_DataAnalyzerProcess__create_outgoing_data__normalizes_and_flips_raw_dat
     outgoing_data = p._create_outgoing_beta_1_data()  # pylint:disable=protected-access
     actual = outgoing_data["waveform_data"]["basic_data"]["waveform_data_points"]
 
-    normalized_data = np.array(
-        [test_data[0], (test_data[1] - max(test_data[1])) * -1],
-        dtype=np.int32,
-    )
+    normalized_data = np.array([test_data[0], (test_data[1] - max(test_data[1])) * -1], dtype=np.int32)
     filter_coefficients = create_filter(
-        BUTTERWORTH_LOWPASS_30_UUID,
-        ROUND_ROBIN_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND,
+        BUTTERWORTH_LOWPASS_30_UUID, ROUND_ROBIN_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
     )
-    expected_compressed_data = get_force_signal(normalized_data, filter_coefficients, is_beta_2_data=False)
-    np.testing.assert_equal(actual[0]["x_data_points"], expected_compressed_data[0, :])
-    np.testing.assert_equal(
-        actual[0]["y_data_points"], expected_compressed_data[1, :] * MICRO_TO_BASE_CONVERSION
+    expected_compressed_data_0 = get_force_signal(
+        normalized_data, filter_coefficients, test_barcode, 0, is_beta_2_data=False
     )
-    np.testing.assert_equal(actual[23]["x_data_points"], expected_compressed_data[0, :])
+    np.testing.assert_equal(actual[0]["x_data_points"], expected_compressed_data_0[0, :])
     np.testing.assert_equal(
-        actual[23]["y_data_points"],
-        expected_compressed_data[1, :] * MICRO_TO_BASE_CONVERSION,
+        actual[0]["y_data_points"], expected_compressed_data_0[1, :] * MICRO_TO_BASE_CONVERSION
+    )
+    expected_compressed_data_23 = get_force_signal(
+        normalized_data, filter_coefficients, test_barcode, 23, is_beta_2_data=False
+    )
+    np.testing.assert_equal(actual[23]["x_data_points"], expected_compressed_data_23[0, :])
+    np.testing.assert_equal(
+        actual[23]["y_data_points"], expected_compressed_data_23[1, :] * MICRO_TO_BASE_CONVERSION
     )
 
 
@@ -589,7 +591,7 @@ def test_DataAnalyzerProcess__processes_stop_managed_acquisition_command(
     p, _, comm_from_main_queue, _, _, _ = four_board_analyzer_process
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
+        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION),
         comm_from_main_queue,
     )
     invoke_process_run_and_check_errors(p)

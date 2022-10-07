@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+from functools import partial
 import json
 import logging
 from multiprocessing import Queue
@@ -39,6 +40,8 @@ from pulse3D.transforms import calculate_displacement_from_voltage
 from pulse3D.transforms import calculate_force_from_displacement
 from pulse3D.transforms import calculate_voltage_from_gmr
 from pulse3D.transforms import create_filter
+from pulse3D.transforms import get_stiffness_factor
+from pulse3D.utils import get_experiment_id
 from scipy import interpolate
 from stdlib_utils import create_metrics_stats
 from stdlib_utils import drain_queue
@@ -58,6 +61,7 @@ from ..constants import MM_PER_MT_Z_AXIS_SENSOR_0
 from ..constants import PERFOMANCE_LOGGING_PERIOD_SECS
 from ..constants import REF_INDEX_TO_24_WELL_INDEX
 from ..constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
+from ..exceptions import StartManagedAcquisitionWithoutBarcodeError
 from ..exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
 from ..workers.magnet_finder import run_magnet_finding_alg
 from ..workers.worker_thread import ErrorCatchingThread
@@ -96,6 +100,8 @@ def calculate_displacement_from_magnetic_flux_density(
 def get_force_signal(
     raw_signal: NDArray[(2, Any), np.int64],
     filter_coefficients: NDArray[(2, Any), np.float64],
+    plate_barcode: str,
+    well_idx: int,
     compress: bool = True,
     is_beta_2_data: bool = True,
 ) -> NDArray[(2, Any), np.float64]:
@@ -115,7 +121,8 @@ def get_force_signal(
             filtered_gmr = compress_filtered_magnetic_data(filtered_gmr)
         voltage = calculate_voltage_from_gmr(filtered_gmr)
         displacement = calculate_displacement_from_voltage(voltage)
-    return calculate_force_from_displacement(displacement, in_mm=is_beta_2_data)
+    post_stiffness_factor = get_stiffness_factor(get_experiment_id(plate_barcode), well_idx)
+    return calculate_force_from_displacement(displacement, post_stiffness_factor, in_mm=is_beta_2_data)
 
 
 def live_data_metrics(
@@ -234,6 +241,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         for well_idx in range(24):
             self._data_buffer[well_idx] = {"construct_data": None, "ref_data": None}
         # data analysis items
+        self._barcode: Optional[str] = None
         self._data_analysis_streams: Dict[int, Tuple[Stream, Stream]] = dict()
         self._data_analysis_stream_zipper: Optional[Stream] = None
         self._active_wells: List[int] = list(range(24))
@@ -295,12 +303,20 @@ class DataAnalyzerProcess(InfiniteProcess):
         data_buf[1] = data_buf[1][-self.get_buffer_size() :]
         return data_buf, data_buf
 
-    def get_twitch_analysis(self, data_buf: List[List[int]]) -> Dict[int, Any]:
+    def get_twitch_analysis(self, data_buf: List[List[int]], well_idx: int) -> Dict[int, Any]:
         """Run analysis on a single well's data."""
+        if not self._barcode:
+            raise NotImplementedError("_barcode should never be None here")
+
         data_buf_arr = np.array(data_buf, dtype=np.int64)
         analysis_start = perf_counter()
         force = get_force_signal(
-            data_buf_arr, self._filter_coefficients, compress=False, is_beta_2_data=self._beta_2_mode
+            data_buf_arr,
+            self._filter_coefficients,
+            self._barcode,
+            well_idx,
+            compress=False,
+            is_beta_2_data=self._beta_2_mode,
         )
         try:
             peak_detection_results = peak_detector(force)
@@ -319,7 +335,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             end = (
                 source.accumulate(self.append_data, returns_state=True, start=[[], []])
                 .filter(lambda data_buf: len(data_buf[0]) >= self.get_buffer_size())
-                .map(self.get_twitch_analysis)
+                .map(partial(self.get_twitch_analysis, well_idx=well_idx))
                 .accumulate(check_for_new_twitches, returns_state=True, start=0)
                 .map(lambda per_twitch_dict, i=well_idx: (i, per_twitch_dict))
             )
@@ -371,12 +387,16 @@ class DataAnalyzerProcess(InfiniteProcess):
             self._calibration_settings = communication["calibration_settings"]
         elif communication_type == "acquisition_manager":
             if communication["command"] == "start_managed_acquisition":
+                self._barcode = communication["barcode"]
+                if not self._barcode:
+                    raise StartManagedAcquisitionWithoutBarcodeError()
                 if not self._beta_2_mode:
                     self._end_of_data_stream_reached[0]["mag"] = False
                     self._end_of_data_stream_reached[0]["stim"] = False
                 drain_queue(self._board_queues[0][1])
                 self._well_offsets = [None] * 24
             elif communication["command"] == "stop_managed_acquisition":
+                self._barcode = None
                 self._end_of_data_stream_reached[0]["mag"] = True
                 self._end_of_data_stream_reached[0]["stim"] = True
                 for well_index in range(24):
@@ -507,6 +527,9 @@ class DataAnalyzerProcess(InfiniteProcess):
         return True
 
     def _create_outgoing_beta_2_data(self, data_dict: Dict[Any, Any]) -> Dict[str, Any]:
+        if not self._barcode:
+            raise NotImplementedError("_barcode should never be None here")
+
         start = perf_counter()
         waveform_data_points: Dict[int, Dict[str, List[float]]] = dict()
         for well_idx in range(24):
@@ -514,6 +537,8 @@ class DataAnalyzerProcess(InfiniteProcess):
             force_data = get_force_signal(
                 np.array([data_dict["time_indices"], default_channel_data], np.int64),
                 self._filter_coefficients,
+                self._barcode,
+                well_idx,
             )
 
             # convert arrays to lists for json conversion later
@@ -543,6 +568,9 @@ class DataAnalyzerProcess(InfiniteProcess):
         ).astype(np.uint16)
 
     def _create_outgoing_beta_1_data(self) -> Dict[str, Any]:
+        if not self._barcode:
+            raise NotImplementedError("_barcode should never be None here")
+
         outgoing_data_creation_start = perf_counter()
         outgoing_data: Dict[str, Any] = {"waveform_data": {"basic_data": {"waveform_data_points": None}}}
 
@@ -554,6 +582,8 @@ class DataAnalyzerProcess(InfiniteProcess):
             compressed_data = get_force_signal(
                 self._data_buffer[well_index]["construct_data"],
                 self._filter_coefficients,
+                self._barcode,
+                well_index,
                 is_beta_2_data=False,
             )
 
@@ -597,10 +627,7 @@ class DataAnalyzerProcess(InfiniteProcess):
 
     def _run_magnet_finding_alg(self, recordings: List[str]) -> None:
         # Tanner (9/16/22): assuming these values are needed in the FE, so keeping them here after refactor
-        self._mag_finder_thread_dict = {
-            "recordings": recordings,
-            "output_dir": self._mag_finder_output_dir,
-        }
+        self._mag_finder_thread_dict = {"recordings": recordings, "output_dir": self._mag_finder_output_dir}
 
         self._mag_finder_worker_thread = ErrorCatchingThread(
             target=run_magnet_finding_alg,
