@@ -12,6 +12,7 @@ Added:
 Changed:
 ^^^^^^^^
 - Subprotocols can now be defined in terms of number of cycles or active duration.
+- run_magnet_finding_alg will use PlateRecording.to_dataframe to output same as Pulse3D.
 
 Fixed:
 ^^^^^^
