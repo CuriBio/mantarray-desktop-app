@@ -24,7 +24,6 @@ from mantarray_desktop_app import main
 from mantarray_desktop_app import MantarrayProcessesManager
 from mantarray_desktop_app import MantarrayQueueContainer
 from mantarray_desktop_app import OkCommunicationProcess
-from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.main_process import process_manager
 from mantarray_desktop_app.main_process import queue_container
 import pytest
@@ -295,7 +294,3 @@ def fixture_patched_firmware_folder(mocker):
         return_value=patched_firmware_path,
     )
     yield patched_firmware_path
-
-
-def get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION():
-    return dict(START_MANAGED_ACQUISITION_COMMUNICATION)

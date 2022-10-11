@@ -18,6 +18,7 @@ from mantarray_desktop_app import OkCommunicationProcess
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
+from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
 from mantarray_desktop_app import UnrecognizedCommandFromMainToOkCommError
@@ -37,7 +38,6 @@ from xem_wrapper import FrontPanelSimulator
 from xem_wrapper import HEADER_MAGIC_NUMBER
 from xem_wrapper import PIPE_OUT_FIFO
 
-from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_ok_comm import fixture_four_board_comm_process
 from ..fixtures_ok_comm import generate_board_and_error_queues
@@ -65,9 +65,7 @@ def test_OkCommunicationProcess_run__processes_start_managed_acquisition_command
 
     input_queue = board_queues[0][0]
     ok_comm_to_main = board_queues[0][1]
-    expected_returned_communication: Dict[
-        str, Any
-    ] = get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
+    expected_returned_communication: Dict[str, Any] = dict(START_MANAGED_ACQUISITION_COMMUNICATION)
     input_queue.put_nowait(copy.deepcopy(expected_returned_communication))
     confirm_queue_is_eventually_of_size(input_queue, 1)
     invoke_process_run_and_check_errors(ok_process)
@@ -243,7 +241,7 @@ def test_OkCommunicationProcess_managed_acquisition__reads_at_least_one_prepopul
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
-    board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+    board_queues[0][0].put_nowait(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     fifo = TestingQueue()
     fifo.put_nowait(produce_data(2, 0))
     assert is_queue_eventually_of_size(fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
@@ -282,7 +280,7 @@ def test_OkCommunicationProcess_managed_acquisition__handles_ignoring_first_data
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
-    board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+    board_queues[0][0].put_nowait(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     fifo = TestingQueue()
     fifo.put_nowait(produce_data(2, 0))
     assert is_queue_eventually_of_size(fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
@@ -366,7 +364,7 @@ def test_OkCommunicationProcess_managed_acquisition__logs_fifo_parsing_errors_an
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
-    board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+    board_queues[0][0].put_nowait(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     assert (
         is_queue_eventually_of_size(board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS)
         is True
@@ -429,7 +427,7 @@ def test_OkCommunicationProcess_managed_acquisition__does_not_log_when_non_parsi
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
     ok_process._data_frame_format = "fake_format"  # pylint:disable=protected-access
 
-    board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+    board_queues[0][0].put_nowait(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     fifo = TestingQueue()
     fifo.put_nowait(produce_data(1, 0))
     assert is_queue_eventually_of_size(fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
@@ -471,7 +469,7 @@ def test_OkCommunicationProcess__raises_and_logs_error_if_first_managed_read_doe
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
-    board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+    board_queues[0][0].put_nowait(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     fifo = TestingQueue()
     fifo.put_nowait(test_bytearray)
     assert is_queue_eventually_of_size(fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
@@ -521,7 +519,7 @@ def test_OkCommunicationProcess_managed_acquisition__logs_fifo_parsing_errors_an
 
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
 
-    board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+    board_queues[0][0].put_nowait(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     fifo = TestingQueue()
     fifo.put_nowait(test_read)
     assert is_queue_eventually_of_size(fifo, 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
@@ -578,7 +576,7 @@ def test_OkCommunicationProcess_managed_acquisition__does_not_log_when_non_parsi
     ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
     ok_process._data_frame_format = "fake_format"  # pylint:disable=protected-access
 
-    board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+    board_queues[0][0].put_nowait(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     assert (
         is_queue_eventually_of_size(board_queues[0][0], 1, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS)
         is True
@@ -675,7 +673,7 @@ def test_OkCommunicationProcess_managed_acquisition__logs_performance_metrics_af
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
     ok_process.set_board_connection(0, simulator)
-    board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+    board_queues[0][0].put_nowait(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     confirm_queue_is_eventually_of_size(board_queues[0][0], 1)
 
     invoke_process_run_and_check_errors(ok_process, num_iterations=OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)
@@ -733,7 +731,7 @@ def test_OkCommunicationProcess_managed_acquisition__does_not_log_percent_use_me
     simulator = FrontPanelSimulator(queues)
     simulator.initialize_board()
     ok_process.set_board_connection(0, simulator)
-    board_queues[0][0].put_nowait(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+    board_queues[0][0].put_nowait(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     confirm_queue_is_eventually_of_size(board_queues[0][0], 1)
 
     invoke_process_run_and_check_errors(

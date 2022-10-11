@@ -184,7 +184,7 @@ for adc_num in range(6):
 
 # Communications from Main to Subprocesses
 START_MANAGED_ACQUISITION_COMMUNICATION: immutabledict[str, str] = immutabledict(
-    {"communication_type": "acquisition_manager", "command": "start_managed_acquisition"}
+    {"communication_type": "acquisition_manager", "command": "start_managed_acquisition", "barcode": None}
 )
 STOP_MANAGED_ACQUISITION_COMMUNICATION: immutabledict[str, str] = immutabledict(
     {"communication_type": "acquisition_manager", "command": "stop_managed_acquisition"}

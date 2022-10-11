@@ -9,6 +9,7 @@ from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from mantarray_desktop_app import UnrecognizedCommandFromMainToMcCommError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.simulators import mc_simulator
 from mantarray_desktop_app.simulators.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app.sub_processes import mc_comm
@@ -261,7 +262,7 @@ def test_McCommunicationProcess__processes_command_responses_from_two_different_
     test_command = {"communication_type": "metadata_comm", "command": "get_metadata"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, input_queue)
     invoke_process_run_and_check_errors(mc_process)
-    test_command = {"communication_type": "acquisition_manager", "command": "start_managed_acquisition"}
+    test_command = dict(START_MANAGED_ACQUISITION_COMMUNICATION)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, input_queue)
     invoke_process_run_and_check_errors(mc_process)
 

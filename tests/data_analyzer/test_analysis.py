@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import copy
 import json
+from random import randint
 
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import DATA_ANALYZER_BETA_1_BUFFER_SIZE
@@ -8,7 +9,7 @@ from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
-from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app.simulators.mc_simulator import MantarrayMcSimulator
 from mantarray_desktop_app.sub_processes import data_analyzer
 from mantarray_desktop_app.sub_processes.data_analyzer import check_for_new_twitches
 from mantarray_desktop_app.sub_processes.data_analyzer import get_force_signal
@@ -27,6 +28,7 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
 from ..fixtures_data_analyzer import set_sampling_period
+from ..fixtures_data_analyzer import TEST_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
@@ -64,12 +66,22 @@ def test_get_force_signal__returns_converts_to_force_correctly(is_beta_2_data, c
     mocked_force_from_displacement = mocker.patch.object(
         data_analyzer, "calculate_force_from_displacement", autospec=True
     )
+    mocked_get_experiment_id = mocker.patch.object(data_analyzer, "get_experiment_id", autospec=True)
+    mocked_get_stiffness_factor = mocker.patch.object(data_analyzer, "get_stiffness_factor", autospec=True)
 
     # using dummy values here since all funcs are mocked
     test_raw_signal = "raw_signal"
     test_filter_coefficients = "filter_coefficients"
+    test_barcode = MantarrayMcSimulator.default_plate_barcode
+    test_well_idx = randint(0, 23)
+
     get_force_signal(
-        test_raw_signal, test_filter_coefficients, compress=compress, is_beta_2_data=is_beta_2_data
+        test_raw_signal,
+        test_filter_coefficients,
+        test_barcode,
+        test_well_idx,
+        compress=compress,
+        is_beta_2_data=is_beta_2_data,
     )
 
     mocked_filt.assert_called_once_with(test_raw_signal, test_filter_coefficients)
@@ -87,18 +99,19 @@ def test_get_force_signal__returns_converts_to_force_correctly(is_beta_2_data, c
         mocked_displacement_from_mfd.assert_called_once_with(mocked_array.return_value)
         mocked_voltage_from_gmr.assert_not_called()
         mocked_displacement_from_voltage.assert_not_called()
-        mocked_force_from_displacement.assert_called_once_with(
-            mocked_displacement_from_mfd.return_value, in_mm=True
-        )
+        displacement_res = mocked_displacement_from_mfd.return_value
     else:
         mocked_mfd_from_memsic.assert_not_called()
         mocked_array.assert_not_called()
         mocked_displacement_from_mfd.assert_not_called()
         mocked_voltage_from_gmr.assert_called_once_with(filter_and_compress_res)
         mocked_displacement_from_voltage.assert_called_once_with(mocked_voltage_from_gmr.return_value)
-        mocked_force_from_displacement.assert_called_once_with(
-            mocked_displacement_from_voltage.return_value, in_mm=False
-        )
+        displacement_res = mocked_displacement_from_voltage.return_value
+    mocked_get_experiment_id.assert_called_once_with(test_barcode)
+    mocked_get_stiffness_factor.assert_called_once_with(mocked_get_experiment_id.return_value, test_well_idx)
+    mocked_force_from_displacement.assert_called_once_with(
+        displacement_res, mocked_get_stiffness_factor.return_value, in_mm=is_beta_2_data
+    )
 
 
 def test_live_data_metrics__returns_desired_metrics(mantarray_mc_simulator, mocker):
@@ -215,7 +228,9 @@ def test_get_twitch_analysis__returns_error_dict_when_peak_detection_error_occur
     test_x_data = np.arange(0, ROUND_ROBIN_PERIOD * len(test_y_data), ROUND_ROBIN_PERIOD)
     test_data_arr = np.array([test_x_data, test_y_data], dtype=np.int32)
 
-    actual = da_process.get_twitch_analysis(test_data_arr.tolist())
+    da_process._barcode = MantarrayMcSimulator.default_plate_barcode
+
+    actual = da_process.get_twitch_analysis(test_data_arr.tolist(), well_idx=randint(0, 23))
     assert actual == {-1: None}
 
 
@@ -236,14 +251,21 @@ def test_get_twitch_analysis__returns_force_metrics_from_given_beta_1_data(
     )
     test_data_arr = np.array([test_x_data, test_y_data], dtype=np.int32)
 
+    test_barcode = MantarrayMcSimulator.default_plate_barcode
+    test_well_idx = randint(0, 23)
+
     filter_coefficients = create_filter(
         BUTTERWORTH_LOWPASS_30_UUID, CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
     )
-    force = get_force_signal(test_data_arr, filter_coefficients, compress=False, is_beta_2_data=False)
+    force = get_force_signal(
+        test_data_arr, filter_coefficients, test_barcode, test_well_idx, compress=False, is_beta_2_data=False
+    )
     peak_detection_results = peak_detector(force)
     expected_metrics = live_data_metrics(peak_detection_results, force)
 
-    actual = da_process.get_twitch_analysis(test_data_arr.tolist())
+    da_process._barcode = MantarrayMcSimulator.default_plate_barcode
+
+    actual = da_process.get_twitch_analysis(test_data_arr.tolist(), well_idx=randint(0, 23))
     assert actual.keys() == expected_metrics.keys()
     for k in expected_metrics.keys():
         assert actual[k] == expected_metrics[k], f"Incorrect twitch dict at idx {k}"
@@ -265,12 +287,17 @@ def test_get_twitch_analysis__returns_force_metrics_from_given_beta_2_data(
     test_x_data = np.arange(0, DEFAULT_SAMPLING_PERIOD * len(test_y_data), DEFAULT_SAMPLING_PERIOD)
     test_data_arr = np.array([test_x_data, test_y_data], dtype=np.int64)
 
+    test_barcode = MantarrayMcSimulator.default_plate_barcode
+    test_well_idx = randint(0, 23)
+
     filter_coefficients = create_filter(BUTTERWORTH_LOWPASS_30_UUID, DEFAULT_SAMPLING_PERIOD)
-    force = get_force_signal(test_data_arr, filter_coefficients, compress=False)
+    force = get_force_signal(test_data_arr, filter_coefficients, test_barcode, test_well_idx, compress=False)
     peak_detection_results = peak_detector(force)
     expected_metrics = live_data_metrics(peak_detection_results, force)
 
-    actual = da_process.get_twitch_analysis(test_data_arr.tolist())
+    da_process._barcode = MantarrayMcSimulator.default_plate_barcode
+
+    actual = da_process.get_twitch_analysis(test_data_arr.tolist(), well_idx=randint(0, 23))
     assert actual.keys() == expected_metrics.keys()
     for k in expected_metrics.keys():
         assert actual[k] == expected_metrics[k], f"Incorrect twitch dict at idx {k}"
@@ -317,7 +344,7 @@ def test_DataAnalyzerProcess__sends_beta_1_metrics_of_all_wells_to_main_when_rea
 
     # make sure data analyzer knows that managed acquisition is running
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        START_MANAGED_ACQUISITION_COMMUNICATION, from_main_queue
+        TEST_START_MANAGED_ACQUISITION_COMMUNICATION, from_main_queue
     )
 
     # twitch waveform to send for wells 0-10
@@ -390,7 +417,7 @@ def test_DataAnalyzerProcess__sends_beta_2_metrics_of_all_wells_to_main_when_rea
     from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
     # make sure data analyzer knows that managed acquisition is running
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        START_MANAGED_ACQUISITION_COMMUNICATION, from_main_queue
+        TEST_START_MANAGED_ACQUISITION_COMMUNICATION, from_main_queue
     )
 
     # twitch waveform to send for wells 0-10
@@ -456,7 +483,7 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_1_data(
 
     # make sure data analyzer knows that managed acquisition is running
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        START_MANAGED_ACQUISITION_COMMUNICATION, from_main_queue
+        TEST_START_MANAGED_ACQUISITION_COMMUNICATION, from_main_queue
     )
 
     single_second_of_data = mantarray_mc_simulator["simulator"].get_interpolated_data(
@@ -530,7 +557,7 @@ def test_DataAnalyzerProcess__only_dumps_new_twitch_metrics__with_beta_2_data(
     from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
     # make sure data analyzer knows that managed acquisition is running
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        START_MANAGED_ACQUISITION_COMMUNICATION, from_main_queue
+        TEST_START_MANAGED_ACQUISITION_COMMUNICATION, from_main_queue
     )
 
     single_second_of_data = mantarray_mc_simulator["simulator"].get_interpolated_data(
@@ -609,7 +636,7 @@ def test_DataAnalyzerProcess__data_analysis_stream_is_reconfigured_in_beta_2_mod
     from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
     # make sure data analyzer knows that managed acquisition is running
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        START_MANAGED_ACQUISITION_COMMUNICATION, from_main_queue
+        TEST_START_MANAGED_ACQUISITION_COMMUNICATION, from_main_queue
     )
 
     single_second_of_data = mantarray_mc_simulator["simulator"].get_interpolated_data(

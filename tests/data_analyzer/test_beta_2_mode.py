@@ -8,7 +8,6 @@ from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
-from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app.simulators.mc_simulator import MantarrayMcSimulator
@@ -29,6 +28,7 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
 from ..fixtures_data_analyzer import fixture_runnable_four_board_analyzer_process
 from ..fixtures_data_analyzer import set_sampling_period
+from ..fixtures_data_analyzer import TEST_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
@@ -74,8 +74,7 @@ def test_DataAnalyzerProcess_beta_2_performance__fill_data_analysis_buffer(
     p.set_sampling_period(DEFAULT_SAMPLING_PERIOD)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
-        comm_from_main_queue,
+        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION), comm_from_main_queue
     )
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
 
@@ -108,8 +107,7 @@ def test_DataAnalyzerProcess_beta_2_performance__first_second_of_data_with_analy
     p.set_sampling_period(DEFAULT_SAMPLING_PERIOD)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
-        comm_from_main_queue,
+        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION), comm_from_main_queue
     )
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
 
@@ -145,8 +143,7 @@ def test_DataAnalyzerProcess_beta_2_performance__single_data_packet_per_well_wit
     p.set_sampling_period(DEFAULT_SAMPLING_PERIOD)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
-        comm_from_main_queue,
+        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION), comm_from_main_queue
     )
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
 
@@ -185,9 +182,11 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
     test_sampling_period = 1000
     set_sampling_period(four_board_analyzer_process_beta_2_mode, test_sampling_period)
 
+    test_barcode = TEST_START_MANAGED_ACQUISITION_COMMUNICATION["barcode"]
+
     # start managed_acquisition
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(START_MANAGED_ACQUISITION_COMMUNICATION), from_main_queue
+        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION), from_main_queue
     )
     invoke_process_run_and_check_errors(da_process)
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
@@ -223,6 +222,8 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
         compressed_data = get_force_signal(
             np.array([test_data_packet["time_indices"], flipped_default_channel_data], np.int64),
             filter_coefficients,
+            test_barcode,
+            well_idx,
         )
         waveform_data_points[well_idx] = {
             "x_data_points": compressed_data[0].tolist(),
@@ -273,7 +274,7 @@ def test_DataAnalyzerProcess__does_not_process_any_packets_after_receiving_stop_
 
     # start managed_acquisition
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(START_MANAGED_ACQUISITION_COMMUNICATION), from_main_queue
+        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION), from_main_queue
     )
     invoke_process_run_and_check_errors(da_process)
     # send first packet of first stream and make sure it is processed
@@ -302,7 +303,7 @@ def test_DataAnalyzerProcess__does_not_process_any_packets_after_receiving_stop_
 
     # start managed acquisition again and make sure next data packet in the first stream is not processed
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(START_MANAGED_ACQUISITION_COMMUNICATION), from_main_queue
+        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION), from_main_queue
     )
     invoke_process_run_and_check_errors(da_process)
     test_data_packet = copy.deepcopy(test_packet)

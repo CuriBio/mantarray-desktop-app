@@ -11,6 +11,10 @@ from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import UnrecognizedCommandFromMainToDataAnalyzerError
 from mantarray_desktop_app.constants import DEFAULT_SAMPLING_PERIOD
+from mantarray_desktop_app.constants import START_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app.exceptions import StartManagedAcquisitionWithoutBarcodeError
+from mantarray_desktop_app.simulators.fifo_simulator import RunningFIFOSimulator
+from mantarray_desktop_app.simulators.mc_simulator import MantarrayMcSimulator
 from mantarray_desktop_app.sub_processes import data_analyzer
 import numpy as np
 from pulse3D.exceptions import PeakDetectionError
@@ -22,10 +26,10 @@ from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 from ..fixtures import fixture_patch_print
-from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
+from ..fixtures_data_analyzer import TEST_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
@@ -125,9 +129,9 @@ def test_DataAnalyzerProcess__drain_all_queues__drains_all_queues_except_error_q
 
 
 def test_DataAnalyzerProcess__raises_error_with_unrecognized_acquisition_manager_command(
-    four_board_analyzer_process, mocker, patch_print
+    four_board_analyzer_process, patch_print
 ):
-    p, _, comm_from_main_queue, _, _, _ = four_board_analyzer_process
+    p, _, comm_from_main_queue, *_ = four_board_analyzer_process
 
     expected_command = "fake_command"
     start_command = {"communication_type": "acquisition_manager", "command": expected_command}
@@ -137,31 +141,40 @@ def test_DataAnalyzerProcess__raises_error_with_unrecognized_acquisition_manager
         invoke_process_run_and_check_errors(p)
 
 
-def test_DataAnalyzerProcess__processes_start_managed_acquisition_command__by_draining_outgoing_data_queue(
+def test_DataAnalyzerProcess__processes_start_managed_acquisition_command__by_draining_outgoing_data_queue__and_storing_barcode(
     four_board_analyzer_process,
 ):
-    p, board_queues, comm_from_main_queue, _, _, _ = four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, *_ = four_board_analyzer_process
 
-    start_command = get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
+    start_command = dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, comm_from_main_queue)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty("item", board_queues[0][1])
     invoke_process_run_and_check_errors(p)
     confirm_queue_is_eventually_empty(board_queues[0][1])
 
+    assert p._barcode == start_command["barcode"]
+
+
+def test_DataAnalyzerProcess__raises_error_if_start_managed_acquisition_command_does_not_contain_a_barcode(
+    four_board_analyzer_process, patch_print
+):
+    p, _, comm_from_main_queue, *_ = four_board_analyzer_process
+
+    start_command = dict(START_MANAGED_ACQUISITION_COMMUNICATION)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, comm_from_main_queue)
+
+    with pytest.raises(StartManagedAcquisitionWithoutBarcodeError):
+        invoke_process_run_and_check_errors(p)
+
 
 def test_DataAnalyzerProcess__raises_error_if_communication_type_is_invalid(
-    four_board_analyzer_process, mocker, patch_print
+    four_board_analyzer_process, patch_print
 ):
-    p, _, comm_from_main_queue, _, _, _ = four_board_analyzer_process
+    p, _, comm_from_main_queue, *_ = four_board_analyzer_process
 
-    invalid_command = {
-        "communication_type": "fake_type",
-    }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        invalid_command,
-        comm_from_main_queue,
-    )
+    invalid_command = {"communication_type": "fake_type"}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(invalid_command, comm_from_main_queue)
 
     with pytest.raises(UnrecognizedCommandFromMainToDataAnalyzerError, match="fake_type"):
         invoke_process_run_and_check_errors(p)
@@ -170,7 +183,9 @@ def test_DataAnalyzerProcess__raises_error_if_communication_type_is_invalid(
 def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_1_data(
     four_board_analyzer_process, mocker
 ):
-    da_process, _, _, to_main_queue, _, _ = four_board_analyzer_process
+    da_process, _, _, to_main_queue, *_ = four_board_analyzer_process
+
+    da_process._barcode = RunningFIFOSimulator.default_barcode
 
     mocker.patch.object(data_analyzer, "get_force_signal", autospec=True, return_value=np.zeros((2, 2)))
 
@@ -263,7 +278,8 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_2_dat
     mocker.patch.object(data_analyzer, "peak_detector", autospec=True, side_effect=PeakDetectionError())
 
     # start managed acquisition
-    start_command = get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION()
+    start_command = dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION)
+    start_command["barcode"] = MantarrayMcSimulator.default_plate_barcode
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
     invoke_process_run_and_check_errors(da_process)
     # remove command receipt
@@ -326,7 +342,9 @@ def test_DataAnalyzerProcess__does_not_include_performance_metrics_in_first_logg
     # TODO Tanner (8/30/21): change this test to work with Beta 2 data once beta 1 is phased out
     mocker.patch.object(data_analyzer, "get_force_signal", autospec=True, return_value=np.zeros((2, 2)))
 
-    da_process, _, _, to_main_queue, _, _ = four_board_analyzer_process
+    da_process, _, _, to_main_queue, *_ = four_board_analyzer_process
+
+    da_process._barcode = RunningFIFOSimulator.default_barcode
 
     # set log level to debug performance metrics are created and sent to main
     da_process._logging_level = logging.DEBUG
@@ -365,17 +383,18 @@ def test_DataAnalyzerProcess__processes_set_sampling_period_command(
     assert da_process.get_buffer_size() == expected_buffer_size
 
 
-def test_DataAnalyzerProcess__reinits_streams_upon_receiving_stop_managed_acquisition_command(
+def test_DataAnalyzerProcess__reinits_streams_upon_receiving_stop_managed_acquisition_command__and_clears_barcode(
     four_board_analyzer_process, mocker
 ):
-    p, _, from_main_queue, _, _, _ = four_board_analyzer_process
+    p, _, from_main_queue, *_ = four_board_analyzer_process
 
     spied_init_streams = mocker.spy(p, "init_streams")
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        STOP_MANAGED_ACQUISITION_COMMUNICATION,
-        from_main_queue,
+        STOP_MANAGED_ACQUISITION_COMMUNICATION, from_main_queue
     )
     invoke_process_run_and_check_errors(p)
+
+    assert p._barcode is None
 
     spied_init_streams.assert_called_once_with()

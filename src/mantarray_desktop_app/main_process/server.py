@@ -647,8 +647,9 @@ def start_recording() -> Response:
     # validate params separately
     for barcode_type in barcodes_to_check:
         barcode = request.args[barcode_type]
-        error_message = check_barcode_for_errors(barcode, shared_values_dict["beta_2_mode"], barcode_type)
-        if error_message:
+        if error_message := check_barcode_for_errors(
+            barcode, shared_values_dict["beta_2_mode"], barcode_type
+        ):
             barcode_label = barcode_type.split("_")[0].title()
             return Response(status=f"400 {barcode_label} {error_message}")
     barcodes = {
@@ -785,13 +786,24 @@ def start_managed_acquisition() -> Response:
     `curl http://localhost:4567/start_managed_acquisition`
     """
     shared_values_dict = _get_values_from_process_monitor()
+
+    plate_barcode = request.args.get("plate_barcode")
+    if not plate_barcode:
+        return Response(status="400 Request missing 'plate_barcode' parameter")
+    if error_message := check_barcode_for_errors(
+        plate_barcode, shared_values_dict["beta_2_mode"], "plate_barcode"
+    ):
+        return Response(status=f"400 Plate {error_message}")
+
     if not shared_values_dict["mantarray_serial_number"][0]:
         response = Response(status="406 Mantarray has not been assigned a Serial Number")
         return response
     if shared_values_dict["beta_2_mode"] and _are_stimulator_checks_running():
         return Response(status="403 Cannot start managed acquisition while stimulator checks are running")
 
-    response = queue_command_to_main(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
+    command = {**START_MANAGED_ACQUISITION_COMMUNICATION, "barcode": plate_barcode}
+    response = queue_command_to_main(command)
+
     return response
 
 
@@ -956,11 +968,7 @@ def queue_stop_acquisition() -> Response:
 
     Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/stop_acquisition
     """
-    comm_dict = {
-        "communication_type": "debug_console",
-        "command": "stop_acquisition",
-        "suppress_error": True,
-    }
+    comm_dict = {"communication_type": "debug_console", "command": "stop_acquisition", "suppress_error": True}
 
     response = queue_command_to_instrument_comm(comm_dict)
 
@@ -1007,11 +1015,7 @@ def queue_get_device_id() -> Response:
 
     Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/get_device_id
     """
-    comm_dict = {
-        "communication_type": "debug_console",
-        "command": "get_device_id",
-        "suppress_error": True,
-    }
+    comm_dict = {"communication_type": "debug_console", "command": "get_device_id", "suppress_error": True}
 
     response = queue_command_to_instrument_comm(comm_dict)
 
@@ -1024,11 +1028,7 @@ def queue_is_spi_running() -> Response:
 
     Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/is_spi_running
     """
-    comm_dict = {
-        "communication_type": "debug_console",
-        "command": "is_spi_running",
-        "suppress_error": True,
-    }
+    comm_dict = {"communication_type": "debug_console", "command": "is_spi_running", "suppress_error": True}
 
     response = queue_command_to_instrument_comm(comm_dict)
 
@@ -1123,11 +1123,7 @@ def queue_get_status() -> Response:
 
     Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/get_status
     """
-    comm_dict = {
-        "communication_type": "debug_console",
-        "command": "get_status",
-        "suppress_error": True,
-    }
+    comm_dict = {"communication_type": "debug_console", "command": "get_status", "suppress_error": True}
 
     response = queue_command_to_instrument_comm(comm_dict)
 
@@ -1135,11 +1131,7 @@ def queue_get_status() -> Response:
 
 
 def shutdown_server() -> None:
-    """Stop / shutdown the Flask Server itself.
-
-    Eli (11/18/20): If separate routes call this, then it needs to be
-    broken out into a subfunction not decorated as a Flask route.
-    """
+    """Stop / shutdown the Flask Server itself."""
     logger.info("Calling function to shut down Flask Server.")
     socketio.stop()
     # Tanner (6/20/21): SystemExit is raised here, so no lines after this will execute

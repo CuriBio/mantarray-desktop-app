@@ -4,6 +4,7 @@ import time
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import McCommunicationProcess
 from mantarray_desktop_app import STM_VID
+from mantarray_desktop_app.constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.sub_processes import mc_comm
 import pytest
 import serial
@@ -82,7 +83,7 @@ def start_data_stream(mc_fixture, simulator):
     from_main_queue = mc_fixture["board_queues"][0][0]
     to_main_queue = mc_fixture["board_queues"][0][1]
 
-    start_command = {"communication_type": "acquisition_manager", "command": "start_managed_acquisition"}
+    start_command = dict(START_MANAGED_ACQUISITION_COMMUNICATION)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
     # send command, process command, process command response
     invoke_process_run_and_check_errors(mc_process)

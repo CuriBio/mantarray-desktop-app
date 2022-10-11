@@ -5,6 +5,8 @@ import tempfile
 
 from immutabledict import immutabledict
 from mantarray_desktop_app import DataAnalyzerProcess
+from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app.simulators.mc_simulator import MantarrayMcSimulator
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import TestingQueue
@@ -27,6 +29,10 @@ TEST_START_RECORDING_SNAPSHOT_COMMAND = immutabledict(
         "command": "start_recording_snapshot",
         "recording_path": TEST_REC_DIR_PATH,
     }
+)
+
+TEST_START_MANAGED_ACQUISITION_COMMUNICATION = immutabledict(
+    {**START_MANAGED_ACQUISITION_COMMUNICATION, "barcode": MantarrayMcSimulator.default_plate_barcode}
 )
 
 
