@@ -76,12 +76,7 @@ __fixtures__ = [
 def test_send_single_set_mantarray_nickname_command__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    (
-        test_client,
-        test_server_info,
-        shared_values_dict,
-    ) = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["mantarray_nickname"] = dict()
     expected_nickname = "Surnom Français"
 
@@ -102,8 +97,7 @@ def test_send_single_set_mantarray_nickname_command__populates_queue(
 def test_send_single_initialize_board_command_with_bit_file__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
     board_idx = 0
     expected_bit_file_name = "main.bit"
     response = test_client.get(
@@ -130,8 +124,7 @@ def test_send_single_initialize_board_command_with_bit_file__populates_queue(
 def test_send_single_initialize_board_command_without_bit_file__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
     board_idx = 0
     response = test_client.get("/insert_xem_command_into_queue/initialize_board")
     assert response.status_code == 200
@@ -155,8 +148,7 @@ def test_send_single_initialize_board_command_without_bit_file__populates_queue(
 def test_send_single_get_status_command__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
     response = test_client.get("/insert_xem_command_into_queue/get_status")
     assert response.status_code == 200
 
@@ -174,8 +166,7 @@ def test_send_single_get_status_command__populates_queue(
 def test_send_single_activate_trigger_in_command__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
     expected_ep_addr = 10
     expected_bit = 0x00000001
     response = test_client.get(
@@ -201,8 +192,7 @@ def test_send_single_activate_trigger_in_command__populates_queue(
 def test_send_single_activate_trigger_in_command__using_hex_notation__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
     expected_ep_addr = "0x02"
     expected_bit = "0x00000001"
     response = test_client.get(
@@ -228,8 +218,7 @@ def test_send_single_activate_trigger_in_command__using_hex_notation__populates_
 def test_send_single_comm_delay_command__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     expected_num_millis = 35
     response = test_client.get(
@@ -253,8 +242,7 @@ def test_send_single_comm_delay_command__populates_queue(
 def test_send_single_get_num_words_fifo_command__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
     response = test_client.get("/insert_xem_command_into_queue/get_num_words_fifo")
     assert response.status_code == 200
 
@@ -272,8 +260,7 @@ def test_send_single_get_num_words_fifo_command__populates_queue(
 def test_send_single_set_device_id_command__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     test_id = "Mantarray XEM"
     response = test_client.get(f"/insert_xem_command_into_queue/set_device_id?new_id={test_id}")
@@ -295,8 +282,7 @@ def test_send_single_set_device_id_command__populates_queue(
 def test_send_single_stop_acquisition_command__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     response = test_client.get("/insert_xem_command_into_queue/stop_acquisition")
     assert response.status_code == 200
@@ -315,8 +301,7 @@ def test_send_single_stop_acquisition_command__populates_queue(
 def test_send_single_start_acquisition_command__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     response = test_client.get("/insert_xem_command_into_queue/start_acquisition")
     assert response.status_code == 200
@@ -335,8 +320,7 @@ def test_send_single_start_acquisition_command__populates_queue(
 def test_send_single_get_serial_number_command__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     response = test_client.get("/insert_xem_command_into_queue/get_serial_number")
     assert response.status_code == 200
@@ -355,8 +339,7 @@ def test_send_single_get_serial_number_command__populates_queue(
 def test_send_single_get_device_id_command__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     response = test_client.get("/insert_xem_command_into_queue/get_device_id")
     assert response.status_code == 200
@@ -375,8 +358,7 @@ def test_send_single_get_device_id_command__populates_queue(
 def test_send_single_is_spi_running_command__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     response = test_client.get("/insert_xem_command_into_queue/is_spi_running")
     assert response.status_code == 200
@@ -395,8 +377,7 @@ def test_send_single_is_spi_running_command__populates_queue(
 def test_send_single_read_from_fifo_command__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     response = test_client.get("/insert_xem_command_into_queue/read_from_fifo?num_words_to_log=72")
     assert response.status_code == 200
@@ -414,8 +395,7 @@ def test_send_single_read_from_fifo_command__populates_queue(
 def test_send_single_read_from_fifo_command_with_hex_notation__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     response = test_client.get("/insert_xem_command_into_queue/read_from_fifo?num_words_to_log=0x48")
     assert response.status_code == 200
@@ -434,8 +414,7 @@ def test_send_single_read_from_fifo_command_with_hex_notation__populates_queue(
 def test_send_single_set_wire_in_command__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     expected_ep_addr = 8
     expected_value = 0x00000010
@@ -464,8 +443,7 @@ def test_send_single_set_wire_in_command__populates_queue(
 def test_send_single_set_wire_in_command__using_hex_notation__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     expected_ep_addr = "0x05"
     value = "0x000000a0"
@@ -495,8 +473,7 @@ def test_send_single_set_wire_in_command__using_hex_notation__populates_queue(
 def test_send_single_xem_scripts_command__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     expected_script_type = "start_up"
     response = test_client.get(f"/xem_scripts?script_type={expected_script_type}")
@@ -514,8 +491,7 @@ def test_send_single_xem_scripts_command__populates_queue(
 def test_send_single_read_wire_out_command__populates_queue__and_logs_response(
     client_and_server_manager_and_shared_values, mocker
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     board_idx = 0
     expected_ep_addr = 6
@@ -542,8 +518,7 @@ def test_send_single_read_wire_out_command__populates_queue__and_logs_response(
 def test_send_single_read_wire_out_command_with_hex_notation__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     board_idx = 0
     expected_ep_addr = "0x6"
@@ -566,8 +541,7 @@ def test_send_single_read_wire_out_command_with_hex_notation__populates_queue(
 def test_send_single_read_wire_out_command_with_description__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     board_idx = 0
     expected_ep_addr = 6
@@ -595,8 +569,7 @@ def test_send_single_read_wire_out_command_with_description__populates_queue(
 def test_send_single_stop_managed_acquisition_command__populates_queues(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     response = test_client.get("/stop_managed_acquisition")
     assert response.status_code == 200
@@ -612,8 +585,7 @@ def test_send_single_stop_managed_acquisition_command__populates_queues(
 def test_send_single_set_mantarray_serial_number_command__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     expected_serial_number = "M02001901"
 
@@ -636,15 +608,14 @@ def test_send_single_set_mantarray_serial_number_command__populates_queue(
 def test_send_single_boot_up_command__populates_queue(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     response = test_client.get("/boot_up")
     assert response.status_code == 200
 
     to_main_queue = test_server.get_queue_to_main()
 
-    assert is_queue_eventually_of_size(to_main_queue, 1) is True
+    assert is_queue_eventually_of_size(to_main_queue, 1)
     communication = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "to_instrument"
     assert communication["command"] == "boot_up"
@@ -656,27 +627,27 @@ def test_send_single_boot_up_command__populates_queue(
 def test_send_single_start_managed_acquisition_command__populates_queues(
     client_and_server_manager_and_shared_values,
 ):
-    (
-        test_client,
-        test_server_info,
-        shared_values_dict,
-    ) = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
 
     board_idx = 0
-    shared_values_dict["mantarray_serial_number"] = {board_idx: "M02001801"}
+    shared_values_dict["mantarray_serial_number"] = {
+        board_idx: MantarrayMcSimulator.default_mantarray_serial_number
+    }
     shared_values_dict["stimulator_circuit_statuses"] = {}
 
-    response = test_client.get("/start_managed_acquisition")
+    test_barcode = MantarrayMcSimulator.default_plate_barcode
+    expected_command = {**START_MANAGED_ACQUISITION_COMMUNICATION, "barcode": test_barcode}
+
+    response = test_client.get(f"/start_managed_acquisition?plate_barcode={test_barcode}")
     assert response.status_code == 200
+    response_json = response.get_json()
+    assert response_json == expected_command
 
     to_main_queue = test_server.get_queue_to_main()
-
-    assert is_queue_eventually_of_size(to_main_queue, 1) is True
+    assert is_queue_eventually_of_size(to_main_queue, 1)
     communication = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert communication == START_MANAGED_ACQUISITION_COMMUNICATION
-    response_json = response.get_json()
-    assert response_json == START_MANAGED_ACQUISITION_COMMUNICATION
+    assert communication == expected_command
 
 
 @freeze_time(
@@ -689,12 +660,7 @@ def test_send_single_start_managed_acquisition_command__populates_queues(
 def test_stop_recording_command__is_received_by_main__with_default__utcnow_recording_stop_time(
     client_and_server_manager_and_shared_values,
 ):
-    (
-        test_client,
-        test_server_info,
-        shared_values_dict,
-    ) = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), shared_values_dict = client_and_server_manager_and_shared_values
 
     expected_acquisition_timestamp = datetime.datetime(
         year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332597
@@ -1294,8 +1260,7 @@ def test_shutdown__sends_hard_stop_command__waits_for_subprocesses_to_stop__then
 
     mocked_wait = mocker.patch.object(server, "wait_for_subprocesses_to_stop", autospec=True, side_effect=se)
     mocker.patch.object(server, "_get_values_from_process_monitor", autospec=True)
-    test_client, test_server_info, _ = client_and_server_manager_and_shared_values
-    test_server, _ = test_server_info
+    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
     server_to_main_queue = test_server.get_queue_to_main()
 
     response = test_client.get("/shutdown")
