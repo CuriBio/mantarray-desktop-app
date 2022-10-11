@@ -78,6 +78,10 @@ class RecordingUploadMissingPulse3dVersionError(Exception):
     pass
 
 
+class StartManagedAcquisitionWithoutBarcodeError(Exception):
+    pass
+
+
 # Beta 1 errors
 class UnrecognizedCommandFromMainToOkCommError(Exception):
     pass

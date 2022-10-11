@@ -20,6 +20,7 @@ from mantarray_desktop_app.constants import PERFOMANCE_LOGGING_PERIOD_SECS
 from mantarray_desktop_app.constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
 from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from mantarray_desktop_app.constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.simulators import mc_simulator
 from mantarray_desktop_app.sub_processes import mc_comm
 import numpy as np
@@ -75,10 +76,8 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__wh
     )
     invoke_process_run_and_check_errors(simulator)
 
-    expected_response = {"communication_type": "acquisition_manager", "command": "start_managed_acquisition"}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        copy.deepcopy(expected_response), from_main_queue
-    )
+    expected_response = dict(START_MANAGED_ACQUISITION_COMMUNICATION)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_response, from_main_queue)
     # run mc_process one iteration to send start command
     invoke_process_run_and_check_errors(mc_process)
     # run mc_simulator once to process command and send response
@@ -111,7 +110,7 @@ def test_McCommunicationProcess__raises_error_when_set_sampling_period_command_r
     invoke_process_run_and_check_errors(simulator)
 
     # start data streaming
-    start_command = {"communication_type": "acquisition_manager", "command": "start_managed_acquisition"}
+    start_command = dict(START_MANAGED_ACQUISITION_COMMUNICATION)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
     invoke_process_run_and_check_errors(mc_process)
     invoke_process_run_and_check_errors(simulator)
@@ -146,10 +145,8 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__an
         testing_queue,
     )
 
-    expected_response = {"communication_type": "acquisition_manager", "command": "start_managed_acquisition"}
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        copy.deepcopy(expected_response), from_main_queue
-    )
+    expected_response = dict(START_MANAGED_ACQUISITION_COMMUNICATION)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_response, from_main_queue)
     # run mc_process one iteration to send start command
     invoke_process_run_and_check_errors(mc_process)
     # run mc_simulator once to process command and send response

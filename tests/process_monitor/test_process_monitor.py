@@ -31,6 +31,7 @@ from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import ServerManager
+from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import UPDATE_ERROR_STATE
 from mantarray_desktop_app import UPDATES_COMPLETE_STATE
@@ -60,7 +61,6 @@ from xem_wrapper import FrontPanelSimulator
 
 from ..fixtures import fixture_patch_print
 from ..fixtures import fixture_test_process_manager_creator
-from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
@@ -528,7 +528,7 @@ def test_MantarrayProcessesMonitor__updates_timestamp_in_shared_values_dict_afte
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    queue_command_to_instrument_comm(get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION())
+    queue_command_to_instrument_comm(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     comm_to_instrument_comm = test_process_manager.queue_container.to_instrument_comm(0)
     assert is_queue_eventually_not_empty(comm_to_instrument_comm) is True
     ok_comm_process = test_process_manager.instrument_comm_process

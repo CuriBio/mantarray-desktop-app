@@ -40,7 +40,6 @@ from stdlib_utils import invoke_process_run_and_check_errors
 from ..fixtures import fixture_patch_print
 from ..fixtures import fixture_patch_subprocess_joins
 from ..fixtures import fixture_test_process_manager_creator
-from ..fixtures import get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
@@ -336,7 +335,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     server_to_main_queue = test_process_manager.queue_container.from_server
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        get_mutable_copy_of_START_MANAGED_ACQUISITION_COMMUNICATION(),
+        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
         server_to_main_queue,
     )
     invoke_process_run_and_check_errors(monitor_thread)

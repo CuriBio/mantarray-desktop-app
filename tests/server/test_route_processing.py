@@ -825,6 +825,8 @@ def test_send_single_start_managed_acquisition_command__sets_system_status_to_bu
     }
     shared_values_dict["stimulator_circuit_statuses"] = {}
 
+    test_barcode = RunningFIFOSimulator.default_barcode
+
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
     comm_from_ok_queue = test_process_manager.queue_container.from_instrument_comm(0)
     comm_from_da_queue = test_process_manager.queue_container.from_data_analyzer
@@ -838,7 +840,7 @@ def test_send_single_start_managed_acquisition_command__sets_system_status_to_bu
     dummy_data = {"well_index": 0, "data": [[0, 1], [100, 200]]}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(dummy_data, outgoing_data_queue)
 
-    response = test_client.get("/start_managed_acquisition")
+    response = test_client.get(f"/start_managed_acquisition?plate_barcode={test_barcode}")
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == BUFFERING_STATE

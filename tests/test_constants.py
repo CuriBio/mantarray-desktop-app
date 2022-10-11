@@ -302,6 +302,7 @@ def test_managed_acquisition_commands():
     assert START_MANAGED_ACQUISITION_COMMUNICATION == {
         "communication_type": "acquisition_manager",
         "command": "start_managed_acquisition",
+        "barcode": None,
     }
     assert STOP_MANAGED_ACQUISITION_COMMUNICATION == {
         "communication_type": "acquisition_manager",

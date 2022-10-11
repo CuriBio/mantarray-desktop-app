@@ -205,15 +205,17 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
                 break
             time.sleep(0.5)
 
-        # Tanner (12/30/20): start managed_acquisition in order to get data moving through data path
-        acquisition_request = f"{get_api_endpoint()}start_managed_acquisition"
-        response = requests.get(acquisition_request)
-        assert response.status_code == 200
-        assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
-
         expected_plate_barcode_1 = GENERIC_BETA_1_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
         ][PLATE_BARCODE_UUID]
+
+        # Tanner (12/30/20): start managed_acquisition in order to get data moving through data path
+        response = requests.get(
+            f"{get_api_endpoint()}start_managed_acquisition?plate_barcode={expected_plate_barcode_1}"
+        )
+        assert response.status_code == 200
+        assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
+
         start_recording_time_index_1 = 9600
         expected_start_index_1 = start_recording_time_index_1 // MICROSECONDS_PER_CENTIMILLISECOND
         start_recording_params_1 = {
@@ -248,15 +250,17 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
         assert len(msg_list_container["waveform_data"]) >= MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 1
         confirm_queue_is_eventually_empty(da_out, timeout_seconds=5)
 
+        # Tanner (6/1/21): Use new barcode for second set of recordings, change experiment code from '000' to '001'
+        expected_plate_barcode_2 = expected_plate_barcode_1.replace("000", "001")
         # Tanner (6/1/21): Make sure managed_acquisition can be restarted
-        response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
+        response = requests.get(
+            f"{get_api_endpoint()}start_managed_acquisition?plate_barcode={expected_plate_barcode_2}"
+        )
         assert response.status_code == 200
         # Tanner (6/1/21): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer yet
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
-        # Tanner (6/1/21): Use new barcode for second set of recordings, change experiment code from '000' to '001'
-        expected_plate_barcode_2 = expected_plate_barcode_1.replace("000", "001")
         # Tanner (5/25/21): Start at a different timepoint to create a different timestamp in the names of the second set of files
         start_recording_time_index_2 = start_recording_time_index_1 + MICRO_TO_BASE_CONVERSION
         expected_start_index_2 = start_recording_time_index_2 // MICROSECONDS_PER_CENTIMILLISECOND
@@ -562,15 +566,17 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         # sleep to let protocol B complete before starting live view
         time.sleep(5)
 
-        # Tanner (6/1/21): Start managed_acquisition in order to start recording
-        response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
-        assert response.status_code == 200
-        assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
-        assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
-
         expected_plate_barcode_1 = GENERIC_BETA_2_START_RECORDING_COMMAND[
             "metadata_to_copy_onto_main_file_attributes"
         ][PLATE_BARCODE_UUID]
+
+        # Tanner (6/1/21): Start managed_acquisition in order to start recording
+        response = requests.get(
+            f"{get_api_endpoint()}start_managed_acquisition?plate_barcode={expected_plate_barcode_1}"
+        )
+        assert response.status_code == 200
+        assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
+        assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
         expected_start_index_1 = NUM_INITIAL_PACKETS_TO_DROP * DEFAULT_SAMPLING_PERIOD
         start_recording_params_1 = {
             "plate_barcode": expected_plate_barcode_1,
@@ -612,8 +618,12 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         assert stimulation_running_status_eventually_equals(False, 4) is True
 
+        # Tanner (6/1/21): Use new barcode for second set of recordings, change experiment code from '000' to '001'
+        expected_plate_barcode_2 = expected_plate_barcode_1.replace("000", "001")
         # Tanner (6/1/21): Make sure managed_acquisition can be restarted
-        response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
+        response = requests.get(
+            f"{get_api_endpoint()}start_managed_acquisition?plate_barcode={expected_plate_barcode_2}"
+        )
         assert response.status_code == 200
         # Tanner (6/1/21): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer yet
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
@@ -630,8 +640,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         assert stimulation_running_status_eventually_equals(True, 4) is True
 
-        # Tanner (6/1/21): Use new barcode for second set of recordings, change experiment code from '000' to '001'
-        expected_plate_barcode_2 = expected_plate_barcode_1.replace("000", "001")
         # Tanner (5/25/21): Start at a different timepoint to create a different timestamp in the names of the second set of files
         expected_start_index_2 = 2 * MICRO_TO_BASE_CONVERSION
         # Tanner (6/1/21): Start recording with second barcode to create second set of files
@@ -943,17 +951,19 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
 
         assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
 
+        expected_plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
+            "metadata_to_copy_onto_main_file_attributes"
+        ][PLATE_BARCODE_UUID]
         # Tanner (12/30/20): start managed_acquisition in order to start recording
-        response = requests.get(f"{get_api_endpoint()}start_managed_acquisition")
+        response = requests.get(
+            f"{get_api_endpoint()}start_managed_acquisition?plate_barcode={expected_plate_barcode}"
+        )
         assert response.status_code == 200
 
         # Tanner (12/30/20): managed_acquisition will take system through buffering state and then to live_view active state before recording can start
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
-        expected_plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
-            "metadata_to_copy_onto_main_file_attributes"
-        ][PLATE_BARCODE_UUID]
         start_recording_params = {
             "plate_barcode": expected_plate_barcode,
             "is_hardware_test_recording": False,

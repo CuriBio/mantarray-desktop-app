@@ -494,68 +494,65 @@ def test_dev_end_hardware_script__returns_correct_response(test_client):
 
 
 @pytest.mark.parametrize(
-    ",".join(("test_serial_number", "expected_error_message", "test_description")),
+    "test_serial_number,expected_error_message",
     [
-        (
-            "M120019000",
-            "Serial Number exceeds max length",
-            "returns error message when too long",
-        ),
-        (
-            "M1200190",
-            "Serial Number does not reach min length",
-            "returns error message when too short",
-        ),
-        (
-            "M02-36700",
-            "Serial Number contains invalid character: '-'",
-            "returns error message with invalid character",
-        ),
-        (
-            "M12001900",
-            "Serial Number contains invalid header: 'M1'",
-            "returns error message with invalid header",
-        ),
-        (
-            "M01901900",
-            "Serial Number contains invalid year: '19'",
-            "returns error message with year 19",
-        ),
-        (
-            "M02000000",
-            "Serial Number contains invalid Julian date: '000'",
-            "returns error message with invalid Julian date 000",
-        ),
-        (
-            "M02036700",
-            "Serial Number contains invalid Julian date: '367'",
-            "returns error message with invalid Julian date 367",
-        ),
+        ("M120019000", "Serial Number exceeds max length"),
+        ("M1200190", "Serial Number does not reach min length"),
+        ("M02-36700", "Serial Number contains invalid character: '-'"),
+        ("M12001900", "Serial Number contains invalid header: 'M1'"),
+        ("M01901900", "Serial Number contains invalid year: '19'"),
+        ("M02000000", "Serial Number contains invalid Julian date: '000'"),
+        ("M02036700", "Serial Number contains invalid Julian date: '367'"),
     ],
 )
 def test_set_mantarray_serial_number__returns_error_code_and_message_if_serial_number_is_invalid(
-    test_serial_number,
-    expected_error_message,
-    test_description,
-    client_and_server_manager_and_shared_values,
+    test_serial_number, expected_error_message, client_and_server_manager_and_shared_values
 ):
-    test_client, _, _ = client_and_server_manager_and_shared_values
+    test_client, *_ = client_and_server_manager_and_shared_values
 
     response = test_client.get(
         f"/insert_xem_command_into_queue/set_mantarray_serial_number?serial_number={test_serial_number}"
     )
     assert response.status_code == 400
-    assert response.status.endswith(expected_error_message) is True
+    assert response.status.endswith(expected_error_message)
+
+
+def test_start_managed_acquisition__returns_error_code_and_message_if_plate_barcode_is_not_given(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, *_ = client_and_server_manager_and_shared_values
+
+    response = test_client.get("/start_managed_acquisition")
+    assert response.status_code == 400
+    assert response.status.endswith("Request missing 'plate_barcode' parameter")
+
+
+def test_start_managed_acquisition__returns_error_code_if_barcode_header_and_type_do_not_match(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
+    # using a stim barcode instead of a plate barcode will trigger the error here
+    test_barcode = MantarrayMcSimulator.default_stim_barcode
+
+    response = test_client.get(f"/start_managed_acquisition?plate_barcode={test_barcode}")
+    assert response.status_code == 400
+    assert response.status.endswith("Plate barcode contains invalid header: 'MS'")
 
 
 def test_start_managed_acquisition__returns_error_code_and_message_if_mantarray_serial_number_is_empty(
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+
     board_idx = 0
     shared_values_dict["mantarray_serial_number"] = {board_idx: ""}
 
-    response = test_client.get("/start_managed_acquisition")
+    test_barcode = MantarrayMcSimulator.default_plate_barcode
+
+    response = test_client.get(f"/start_managed_acquisition?plate_barcode={test_barcode}")
     assert response.status_code == 406
     assert response.status.endswith("Mantarray has not been assigned a Serial Number") is True
 
@@ -565,6 +562,8 @@ def test_start_managed_acquisition__returns_error_code_and_message_called_while_
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+
+    test_barcode = MantarrayMcSimulator.default_plate_barcode
 
     board_idx = 0
     shared_values_dict["mantarray_serial_number"] = {
@@ -580,12 +579,9 @@ def test_start_managed_acquisition__returns_error_code_and_message_called_while_
         randint(0, test_num_wells - 1)
     ] = StimulatorCircuitStatuses.CALCULATING.name.lower()
 
-    response = test_client.get("/start_managed_acquisition")
+    response = test_client.get(f"/start_managed_acquisition?plate_barcode={test_barcode}")
     assert response.status_code == 403
-    assert (
-        response.status.endswith("Cannot start managed acquisition while stimulator checks are running")
-        is True
-    )
+    assert response.status.endswith("Cannot start managed acquisition while stimulator checks are running")
 
 
 def test_get_recordings__returns_error_code_and_message_when_recording_directory_is_not_found(
@@ -595,7 +591,7 @@ def test_get_recordings__returns_error_code_and_message_when_recording_directory
 
     response = test_client.get("/get_recordings")
     assert response.status_code == 400
-    assert response.status.endswith("No root recording directory was found") is True
+    assert response.status.endswith("No root recording directory was found")
 
 
 def test_get_recordings__returns_200_with_list_of_directories(
@@ -851,7 +847,7 @@ def test_start_recording__returns_error_code_if_barcode_header_and_type_do_not_m
     barcodes = {"plate_barcode": test_barcode, "stim_barcode": test_barcode}
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
     assert response.status_code == 400
-    assert response.status.endswith(expected_error_message) is True
+    assert response.status.endswith(expected_error_message)
 
 
 def test_start_recording__allows_correct_barcode_headers__for_correct_barcode_type(
