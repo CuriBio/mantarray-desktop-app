@@ -17,7 +17,8 @@ Fixed:
 ^^^^^^
 - Auto upload crashing entire app when no pulse3d versions found.
 - Invalid subprotocol durations no longer allowed.
-- 'Stimulate until complete' protocols will actually update the stimulation state to stopped upon completion.
+- ``Stimulate until complete`` protocols will actually update the stimulation state to stopped upon completion.
+- Live View accuracy.
 
 
 1.0.2 (2022-09-27)
