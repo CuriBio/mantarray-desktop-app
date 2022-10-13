@@ -18,6 +18,8 @@ files:
 win:
   target: "nsis"
   artifactName: "MantarrayController-Setup-unstable-${version}.${ext}"
+nsis:
+  runAfterFinish: false
 publish:
   provider: "s3"
   bucket: "downloads.curibio.com"
