@@ -181,9 +181,6 @@ ipcMain.once("sw_version_request", (event) => {
 });
 
 const post_latest_software_version = (version) => {
-  if (!store.get("beta_2_mode")) {
-    return; // cannot call this route in beta 1 mode
-  }
   let awaiting_response = false;
   const post_interval_id = setInterval(() => {
     if (!awaiting_response) {
@@ -202,12 +199,17 @@ const post_latest_software_version = (version) => {
   }, 1000);
 };
 
+let sw_update_available = false;
+
 const set_up_auto_updater = () => {
   autoUpdater.autoInstallOnAppQuit = false;
+
+  autoUpdater.forceDevUpdateConfig = true;
 
   // set up handler for the event in which an update is found
   autoUpdater.once("update-available", (update_info) => {
     const new_version = update_info.version;
+    sw_update_available = true;
     console.log("update-available " + new_version); // allow-log
     post_latest_software_version(new_version);
     // remove listeners for update-not-available since this event occured instead
@@ -287,7 +289,7 @@ const quit_app = () => {
     "Automatic installation of SW updates after shutdown is " + auto_install_str
   );
 
-  if (autoUpdater.autoInstallOnAppQuit) {
+  if (autoUpdater.autoInstallOnAppQuit && sw_update_available) {
     app.once("quit", () => {
       exit_app_clean();
     });
