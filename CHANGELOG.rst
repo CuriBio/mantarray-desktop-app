@@ -12,6 +12,7 @@ Added:
 Changed:
 ^^^^^^^^
 - Subprotocols can now be defined in terms of number of cycles or active duration.
+- Data analysis output will now be the same as Pulse3D.
 
 Fixed:
 ^^^^^^

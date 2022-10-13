@@ -11,6 +11,8 @@ from typing import Union
 import numpy as np
 from pulse3D.plate_recording import PlateRecording
 
+from ..constants import MICRO_TO_BASE_CONVERSION
+
 
 def run_magnet_finding_alg(
     result_dict: Dict[str, Any],
@@ -41,12 +43,24 @@ def run_magnet_finding_alg(
                 recording_copy_path = os.path.join(tmpdir, recording_name)
                 shutil.copytree(rec_path, recording_copy_path)
 
-                pr = PlateRecording(recording_copy_path, end_time=end_time)
-                df, _ = pr.write_time_force_csv(output_dir)
+                is_recording_snapshot = output_dir == tmpdir
 
-                # only store dataframes if writing csv to tmpdir. Assume they are not needed here if writing csv to a permanent file
-                if output_dir == tmpdir:
+                pr = PlateRecording(recording_copy_path, end_time=end_time)
+                df = pr.to_dataframe()
+
+                # remove __raw columns from df
+                columns_to_drop = [c for c in df.columns if "__raw" in c]
+                df.drop(columns_to_drop, inplace=True, axis=1)
+
+                # to_dataframe sends us, convert to seconds
+                df["Time (s)"] /= MICRO_TO_BASE_CONVERSION
+
+                if is_recording_snapshot:
                     analysis_dfs.append(df)
+                else:
+                    # defaults to directory under //MantarrayController//time_force_data
+                    output_path = os.path.join(output_dir, f"{recording_name}.csv")
+                    df.to_csv(output_path)
 
             except Exception as e:
                 failed_recordings.append({"name": recording_name, "error": repr(e)})
