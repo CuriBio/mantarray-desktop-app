@@ -192,7 +192,9 @@ def test_system_status_handles_expected_software_version_correctly(
     response = test_client.get("/system_status")
     assert response.status_code == expected_status_code
     if expected_status_code == 520:
-        assert response.status.endswith("Versions of Electron and Flask EXEs do not match") is True
+        assert response.status.endswith(
+            f"Versions of Electron and Flask EXEs do not match. Expected: {expected_software_version}"
+        )
 
 
 @pytest.mark.parametrize(

@@ -204,8 +204,9 @@ def system_status() -> Response:
     current_software_version = get_current_software_version()
     expected_software_version = shared_values_dict.get("expected_software_version", current_software_version)
     if expected_software_version != current_software_version:
-        # TODO figure out which FE status the SW gets stuck in when this error code is returned
-        return Response(status="520 Versions of Electron and Flask EXEs do not match")
+        return Response(
+            status=f"520 Versions of Electron and Flask EXEs do not match. Expected: {expected_software_version}"
+        )
 
     status = shared_values_dict["system_status"]
     status_dict = {
