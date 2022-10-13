@@ -291,7 +291,13 @@ const quit_app = () => {
     app.once("quit", () => {
       exit_app_clean();
     });
-    autoUpdater.quitAndInstall(false, false);
+
+    const run_updater_silently = false;
+    const run_app_after_install = false;
+
+    // need to set this value since quitAndInstall ignores the equivalent arg if not running silently
+    autoUpdater.autoRunAppAfterInstall = run_app_after_install;
+    autoUpdater.quitAndInstall(run_updater_silently, run_app_after_install);
   } else {
     exit_app_clean();
   }
