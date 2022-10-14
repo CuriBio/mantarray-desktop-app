@@ -204,8 +204,9 @@ def system_status() -> Response:
     current_software_version = get_current_software_version()
     expected_software_version = shared_values_dict.get("expected_software_version", current_software_version)
     if expected_software_version != current_software_version:
-        # TODO figure out which FE status the SW gets stuck in when this error code is returned
-        return Response(status="520 Versions of Electron and Flask EXEs do not match")
+        return Response(
+            status=f"520 Versions of Electron and Flask EXEs do not match. Expected: {expected_software_version}"
+        )
 
     status = shared_values_dict["system_status"]
     status_dict = {
@@ -225,8 +226,6 @@ def system_status() -> Response:
 @flask_app.route("/latest_software_version", methods=["POST"])
 def set_latest_software_version() -> Response:
     """Set the latest available software version."""
-    if not _get_values_from_process_monitor()["beta_2_mode"]:
-        return Response(status="403 Route cannot be called in beta 1 mode")
     try:
         version = request.args["version"]
         # check if version is a valid semantic version string. ValueError will be raised if not
@@ -236,10 +235,7 @@ def set_latest_software_version() -> Response:
     except ValueError:
         return Response(status="400 Invalid version string")
 
-    comm_dict = {
-        "communication_type": "set_latest_software_version",
-        "version": version,
-    }
+    comm_dict = {"communication_type": "set_latest_software_version", "version": version}
 
     response = queue_command_to_main(comm_dict)
     return response

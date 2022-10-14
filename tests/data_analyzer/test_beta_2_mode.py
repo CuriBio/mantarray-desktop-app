@@ -344,5 +344,5 @@ def test_DataAnalyzerProcess__formats_and_passes_incoming_stim_packet_through_to
         for well_idx, stim_status_arr in test_stim_packet["well_statuses"].items()
     }
 
-    assert outgoing_msg["data_type"] == "stimulation"
+    assert outgoing_msg["data_type"] == "stimulation_data"
     assert outgoing_msg["data_json"] == json.dumps(expected_stim_data)

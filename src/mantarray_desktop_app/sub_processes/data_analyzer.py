@@ -620,7 +620,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 for well_idx, stim_status_arr in stim_packet["well_statuses"].items()
             }
         )
-        outgoing_msg = {"data_type": "stimulation", "data_json": outgoing_data_json}
+        outgoing_msg = {"data_type": "stimulation_data", "data_json": outgoing_data_json}
         self._board_queues[0][1].put_nowait(outgoing_msg)
 
     def _run_magnet_finding_alg(self, recordings: List[str]) -> None:

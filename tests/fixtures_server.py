@@ -154,7 +154,7 @@ def put_generic_beta_2_start_recording_info_in_dict(shared_values_dict):
 
 @pytest.fixture(scope="function", name="test_socketio_client")
 def fixture_test_socketio_client():
-    msg_list_container = {key: list() for key in ("waveform_data", "twitch_metrics", "stimulation")}
+    msg_list_container = {key: list() for key in ("waveform_data", "twitch_metrics", "stimulation_data")}
 
     sio = python_socketio.Client()
 
@@ -166,9 +166,9 @@ def fixture_test_socketio_client():
     def twitch_metrics_handler(data):
         msg_list_container["twitch_metrics"].append(data)
 
-    @sio.on("stimulation")
+    @sio.on("stimulation_data")
     def stimulation_handler(data):
-        msg_list_container["stimulation"].append(data)
+        msg_list_container["stimulation_data"].append(data)
 
     def _connect_client_to_server():
         confirm_port_in_use(get_server_port_number(), timeout=4)  # wait for server to boot up

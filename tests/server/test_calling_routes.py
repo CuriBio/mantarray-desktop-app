@@ -192,7 +192,9 @@ def test_system_status_handles_expected_software_version_correctly(
     response = test_client.get("/system_status")
     assert response.status_code == expected_status_code
     if expected_status_code == 520:
-        assert response.status.endswith("Versions of Electron and Flask EXEs do not match") is True
+        assert response.status.endswith(
+            f"Versions of Electron and Flask EXEs do not match. Expected: {expected_software_version}"
+        )
 
 
 @pytest.mark.parametrize(
@@ -1509,17 +1511,6 @@ def test_set_protocols__returns_no_error_code_if_called_correctly(
 
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info)})
     assert response.status_code == 200
-
-
-def test_latest_software_version__returns_error_code_when_called_in_beta_1_mode(
-    client_and_server_manager_and_shared_values,
-):
-    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    shared_values_dict["beta_2_mode"] = False
-
-    response = test_client.post("/latest_software_version")
-    assert response.status_code == 403
-    assert response.status.endswith("Route cannot be called in beta 1 mode") is True
 
 
 def test_latest_software_version__returns_error_code_when_version_param_is_not_given(

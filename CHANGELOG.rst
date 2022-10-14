@@ -7,18 +7,21 @@ Changelog for Mantarray Desktop App
 
 Added:
 ^^^^^^
-- Live view will now plate stiffness factor from barcode when calculating force from displacement.
+- Live View will now use plate stiffness factor from barcode when calculating force from displacement.
 
 Changed:
 ^^^^^^^^
 - Subprotocols can now be defined in terms of number of cycles or active duration.
-- Data analysis output will now be the same as Pulse3D.
+- Include installer download link when FE version does not match BE version.
+- Data analysis output will now be the same as Pulse3D output.
 
 Fixed:
 ^^^^^^
+- Auto updating issues.
 - Auto upload crashing entire app when no pulse3d versions found.
 - Invalid subprotocol durations no longer allowed.
-- 'Stimulate until complete' protocols will actually update the stimulation state to stopped upon completion.
+- ``Stimulate until complete`` protocols will actually update the stimulation state to "Stopped" upon completion.
+- Live View accuracy.
 
 
 1.0.2 (2022-09-27)

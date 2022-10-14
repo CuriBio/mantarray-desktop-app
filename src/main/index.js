@@ -181,9 +181,6 @@ ipcMain.once("sw_version_request", (event) => {
 });
 
 const post_latest_software_version = (version) => {
-  if (!store.get("beta_2_mode")) {
-    return; // cannot call this route in beta 1 mode
-  }
   let awaiting_response = false;
   const post_interval_id = setInterval(() => {
     if (!awaiting_response) {
@@ -202,12 +199,17 @@ const post_latest_software_version = (version) => {
   }, 1000);
 };
 
+let sw_update_available = false;
+
 const set_up_auto_updater = () => {
   autoUpdater.autoInstallOnAppQuit = false;
+
+  autoUpdater.forceDevUpdateConfig = true;
 
   // set up handler for the event in which an update is found
   autoUpdater.once("update-available", (update_info) => {
     const new_version = update_info.version;
+    sw_update_available = true;
     console.log("update-available " + new_version); // allow-log
     post_latest_software_version(new_version);
     // remove listeners for update-not-available since this event occured instead
@@ -254,16 +256,10 @@ app.on("second-instance", (event, command_line, working_directory) => {
 });
 
 // This is another place to handle events after all windows are closed
-app.on("will-quit", function (e) {
+app.once("will-quit", function (e) {
   // This is a good place to add tests ensuring the app is still
   // responsive and all windows are closed.
   console.log("will-quit event being handled"); // allow-log
-
-  const auto_install_str = autoUpdater.autoInstallOnAppQuit ? "enabled" : "disabled";
-  console.log(
-    // allow-log
-    "Automatic installation of SW updates after shutdown is " + auto_install_str
-  );
 
   // Tanner (9/1/21): Need to prevent (default) app termination, wait for /shutdown response which confirms
   // that the backend is completely shutdown, then call app.exit() which terminates app immediately
@@ -275,16 +271,36 @@ app.on("will-quit", function (e) {
     .get(`http://localhost:${flask_port}/shutdown?called_through_app_will_quit=true`)
     .then((response) => {
       console.log(`Flask shutdown response: ${response.status} ${response.statusText}`); // allow-log
-      exit_app_clean();
+      quit_app();
     })
     .catch((response) => {
       console.log(
         // allow-log
         `Error calling Flask shutdown from Electron main process: ${response.status} ${response.statusText}`
       );
-      exit_app_clean();
+      quit_app();
     });
 });
+
+const quit_app = () => {
+  const auto_install_str = autoUpdater.autoInstallOnAppQuit ? "enabled" : "disabled";
+  console.log(
+    // allow-log
+    "Automatic installation of SW updates after shutdown is " + auto_install_str
+  );
+
+  if (autoUpdater.autoInstallOnAppQuit && sw_update_available) {
+    app.once("quit", () => {
+      exit_app_clean();
+    });
+
+    const run_updater_silently = false;
+    const run_app_after_install = true;
+    autoUpdater.quitAndInstall(run_updater_silently, run_app_after_install);
+  } else {
+    exit_app_clean();
+  }
+};
 
 const exit_app_clean = () => {
   if (wait_for_subprocess_to_complete === null) {
