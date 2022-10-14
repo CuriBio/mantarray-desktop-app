@@ -26,7 +26,6 @@ import numpy as np
 from pulse3D.compression_cy import compress_filtered_magnetic_data
 from pulse3D.constants import AMPLITUDE_UUID
 from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
-from pulse3D.constants import INTERPOLATED_DATA_PERIOD_US
 from pulse3D.constants import MEMSIC_CENTER_OFFSET
 from pulse3D.constants import TWITCH_FREQUENCY_UUID
 from pulse3D.exceptions import PeakDetectionError
@@ -42,7 +41,6 @@ from pulse3D.transforms import calculate_voltage_from_gmr
 from pulse3D.transforms import create_filter
 from pulse3D.transforms import get_stiffness_factor
 from pulse3D.utils import get_experiment_id
-from scipy import interpolate
 from stdlib_utils import create_metrics_stats
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
@@ -662,26 +660,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         snapshot_dict = snapshot_dfs[0].to_dict()
         snapshot_list = [list(snapshot_dict[key].values()) for key in snapshot_dict.keys()]
 
-        timepoints_sec = snapshot_list[0]
-        interpolated_timepoints_secs = np.arange(
-            INTERPOLATED_DATA_PERIOD_US,
-            timepoints_sec[-1] * MICRO_TO_BASE_CONVERSION,
-            INTERPOLATED_DATA_PERIOD_US,
-        )
-
-        new_force = list()
-        for well_force in snapshot_list[1:]:
-            # fit interpolation function on recorded data
-            interp_time_len = len(interpolated_timepoints_secs)
-            interp_data_fn = interpolate.interp1d(interpolated_timepoints_secs, well_force[:interp_time_len])
-            # interpolate, normalize, convert to µN
-            interpolated_force = interp_data_fn(interpolated_timepoints_secs)
-            interpolated_force -= min(interpolated_force)
-            interpolated_force *= MICRO_TO_BASE_CONVERSION
-
-            new_force.append(list(interpolated_force))
-
-        mag_analysis_msg = {"time": timepoints_sec[:interp_time_len], "force": new_force}
+        mag_analysis_msg = {"time": snapshot_list[0], "force": snapshot_list[1:]}
         outgoing_msg = {"data_type": "recording_snapshot", "data_json": json.dumps(mag_analysis_msg)}
 
         self._comm_to_main_queue.put_nowait(

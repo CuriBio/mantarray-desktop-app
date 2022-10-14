@@ -13,6 +13,7 @@ Changed:
 ^^^^^^^^
 - Subprotocols can now be defined in terms of number of cycles or active duration.
 - Include installer download link when FE version does not match BE version.
+- Data analysis output will now be the same as Pulse3D output.
 
 Fixed:
 ^^^^^^

@@ -55,16 +55,12 @@ def test_run_magnet_finding_alg__only_returns_dataframes_if_no_output_dir_is_giv
     mocked_pr = mocker.patch.object(magnet_finder, "PlateRecording", autospec=True)
 
     test_recording_paths = [f"path/to/rec{i}" for i in range(3)]
+    mocked_df = mocker.MagicMock()
 
-    expected_dfs = []
+    def to_dataframe_se(*args):
+        return mocked_df
 
-    def write_time_force_csv_se(*args):
-        df = mocker.MagicMock()
-        if not output_dir:
-            expected_dfs.append(df)
-        return df, None
-
-    mocked_pr.return_value.write_time_force_csv.side_effect = write_time_force_csv_se
+    mocked_pr.return_value.to_dataframe.side_effect = to_dataframe_se
 
     actual_dfs = run_magnet_finding_alg({}, test_recording_paths, output_dir)
 
@@ -72,6 +68,7 @@ def test_run_magnet_finding_alg__only_returns_dataframes_if_no_output_dir_is_giv
     expected_num_dfs = 0 if output_dir else len(test_recording_paths)
     assert len(actual_dfs) == expected_num_dfs
     # not that size has been confirmed, make sure the contents are correct
+    expected_dfs = [] if output_dir else [mocked_df] * len(test_recording_paths)
     assert actual_dfs == expected_dfs
 
 
@@ -86,13 +83,13 @@ def test_run_magnet_finding_alg__handles_failed_recordings_correctly(failure, mo
 
     recording_iter = iter(test_recordings)
 
-    def write_time_force_csv_se(*args):
+    def to_dataframe_se(*args):
         # make the second recording error
         if "1" in next(recording_iter) and failure:
             raise test_error
-        return mocker.MagicMock(), None
+        return mocker.MagicMock()
 
-    mocked_pr.return_value.write_time_force_csv.side_effect = write_time_force_csv_se
+    mocked_pr.return_value.to_dataframe.side_effect = to_dataframe_se
 
     result_dict = {}
     run_magnet_finding_alg(result_dict, test_recording_paths, "")
