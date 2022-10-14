@@ -57,11 +57,7 @@ def set_stimulation_protocols(
     from_main_queue = mc_fixture["board_queues"][0][0]
     to_main_queue = mc_fixture["board_queues"][0][1]
 
-    config_command = {
-        "communication_type": "stimulation",
-        "command": "set_protocols",
-        "stim_info": stim_info,
-    }
+    config_command = {"communication_type": "stimulation", "command": "set_protocols", "stim_info": stim_info}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(config_command, from_main_queue)
     # send command, process command, process command response
     invoke_process_run_and_check_errors(mc_process)
