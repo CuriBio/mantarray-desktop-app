@@ -11,18 +11,18 @@ Changelog for Mantarray Desktop App
 
 Added:
 ^^^^^^
-- Live view will now plate stiffness factor from barcode when calculating force from displacement.
+- Live View will now use post stiffness factor from barcode when calculating force from displacement.
 
 Changed:
 ^^^^^^^^
-- Subprotocols can now be defined in terms of number of cycles or active duration.
+- Stimulation subprotocols can now be defined in terms of number of cycles or active duration.
 - Data analysis output will now be the same as Pulse3D.
 
 Fixed:
 ^^^^^^
 - Auto upload crashing entire app when no pulse3d versions found.
-- Invalid subprotocol durations no longer allowed.
-- 'Stimulate until complete' protocols will actually update the stimulation state to stopped upon completion.
+- Invalid stimulation subprotocol durations no longer allowed.
+- 'Stimulate until complete' protocols will actually update the stimulation state to 'stopped' upon completion.
 
 
 1.0.2 (2022-09-27)
@@ -322,7 +322,7 @@ Fixed:
 
 - Added Gen 1 Heat Map.
 - Added automatic updating.
-- Added support for "ML" barcode format.
+- Added support for 'ML' barcode format.
 - Fixed issue with min values >= 10 not being allowed with Y-axis absolute zoom.
 - Fixed issue with waveforms eventually lagging behind and falling off screen in Beta 1 simulation mode.
 - Fixed minor styling features.
