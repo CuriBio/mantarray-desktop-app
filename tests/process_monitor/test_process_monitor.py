@@ -38,6 +38,7 @@ from mantarray_desktop_app import UPDATES_COMPLETE_STATE
 from mantarray_desktop_app import UPDATES_NEEDED_STATE
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
+from mantarray_desktop_app.exceptions import FirmwareAndSoftwareNotCompatibleError
 from mantarray_desktop_app.exceptions import InstrumentBadDataError
 from mantarray_desktop_app.exceptions import InstrumentConnectionLostError
 from mantarray_desktop_app.exceptions import InstrumentCreateConnectionError
@@ -376,6 +377,43 @@ def test_MantarrayProcessesMonitor__handles_instrument_related_errors_from_instr
     assert ws_msg == {
         "data_type": "error",
         "data_json": json.dumps({"error_type": expected_error_sent.__name__}),
+    }
+
+
+def test_MantarrayProcessesMonitor__handles_software_firwmare_incompatibility_error_from_instrument_comm_process(
+    mocker, test_process_manager_creator, test_monitor, patch_print
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
+    ic_process = test_process_manager.instrument_comm_process
+    ic_error_queue = test_process_manager.queue_container.instrument_comm_error
+    queue_to_server_ws = test_process_manager.queue_container.to_server
+
+    mocker.patch.object(test_process_manager, "hard_stop_and_join_processes", autospec=True)
+
+    test_sw_version = "1.2.3"
+
+    mocker.patch.object(
+        ic_process,
+        "_commands_for_each_run_iteration",
+        autospec=True,
+        side_effect=FirmwareAndSoftwareNotCompatibleError(test_sw_version),
+    )
+    ic_process.run(num_iterations=1)
+    confirm_queue_is_eventually_of_size(ic_error_queue, 1)
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
+
+    ws_msg = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert ws_msg == {
+        "data_type": "error",
+        "data_json": json.dumps(
+            {
+                "error_type": FirmwareAndSoftwareNotCompatibleError.__name__,
+                "latest_compatible_sw_version": test_sw_version,
+            }
+        ),
     }
 
 
