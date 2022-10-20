@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Handling firmware download process."""
+"""Handling firmware compatibility checking and downloading."""
 from typing import Any
 from typing import Dict
 from typing import Optional
@@ -41,14 +41,14 @@ def download_firmware_updates(
     username: str,
     password: str,
 ) -> None:
-    if main_fw_version is None and channel_fw_version is None:
+    if not main_fw_version and not channel_fw_version:
         raise FirmwareDownloadError("No firmware types specified")
     # get access token
     access_token = get_cloud_api_tokens(customer_id, username, password).access
     # get presigned download URL(s)
     presigned_urls: Dict[str, Optional[str]] = {"main": None, "channel": None}
     for version, fw_type in ((main_fw_version, "main"), (channel_fw_version, "channel")):
-        if version is not None:
+        if version:
             download_details = call_firmware_download_route(
                 f"https://{CLOUD_API_ENDPOINT}/mantarray/firmware/{fw_type}/{version}",
                 headers={"Authorization": f"Bearer {access_token}"},
@@ -57,7 +57,7 @@ def download_firmware_updates(
             presigned_urls[fw_type] = download_details.json()["presigned_url"]
     # download firmware file(s)
     for fw_type, presigned_url in presigned_urls.items():
-        if presigned_url is not None:
+        if presigned_url:
             download_response = call_firmware_download_route(
                 presigned_url, error_message=f"Error during download of {fw_type} firmware"
             )
