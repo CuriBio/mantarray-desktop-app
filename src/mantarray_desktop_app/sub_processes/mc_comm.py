@@ -595,6 +595,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._fw_update_worker_thread = ErrorCatchingThread(
                     target=check_versions,
                     args=(self._fw_update_thread_dict, comm_from_main["serial_number"]),
+                    use_error_repr=False,
                 )
                 self._fw_update_worker_thread.start()
             elif comm_from_main["command"] == "download_firmware_updates":
@@ -1241,11 +1242,13 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise NotImplementedError("_fw_update_thread_dict should never be None here")
 
         to_main_queue = self._board_queues[0][1]
-        if self._fw_update_worker_thread.error:
+        if error := self._fw_update_worker_thread.error:
+            if isinstance(error, Exception):
+                raise error
             error_dict = {
                 "communication_type": self._fw_update_thread_dict["communication_type"],
                 "command": self._fw_update_thread_dict["command"],
-                "error": self._fw_update_worker_thread.error,
+                "error": error,
             }
             to_main_queue.put_nowait(error_dict)
         else:

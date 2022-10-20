@@ -939,7 +939,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_INSTRUMENT_INITIALIZING_
         command_to_ic = to_instrument_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
         assert command_to_ic == {
             "communication_type": "firmware_update",
-            "command": "get_latest_firmware_versions",
+            "command": "check_versions",
             "serial_number": test_serial_number,
         }
 
@@ -996,10 +996,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
     }
 
     # set up command response
-    test_command_response = {
-        "communication_type": "firmware_update",
-        "command": "get_latest_firmware_versions",
-    }
+    test_command_response = {"communication_type": "firmware_update", "command": "check_versions"}
     if error:
         test_command_response["error"] = "some error msg"
     else:

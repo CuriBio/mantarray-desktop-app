@@ -473,10 +473,8 @@ def test_McCommunicationProcess__processes_check_versions_command(
     spied_thread_init.assert_called_once_with(
         mocker.ANY,  # this is the actual thread instance
         target=check_versions,
-        args=(
-            mc_process._fw_update_thread_dict,
-            test_serial_number,
-        ),
+        args=(mc_process._fw_update_thread_dict, test_serial_number),
+        use_error_repr=False,
     )
     mocked_thread_start.assert_called_once()
 

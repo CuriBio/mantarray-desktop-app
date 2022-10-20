@@ -2,6 +2,7 @@
 import threading
 
 from mantarray_desktop_app.workers.worker_thread import ErrorCatchingThread
+import pytest
 
 
 def test_ErrorCatchingThread__run__calls_thread_init_correctly(mocker):
@@ -25,14 +26,19 @@ def test_ErrorCatchingThread__correctly_returns_no_error_when_target_func_does_n
     assert mocked_thread.error is None
 
 
-def test_ErrorCatchingThread__handles_error_in_target_func_correctly(mocker):
+@pytest.mark.parametrize("use_error_repr", [None, False, True])
+def test_ErrorCatchingThread__handles_error_in_target_func_correctly(use_error_repr, mocker):
     expected_error = Exception("mocked error")
 
     def raise_err():
         raise expected_error
 
-    mocked_thread = ErrorCatchingThread(target=raise_err)
+    kwargs = {}
+    if use_error_repr is not None:
+        kwargs["use_error_repr"] = use_error_repr
+
+    mocked_thread = ErrorCatchingThread(target=raise_err, **kwargs)
     mocked_thread.start()
     mocked_thread.join()
 
-    assert mocked_thread.error == repr(expected_error)
+    assert mocked_thread.error == (expected_error if use_error_repr is False else repr(expected_error))

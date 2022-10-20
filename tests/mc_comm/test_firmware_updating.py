@@ -14,6 +14,7 @@ from mantarray_desktop_app import SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PAYLOAD_INDEX
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app.constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
+from mantarray_desktop_app.exceptions import FirmwareAndSoftwareNotCompatibleError
 from mantarray_desktop_app.simulators import mc_simulator
 from mantarray_desktop_app.simulators.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app.simulators.mc_simulator import MantarrayMcSimulator
@@ -42,7 +43,42 @@ __fixtures__ = [
 ]
 
 
-def test_McCommunicationProcess__handles_error_in_firmware_update_worker_thread(
+def test_McCommunicationProcess__handles_fatal_error_in_firmware_update_worker_thread(
+    four_board_mc_comm_process_no_handshake, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    from_main_queue, to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][:2]
+
+    expected_error_msg = "fatal error in thread"
+
+    def init_se(obj, target, args, **kwargs):
+        obj.error = FirmwareAndSoftwareNotCompatibleError(expected_error_msg)
+
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "__init__", autospec=True, side_effect=init_se)
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
+    # mock so thread will appear complete on the second iteration of mc_process
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, side_effect=[True, False])
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "join", autospec=True)
+
+    # send command to mc_process. Using check_versions here since it is currently the only worker thread that can raise a fatal error
+    test_command = {
+        "communication_type": "firmware_update",
+        "command": "check_versions",
+        "serial_number": MantarrayMcSimulator.default_mantarray_serial_number,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_command), from_main_queue
+    )
+
+    # run first iteration and make sure command response not sent to main
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_empty(to_main_queue)
+    # run second iteration and make sure correct command response sent to main
+    with pytest.raises(FirmwareAndSoftwareNotCompatibleError, match=expected_error_msg):
+        invoke_process_run_and_check_errors(mc_process)
+
+
+def test_McCommunicationProcess__handles_non_fatal_error_in_firmware_update_worker_thread(
     four_board_mc_comm_process_no_handshake, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
@@ -50,7 +86,7 @@ def test_McCommunicationProcess__handles_error_in_firmware_update_worker_thread(
 
     expected_error_msg = "error in thread"
 
-    def init_se(obj, target, args):
+    def init_se(obj, target, args, **kwargs):
         obj.error = expected_error_msg
 
     mocker.patch.object(mc_comm.ErrorCatchingThread, "__init__", autospec=True, side_effect=init_se)
@@ -59,7 +95,7 @@ def test_McCommunicationProcess__handles_error_in_firmware_update_worker_thread(
     mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, side_effect=[True, False])
     mocker.patch.object(mc_comm.ErrorCatchingThread, "join", autospec=True)
 
-    # send command to mc_process. Using check_versions here arbitrarily, but functionality should be the same for any worker thread
+    # send command to mc_process. Using check_versions here to make sure that if it raises a non-fatal error that it is handled correctly
     test_command = {
         "communication_type": "firmware_update",
         "command": "check_versions",
@@ -98,7 +134,7 @@ def test_McCommunicationProcess__handles_successful_completion_of_check_versions
         "sw": expected_sw_version,
     }
 
-    def init_se(obj, target, args):
+    def init_se(obj, target, args, **kwargs):
         args[0].update({"latest_versions": expected_latest_versions})
         obj.error = None
 
