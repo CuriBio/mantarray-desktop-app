@@ -68,9 +68,8 @@ def test_get_latest_firmware_versions__calls_api_endpoint_correctly_and_returns_
     get_latest_firmware_versions(test_result_dict, test_serial_number)
 
     mocked_call.assert_called_once_with(
-        f"https://{CLOUD_API_ENDPOINT}/mantarray/firmware_latest",
+        f"https://{CLOUD_API_ENDPOINT}/mantarray/versions/{test_serial_number}",
         error_message="Error getting latest firmware versions",
-        params={"serial_number": test_serial_number},
     )
 
     assert test_result_dict == expected_response_dict
@@ -114,8 +113,8 @@ def test_download_firmware_updates__get_access_token_then_downloads_specified_fi
 
         mocked_call_return = mocker.MagicMock()
 
-        is_main = params.get("firmware_type") == "main" or "main" in url
-        if "firmware_download" in url:
+        is_main = "main" in url
+        if "firmware" in url:
             presigned_url = test_main_presigned_url if is_main else test_channel_presigned_url
             mocked_call_return.json = lambda: {"presigned_url": presigned_url}
         else:
@@ -154,8 +153,7 @@ def test_download_firmware_updates__get_access_token_then_downloads_specified_fi
     ):
         if update_needed:
             assert mocked_call.call_args_list[call_idx] == mocker.call(
-                f"https://{CLOUD_API_ENDPOINT}/mantarray/firmware_download",
-                params={"firmware_version": test_new_version, "firmware_type": fw_type},
+                f"https://{CLOUD_API_ENDPOINT}/mantarray/firmware/{fw_type}/{test_new_version}",
                 headers={"Authorization": f"Bearer {test_access_token}"},
                 error_message=f"Error getting presigned URL for {fw_type} firmware",
             ), fw_type

@@ -27,8 +27,7 @@ def call_firmware_download_route(url: str, error_message: str, **kwargs: Any) ->
 
 def get_latest_firmware_versions(result_dict: Dict[str, Dict[str, str]], serial_number: str) -> None:
     response = call_firmware_download_route(
-        f"https://{CLOUD_API_ENDPOINT}/mantarray/firmware_latest",
-        params={"serial_number": serial_number},
+        f"https://{CLOUD_API_ENDPOINT}/mantarray/versions/{serial_number}",
         error_message="Error getting latest firmware versions",
     )
     result_dict["latest_versions"].update(response.json()["latest_versions"])
@@ -51,9 +50,8 @@ def download_firmware_updates(
     for version, fw_type in ((main_fw_version, "main"), (channel_fw_version, "channel")):
         if version is not None:
             download_details = call_firmware_download_route(
-                f"https://{CLOUD_API_ENDPOINT}/mantarray/firmware_download",
+                f"https://{CLOUD_API_ENDPOINT}/mantarray/firmware/{fw_type}/{version}",
                 headers={"Authorization": f"Bearer {access_token}"},
-                params={"firmware_version": version, "firmware_type": fw_type},
                 error_message=f"Error getting presigned URL for {fw_type} firmware",
             )
             presigned_urls[fw_type] = download_details.json()["presigned_url"]
