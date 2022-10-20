@@ -43,7 +43,7 @@ def test_call_firmware_download_route__handles_response_error_code_correctly(moc
     test_error_message = "err msg"
     with pytest.raises(
         FirmwareDownloadError,
-        match=f"{test_error_message} Status code: {expected_error_code}, Reason: {expected_reason}",
+        match=f"{test_error_message}. Status code: {expected_error_code}, Reason: {expected_reason}",
     ):
         call_firmware_download_route("url", error_message=test_error_message)
 
@@ -60,14 +60,16 @@ def test_get_latest_firmware_versions__calls_api_endpoint_correctly_and_returns_
         }
     }
 
-    mocked_get = mocker.patch.object(requests, "get", autospec=True)
-    mocked_get.return_value.json.return_value = copy.deepcopy(expected_response_dict)
+    mocked_call = mocker.patch.object(firmware_downloader, "call_firmware_download_route", autospec=True)
+    mocked_call.return_value.json.return_value = copy.deepcopy(expected_response_dict)
 
     test_result_dict = {"latest_versions": {}}
     test_serial_number = MantarrayMcSimulator.default_mantarray_serial_number
     get_latest_firmware_versions(test_result_dict, test_serial_number)
-    mocked_get.assert_called_once_with(
+
+    mocked_call.assert_called_once_with(
         f"https://{CLOUD_API_ENDPOINT}/mantarray/firmware_latest",
+        error_message="Error getting latest firmware versions",
         params={"serial_number": test_serial_number},
     )
 

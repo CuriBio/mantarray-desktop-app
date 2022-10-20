@@ -20,20 +20,18 @@ def call_firmware_download_route(url: str, error_message: str, **kwargs: Any) ->
         raise FirmwareDownloadError(f"{error_message}") from e
     if response.status_code != 200:
         raise FirmwareDownloadError(
-            f"{error_message} Status code: {response.status_code}, Reason: {response.reason}"
+            f"{error_message}. Status code: {response.status_code}, Reason: {response.reason}"
         )
     return response
 
 
-def get_latest_firmware_versions(
-    result_dict: Dict[str, Dict[str, str]],
-    serial_number: str,
-) -> None:
-    response = requests.get(
-        f"https://{CLOUD_API_ENDPOINT}/mantarray/firmware_latest", params={"serial_number": serial_number}
+def get_latest_firmware_versions(result_dict: Dict[str, Dict[str, str]], serial_number: str) -> None:
+    response = call_firmware_download_route(
+        f"https://{CLOUD_API_ENDPOINT}/mantarray/firmware_latest",
+        params={"serial_number": serial_number},
+        error_message="Error getting latest firmware versions",
     )
-    response_json = response.json()
-    result_dict["latest_versions"].update(response_json["latest_versions"])
+    result_dict["latest_versions"].update(response.json()["latest_versions"])
 
 
 def download_firmware_updates(
