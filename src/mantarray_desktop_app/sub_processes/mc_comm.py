@@ -120,8 +120,8 @@ from ..utils.serial_comm import convert_to_timestamp_bytes
 from ..utils.serial_comm import create_data_packet
 from ..utils.serial_comm import get_serial_comm_timestamp
 from ..utils.serial_comm import parse_metadata_bytes
+from ..workers.firmware_downloader import check_versions
 from ..workers.firmware_downloader import download_firmware_updates
-from ..workers.firmware_downloader import get_latest_firmware_versions
 from ..workers.worker_thread import ErrorCatchingThread
 
 
@@ -585,15 +585,15 @@ class McCommunicationProcess(InstrumentCommProcess):
         elif communication_type == "metadata_comm":
             packet_type = SERIAL_COMM_GET_METADATA_PACKET_TYPE
         elif communication_type == "firmware_update":
-            if comm_from_main["command"] == "get_latest_firmware_versions":
+            if comm_from_main["command"] == "check_versions":
                 # set up worker thread
                 self._fw_update_thread_dict = {
                     "communication_type": "firmware_update",
-                    "command": "get_latest_firmware_versions",
+                    "command": comm_from_main["command"],
                     "latest_versions": {},
                 }
                 self._fw_update_worker_thread = ErrorCatchingThread(
-                    target=get_latest_firmware_versions,
+                    target=check_versions,
                     args=(self._fw_update_thread_dict, comm_from_main["serial_number"]),
                 )
                 self._fw_update_worker_thread.start()
@@ -605,7 +605,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 # set up worker thread
                 self._fw_update_thread_dict = {
                     "communication_type": "firmware_update",
-                    "command": "download_firmware_updates",
+                    "command": comm_from_main["command"],
                     "main": None,
                     "channel": None,
                 }
@@ -1249,7 +1249,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             }
             to_main_queue.put_nowait(error_dict)
         else:
-            if self._fw_update_thread_dict["command"] == "get_latest_firmware_versions":
+            if self._fw_update_thread_dict["command"] == "check_versions":
                 self._latest_versions = copy.deepcopy(self._fw_update_thread_dict["latest_versions"])
             elif self._fw_update_thread_dict["command"] == "download_firmware_updates":
                 # pop firmware bytes out of dict and store

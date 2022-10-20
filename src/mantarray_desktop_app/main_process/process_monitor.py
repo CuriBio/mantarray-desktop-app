@@ -576,7 +576,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 board_idx: communication["metadata"][MANTARRAY_NICKNAME_UUID]
             }
         elif communication_type == "firmware_update":
-            if command == "get_latest_firmware_versions":
+            if command == "check_versions":
                 if "error" in communication:
                     self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
                 else:
@@ -721,7 +721,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 to_instrument_comm_queue.put_nowait(
                     {
                         "communication_type": "firmware_update",
-                        "command": "get_latest_firmware_versions",
+                        "command": "check_versions",
                         "serial_number": serial_number,
                     }
                 )

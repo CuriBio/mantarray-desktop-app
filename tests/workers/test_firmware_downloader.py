@@ -1,16 +1,23 @@
 # -*- coding: utf-8 -*-
 import copy
+from random import randint
 
 from mantarray_desktop_app import CLOUD_API_ENDPOINT
-from mantarray_desktop_app import FirmwareDownloadError
+from mantarray_desktop_app.exceptions import FirmwareAndSoftwareNotCompatibleError
+from mantarray_desktop_app.exceptions import FirmwareDownloadError
 from mantarray_desktop_app.simulators.mc_simulator import MantarrayMcSimulator
 from mantarray_desktop_app.sub_processes.mc_comm import download_firmware_updates
-from mantarray_desktop_app.sub_processes.mc_comm import get_latest_firmware_versions
 from mantarray_desktop_app.workers import firmware_downloader
 from mantarray_desktop_app.workers.firmware_downloader import call_firmware_download_route
+from mantarray_desktop_app.workers.firmware_downloader import get_latest_firmware_versions
+from mantarray_desktop_app.workers.firmware_downloader import verify_software_firmware_compatibility
 import pytest
 import requests
 from requests.exceptions import ConnectionError
+
+
+def random_semver():
+    return f"{randint(0,1000)}.{randint(0,1000)}.{randint(0,1000)}"
 
 
 def test_call_firmware_download_route__calls_requests_get_correctly(mocker):
@@ -76,9 +83,49 @@ def test_get_latest_firmware_versions__calls_api_endpoint_correctly_and_returns_
 
 
 @pytest.mark.parametrize(
-    "main_fw_update,channel_fw_update",
-    [(False, True), (True, False), (True, True)],
+    "min_sw,max_sw,current_sw",
+    [("2.0.0", "2.0.0", "2.0.0"), ("2.0.0", "11.0.0", "2.0.0"), ("2.0.0", "11.0.0", "11.0.0")],
 )
+def test_verify_software_firmware_compatibility__does_not_raise_error_if_current_sw_version_is_compatible_with_current_fw_version(
+    min_sw, max_sw, current_sw, mocker
+):
+    mocked_call = mocker.patch.object(firmware_downloader, "call_firmware_download_route", autospec=True)
+    mocked_call.return_value.json.return_value = {"min_sw": min_sw, "max_sw": max_sw}
+
+    mocker.patch.object(firmware_downloader, "CURRENT_SOFTWARE_VERSION", current_sw)
+
+    test_main_fw = random_semver()
+    verify_software_firmware_compatibility(test_main_fw)
+
+    mocked_call.assert_called_once_with(
+        f"https://{CLOUD_API_ENDPOINT}/mantarray/software-range/{test_main_fw}",
+        error_message="Error checking software/firmware compatibility",
+    )
+
+
+@pytest.mark.parametrize(
+    "min_sw,max_sw,current_sw",
+    [
+        ("2.0.0", "2.0.0", "1.0.0"),
+        ("2.0.0", "2.0.0", "3.0.0"),
+        ("1.0.0", "2.0.0", "11.0.0"),
+        ("11.0.0", "22.0.0", "2.0.0"),
+    ],
+)
+def test_verify_software_firmware_compatibility__raises_error_if_current_sw_version_is_not_compatible_with_current_fw_version(
+    min_sw, max_sw, current_sw, mocker
+):
+    mocked_call = mocker.patch.object(firmware_downloader, "call_firmware_download_route", autospec=True)
+    mocked_call.return_value.json.return_value = {"min_sw": min_sw, "max_sw": max_sw}
+
+    mocker.patch.object(firmware_downloader, "CURRENT_SOFTWARE_VERSION", current_sw)
+
+    test_main_fw = random_semver()
+    with pytest.raises(FirmwareAndSoftwareNotCompatibleError, match=max_sw):
+        verify_software_firmware_compatibility(test_main_fw)
+
+
+@pytest.mark.parametrize("main_fw_update,channel_fw_update", [(False, True), (True, False), (True, True)])
 def test_download_firmware_updates__get_access_token_then_downloads_specified_firmware_files_and_returns_values_correctly(
     main_fw_update, channel_fw_update, mocker
 ):

@@ -261,6 +261,10 @@ class FirmwareDownloadError(Exception):
     pass
 
 
+class FirmwareAndSoftwareNotCompatibleError(Exception):
+    pass
+
+
 class FirmwareGoingDormantError(Exception):
     pass
 

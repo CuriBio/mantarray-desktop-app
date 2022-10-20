@@ -59,10 +59,10 @@ def test_McCommunicationProcess__handles_error_in_firmware_update_worker_thread(
     mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, side_effect=[True, False])
     mocker.patch.object(mc_comm.ErrorCatchingThread, "join", autospec=True)
 
-    # send command to mc_process. Using get_latest_firmware_versions here arbitrarily, but functionality should be the same for any worker thread
+    # send command to mc_process. Using check_versions here arbitrarily, but functionality should be the same for any worker thread
     test_command = {
         "communication_type": "firmware_update",
-        "command": "get_latest_firmware_versions",
+        "command": "check_versions",
         "serial_number": MantarrayMcSimulator.default_mantarray_serial_number,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -78,12 +78,12 @@ def test_McCommunicationProcess__handles_error_in_firmware_update_worker_thread(
     command_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert command_response == {
         "communication_type": "firmware_update",
-        "command": "get_latest_firmware_versions",
+        "command": "check_versions",
         "error": expected_error_msg,
     }
 
 
-def test_McCommunicationProcess__handles_successful_completion_of_get_latest_firmware_versions_worker_thread(
+def test_McCommunicationProcess__handles_successful_completion_of_check_versions_worker_thread(
     four_board_mc_comm_process_no_handshake, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
@@ -114,7 +114,7 @@ def test_McCommunicationProcess__handles_successful_completion_of_get_latest_fir
     # send command to mc_process
     test_command = {
         "communication_type": "firmware_update",
-        "command": "get_latest_firmware_versions",
+        "command": "check_versions",
         "serial_number": MantarrayMcSimulator.default_mantarray_serial_number,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -134,7 +134,7 @@ def test_McCommunicationProcess__handles_successful_completion_of_get_latest_fir
     command_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert command_response == {
         "communication_type": "firmware_update",
-        "command": "get_latest_firmware_versions",
+        "command": "check_versions",
         "latest_versions": expected_latest_versions,
     }
 
