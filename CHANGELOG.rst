@@ -16,10 +16,13 @@ Added:
 Changed:
 ^^^^^^^^
 - Stimulation subprotocols can now be defined in terms of number of cycles or active duration.
-- Data analysis output will now be the same as Pulse3D.
+- Include installer download link in for error messages pertaining to install/update issues.
+- Data analysis output will now be the same as Pulse3D output.
 
 Fixed:
 ^^^^^^
+- Auto updating issues.
+- Live View accuracy.
 - Auto upload crashing entire app when no pulse3d versions found.
 - Invalid stimulation subprotocol durations no longer allowed.
 - 'Stimulate until complete' protocols will actually update the stimulation state to 'stopped' upon completion.
@@ -58,21 +61,21 @@ Added:
 - Automatic switching between Data Acquisition / Stim pages when sidebar tab changes.
 - Prevention of edits to stimulation settings while either recording or actively stimulating.
 - Warning to unplug stim lid before proceeding with a firmware update.
-- Recording snapshot feature
+- Recording snapshot feature:
 
-    - Ability for users to check the first five seconds of a recordings by running it through analysis and
-      outputting to modal after a recording is stopped
-    - Modal contains graphs for all 24 wells in micronewtons(y-axis) and seconds(x-axis)
-    - Global enabling toggle switch can be found in the settings format
-    - Per recording enabling toggle switch can be found in the recording input modal
+  - Ability for users to check the first five seconds of a recordings by running it through analysis and
+    outputting to modal after a recording is stopped
+  - Modal contains graphs for all 24 wells in micronewtons(y-axis) and seconds(x-axis)
+  - Global enabling toggle switch can be found in the settings format
+  - Per recording enabling toggle switch can be found in the recording input modal
 
 Changed:
 ^^^^^^^^
 - Frequency in pulse settings modal can now be positive non-integers instead of only positive integers
 - Tooltips:
 
-    - Specify that barcodes can not be manually changed while live view is active.
-    - Specify that Stim Config checks cannot be run while while live view is active.
+  - Specify that barcodes can not be manually changed while live view is active.
+  - Specify that Stim Config checks cannot be run while while live view is active.
 
 - Beta 2 H5 file format version is now 1.2.0. Format Changes:
 
@@ -105,13 +108,13 @@ Added:
 - Ability to specify a name for recording files.
 - Ability to perform magnet finding analysis of existing recordings locally:
 
-    - Data analysis tab that contains button that will prompty modal with list of existing recordings
-      to select from.
-    - Modal will update to 'in progress' and prevent user from closing modal or performing other processes
-      while a analysis is active.
-    - Modal will upate on completion with successful recordings, failed recording, and location of csv files.
-    - Prevention of starting an analysis while other process are already active.
-    - Will prompt user to confirm window closure if an attempt is made and an analysis is running.
+  - Data analysis tab that contains button that will prompty modal with list of existing recordings
+    to select from.
+  - Modal will update to 'in progress' and prevent user from closing modal or performing other processes
+    while a analysis is active.
+  - Modal will upate on completion with successful recordings, failed recording, and location of csv files.
+  - Prevention of starting an analysis while other process are already active.
+  - Will prompt user to confirm window closure if an attempt is made and an analysis is running.
 
 - Check to see if H5 files are corrupted immediately after recording completes.
 - Debug logging.
