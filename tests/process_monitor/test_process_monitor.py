@@ -957,11 +957,16 @@ def test_MantarrayProcessesMonitor__handles_switch_from_INSTRUMENT_INITIALIZING_
     shared_values_dict["in_simulation_mode"] = test_simulation_mode
     board_idx = 0
 
+    test_main_fw_version = "6.7.9"
+
     # set other values in shared values dict that would allow for a state transition
     test_serial_number = MantarrayMcSimulator.default_mantarray_serial_number
     test_sw_version = "2.2.2"
     shared_values_dict["instrument_metadata"] = {
-        board_idx: {MANTARRAY_SERIAL_NUMBER_UUID: test_serial_number}
+        board_idx: {
+            MANTARRAY_SERIAL_NUMBER_UUID: test_serial_number,
+            MAIN_FIRMWARE_VERSION_UUID: test_main_fw_version,
+        }
     }
     shared_values_dict["latest_software_version"] = test_sw_version
 
@@ -979,6 +984,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_INSTRUMENT_INITIALIZING_
             "communication_type": "firmware_update",
             "command": "check_versions",
             "serial_number": test_serial_number,
+            "main_fw_version": test_main_fw_version,
         }
 
 

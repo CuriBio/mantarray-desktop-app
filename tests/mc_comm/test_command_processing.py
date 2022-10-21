@@ -453,12 +453,14 @@ def test_McCommunicationProcess__processes_check_versions_command(
     mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, return_value=True)
 
     test_serial_number = MantarrayMcSimulator.default_mantarray_serial_number
+    test_main_fw_version = MantarrayMcSimulator.default_mantarray_serial_number
 
     # send command to mc_process
     test_command = {
         "communication_type": "firmware_update",
         "command": "check_versions",
         "serial_number": test_serial_number,
+        "main_fw_version": test_main_fw_version,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(copy.deepcopy(test_command), input_queue)
 
@@ -473,7 +475,7 @@ def test_McCommunicationProcess__processes_check_versions_command(
     spied_thread_init.assert_called_once_with(
         mocker.ANY,  # this is the actual thread instance
         target=check_versions,
-        args=(mc_process._fw_update_thread_dict, test_serial_number),
+        args=(mc_process._fw_update_thread_dict, test_serial_number, test_main_fw_version),
         use_error_repr=False,
     )
     mocked_thread_start.assert_called_once()

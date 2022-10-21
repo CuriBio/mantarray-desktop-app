@@ -594,7 +594,11 @@ class McCommunicationProcess(InstrumentCommProcess):
                 }
                 self._fw_update_worker_thread = ErrorCatchingThread(
                     target=check_versions,
-                    args=(self._fw_update_thread_dict, comm_from_main["serial_number"], "TODO"),
+                    args=(
+                        self._fw_update_thread_dict,
+                        comm_from_main["serial_number"],
+                        comm_from_main["main_fw_version"],
+                    ),
                     use_error_repr=False,
                 )
                 self._fw_update_worker_thread.start()

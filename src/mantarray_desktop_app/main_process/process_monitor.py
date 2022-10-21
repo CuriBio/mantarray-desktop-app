@@ -715,15 +715,14 @@ class MantarrayProcessesMonitor(InfiniteThread):
             elif self._values_to_share_to_server["latest_software_version"] is not None:
                 self._values_to_share_to_server["system_status"] = CHECKING_FOR_UPDATES_STATE
                 # send command to instrument comm process to check for firmware updates
-                serial_number = self._values_to_share_to_server["instrument_metadata"][board_idx][
-                    MANTARRAY_SERIAL_NUMBER_UUID
-                ]
+                instrument_metadata = self._values_to_share_to_server["instrument_metadata"][board_idx]
                 to_instrument_comm_queue = self._process_manager.queue_container.to_instrument_comm(board_idx)
                 to_instrument_comm_queue.put_nowait(
                     {
                         "communication_type": "firmware_update",
                         "command": "check_versions",
-                        "serial_number": serial_number,
+                        "serial_number": instrument_metadata[MANTARRAY_SERIAL_NUMBER_UUID],
+                        "main_fw_version": instrument_metadata[MAIN_FIRMWARE_VERSION_UUID],
                     }
                 )
         elif self._values_to_share_to_server["system_status"] == UPDATES_NEEDED_STATE:

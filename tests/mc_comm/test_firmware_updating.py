@@ -65,6 +65,7 @@ def test_McCommunicationProcess__handles_fatal_error_in_firmware_update_worker_t
         "communication_type": "firmware_update",
         "command": "check_versions",
         "serial_number": MantarrayMcSimulator.default_mantarray_serial_number,
+        "main_fw_version": MantarrayMcSimulator.default_main_firmware_version,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(test_command), from_main_queue
@@ -100,6 +101,7 @@ def test_McCommunicationProcess__handles_non_fatal_error_in_firmware_update_work
         "communication_type": "firmware_update",
         "command": "check_versions",
         "serial_number": MantarrayMcSimulator.default_mantarray_serial_number,
+        "main_fw_version": MantarrayMcSimulator.default_main_firmware_version,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(test_command), from_main_queue
@@ -152,6 +154,7 @@ def test_McCommunicationProcess__handles_successful_completion_of_check_versions
         "communication_type": "firmware_update",
         "command": "check_versions",
         "serial_number": MantarrayMcSimulator.default_mantarray_serial_number,
+        "main_fw_version": MantarrayMcSimulator.default_main_firmware_version,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(test_command), from_main_queue
