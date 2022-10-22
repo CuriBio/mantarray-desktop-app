@@ -39,18 +39,53 @@ def test_call_firmware_download_route__handles_connection_error_correctly(mocker
         call_firmware_download_route("url", error_message=test_error_message)
 
 
-def test_call_firmware_download_route__handles_response_error_code_correctly(mocker):
+def test_call_firmware_download_route__handles_response_error_code_correctly__without_json(mocker):
     expected_error_code = 400
     expected_reason = "bad request"
 
     mocked_get = mocker.patch.object(requests, "get", autospec=True)
     mocked_get.return_value.status_code = expected_error_code
+    mocked_get.return_value.json.side_effect = Exception()
     mocked_get.return_value.reason = expected_reason
 
     test_error_message = "err msg"
     with pytest.raises(
         FirmwareDownloadError,
         match=f"{test_error_message}. Status code: {expected_error_code}, Reason: {expected_reason}",
+    ):
+        call_firmware_download_route("url", error_message=test_error_message)
+
+
+def test_call_firmware_download_route__handles_response_error_code_correctly__without_message_in_json(mocker):
+    expected_error_code = 400
+    expected_reason = "bad request"
+
+    mocked_get = mocker.patch.object(requests, "get", autospec=True)
+    mocked_get.return_value.status_code = expected_error_code
+    mocked_get.return_value.json.return_value = {}
+    mocked_get.return_value.reason = expected_reason
+
+    test_error_message = "err msg"
+    with pytest.raises(
+        FirmwareDownloadError,
+        match=f"{test_error_message}. Status code: {expected_error_code}, Reason: {expected_reason}",
+    ):
+        call_firmware_download_route("url", error_message=test_error_message)
+
+
+def test_call_firmware_download_route__handles_response_error_code_correctly__with_message_in_json(mocker):
+    expected_error_code = 400
+    expected_message = "bad request"
+
+    mocked_get = mocker.patch.object(requests, "get", autospec=True)
+    mocked_get.return_value.status_code = expected_error_code
+    mocked_get.return_value.json.return_value = {"message": expected_message}
+    mocked_get.return_value.reason = "reason"
+
+    test_error_message = "err msg"
+    with pytest.raises(
+        FirmwareDownloadError,
+        match=f"{test_error_message}. Status code: {expected_error_code}, Reason: {expected_message}",
     ):
         call_firmware_download_route("url", error_message=test_error_message)
 

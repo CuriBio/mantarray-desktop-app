@@ -44,7 +44,7 @@ __fixtures__ = [
 
 
 def test_McCommunicationProcess__handles_fatal_error_in_firmware_update_worker_thread(
-    four_board_mc_comm_process_no_handshake, mocker
+    four_board_mc_comm_process_no_handshake, mocker, patch_print
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     from_main_queue, to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][:2]
@@ -79,16 +79,18 @@ def test_McCommunicationProcess__handles_fatal_error_in_firmware_update_worker_t
         invoke_process_run_and_check_errors(mc_process)
 
 
+@pytest.mark.parametrize("use_error_repr", [True, False])
 def test_McCommunicationProcess__handles_non_fatal_error_in_firmware_update_worker_thread(
-    four_board_mc_comm_process_no_handshake, mocker
+    use_error_repr, four_board_mc_comm_process_no_handshake, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     from_main_queue, to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][:2]
 
     expected_error_msg = "error in thread"
+    expected_error = Exception(expected_error_msg) if use_error_repr else expected_error_msg
 
     def init_se(obj, target, args, **kwargs):
-        obj.error = expected_error_msg
+        obj.error = expected_error
 
     mocker.patch.object(mc_comm.ErrorCatchingThread, "__init__", autospec=True, side_effect=init_se)
     mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)

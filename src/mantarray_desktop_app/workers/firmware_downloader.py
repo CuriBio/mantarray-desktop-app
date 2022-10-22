@@ -23,8 +23,12 @@ def call_firmware_download_route(url: str, error_message: str, **kwargs: Any) ->
         raise FirmwareDownloadError(f"{error_message}") from e
 
     if response.status_code != 200:
+        try:
+            message = response.json()["message"]
+        except Exception:
+            message = response.reason
         raise FirmwareDownloadError(
-            f"{error_message}. Status code: {response.status_code}, Reason: {response.reason}"
+            f"{error_message}. Status code: {response.status_code}, Reason: {message}"
         )
 
     return response

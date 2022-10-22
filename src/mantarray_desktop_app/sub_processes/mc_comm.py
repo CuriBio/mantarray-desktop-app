@@ -83,6 +83,7 @@ from ..constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from ..constants import STIM_MODULE_ID_TO_WELL_IDX
 from ..constants import StimulatorCircuitStatuses
 from ..constants import STM_VID
+from ..exceptions import FirmwareAndSoftwareNotCompatibleError
 from ..exceptions import FirmwareGoingDormantError
 from ..exceptions import FirmwareUpdateCommandFailedError
 from ..exceptions import FirmwareUpdateTimeoutError
@@ -1248,7 +1249,10 @@ class McCommunicationProcess(InstrumentCommProcess):
         to_main_queue = self._board_queues[0][1]
         if error := self._fw_update_worker_thread.error:
             if isinstance(error, Exception):
-                raise error
+                if isinstance(error, FirmwareAndSoftwareNotCompatibleError):
+                    raise error
+                # pull out error message to send to main
+                error = error.args[0]
             error_dict = {
                 "communication_type": self._fw_update_thread_dict["communication_type"],
                 "command": self._fw_update_thread_dict["command"],
