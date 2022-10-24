@@ -5,6 +5,11 @@ Changelog for Mantarray Desktop App
 1.0.4 (unreleased)
 ------------------
 
+Added:
+^^^^^^
+- Error message if software version is incompatible with an instrument's firmware version.
+  The message will include a link to download the installer for the most recent compatible software version.
+
 
 1.0.3 (2022-10-15)
 ------------------
