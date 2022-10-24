@@ -9,6 +9,7 @@ from mantarray_desktop_app.simulators.mc_simulator import MantarrayMcSimulator
 from mantarray_desktop_app.sub_processes.mc_comm import download_firmware_updates
 from mantarray_desktop_app.workers import firmware_downloader
 from mantarray_desktop_app.workers.firmware_downloader import call_firmware_download_route
+from mantarray_desktop_app.workers.firmware_downloader import check_versions
 from mantarray_desktop_app.workers.firmware_downloader import get_latest_firmware_versions
 from mantarray_desktop_app.workers.firmware_downloader import verify_software_firmware_compatibility
 import pytest
@@ -158,6 +159,26 @@ def test_verify_software_firmware_compatibility__raises_error_if_current_sw_vers
     test_main_fw = random_semver()
     with pytest.raises(FirmwareAndSoftwareNotCompatibleError, match=max_sw):
         verify_software_firmware_compatibility(test_main_fw)
+
+
+def test_check_versions__verifies_current_versions_before_checking_for_new_versions(mocker):
+    test_result_dict = {}
+    test_serial_number = MantarrayMcSimulator.default_mantarray_serial_number
+    test_main_fw_version = MantarrayMcSimulator.default_main_firmware_version
+
+    mocked_verify = mocker.patch.object(
+        firmware_downloader, "verify_software_firmware_compatibility", autospec=True
+    )
+
+    mocked_get_latest = mocker.patch.object(
+        firmware_downloader, "get_latest_firmware_versions", autospec=True
+    )
+    mocked_get_latest.side_effect = lambda *args: mocked_verify.assert_called_once()
+
+    check_versions(test_result_dict, test_serial_number, test_main_fw_version)
+
+    mocked_verify.assert_called_once_with(test_main_fw_version)
+    mocked_get_latest.assert_called_once_with(test_result_dict, test_serial_number)
 
 
 @pytest.mark.parametrize("main_fw_update,channel_fw_update", [(False, True), (True, False), (True, True)])
