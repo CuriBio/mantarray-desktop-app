@@ -17,8 +17,8 @@ from mantarray_desktop_app.utils.data_parsing_cy import sort_serial_packets
 from mantarray_desktop_app.utils.serial_comm import convert_status_code_bytes_to_dict
 from mantarray_desktop_app.utils.serial_comm import create_data_packet
 from mantarray_desktop_app.utils.serial_comm import is_null_subprotocol
+from mantarray_desktop_app.workers.firmware_downloader import check_versions
 from mantarray_desktop_app.workers.firmware_downloader import download_firmware_updates
-from mantarray_desktop_app.workers.firmware_downloader import get_latest_firmware_versions
 from mantarray_desktop_app.workers.worker_thread import ErrorCatchingThread
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 import pytest
@@ -440,7 +440,7 @@ def test_McCommunicationProcess__processes_set_protocols_command(
     assert message_to_main == expected_response
 
 
-def test_McCommunicationProcess__processes_get_latest_firmware_versions_command(
+def test_McCommunicationProcess__processes_check_versions_command(
     four_board_mc_comm_process_no_handshake, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
@@ -453,12 +453,14 @@ def test_McCommunicationProcess__processes_get_latest_firmware_versions_command(
     mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, return_value=True)
 
     test_serial_number = MantarrayMcSimulator.default_mantarray_serial_number
+    test_main_fw_version = MantarrayMcSimulator.default_mantarray_serial_number
 
     # send command to mc_process
     test_command = {
         "communication_type": "firmware_update",
-        "command": "get_latest_firmware_versions",
+        "command": "check_versions",
         "serial_number": test_serial_number,
+        "main_fw_version": test_main_fw_version,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(copy.deepcopy(test_command), input_queue)
 
@@ -467,16 +469,14 @@ def test_McCommunicationProcess__processes_get_latest_firmware_versions_command(
     assert isinstance(mc_process._fw_update_worker_thread, ErrorCatchingThread) is True
     assert mc_process._fw_update_thread_dict == {
         "communication_type": "firmware_update",
-        "command": "get_latest_firmware_versions",
+        "command": "check_versions",
         "latest_versions": {},
     }
     spied_thread_init.assert_called_once_with(
         mocker.ANY,  # this is the actual thread instance
-        target=get_latest_firmware_versions,
-        args=(
-            mc_process._fw_update_thread_dict,
-            test_serial_number,
-        ),
+        target=check_versions,
+        args=(mc_process._fw_update_thread_dict, test_serial_number, test_main_fw_version),
+        use_error_repr=False,
     )
     mocked_thread_start.assert_called_once()
 

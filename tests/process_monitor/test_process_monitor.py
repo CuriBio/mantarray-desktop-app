@@ -38,6 +38,7 @@ from mantarray_desktop_app import UPDATES_COMPLETE_STATE
 from mantarray_desktop_app import UPDATES_NEEDED_STATE
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
+from mantarray_desktop_app.exceptions import FirmwareAndSoftwareNotCompatibleError
 from mantarray_desktop_app.exceptions import InstrumentBadDataError
 from mantarray_desktop_app.exceptions import InstrumentConnectionLostError
 from mantarray_desktop_app.exceptions import InstrumentCreateConnectionError
@@ -376,6 +377,43 @@ def test_MantarrayProcessesMonitor__handles_instrument_related_errors_from_instr
     assert ws_msg == {
         "data_type": "error",
         "data_json": json.dumps({"error_type": expected_error_sent.__name__}),
+    }
+
+
+def test_MantarrayProcessesMonitor__handles_software_firwmare_incompatibility_error_from_instrument_comm_process(
+    mocker, test_process_manager_creator, test_monitor, patch_print
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
+    ic_process = test_process_manager.instrument_comm_process
+    ic_error_queue = test_process_manager.queue_container.instrument_comm_error
+    queue_to_server_ws = test_process_manager.queue_container.to_server
+
+    mocker.patch.object(test_process_manager, "hard_stop_and_join_processes", autospec=True)
+
+    test_sw_version = "1.2.3"
+
+    mocker.patch.object(
+        ic_process,
+        "_commands_for_each_run_iteration",
+        autospec=True,
+        side_effect=FirmwareAndSoftwareNotCompatibleError(test_sw_version),
+    )
+    ic_process.run(num_iterations=1)
+    confirm_queue_is_eventually_of_size(ic_error_queue, 1)
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
+
+    ws_msg = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert ws_msg == {
+        "data_type": "error",
+        "data_json": json.dumps(
+            {
+                "error_type": FirmwareAndSoftwareNotCompatibleError.__name__,
+                "latest_compatible_sw_version": test_sw_version,
+            }
+        ),
     }
 
 
@@ -919,11 +957,16 @@ def test_MantarrayProcessesMonitor__handles_switch_from_INSTRUMENT_INITIALIZING_
     shared_values_dict["in_simulation_mode"] = test_simulation_mode
     board_idx = 0
 
+    test_main_fw_version = "6.7.9"
+
     # set other values in shared values dict that would allow for a state transition
     test_serial_number = MantarrayMcSimulator.default_mantarray_serial_number
     test_sw_version = "2.2.2"
     shared_values_dict["instrument_metadata"] = {
-        board_idx: {MANTARRAY_SERIAL_NUMBER_UUID: test_serial_number}
+        board_idx: {
+            MANTARRAY_SERIAL_NUMBER_UUID: test_serial_number,
+            MAIN_FIRMWARE_VERSION_UUID: test_main_fw_version,
+        }
     }
     shared_values_dict["latest_software_version"] = test_sw_version
 
@@ -939,8 +982,9 @@ def test_MantarrayProcessesMonitor__handles_switch_from_INSTRUMENT_INITIALIZING_
         command_to_ic = to_instrument_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
         assert command_to_ic == {
             "communication_type": "firmware_update",
-            "command": "get_latest_firmware_versions",
+            "command": "check_versions",
             "serial_number": test_serial_number,
+            "main_fw_version": test_main_fw_version,
         }
 
 
@@ -996,10 +1040,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
     }
 
     # set up command response
-    test_command_response = {
-        "communication_type": "firmware_update",
-        "command": "get_latest_firmware_versions",
-    }
+    test_command_response = {"communication_type": "firmware_update", "command": "check_versions"}
     if error:
         test_command_response["error"] = "some error msg"
     else:

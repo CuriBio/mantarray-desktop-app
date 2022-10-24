@@ -14,6 +14,7 @@ from mantarray_desktop_app import SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PAYLOAD_INDEX
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app.constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
+from mantarray_desktop_app.exceptions import FirmwareAndSoftwareNotCompatibleError
 from mantarray_desktop_app.simulators import mc_simulator
 from mantarray_desktop_app.simulators.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app.simulators.mc_simulator import MantarrayMcSimulator
@@ -42,16 +43,16 @@ __fixtures__ = [
 ]
 
 
-def test_McCommunicationProcess__handles_error_in_firmware_update_worker_thread(
-    four_board_mc_comm_process_no_handshake, mocker
+def test_McCommunicationProcess__handles_fatal_error_in_firmware_update_worker_thread(
+    four_board_mc_comm_process_no_handshake, mocker, patch_print
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     from_main_queue, to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][:2]
 
-    expected_error_msg = "error in thread"
+    expected_error_msg = "fatal error in thread"
 
-    def init_se(obj, target, args):
-        obj.error = expected_error_msg
+    def init_se(obj, target, args, **kwargs):
+        obj.error = FirmwareAndSoftwareNotCompatibleError(expected_error_msg)
 
     mocker.patch.object(mc_comm.ErrorCatchingThread, "__init__", autospec=True, side_effect=init_se)
     mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
@@ -59,11 +60,50 @@ def test_McCommunicationProcess__handles_error_in_firmware_update_worker_thread(
     mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, side_effect=[True, False])
     mocker.patch.object(mc_comm.ErrorCatchingThread, "join", autospec=True)
 
-    # send command to mc_process. Using get_latest_firmware_versions here arbitrarily, but functionality should be the same for any worker thread
+    # send command to mc_process. Using check_versions here since it is currently the only worker thread that can raise a fatal error
     test_command = {
         "communication_type": "firmware_update",
-        "command": "get_latest_firmware_versions",
+        "command": "check_versions",
         "serial_number": MantarrayMcSimulator.default_mantarray_serial_number,
+        "main_fw_version": MantarrayMcSimulator.default_main_firmware_version,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_command), from_main_queue
+    )
+
+    # run first iteration and make sure command response not sent to main
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_empty(to_main_queue)
+    # run second iteration and make sure correct command response sent to main
+    with pytest.raises(FirmwareAndSoftwareNotCompatibleError, match=expected_error_msg):
+        invoke_process_run_and_check_errors(mc_process)
+
+
+@pytest.mark.parametrize("use_error_repr", [True, False])
+def test_McCommunicationProcess__handles_non_fatal_error_in_firmware_update_worker_thread(
+    use_error_repr, four_board_mc_comm_process_no_handshake, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    from_main_queue, to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][:2]
+
+    expected_error_msg = "error in thread"
+    expected_error = Exception(expected_error_msg) if use_error_repr else expected_error_msg
+
+    def init_se(obj, target, args, **kwargs):
+        obj.error = expected_error
+
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "__init__", autospec=True, side_effect=init_se)
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "start", autospec=True)
+    # mock so thread will appear complete on the second iteration of mc_process
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "is_alive", autospec=True, side_effect=[True, False])
+    mocker.patch.object(mc_comm.ErrorCatchingThread, "join", autospec=True)
+
+    # send command to mc_process. Using check_versions here to make sure that if it raises a non-fatal error that it is handled correctly
+    test_command = {
+        "communication_type": "firmware_update",
+        "command": "check_versions",
+        "serial_number": MantarrayMcSimulator.default_mantarray_serial_number,
+        "main_fw_version": MantarrayMcSimulator.default_main_firmware_version,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(test_command), from_main_queue
@@ -78,12 +118,12 @@ def test_McCommunicationProcess__handles_error_in_firmware_update_worker_thread(
     command_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert command_response == {
         "communication_type": "firmware_update",
-        "command": "get_latest_firmware_versions",
+        "command": "check_versions",
         "error": expected_error_msg,
     }
 
 
-def test_McCommunicationProcess__handles_successful_completion_of_get_latest_firmware_versions_worker_thread(
+def test_McCommunicationProcess__handles_successful_completion_of_check_versions_worker_thread(
     four_board_mc_comm_process_no_handshake, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
@@ -98,7 +138,7 @@ def test_McCommunicationProcess__handles_successful_completion_of_get_latest_fir
         "sw": expected_sw_version,
     }
 
-    def init_se(obj, target, args):
+    def init_se(obj, target, args, **kwargs):
         args[0].update({"latest_versions": expected_latest_versions})
         obj.error = None
 
@@ -114,8 +154,9 @@ def test_McCommunicationProcess__handles_successful_completion_of_get_latest_fir
     # send command to mc_process
     test_command = {
         "communication_type": "firmware_update",
-        "command": "get_latest_firmware_versions",
+        "command": "check_versions",
         "serial_number": MantarrayMcSimulator.default_mantarray_serial_number,
+        "main_fw_version": MantarrayMcSimulator.default_main_firmware_version,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(test_command), from_main_queue
@@ -134,7 +175,7 @@ def test_McCommunicationProcess__handles_successful_completion_of_get_latest_fir
     command_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert command_response == {
         "communication_type": "firmware_update",
-        "command": "get_latest_firmware_versions",
+        "command": "check_versions",
         "latest_versions": expected_latest_versions,
     }
 

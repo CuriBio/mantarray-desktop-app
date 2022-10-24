@@ -188,6 +188,7 @@ class SerialCommIncorrectChecksumFromInstrumentError(InstrumentBadDataError):
     pass
 
 
+# TODO might need to make this a subclass of a different error
 class SerialCommCommandProcessingError(InstrumentBadDataError):
     pass
 
@@ -258,6 +259,10 @@ class FirmwareUpdateTimeoutError(Exception):
 
 
 class FirmwareDownloadError(Exception):
+    pass
+
+
+class FirmwareAndSoftwareNotCompatibleError(Exception):
     pass
 
 
