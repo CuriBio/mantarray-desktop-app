@@ -54,7 +54,7 @@ def get_file_md5(file_path: str) -> str:
     """
     with open(file_path, "rb") as file_to_read:
         contents = file_to_read.read()
-        md5 = hashlib.md5(  # nosec B324 # Tanner (2/4/21): Bandit blacklisted this hash function for cryptographic security reasons that do not apply to the desktop app.
+        md5 = hashlib.md5(  # nosec B324 B303 # Tanner (2/4/21): Bandit blacklisted this hash function for cryptographic security reasons that do not apply to the desktop app.
             contents
         ).digest()
         md5s = base64.b64encode(md5).decode()
