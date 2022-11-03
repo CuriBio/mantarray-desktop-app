@@ -34,7 +34,9 @@ def test_get_cloud_api_tokens__return_tokens_if_login_successful(mocker):
     tokens = get_cloud_api_tokens(*test_creds.values())
     assert tokens == expected_tokens
 
-    mocked_post.assert_called_once_with(f"https://{CLOUD_API_ENDPOINT}/users/login", json=test_creds)
+    mocked_post.assert_called_once_with(
+        f"https://{CLOUD_API_ENDPOINT}/users/login", json={**test_creds, "service": "pulse3d"}
+    )
 
 
 def test_get_cloud_api_tokens__raises_error_if_login_fails(mocker):
