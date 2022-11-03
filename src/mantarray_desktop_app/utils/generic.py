@@ -388,7 +388,7 @@ def set_this_process_high_priority() -> None:  # pragma: no cover
 def upload_log_files_to_s3(config_settings: Dict[str, str]) -> None:
 
     if not config_settings.get("auto_upload_on_completion", False):
-        logger.info("Auto-upload is set to False, skipping upload of log files.")
+        logger.info("Auto-upload is not turned on, skipping upload of log files.")
         return
 
     log_file_dir = config_settings["log_directory"]

@@ -137,7 +137,7 @@ def test_upload_log_files_to_s3__auto_upload_is_not_enabled(mocker):
     mocked_uploader.assert_not_called()
     mocked_tempdir.assert_not_called()
 
-    spied_info.assert_called_once_with("Auto-upload is set to False, skipping upload of log files.")
+    spied_info.assert_called_once_with("Auto-upload is not turned on, skipping upload of log files.")
     spied_error.assert_not_called()
 
 
