@@ -91,7 +91,7 @@ def test_get_upload_details__requests_and_returns_upload_details_correctly(
     actual = get_upload_details(test_access_token, TEST_FILENAME, test_file_md5, upload_type)
     mocked_post.assert_called_once_with(
         f"https://{CLOUD_PULSE3D_ENDPOINT}/{expected_route}",
-        json={"filename": TEST_FILENAME, "md5s": test_file_md5, "upload_type": "mantarray"},
+        json={"filename": TEST_FILENAME, "md5s": test_file_md5, "upload_type": "pulse3d"},
         headers={"Authorization": f"Bearer {test_access_token}"},
     )
     assert actual == expected_upload_details

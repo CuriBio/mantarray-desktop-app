@@ -23,8 +23,10 @@ def test_get_cloud_api_tokens__return_tokens_if_login_successful(mocker):
 
     expected_tokens = AuthTokens(access="access", refresh="refresh")
     mocked_post.return_value.json.return_value = {
-        "access": {"token": expected_tokens.access},
-        "refresh": {"token": expected_tokens.refresh},
+        "tokens": {
+            "access": {"token": expected_tokens.access},
+            "refresh": {"token": expected_tokens.refresh},
+        }
     }
 
     test_creds = {"customer_id": "cid", "username": "user", "password": "pw"}

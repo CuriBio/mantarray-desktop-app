@@ -54,7 +54,7 @@ def get_file_md5(file_path: str) -> str:
     """
     with open(file_path, "rb") as file_to_read:
         contents = file_to_read.read()
-        md5 = hashlib.md5(  # nosec B303 # Tanner (2/4/21): Bandit blacklisted this hash function for cryptographic security reasons that do not apply to the desktop app.
+        md5 = hashlib.md5(  # nosec B324 # Tanner (2/4/21): Bandit blacklisted this hash function for cryptographic security reasons that do not apply to the desktop app.
             contents
         ).digest()
         md5s = base64.b64encode(md5).decode()
@@ -79,7 +79,7 @@ def get_upload_details(
     route = "uploads" if upload_type == "recording" else "logs"
     response = requests.post(
         f"https://{CLOUD_PULSE3D_ENDPOINT}/{route}",
-        json={"filename": file_name, "md5s": file_md5, "upload_type": "mantarray"},
+        json={"filename": file_name, "md5s": file_md5, "upload_type": "pulse3d"},
         headers={"Authorization": f"Bearer {access_token}"},
     )
     upload_details: Dict[Any, Any] = response.json()
