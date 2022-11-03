@@ -386,8 +386,9 @@ def set_this_process_high_priority() -> None:  # pragma: no cover
 
 
 def upload_log_files_to_s3(config_settings: Dict[str, str]) -> None:
-    if "customer_id" not in config_settings:
-        logger.info("Skipping upload of log files to s3 because no user creds were found")
+
+    if not config_settings.get("auto_upload_on_completion", False):
+        logger.info("Auto-upload is not turned on, skipping upload of log files.")
         return
 
     log_file_dir = config_settings["log_directory"]

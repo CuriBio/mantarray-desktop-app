@@ -2,7 +2,9 @@
 from abc import ABC
 from abc import abstractmethod
 from collections import namedtuple
+from typing import Any
 from typing import Callable
+from typing import Dict
 
 from mantarray_desktop_app.constants import CLOUD_API_ENDPOINT
 import requests
@@ -15,8 +17,7 @@ from ..exceptions import RefreshFailedError
 AuthTokens = namedtuple("AuthTokens", ["access", "refresh"])
 
 
-def _get_tokens(response: Response) -> AuthTokens:
-    response_json = response.json()
+def _get_tokens(response_json: Dict[str, Any]) -> AuthTokens:
     return AuthTokens(access=response_json["access"]["token"], refresh=response_json["refresh"]["token"])
 
 
@@ -30,12 +31,13 @@ def get_cloud_api_tokens(customer_id: str, user_name: str, password: str) -> Aut
     """
     response = requests.post(
         f"https://{CLOUD_API_ENDPOINT}/users/login",
-        json={"customer_id": customer_id, "username": user_name, "password": password},
+        json={"customer_id": customer_id, "username": user_name, "password": password, "service": "pulse3d"},
     )
     if response.status_code != 200:
         raise LoginFailedError(response.status_code)
 
-    return _get_tokens(response)
+    response_json = response.json()
+    return _get_tokens(response_json["tokens"])
 
 
 def refresh_cloud_api_tokens(refresh_token: str) -> AuthTokens:
@@ -46,7 +48,8 @@ def refresh_cloud_api_tokens(refresh_token: str) -> AuthTokens:
     if response.status_code != 201:
         raise RefreshFailedError(response.status_code)
 
-    return _get_tokens(response)
+    response_json = response.json()
+    return _get_tokens(response_json)
 
 
 class WebWorker(ABC):

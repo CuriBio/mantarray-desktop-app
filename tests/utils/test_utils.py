@@ -126,7 +126,7 @@ def test_redact_sensitive_info_from_path__scrubs_everything_if_does_not_match_pa
     assert actual == get_redacted_string(len(test_path))
 
 
-def test_upload_log_files_to_s3__no_user_creds_found(mocker):
+def test_upload_log_files_to_s3__auto_upload_is_not_enabled(mocker):
     spied_info = mocker.spy(generic.logger, "info")
     spied_error = mocker.spy(generic.logger, "error")
     mocked_uploader = mocker.patch.object(generic, "FileUploader", autospec=True)
@@ -137,7 +137,7 @@ def test_upload_log_files_to_s3__no_user_creds_found(mocker):
     mocked_uploader.assert_not_called()
     mocked_tempdir.assert_not_called()
 
-    spied_info.assert_called_once_with("Skipping upload of log files to s3 because no user creds were found")
+    spied_info.assert_called_once_with("Auto-upload is not turned on, skipping upload of log files.")
     spied_error.assert_not_called()
 
 
@@ -148,7 +148,13 @@ def test_upload_log_files_to_s3__log_file_is_None(mocker):
     mocked_tempdir = mocker.patch.object(generic.tempfile, "TemporaryDirectory", autospec=True)
 
     generic.upload_log_files_to_s3(
-        {"customer_id": "cid", "user_name": "un", "user_password": "pw", "log_directory": None}
+        {
+            "customer_id": "cid",
+            "user_name": "un",
+            "user_password": "pw",
+            "log_directory": None,
+            "auto_upload_on_completion": True,
+        }
     )
 
     mocked_uploader.assert_not_called()
@@ -171,6 +177,7 @@ def test_upload_log_files_to_s3__successful_upload(mocker):
         "customer_id": "cid",
         "user_name": "un",
         "user_password": "pw",
+        "auto_upload_on_completion": True,
     }
     generic.upload_log_files_to_s3(config_settings)
 
@@ -207,6 +214,7 @@ def test_upload_log_files_to_s3__error_during_upload(mocker):
         "customer_id": "cid",
         "user_name": "un",
         "user_password": "pw",
+        "auto_upload_on_completion": True,
     }
     generic.upload_log_files_to_s3(config_settings)
 
