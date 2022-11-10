@@ -38,7 +38,7 @@ RANDOM_STIM_INFO_1 = {
                     "interphase_interval": 10000,
                     "phase_two_duration": 10000,
                     "phase_two_charge": -50000,
-                    "repeat_delay_interval": 50000,
+                    "postphase_interval": 50000,
                     "total_active_duration": 5000,
                 },
                 # get_null_subprotocol(1000),  # type: ignore

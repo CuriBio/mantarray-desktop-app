@@ -225,8 +225,8 @@ def convert_subprotocol_dict_to_bytes(subprotocol_dict: Dict[str, int], is_volta
         + (subprotocol_dict["phase_two_charge"] // conversion_factor).to_bytes(
             2, byteorder="little", signed=True
         )
-        + subprotocol_dict["repeat_delay_interval"].to_bytes(4, byteorder="little")
-        + bytes(2)  # repeat_delay_interval amplitude (always 0)
+        + subprotocol_dict["postphase_interval"].to_bytes(4, byteorder="little")
+        + bytes(2)  # postphase_interval amplitude (always 0)
         + subprotocol_dict["total_active_duration"].to_bytes(4, byteorder="little")
         + bytes([is_null])
     )
@@ -242,7 +242,7 @@ def convert_bytes_to_subprotocol_dict(subprotocol_bytes: bytes, is_voltage: bool
         "phase_two_duration": int.from_bytes(subprotocol_bytes[12:16], byteorder="little"),
         "phase_two_charge": int.from_bytes(subprotocol_bytes[16:18], byteorder="little", signed=True)
         * conversion_factor,
-        "repeat_delay_interval": int.from_bytes(subprotocol_bytes[18:22], byteorder="little"),
+        "postphase_interval": int.from_bytes(subprotocol_bytes[18:22], byteorder="little"),
         "total_active_duration": int.from_bytes(subprotocol_bytes[24:28], byteorder="little"),
     }
 

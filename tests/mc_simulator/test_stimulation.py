@@ -31,6 +31,7 @@ from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import get_null_subprotocol
 from ..fixtures_mc_simulator import get_random_subprotocol
+from ..fixtures_mc_simulator import random_stim_type
 from ..fixtures_mc_simulator import set_stim_info_and_start_stimulating
 from ..helpers import assert_serial_packet_is_expected
 from ..helpers import get_full_packet_size_from_payload_len
@@ -83,7 +84,7 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
         "protocols": [
             {
                 "protocol_id": protocol_id,
-                "stimulation_type": choice(["C", "V"]),
+                "stimulation_type": random_stim_type(),
                 "run_until_stopped": choice([True, False]),
                 "subprotocols": [
                     choice([get_random_subprotocol(), get_null_subprotocol(600)])
@@ -143,7 +144,7 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
         "protocols": [
             {
                 "protocol_id": protocol_id,
-                "stimulation_type": choice(["C", "V"]),
+                "stimulation_type": random_stim_type(),
                 "run_until_stopped": choice([True, False]),
                 "subprotocols": [get_random_subprotocol()],
             }
@@ -191,7 +192,7 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
         "protocols": [
             {
                 "protocol_id": "V",
-                "stimulation_type": choice(["C", "V"]),
+                "stimulation_type": random_stim_type(),
                 "run_until_stopped": choice([True, False]),
                 "subprotocols": [get_random_subprotocol()],
             }
@@ -234,7 +235,7 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
         "protocols": [
             {
                 "protocol_id": "O",
-                "stimulation_type": choice(["C", "V"]),
+                "stimulation_type": random_stim_type(),
                 "run_until_stopped": choice([True, False]),
                 "subprotocols": [
                     choice([get_random_subprotocol(), get_null_subprotocol(130)])

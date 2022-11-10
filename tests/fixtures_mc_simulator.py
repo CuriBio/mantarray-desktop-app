@@ -12,6 +12,7 @@ from mantarray_desktop_app import SERIAL_COMM_OKAY_CODE
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from mantarray_desktop_app.constants import VALID_STIMULATION_TYPES
 import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -27,6 +28,10 @@ TEST_HANDSHAKE_TIMESTAMP = 12345
 TEST_HANDSHAKE = create_data_packet(TEST_HANDSHAKE_TIMESTAMP, SERIAL_COMM_HANDSHAKE_PACKET_TYPE, bytes(0))
 
 DEFAULT_SIMULATOR_STATUS_CODES = bytes([SERIAL_COMM_OKAY_CODE] * (24 + 2))
+
+
+def random_stim_type():
+    return choice(list(VALID_STIMULATION_TYPES))
 
 
 def random_time_index():
@@ -53,7 +58,7 @@ def get_null_subprotocol(duration):
         "phase_two_duration": 0,
         # pylint: disable=duplicate-code
         "phase_two_charge": 0,
-        "repeat_delay_interval": 0,
+        "postphase_interval": 0,
         "total_active_duration": duration,
     }
 
@@ -65,7 +70,7 @@ def get_random_subprotocol(**kwargs):
         "interphase_interval": kwargs.get("interphase_interval", randint(0, 16000)),
         "phase_two_duration": kwargs.get("phase_two_duration", randint(1, 16000)),
         "phase_two_charge": kwargs.get("phase_two_charge", randint(1, 100) * 10),
-        "repeat_delay_interval": kwargs.get("repeat_delay_interval", randint(0, 50000)),
+        "postphase_interval": kwargs.get("postphase_interval", randint(0, 50000)),
         "total_active_duration": kwargs.get("total_active_duration", randint(2000, 3000)),
     }
 
@@ -76,7 +81,7 @@ def create_random_stim_info():
         "protocols": [
             {
                 "protocol_id": pid,
-                "stimulation_type": choice(["C", "V"]),
+                "stimulation_type": random_stim_type(),
                 "run_until_stopped": choice([True, False]),
                 "subprotocols": [
                     choice([get_random_subprotocol(), get_null_subprotocol(50000)])

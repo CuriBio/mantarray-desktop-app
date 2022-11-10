@@ -21,7 +21,7 @@ convert_stim_dict_to_bytes() input:
                     'interphase_interval': 0,
                     'phase_two_charge': 0,
                     'phase_two_duration': 0,
-                    'repeat_delay_interval': 90000,
+                    'postphase_interval': 90000,
                     'total_active_duration': 1000
                 }, {
                     'phase_one_duration': 5000000,
@@ -29,7 +29,7 @@ convert_stim_dict_to_bytes() input:
                     'interphase_interval': 0,
                     'phase_two_charge': 0,
                     'phase_two_duration': 0,
-                    'repeat_delay_interval': 0,
+                    'postphase_interval': 0,
                     'total_active_duration': 5000
                 }
             ]
@@ -96,7 +96,7 @@ def main() -> None:
                     "interphase_interval": p["interphase_interval"] * 1000,
                     "phase_two_charge": p["phase_two_charge"] * UNIT_CONVERSION[stim_type],
                     "phase_two_duration": p["phase_two_duration"] * 1000,
-                    "repeat_delay_interval": round(p["repeat_delay_interval"] * 1000, 1),
+                    "postphase_interval": round(p["postphase_interval"] * 1000, 1),
                     "total_active_duration": p["total_active_duration"],
                 }
                 for p in protocol_details["pulses"]

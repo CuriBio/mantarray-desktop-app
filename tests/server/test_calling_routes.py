@@ -32,6 +32,7 @@ from tests.fixtures_file_writer import GENERIC_STIM_INFO
 from ..fixtures import fixture_generic_queue_container
 from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_mc_simulator import get_random_subprotocol
+from ..fixtures_mc_simulator import random_stim_type
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
 from ..fixtures_server import fixture_server_manager
 from ..fixtures_server import fixture_test_client
@@ -74,10 +75,7 @@ def test_system_status__returns_correct_state_and_simulation_values(
 
 @pytest.mark.parametrize(
     "test_stimulating_value,test_description",
-    [
-        (True, "returns True when stimulating"),
-        (False, "returns False when not stimulating"),
-    ],
+    [(True, "returns True when stimulating"), (False, "returns False when not stimulating")],
 )
 def test_system_status__beta_2_mode__returns_correct_stimulating_value(
     test_stimulating_value, test_description, client_and_server_manager_and_shared_values
@@ -1131,7 +1129,7 @@ def test_set_protocols__returns_error_code_if_called_during_invalid_system_statu
 
     response = test_client.post("/set_protocols")
     assert response.status_code == 403
-    assert response.status.endswith(f"Cannot change protocols while {test_system_status}") is True
+    assert response.status.endswith(f"Cannot change protocols while {test_system_status}")
 
 
 def test_set_protocols__returns_error_code_if_protocol_list_is_empty(
@@ -1144,7 +1142,7 @@ def test_set_protocols__returns_error_code_if_protocol_list_is_empty(
 
     response = test_client.post("/set_protocols", json={"data": json.dumps({"protocols": []})})
     assert response.status_code == 400
-    assert response.status.endswith("Protocol list empty") is True
+    assert response.status.endswith("Protocol list empty")
 
 
 def test_set_protocols__returns_error_code_if_two_protocols_are_given_with_the_same_id(
@@ -1169,19 +1167,12 @@ def test_set_protocols__returns_error_code_if_two_protocols_are_given_with_the_s
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
-    assert response.status.endswith(f"Multiple protocols given with ID: {expected_id}") is True
+    assert response.status.endswith(f"Multiple protocols given with ID: {expected_id}")
 
 
-@pytest.mark.parametrize(
-    "test_stimulation_type,test_description",
-    [
-        (None, "return error code with None"),
-        (1, "return error code with int"),
-        ("A", "return error code with invalid string"),
-    ],
-)
+@pytest.mark.parametrize("test_stimulation_type", [None, 1, "A"])
 def test_set_protocols__returns_error_code_with_invalid_stimulation_type(
-    client_and_server_manager_and_shared_values, test_stimulation_type, test_description
+    client_and_server_manager_and_shared_values, test_stimulation_type
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
@@ -1191,65 +1182,89 @@ def test_set_protocols__returns_error_code_with_invalid_stimulation_type(
     test_stim_info_dict = {"protocols": [{"protocol_id": "A", "stimulation_type": test_stimulation_type}]}
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
-    assert response.status.endswith(f"Invalid stimulation type: {test_stimulation_type}") is True
+    assert response.status.endswith(f"Invalid stimulation type: {test_stimulation_type}")
+
+
+def test_set_protocols__returns_error_if_invalid_subprotocol_type_given(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    shared_values_dict["stimulation_running"] = [False] * 24
+
+    test_subprotocol_type = "bad_type"
+
+    test_stim_info_dict = {
+        "protocols": [
+            {
+                "protocol_id": "A",
+                "stimulation_type": random_stim_type(),
+                "subprotocols": [{"type": test_subprotocol_type}],
+            }
+        ]
+    }
+    response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
+    assert response.status_code == 400
+    assert response.endswith(f"Invalid stimulation type: {test_subprotocol_type}")
 
 
 @pytest.mark.parametrize(
-    "test_subprotocol_item,test_value,test_stim_type,test_description",
+    "test_subprotocol_type,test_subprotocol_component,test_value,test_stim_type,expected_error_message",
     [
         (
-            "phase_one_charge",
+            "monophasic" "phase_one_charge",
             STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS + 1,
             "C",
-            f"Invalid phase one charge: {STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS + 1} µA",
+            f"Invalid phase one charge: {STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS + 1}",
         ),
         (
             "phase_one_charge",
             -STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS - 1,
             "C",
-            f"Invalid phase one charge: {-STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS - 1} µA",
+            f"Invalid phase one charge: {-STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS - 1}",
         ),
         (
             "phase_two_charge",
             STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS + 1,
             "C",
-            f"Invalid phase two charge: {STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS + 1} µA",
+            f"Invalid phase two charge: {STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS + 1}",
         ),
         (
             "phase_two_charge",
             -STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS - 1,
             "C",
-            f"Invalid phase two charge: {-STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS - 1} µA",
+            f"Invalid phase two charge: {-STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS - 1}",
         ),
         (
             "phase_one_charge",
             STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS + 1,
             "V",
-            f"Invalid phase one charge: {STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS + 1} mV",
+            f"Invalid phase one charge: {STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS + 1}",
         ),
         (
             "phase_one_charge",
             -STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS - 1,
             "V",
-            f"Invalid phase one charge: {-STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS - 1} mV",
+            f"Invalid phase one charge: {-STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS - 1}",
         ),
         (
             "phase_two_charge",
             STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS + 1,
             "V",
-            f"Invalid phase two charge: {STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS + 1} mV",
+            f"Invalid phase two charge: {STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS + 1}",
         ),
         (
             "phase_two_charge",
             -STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS - 1,
             "V",
-            f"Invalid phase two charge: {-STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS - 1} mV",
+            f"Invalid phase two charge: {-STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS - 1}",
         ),
         ("phase_one_duration", 0, "C", "Invalid phase one duration: 0"),
         ("phase_one_duration", -1, "C", "Invalid phase one duration: -1"),
         ("phase_two_duration", -1, "C", "Invalid phase two duration: -1"),
         ("interphase_interval", -1, "C", "Invalid interphase interval: -1"),
-        ("repeat_delay_interval", -1, "C", "Invalid repeat delay interval: -1"),
+        ("postphase_interval", -1, "C", "Invalid postphase interval: -1"),
         (
             "total_active_duration",
             STIM_MAX_PULSE_DURATION_MICROSECONDS // int(1e3) - 1,
@@ -1261,10 +1276,11 @@ def test_set_protocols__returns_error_code_with_invalid_stimulation_type(
 def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value(
     client_and_server_manager_and_shared_values,
     mocker,
-    test_subprotocol_item,
+    test_subprotocol_type,
+    test_subprotocol_component,
     test_value,
     test_stim_type,
-    test_description,
+    expected_error_message,
 ):
     mocker.patch.object(server, "queue_command_to_main", autospec=True)
 
@@ -1290,7 +1306,7 @@ def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value
                         "interphase_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
                         "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
                         "phase_two_charge": -test_base_charge,
-                        "repeat_delay_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
+                        "postphase_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
                         "total_active_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
                     }
                 ],
@@ -1298,10 +1314,10 @@ def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value
         ]
     }
     # add bad value
-    test_stim_info_dict["protocols"][0]["subprotocols"][0][test_subprotocol_item] = test_value
+    test_stim_info_dict["protocols"][0]["subprotocols"][0][test_subprotocol_component] = test_value
 
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
-    assert f"400 {test_description}" in response.status
+    assert f"400 {expected_error_message}" in response.status
 
 
 def test_set_protocols__returns_error_code_when_pulse_duration_is_too_long(
@@ -1325,7 +1341,7 @@ def test_set_protocols__returns_error_code_when_pulse_duration_is_too_long(
                         "interphase_interval": 1,
                         "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
                         "phase_two_charge": 0,
-                        "repeat_delay_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS * 10,
+                        "postphase_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS * 10,
                         "total_active_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS * 20,
                     }
                 ],

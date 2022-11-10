@@ -197,7 +197,7 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_voltage
         "interphase_interval": 0x555,
         "phase_two_duration": 0x777,
         "phase_two_charge": -1,
-        "repeat_delay_interval": 0x999,
+        "postphase_interval": 0x999,
         "total_active_duration": 0x1234,
     }
     # fmt: off
@@ -209,8 +209,8 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_voltage
             0, 0,  # interphase_interval amplitude (always 0)
             0x77, 7, 0, 0,  # phase_two_duration
             0xFF, 0xFF,  # phase_two_charge
-            0x99, 9, 0, 0,  # repeat_delay_interval
-            0, 0,  # repeat_delay_interval amplitude (always 0)
+            0x99, 9, 0, 0,  # postphase_interval
+            0, 0,  # postphase_interval amplitude (always 0)
             0x34, 0x12, 0, 0,  # total_active_duration
             0,  # is_null_subprotocol
         ]
@@ -227,7 +227,7 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_current
         "interphase_interval": 0x555,
         "phase_two_duration": 0x777,
         "phase_two_charge": -50,
-        "repeat_delay_interval": 0x999,
+        "postphase_interval": 0x999,
         "total_active_duration": 0x1234,
     }
     # fmt: off
@@ -239,8 +239,8 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_current
             0, 0,  # interphase_interval amplitude (always 0)
             0x77, 7, 0, 0,  # phase_two_duration
             0xFB, 0xFF,  # phase_two_charge
-            0x99, 9, 0, 0,  # repeat_delay_interval
-            0, 0,  # repeat_delay_interval amplitude (always 0)
+            0x99, 9, 0, 0,  # postphase_interval
+            0, 0,  # postphase_interval amplitude (always 0)
             0x34, 0x12, 0, 0,  # total_active_duration
             0,  # is_null_subprotocol
         ]
@@ -257,7 +257,7 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_subprot
         "interphase_interval": 0,
         "phase_two_duration": 0,
         "phase_two_charge": 0,
-        "repeat_delay_interval": 0,
+        "postphase_interval": 0,
         "total_active_duration": 0x111,
     }
     # fmt: off
@@ -269,8 +269,8 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_subprot
             0, 0,  # interphase_interval amplitude (always 0)
             0, 0, 0, 0,  # phase_two_duration
             0, 0,  # phase_two_charge
-            0, 0, 0, 0,  # repeat_delay_interval
-            0, 0,  # repeat_delay_interval amplitude (always 0)
+            0, 0, 0, 0,  # postphase_interval
+            0, 0,  # postphase_interval amplitude (always 0)
             0x11, 1, 0, 0,  # total_active_duration
             1,  # is_null_subprotocol
         ]
@@ -290,8 +290,8 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_voltage_
             0, 0,  # interphase_interval amplitude (always 0)
             0x33, 3, 0, 0,  # phase_two_duration
             0xFF, 0xFF,  # phase_two_charge
-            0x11, 1, 0, 0,  # repeat_delay_interval
-            0, 0,  # repeat_delay_interval amplitude (always 0)
+            0x11, 1, 0, 0,  # postphase_interval
+            0, 0,  # postphase_interval amplitude (always 0)
             0x21, 0x43, 0, 0,  # total_active_duration
             0,  # is_null_subprotocol
         ]
@@ -303,7 +303,7 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_voltage_
         "interphase_interval": 0x555,
         "phase_two_duration": 0x333,
         "phase_two_charge": -1,
-        "repeat_delay_interval": 0x111,
+        "postphase_interval": 0x111,
         "total_active_duration": 0x4321,
     }
 
@@ -321,8 +321,8 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_current_
             0, 0,  # interphase_interval amplitude (always 0)
             0x33, 3, 0, 0,  # phase_two_duration
             0xFF, 0xFF,  # phase_two_charge
-            0x11, 1, 0, 0,  # repeat_delay_interval
-            0, 0,  # repeat_delay_interval amplitude (always 0)
+            0x11, 1, 0, 0,  # postphase_interval
+            0, 0,  # postphase_interval amplitude (always 0)
             0x21, 0x43, 0, 0,  # total_active_duration
             0,  # is_null_subprotocol
         ]
@@ -334,7 +334,7 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_current_
         "interphase_interval": 0x555,
         "phase_two_duration": 0x333,
         "phase_two_charge": -1 * 10,
-        "repeat_delay_interval": 0x111,
+        "postphase_interval": 0x111,
         "total_active_duration": 0x4321,
     }
 
@@ -352,8 +352,8 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_subproto
             0, 0,  # interphase_interval amplitude (always 0)
             0, 0, 0, 0,  # phase_two_duration
             0, 0,  # phase_two_charge
-            0, 0, 0, 0,  # repeat_delay_interval
-            0, 0,  # repeat_delay_interval amplitude (always 0)
+            0, 0, 0, 0,  # postphase_interval
+            0, 0,  # postphase_interval amplitude (always 0)
             0x88, 8, 0, 0,  # total_active_duration
             1,  # is_null_subprotocol
         ]
@@ -365,7 +365,7 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_subproto
         "interphase_interval": 0,
         "phase_two_duration": 0,
         "phase_two_charge": 0,
-        "repeat_delay_interval": 0,
+        "postphase_interval": 0,
         "total_active_duration": 0x888,
     }
 
@@ -399,7 +399,7 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
                         "interphase_interval": randint(1, 50),
                         "phase_two_duration": randint(1, 100),
                         "phase_two_charge": randint(1, 50),
-                        "repeat_delay_interval": randint(0, 50),
+                        "postphase_interval": randint(0, 50),
                         "total_active_duration": randint(150, 300),
                     },
                     {
@@ -408,7 +408,7 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
                         "interphase_interval": 0,
                         "phase_two_duration": 0,
                         "phase_two_charge": 0,
-                        "repeat_delay_interval": 0,
+                        "postphase_interval": 0,
                         "total_active_duration": 250,
                     },
                 ],
@@ -424,7 +424,7 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
                         "interphase_interval": randint(1, 50),
                         "phase_two_duration": randint(1, 100),
                         "phase_two_charge": randint(1, 50),
-                        "repeat_delay_interval": randint(0, 50),
+                        "postphase_interval": randint(0, 50),
                         "total_active_duration": randint(150, 300),
                     },
                 ],

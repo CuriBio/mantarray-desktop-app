@@ -168,9 +168,13 @@ from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
 from mantarray_desktop_app.constants import SOFTWARE_RELEASE_CHANNEL
+from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
+from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
 from mantarray_desktop_app.constants import STIM_SHORT_CIRCUIT_THRESHOLD_OHMS
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
+from mantarray_desktop_app.constants import VALID_STIMULATION_TYPES
+from mantarray_desktop_app.constants import VALID_SUBPROTOCOL_TYPES
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 
@@ -512,6 +516,9 @@ def test_serial_comm():
     assert SERIAL_COMM_DEFAULT_DATA_CHANNEL == SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Z"]
     assert DEFAULT_SAMPLING_PERIOD == 10000
 
+    assert STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS == int(100e3)
+    assert STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS == 24 * 60 * 60 * int(1e3) * int(1e3)
+
     assert STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS == int(100e3)
     assert STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS == int(1.2e3)
     assert STIM_MAX_PULSE_DURATION_MICROSECONDS == int(50e3)
@@ -522,6 +529,9 @@ def test_serial_comm():
 
     assert STIM_OPEN_CIRCUIT_THRESHOLD_OHMS == 20000
     assert STIM_SHORT_CIRCUIT_THRESHOLD_OHMS == 10
+
+    assert VALID_STIMULATION_TYPES == frozenset(["C", "V"])
+    assert VALID_SUBPROTOCOL_TYPES == frozenset(["delay", "monophasic", "biphasic"])
 
     assert issubclass(StimulatorCircuitStatuses, IntEnum) is True
     assert StimulatorCircuitStatuses.CALCULATING == -1
