@@ -75,7 +75,7 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    this_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    this_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [3]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         this_command,
@@ -88,7 +88,7 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_
             this_command["timepoint_to_begin_recording_at"] + this_index * CONSTRUCT_SENSOR_SAMPLING_PERIOD
         )
         data[1, this_index] = this_index * 2
-    this_data_packet = copy.deepcopy(GENERIC_TISSUE_DATA_PACKET)
+    this_data_packet = dict(GENERIC_TISSUE_DATA_PACKET)
     this_data_packet["well_index"] = 3
     this_data_packet["data"] = data
 
@@ -121,7 +121,7 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    this_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    this_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         this_command,
@@ -138,7 +138,7 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_
         )
         data[1, this_index] = this_index * 2
 
-    this_data_packet = copy.deepcopy(GENERIC_TISSUE_DATA_PACKET)
+    this_data_packet = dict(GENERIC_TISSUE_DATA_PACKET)
     this_data_packet["data"] = data
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -172,7 +172,7 @@ def test_FileWriterProcess__process_next_data_packet__does_not_write_tissue_data
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    this_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    this_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         this_command,
@@ -188,7 +188,7 @@ def test_FileWriterProcess__process_next_data_packet__does_not_write_tissue_data
         )
         data[1, this_index] = this_index * 2
 
-    this_data_packet = copy.deepcopy(GENERIC_TISSUE_DATA_PACKET)
+    this_data_packet = dict(GENERIC_TISSUE_DATA_PACKET)
     this_data_packet["data"] = data
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -211,7 +211,7 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_for_two
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    this_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    this_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         this_command,
@@ -228,7 +228,7 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_for_two
         )
         data[1, this_index] = this_index * 2
 
-    this_data_packet = copy.deepcopy(GENERIC_TISSUE_DATA_PACKET)
+    this_data_packet = dict(GENERIC_TISSUE_DATA_PACKET)
     this_data_packet["data"] = data
 
     num_data_points = 15
@@ -237,7 +237,7 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_for_two
         next_data[0, this_index] = data[0, -1] + (this_index + 1) * CONSTRUCT_SENSOR_SAMPLING_PERIOD
         next_data[1, this_index] = this_index * 2 + 1000
 
-    next_data_packet = copy.deepcopy(GENERIC_TISSUE_DATA_PACKET)
+    next_data_packet = dict(GENERIC_TISSUE_DATA_PACKET)
     next_data_packet["data"] = next_data
 
     board_queues[0][0].put_nowait(this_data_packet)
@@ -271,7 +271,7 @@ def test_FileWriterProcess__process_next_data_packet__writes_reference_data_to_a
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    this_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    this_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [4, 0]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         this_command,
@@ -302,7 +302,7 @@ def test_FileWriterProcess__process_next_data_packet__writes_reference_data_to_a
             + DATA_FRAME_PERIOD
         )
         data[1, this_index] = this_index * 3
-    this_data_packet = copy.deepcopy(GENERIC_REFERENCE_SENSOR_DATA_PACKET)
+    this_data_packet = dict(GENERIC_REFERENCE_SENSOR_DATA_PACKET)
     this_data_packet["data"] = data
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         this_data_packet,
@@ -345,7 +345,7 @@ def test_FileWriterProcess__process_next_data_packet__does_not_add_a_data_packet
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    start_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     start_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         start_command,
@@ -362,7 +362,7 @@ def test_FileWriterProcess__process_next_data_packet__does_not_add_a_data_packet
         )
         data[1, this_index] = this_index * 2
 
-    this_data_packet = copy.deepcopy(GENERIC_TISSUE_DATA_PACKET)
+    this_data_packet = dict(GENERIC_TISSUE_DATA_PACKET)
     this_data_packet["data"] = data
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -379,7 +379,7 @@ def test_FileWriterProcess__process_next_data_packet__does_not_add_a_data_packet
     assert actual_tissue_data[9] == 18
     assert actual_tissue_data[3] == 6
 
-    stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         stop_command,
@@ -415,7 +415,7 @@ def test_FileWriterProcess__process_next_data_packet__adds_part_of_a_data_packet
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    start_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     start_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         start_command,
@@ -431,7 +431,7 @@ def test_FileWriterProcess__process_next_data_packet__adds_part_of_a_data_packet
         )
         data[1, this_index] = this_index * 2
 
-    this_data_packet = copy.deepcopy(GENERIC_REFERENCE_SENSOR_DATA_PACKET)
+    this_data_packet = dict(GENERIC_REFERENCE_SENSOR_DATA_PACKET)
     this_data_packet["data"] = data
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -449,7 +449,7 @@ def test_FileWriterProcess__process_next_data_packet__adds_part_of_a_data_packet
     assert actual_data_in_file[4] == 8
     assert actual_data_in_file[8] == 16
 
-    stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         stop_command,
@@ -489,7 +489,7 @@ def test_FileWriterProcess__process_next_data_packet__adds_a_data_packet_before_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    start_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     start_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         start_command,
@@ -507,7 +507,7 @@ def test_FileWriterProcess__process_next_data_packet__adds_a_data_packet_before_
         )
         data[1, this_index] = this_index * 2
 
-    this_data_packet = copy.deepcopy(GENERIC_TISSUE_DATA_PACKET)
+    this_data_packet = dict(GENERIC_TISSUE_DATA_PACKET)
     this_data_packet["data"] = data
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -524,7 +524,7 @@ def test_FileWriterProcess__process_next_data_packet__adds_a_data_packet_before_
     assert actual_tissue_data[9] == 18
     assert actual_tissue_data[3] == 6
 
-    stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         stop_command,
@@ -562,7 +562,7 @@ def test_FileWriterProcess__process_next_data_packet__updates_dict_of_time_index
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     start_recording_command["timepoint_to_begin_recording_at"] = 0
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         start_recording_command,

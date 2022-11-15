@@ -214,21 +214,25 @@ GENERIC_NUMPY_ARRAY_FOR_TISSUE_DATA_PACKET = np.zeros((2, 50), dtype=np.int32)
 for i in range(50):
     GENERIC_NUMPY_ARRAY_FOR_TISSUE_DATA_PACKET[0, i] = i * CONSTRUCT_SENSOR_SAMPLING_PERIOD
     GENERIC_NUMPY_ARRAY_FOR_TISSUE_DATA_PACKET[1, i] = i * 10
-GENERIC_TISSUE_DATA_PACKET = {
-    "well_index": 4,
-    "is_reference_sensor": False,
-    "data": GENERIC_NUMPY_ARRAY_FOR_TISSUE_DATA_PACKET,
-}
+GENERIC_TISSUE_DATA_PACKET = immutabledict(
+    {
+        "well_index": 4,
+        "is_reference_sensor": False,
+        "data": GENERIC_NUMPY_ARRAY_FOR_TISSUE_DATA_PACKET,
+    }
+)
 
 GENERIC_NUMPY_ARRAY_FOR_REFERENCE_DATA_PACKET = np.zeros((2, 50), dtype=np.int32)
 for i in range(50):
     GENERIC_NUMPY_ARRAY_FOR_REFERENCE_DATA_PACKET[0, i] = i * REFERENCE_SENSOR_SAMPLING_PERIOD
     GENERIC_NUMPY_ARRAY_FOR_REFERENCE_DATA_PACKET[1, i] = i * 10
-GENERIC_REFERENCE_SENSOR_DATA_PACKET = {
-    "reference_for_wells": set([0, 1, 4, 5]),
-    "is_reference_sensor": True,
-    "data": GENERIC_NUMPY_ARRAY_FOR_REFERENCE_DATA_PACKET,
-}
+GENERIC_REFERENCE_SENSOR_DATA_PACKET = immutabledict(
+    {
+        "reference_for_wells": frozenset([0, 1, 4, 5]),
+        "is_reference_sensor": True,
+        "data": GENERIC_NUMPY_ARRAY_FOR_REFERENCE_DATA_PACKET,
+    }
+)
 
 
 def open_the_generic_h5_file(
@@ -380,7 +384,7 @@ def create_and_close_beta_1_h5_files(
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # remove update settings command receipt
 
     # start recording
-    start_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    start_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     start_command["timepoint_to_begin_recording_at"] = 0
     start_command["active_well_indices"] = active_well_indices
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
@@ -392,7 +396,7 @@ def create_and_close_beta_1_h5_files(
     ref_data = np.array([np.arange(num_data_points), np.arange(num_data_points) * 2], dtype=np.int32)
     # load tissue data
     for well_idx in active_well_indices:
-        this_tissue_data_packet = copy.deepcopy(GENERIC_TISSUE_DATA_PACKET)
+        this_tissue_data_packet = dict(GENERIC_TISSUE_DATA_PACKET)
         this_tissue_data_packet["data"] = tissue_data
         this_tissue_data_packet["well_index"] = well_idx
         board_queues[0][0].put_nowait(this_tissue_data_packet)
@@ -400,7 +404,7 @@ def create_and_close_beta_1_h5_files(
     invoke_process_run_and_check_errors(fw_process, num_iterations=len(active_well_indices))
     confirm_queue_is_eventually_empty(board_queues[0][0])
     # load ref data
-    this_ref_data_packet = copy.deepcopy(GENERIC_REFERENCE_SENSOR_DATA_PACKET)
+    this_ref_data_packet = dict(GENERIC_REFERENCE_SENSOR_DATA_PACKET)
     this_ref_data_packet["data"] = ref_data
     this_ref_data_packet[
         "reference_for_wells"
@@ -411,7 +415,7 @@ def create_and_close_beta_1_h5_files(
     invoke_process_run_and_check_errors(fw_process)
 
     # stop recording
-    stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
     stop_command["timepoint_to_stop_recording_at"] = tissue_data[0, -1]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)

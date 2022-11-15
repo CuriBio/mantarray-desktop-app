@@ -238,7 +238,7 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
                 "stimulation_type": random_stim_type(),
                 "run_until_stopped": choice([True, False]),
                 "subprotocols": [
-                    choice([get_random_stim_pulse(), get_random_stim_delay(130)])
+                    choice([get_random_stim_pulse(), get_random_stim_delay()])
                     for _ in range(STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL + 1)
                 ],
             }

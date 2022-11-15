@@ -219,7 +219,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     confirm_queue_is_eventually_of_size(main_to_fw_queue, 2)
 
-    expected_start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    expected_start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     expected_start_recording_command.update(
         {
             "active_well_indices": list(range(24)),

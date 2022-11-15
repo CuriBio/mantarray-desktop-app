@@ -232,7 +232,7 @@ def test_FileWriterProcess__soft_stop_not_allowed_if_command_from_main_still_in_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     # The first communication will be processed, but if there is a second one in the queue then the soft stop should be disabled
-    this_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    this_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [1]
     from_main_queue.put_nowait(this_command)
     from_main_queue.put_nowait(copy.deepcopy(this_command))
@@ -249,8 +249,8 @@ def test_FileWriterProcess__soft_stop_not_allowed_if_command_from_main_still_in_
 @pytest.mark.parametrize(
     "test_start_recording_command,test_description",
     [
-        (copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND), "closes correctly with beta 1 files"),
-        (copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND), "closes correctly with beta 2 files"),
+        (dict(GENERIC_BETA_1_START_RECORDING_COMMAND), "closes correctly with beta 1 files"),
+        (dict(GENERIC_BETA_2_START_RECORDING_COMMAND), "closes correctly with beta 2 files"),
     ],
 )
 def test_FileWriterProcess__close_all_files(
@@ -404,13 +404,13 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_correctly(
 
     num_packets_to_send = 5  # arbitrary value
     if test_beta_version == 1:
-        start_recording_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+        start_recording_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
         data_packet = copy.deepcopy(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
         num_points_per_packet = data_packet["data"].shape[1]
     else:
         file_writer_process.set_beta_2_mode()
         populate_calibration_folder(file_writer_process)
-        start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+        start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
         data_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
         num_points_per_packet = data_packet["time_indices"].shape[0]
 
@@ -490,8 +490,8 @@ def test_FileWriterProcess_teardown_after_loop__does_not_call_close_all_files__w
 @pytest.mark.parametrize(
     "test_start_recording_command,test_description",
     [
-        (copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND), "calls close with beta 1 files"),
-        (copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND), "calls close with beta 2 files"),
+        (dict(GENERIC_BETA_1_START_RECORDING_COMMAND), "calls close with beta 1 files"),
+        (dict(GENERIC_BETA_2_START_RECORDING_COMMAND), "calls close with beta 2 files"),
     ],
 )
 def test_FileWriterProcess_teardown_after_loop__calls_close_all_files__when_still_recording(
@@ -530,8 +530,8 @@ def test_FileWriterProcess_teardown_after_loop__beta_2_mode__destroys_temp_dir_f
 @pytest.mark.parametrize(
     "test_start_recording_command,test_description",
     [
-        (copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND), "calls close with beta 1 files"),
-        (copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND), "calls close with beta 2 files"),
+        (dict(GENERIC_BETA_1_START_RECORDING_COMMAND), "calls close with beta 1 files"),
+        (dict(GENERIC_BETA_2_START_RECORDING_COMMAND), "calls close with beta 2 files"),
     ],
 )
 def test_FileWriterProcess_hard_stop__calls_close_all_files__when_still_recording(
@@ -575,7 +575,7 @@ def test_FileWriterProcess_process_update_recording_name_command__handles_auto_u
     update_user_settings_command["config_settings"]["auto_upload_on_completion"] = auto_upload
     create_and_close_beta_1_h5_files(four_board_file_writer_process, update_user_settings_command)
 
-    update_rec_name_command = copy.deepcopy(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
+    update_rec_name_command = dict(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
     update_rec_name_command["default_name"] = file_writer_process._current_recording_dir
     put_object_into_queue_and_raise_error_if_eventually_still_empty(update_rec_name_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
@@ -619,7 +619,7 @@ def test_FileWriterProcess_process_update_recording_name_command__renames_record
     assert file_writer_process._is_finalizing_files_after_recording() is False
 
     # needs to be the same name to pass conditional
-    update_recording_name_command = copy.deepcopy(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
+    update_recording_name_command = dict(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
     update_recording_name_command["default_name"] = file_writer_process.get_sub_dir_name()
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -643,7 +643,7 @@ def test_FileWriterProcess_process_update_recording_name_command__will_not_renam
     to_main_queue = four_board_file_writer_process["to_main_queue"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    update_recording_name_command = copy.deepcopy(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
+    update_recording_name_command = dict(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
     update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
     update_user_settings_command["config_settings"]["auto_upload_on_completion"] = False
     update_user_settings_command["config_settings"]["auto_delete_local_files"] = True
@@ -681,7 +681,7 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_1_files_after_stop_recordi
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND), from_main_queue
+        dict(GENERIC_BETA_1_START_RECORDING_COMMAND), from_main_queue
     )
     invoke_process_run_and_check_errors(fw_process)
 
@@ -709,7 +709,7 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_1_files_after_stop_recordi
     invoke_process_run_and_check_errors(fw_process, num_iterations=30)
     confirm_queue_is_eventually_empty(board_queues[0][0])
 
-    stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_recording_command = dict(GENERIC_STOP_RECORDING_COMMAND)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
 
@@ -755,7 +755,7 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
     spied_close_all_files = mocker.spy(fw_process, "close_all_files")
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND), from_main_queue
+        dict(GENERIC_BETA_2_START_RECORDING_COMMAND), from_main_queue
     )
     invoke_process_run_and_check_errors(fw_process)
 
@@ -783,7 +783,7 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
     invoke_process_run_and_check_errors(fw_process)
     confirm_queue_is_eventually_empty(board_queues[0][0])
 
-    stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_recording_command = dict(GENERIC_STOP_RECORDING_COMMAND)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
 
@@ -831,7 +831,7 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_1_f
     )
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND), from_main_queue
+        dict(GENERIC_BETA_1_START_RECORDING_COMMAND), from_main_queue
     )
     invoke_process_run_and_check_errors(fw_process)
 
@@ -859,7 +859,7 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_1_f
     invoke_process_run_and_check_errors(fw_process, num_iterations=30)
     confirm_queue_is_eventually_empty(board_queues[0][0])
 
-    stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_recording_command = dict(GENERIC_STOP_RECORDING_COMMAND)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
 
@@ -919,7 +919,7 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_f
     )
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND), from_main_queue
+        dict(GENERIC_BETA_2_START_RECORDING_COMMAND), from_main_queue
     )
     invoke_process_run_and_check_errors(fw_process)
 
@@ -943,7 +943,7 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_f
     invoke_process_run_and_check_errors(fw_process)
     confirm_queue_is_eventually_empty(board_queues[0][0])
 
-    stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_recording_command = dict(GENERIC_STOP_RECORDING_COMMAND)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
 
@@ -987,8 +987,8 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_2_f
 @pytest.mark.parametrize(
     "test_start_recording_command,test_description",
     [
-        (copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND), "tears down correctly with beta 1 files"),
-        (copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND), "tears down correctly with beta 2 files"),
+        (dict(GENERIC_BETA_1_START_RECORDING_COMMAND), "tears down correctly with beta 1 files"),
+        (dict(GENERIC_BETA_2_START_RECORDING_COMMAND), "tears down correctly with beta 2 files"),
     ],
 )
 def test_FileWriterProcess_teardown_after_loop__can_teardown_process_while_recording__and_log_stop_recording_message(

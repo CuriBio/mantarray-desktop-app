@@ -1330,20 +1330,19 @@ def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value
     else:
         test_subprotocol.update(
             {
-                "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
+                "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
                 "phase_one_charge": test_base_charge,
-                "postphase_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
-                "num_cycles": 10,  # "TODO"
+                "postphase_interval": 0,
+                "num_cycles": 1,
             }
         )
-        # TODO add num_cycles
         if test_subprotocol_type == "biphasic":
             test_subprotocol.update(
                 {
-                    "interphase_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
-                    "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
+                    "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 3,
+                    "interphase_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 3,
+                    "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 3,
                     "phase_two_charge": -test_base_charge,
-                    "total_active_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
                 }
             )
 

@@ -109,7 +109,7 @@ def test_FileWriterProcess__does_not_pass_magnetometer_data_packet_through_to_ou
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     # start calibration
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["is_calibration_recording"] = True
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
@@ -136,7 +136,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["active_well_indices"] = [3]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
@@ -184,7 +184,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     total_num_data_points = 75
@@ -236,7 +236,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__does_not_write_data
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     num_data_points = 30
@@ -273,7 +273,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_for_two
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
@@ -336,7 +336,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__does_not_add_a_data
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     num_recorded_data_points = 10
@@ -365,7 +365,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__does_not_add_a_data
     assert actual_tissue_data[0, 0] == 0
     assert actual_tissue_data[1, -1] == (num_recorded_data_points - 1) * 2
 
-    stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
 
     ignored_data_packet = create_simple_beta_2_data_packet(
@@ -402,11 +402,11 @@ def test_FileWriterProcess_process_magnetometer_data_packet__adds_a_data_packet_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
-    stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
 
     num_data_points_1 = 26
     start_timepoint_1 = start_recording_command["timepoint_to_begin_recording_at"]
@@ -477,7 +477,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__updates_dict_of_tim
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["timepoint_to_begin_recording_at"] = 0
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
@@ -540,7 +540,7 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_whole_da
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["active_well_indices"] = [14]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
@@ -573,7 +573,7 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_timestam
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["active_well_indices"] = [14]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
@@ -606,7 +606,7 @@ def test_FileWriterProcess_process_stim_data_packet__writes_only_final_data_poin
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["active_well_indices"] = [14]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
@@ -637,7 +637,7 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_for_two_packets
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["active_well_indices"] = [14]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
@@ -673,7 +673,7 @@ def test_FileWriterProcess_process_stim_data_packet__does_not_add_a_data_packet_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["active_well_indices"] = [14]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
@@ -700,7 +700,7 @@ def test_FileWriterProcess_process_stim_data_packet__does_not_add_a_data_packet_
     put_object_into_queue_and_raise_error_if_eventually_still_empty(data_packet, board_queues[0])
     invoke_process_run_and_check_errors(fw_process)
 
-    stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
 
     stop_timepoint = stop_command["timepoint_to_stop_recording_at"]
@@ -727,7 +727,7 @@ def test_FileWriterProcess_process_stim_data_packet__adds_a_data_packet_ending_o
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["active_well_indices"] = [14]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
@@ -754,7 +754,7 @@ def test_FileWriterProcess_process_stim_data_packet__adds_a_data_packet_ending_o
     put_object_into_queue_and_raise_error_if_eventually_still_empty(data_packet, board_queues[0])
     invoke_process_run_and_check_errors(fw_process)
 
-    stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
 
     stop_timepoint = stop_command["timepoint_to_stop_recording_at"]

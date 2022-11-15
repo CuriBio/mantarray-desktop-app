@@ -203,33 +203,37 @@ def convert_adc_readings_to_impedance(adc8: int, adc9: int) -> float:
 
 
 def is_null_subprotocol(subprotocol_dict: Dict[str, int]) -> bool:
-    return not any(
-        val
-        for key, val in subprotocol_dict.items()
-        if key not in ("phase_one_duration", "total_active_duration")
-    )
+    return subprotocol_dict["type"] == "delay"
 
 
 def convert_subprotocol_dict_to_bytes(subprotocol_dict: Dict[str, int], is_voltage: bool = False) -> bytes:
     conversion_factor = 1 if is_voltage else 10
     is_null = is_null_subprotocol(subprotocol_dict)
-    phase_one_duration = 0 if is_null else subprotocol_dict["phase_one_duration"]
-    return (
-        phase_one_duration.to_bytes(4, byteorder="little")
-        + (subprotocol_dict["phase_one_charge"] // conversion_factor).to_bytes(
-            2, byteorder="little", signed=True
+    if is_null:
+        subprotocol_bytes = bytes(24) + subprotocol_dict["duration"].to_bytes(4, byteorder="little")
+    else:
+        subprotocol_bytes = (
+            subprotocol_dict["phase_one_duration"].to_bytes(4, byteorder="little")
+            + (subprotocol_dict["phase_one_charge"] // conversion_factor).to_bytes(
+                2, byteorder="little", signed=True
+            )
         )
-        + subprotocol_dict["interphase_interval"].to_bytes(4, byteorder="little")
-        + bytes(2)  # interphase_interval amplitude (always 0)
-        + subprotocol_dict["phase_two_duration"].to_bytes(4, byteorder="little")
-        + (subprotocol_dict["phase_two_charge"] // conversion_factor).to_bytes(
-            2, byteorder="little", signed=True
+        if subprotocol_dict["type"] == "monophasic":
+            subprotocol_bytes += bytes(6)
+        else:
+            subprotocol_bytes += (
+                subprotocol_dict["interphase_interval"].to_bytes(4, byteorder="little")
+                + bytes(2)  # interphase_interval amplitude (always 0)
+                subprotocol_dict["phase_two_duration"].to_bytes(4, byteorder="little") + (
+                subprotocol_dict["phase_two_charge"] // conversion_factor
+            ).to_bytes(2, byteorder="little", signed=True)
+            )
+        subprotocol_bytes += subprotocol_dict["postphase_interval"].to_bytes(4, byteorder="little") + bytes(
+            2  # postphase_interval amplitude (always 0)
         )
-        + subprotocol_dict["postphase_interval"].to_bytes(4, byteorder="little")
-        + bytes(2)  # postphase_interval amplitude (always 0)
-        + subprotocol_dict["total_active_duration"].to_bytes(4, byteorder="little")
-        + bytes([is_null])
-    )
+        # TODO calculate total active duration from num cycles
+    subprotocol_bytes += bytes([is_null])
+    return subprotocol_bytes
 
 
 def convert_bytes_to_subprotocol_dict(subprotocol_bytes: bytes, is_voltage: bool = False) -> Dict[str, int]:
