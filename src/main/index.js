@@ -163,9 +163,18 @@ ipcMain.once("pulse3d_versions_request", (event) => {
 });
 
 // save customer id after it's verified by /users/login
-ipcMain.on("save_customer_id", (e, customer_id) => {
-  e.reply("save_customer_id", 200);
+ipcMain.handle("save_account_info", (_, { customer_id, username }) => {
   store.set("customer_id", customer_id);
+  const stored_usernames = store.get("usernames");
+
+  // save username if not already present in stored list of users
+  if (!stored_usernames.includes(username)) {
+    stored_usernames.push(username);
+    store.set("usernames", stored_usernames);
+  }
+
+  // return response containing updated customer and usernames to store in Vuex
+  return { customer_id, usernames: stored_usernames };
 });
 
 ipcMain.on("set_sw_update_auto_install", (e, enable_auto_install) => {
