@@ -50,8 +50,8 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
-from ..fixtures_mc_simulator import get_null_subprotocol
-from ..fixtures_mc_simulator import get_random_subprotocol
+from ..fixtures_mc_simulator import get_random_stim_delay
+from ..fixtures_mc_simulator import get_random_stim_pulse
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
 from ..fixtures_server import fixture_server_manager
@@ -1338,7 +1338,7 @@ def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
                 "stimulation_type": "C",
                 "protocol_id": "X",
                 "run_until_stopped": True,
-                "subprotocols": [get_null_subprotocol(5000), get_random_subprotocol()],
+                "subprotocols": [get_random_stim_delay(5000), get_random_stim_pulse()],
             }
         ],
         "protocol_assignments": {

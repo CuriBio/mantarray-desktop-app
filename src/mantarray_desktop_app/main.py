@@ -51,12 +51,12 @@ from .utils.log_formatter import SensitiveFormatter
 
 
 logger = logging.getLogger(__name__)
-_server_port_number = DEFAULT_SERVER_PORT_NUMBER  # pylint:disable=invalid-name # Eli (12/8/20): this is deliberately a module-level singleton
+_server_port_number = DEFAULT_SERVER_PORT_NUMBER
 
 
 def clear_server_singletons() -> None:
     clear_the_server_manager()
-    global _server_port_number  # pylint:disable=global-statement,invalid-name # Eli (12/8/20) this is deliberately setting a module-level singleton
+    global _server_port_number
     _server_port_number = DEFAULT_SERVER_PORT_NUMBER
 
 
@@ -122,6 +122,7 @@ def _log_system_info() -> None:
         logger.info(msg)
 
 
+# TODO handle all errors in this function
 def main(
     command_line_args: List[str],
     object_access_for_testing: Optional[Dict[str, Any]] = None,

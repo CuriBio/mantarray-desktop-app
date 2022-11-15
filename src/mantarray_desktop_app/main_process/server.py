@@ -506,14 +506,16 @@ def set_protocols() -> Response:
         # validate stim type
         stim_type = protocol["stimulation_type"]
         if stim_type not in VALID_STIMULATION_TYPES:
-            return Response(status=f"400 Invalid stimulation type: {stim_type}")
+            return Response(status=f"400 Protocol A, Invalid stimulation type: {stim_type}")
 
         # validate subprotocol dictionaries
-        for subprotocol in protocol["subprotocols"]:
+        for idx, subprotocol in enumerate(protocol["subprotocols"]):
             subprotocol_type = subprotocol["type"]
             # validate subprotocol type
             if subprotocol_type not in VALID_SUBPROTOCOL_TYPES:
-                return Response(status=f"400 Invalid subprotocol type: {subprotocol_type}")
+                return Response(
+                    status=f"400 Protocol A, Subprotocol {idx}, Invalid subprotocol type: {subprotocol_type}"
+                )
 
             # validate subprotocol components
             if subprotocol_type == "delay":
@@ -526,39 +528,44 @@ def set_protocols() -> Response:
                 )
 
                 subprotocol_component_validators = {
-                    "phase_one_duration": lambda x: x > 0,
-                    "phase_one_charge": lambda x: x <= max_abs_charge,
-                    "postphase_interval": lambda x: x >= 0,
+                    "phase_one_duration": lambda n: n > 0,
+                    "phase_one_charge": lambda n: abs(n) <= max_abs_charge,
+                    "postphase_interval": lambda n: n >= 0,
                 }
                 if subprotocol_type == "biphasic":
                     subprotocol_component_validators.update(
                         {
-                            "phase_two_duration": lambda x: x > 0,
-                            "phase_two_charge": lambda x: x <= max_abs_charge,
-                            "interphase_interval": lambda x: x >= 0,
+                            "phase_two_duration": lambda n: n > 0,
+                            "phase_two_charge": lambda n: abs(n) <= max_abs_charge,
+                            "interphase_interval": lambda n: n >= 0,
                         }
                     )
                 for component_name, validator in subprotocol_component_validators.items():
                     if not validator(component_value := subprotocol[component_name]):  # type: ignore
                         component_name = component_name.replace("_", " ")
-                        return Response(status=f"400 Invalid {component_name}: {component_value}")
+                        return Response(
+                            status=f"400 Protocol A, Subprotocol {idx}, Invalid {component_name}: {component_value}"
+                        )
 
                 # make sure subprotocol duration (not including period after pulse) is not too large unless it is a delay
                 single_pulse_dur_us = sum(
                     subprotocol.get(component_name, 0)
                     for component_name in ("phase_one_duration", "phase_two_duration", "interphase_interval")
                 )
+
                 if single_pulse_dur_us > STIM_MAX_PULSE_DURATION_MICROSECONDS:
-                    return Response(status="400 Pulse duration too long")
+                    return Response(status=f"400 Protocol A, Subprotocol {idx}, Pulse duration too long")
 
                 total_subprotocol_duration = (
                     single_pulse_dur_us + subprotocol["postphase_interval"]
                 ) * subprotocol["num_cycles"]
 
             if total_subprotocol_duration < STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS:
-                return Response(status="400 subprotocol duration not long enough")
+                return Response(
+                    status=f"400 Protocol A, Subprotocol {idx}, Subprotocol duration not long enough"
+                )
             if total_subprotocol_duration > STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS:
-                return Response(status="400 subprotocol duration too long")
+                return Response(status=f"400 Protocol A, Subprotocol {idx}, Subprotocol duration too long")
 
     protocol_assignments_dict = stim_info["protocol_assignments"]
     # make sure protocol assignments are not missing any wells and do not contain any invalid wells

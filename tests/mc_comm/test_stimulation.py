@@ -33,8 +33,8 @@ from ..fixtures_mc_comm import start_data_stream
 from ..fixtures_mc_comm import stop_data_stream
 from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
-from ..fixtures_mc_simulator import get_null_subprotocol
-from ..fixtures_mc_simulator import get_random_subprotocol
+from ..fixtures_mc_simulator import get_random_stim_delay
+from ..fixtures_mc_simulator import get_random_stim_pulse
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -242,7 +242,7 @@ def test_McCommunicationProcess__raises_error_if_set_protocols_command_fails(
     # send set protocols command with too many subprotocols in a protocol and confirm error is raised
     bad_stim_info = create_random_stim_info()
     bad_stim_info["protocols"][0]["subprotocols"].extend(
-        [get_null_subprotocol(19000)] * STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
+        [get_random_stim_delay(19000)] * STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
     )
     with pytest.raises(StimulationProtocolUpdateFailedError):
         set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, bad_stim_info)
@@ -307,7 +307,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
                 "protocol_id": "A",
                 "stimulation_type": "C",
                 "run_until_stopped": False,
-                "subprotocols": [get_random_subprotocol(total_active_duration=total_active_duration_ms)],
+                "subprotocols": [get_random_stim_pulse(total_active_duration=total_active_duration_ms)],
             }
         ],
         "protocol_assignments": {
@@ -392,8 +392,8 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
                 "stimulation_type": "V",
                 "run_until_stopped": False,
                 "subprotocols": [
-                    get_random_subprotocol(total_active_duration=total_active_duration_ms),
-                    get_random_subprotocol(total_active_duration=total_active_duration_ms),
+                    get_random_stim_pulse(total_active_duration=total_active_duration_ms),
+                    get_random_stim_pulse(total_active_duration=total_active_duration_ms),
                 ],
             }
         ],
@@ -514,7 +514,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
                 "protocol_id": "A",
                 "stimulation_type": "C",
                 "run_until_stopped": False,
-                "subprotocols": [get_random_subprotocol(total_active_duration=total_active_duration_ms)],
+                "subprotocols": [get_random_stim_pulse(total_active_duration=total_active_duration_ms)],
             }
         ],
         "protocol_assignments": {
@@ -624,7 +624,7 @@ def test_McCommunicationProcess__protocols_can_be_updated_and_stimulation_can_be
                 "protocol_id": "A",
                 "stimulation_type": "C",
                 "run_until_stopped": False,
-                "subprotocols": [get_random_subprotocol(total_active_duration=total_active_duration_ms)],
+                "subprotocols": [get_random_stim_pulse(total_active_duration=total_active_duration_ms)],
             }
         ],
         "protocol_assignments": {
@@ -699,7 +699,7 @@ def test_McCommunicationProcess__stim_packets_sent_to_file_writer_after_restarti
                 "protocol_id": "A",
                 "stimulation_type": "C",
                 "run_until_stopped": True,
-                "subprotocols": [get_random_subprotocol(total_active_duration=total_active_duration_ms)],
+                "subprotocols": [get_random_stim_pulse(total_active_duration=total_active_duration_ms)],
             }
         ],
         "protocol_assignments": {

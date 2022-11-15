@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import math
 from multiprocessing import Queue as MPQueue
 from random import choice
 from random import randint
@@ -6,12 +7,16 @@ import time
 
 from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import MantarrayMcSimulator
+from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_OKAY_CODE
+from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
+from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import VALID_STIMULATION_TYPES
 import pytest
 from stdlib_utils import drain_queue
@@ -20,6 +25,7 @@ from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_sti
 from stdlib_utils import QUEUE_CHECK_TIMEOUT_SECONDS
 from stdlib_utils import TestingQueue
 
+from .helpers import random_bool
 
 STATUS_BEACON_SIZE_BYTES = SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES + SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 HANDSHAKE_RESPONSE_SIZE_BYTES = STATUS_BEACON_SIZE_BYTES
@@ -50,29 +56,106 @@ def random_timestamp():
     return randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
 
 
-def get_null_subprotocol(duration):
-    return {
-        "phase_one_duration": duration,
-        "phase_one_charge": 0,
-        "interphase_interval": 0,
-        "phase_two_duration": 0,
-        # pylint: disable=duplicate-code
-        "phase_two_charge": 0,
-        "postphase_interval": 0,
-        "total_active_duration": duration,
-    }
+def get_random_subprotocol():
+    return choice([get_random_stim_delay, get_random_stim_pulse])()
 
 
-def get_random_subprotocol(**kwargs):
-    return {
-        "phase_one_duration": kwargs.get("phase_one_duration", randint(1, 16000)),
-        "phase_one_charge": kwargs.get("phase_one_charge", randint(1, 100) * 10),
-        "interphase_interval": kwargs.get("interphase_interval", randint(0, 16000)),
-        "phase_two_duration": kwargs.get("phase_two_duration", randint(1, 16000)),
-        "phase_two_charge": kwargs.get("phase_two_charge", randint(1, 100) * 10),
-        "postphase_interval": kwargs.get("postphase_interval", randint(0, 50000)),
-        "total_active_duration": kwargs.get("total_active_duration", randint(2000, 3000)),
+def get_random_stim_delay(duration=None):
+    if duration is None:
+        duration = randint(
+            STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS, STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
+        )
+    elif not (
+        STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS < duration < STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
+    ):
+        raise ValueError(f"Invalid delay duration: {duration}")
+    return {"type": "delay", "duration": duration}
+
+
+def get_random_stim_pulse(**kwargs):
+    contains_biphasic_component = any(
+        component in kwargs for component in ("interphase_interval", "phase_two_duration", "phase_two_charge")
+    )
+
+    # if a biphasic component is provided then the pulse must be biphasic, o/w choose randomly
+    is_biphasic = contains_biphasic_component or random_bool()
+
+    return (get_random_biphasic_pulse if is_biphasic else get_random_monophasic_pulse)()
+
+
+def _rand_dur(max_dur):
+    if max_dur < 1:
+        return 0
+    return randint(1, max_dur)
+
+
+def get_random_monophasic_pulse(allow_errors=False, **provided_components):
+    component_names = {"phase_one_duration", "phase_one_charge", "postphase_interval"}
+    duration_components = component_names - {"phase_one_charge"}
+
+    total_provided_dur = sum(provided_components.get(comp, 0) for comp in duration_components)
+
+    if not allow_errors:
+        if invalid_components := set(provided_components) - component_names:
+            raise ValueError(f"Invalid monophasic pulse components: {invalid_components}")
+        if total_provided_dur > STIM_MAX_PULSE_DURATION_MICROSECONDS:
+            raise ValueError("Given monophasic pulse components exceed max pulse duration")
+        # TODO validate charge
+
+    remaining_dur = STIM_MAX_PULSE_DURATION_MICROSECONDS - total_provided_dur
+
+    pulse = {
+        "type": "monophasic",
+        "phase_one_charge": provided_components.get("phase_one_charge", randint(1, 100) * 10),
     }
+    pulse.update(
+        {comp: provided_components.get(comp, _rand_dur(remaining_dur // 2)) for comp in duration_components}
+    )
+    pulse["num_cycles"] = provided_components.get("num_cycles", _get_num_cycles(pulse))
+
+    return pulse
+
+
+def get_random_biphasic_pulse(allow_errors=False, **provided_components):
+    component_names = {
+        "phase_one_duration",
+        "phase_one_charge",
+        "interphase_interval",
+        "phase_two_duration",
+        "phase_two_charge",
+        "postphase_interval",
+    }
+    duration_components = component_names - {"phase_one_charge", "phase_two_charge"}
+    charge_components = component_names - duration_components
+
+    total_provided_dur = sum(provided_components.get(comp, 0) for comp in duration_components)
+
+    if not allow_errors:
+        if invalid_components := set(provided_components) - component_names:
+            raise ValueError(f"Invalid monophasic pulse components: {invalid_components}")
+        if total_provided_dur > STIM_MAX_PULSE_DURATION_MICROSECONDS:
+            raise ValueError("Given monophasic pulse components exceed max pulse duration")
+        # TODO validate charge
+
+    remaining_dur = STIM_MAX_PULSE_DURATION_MICROSECONDS - total_provided_dur
+
+    pulse = {"type": "biphasic"}
+    pulse.update({comp: provided_components.get(comp, randint(1, 100) * 10) for comp in charge_components})
+    pulse.update(
+        {comp: provided_components.get(comp, _rand_dur(remaining_dur // 4)) for comp in duration_components}
+    )
+    pulse["num_cycles"] = provided_components.get("num_cycles", _get_num_cycles(pulse))
+
+    return pulse
+
+
+def _get_num_cycles(pulse):
+    total_dur = sum(v for k, v in pulse.items() if k != "type")
+
+    min_num_cycles = math.ceil(STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS / total_dur)
+    max_num_cycles = math.floor(STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS / total_dur)
+
+    return randint(min_num_cycles, max_num_cycles)
 
 
 def create_random_stim_info():
@@ -84,7 +167,7 @@ def create_random_stim_info():
                 "stimulation_type": random_stim_type(),
                 "run_until_stopped": choice([True, False]),
                 "subprotocols": [
-                    choice([get_random_subprotocol(), get_null_subprotocol(50000)])
+                    choice([get_random_stim_pulse(), get_random_stim_delay(50 * MICRO_TO_BASE_CONVERSION)])
                     for _ in range(randint(1, 2))
                 ],
             }

@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import copy
 import json
 import os
 from random import randint
@@ -23,6 +22,8 @@ from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
+from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
+from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.exceptions import LoginFailedError
 from mantarray_desktop_app.main_process import server
@@ -31,7 +32,8 @@ from tests.fixtures_file_writer import GENERIC_STIM_INFO
 
 from ..fixtures import fixture_generic_queue_container
 from ..fixtures_mc_simulator import create_random_stim_info
-from ..fixtures_mc_simulator import get_random_subprotocol
+from ..fixtures_mc_simulator import get_random_biphasic_pulse
+from ..fixtures_mc_simulator import get_random_stim_pulse
 from ..fixtures_mc_simulator import random_stim_type
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
 from ..fixtures_server import fixture_server_manager
@@ -214,7 +216,7 @@ def test_set_mantarray_nickname__returns_error_code_and_message_if_nickname_is_t
 
     response = test_client.get(f"/set_mantarray_nickname?nickname={test_nickname}")
     assert response.status_code == 400
-    assert response.status.endswith("Nickname exceeds 23 bytes") is True
+    assert response.status.endswith("Nickname exceeds 23 bytes")
 
 
 @pytest.mark.parametrize(
@@ -239,7 +241,7 @@ def test_set_mantarray_nickname__returns_error_code_and_message_if_nickname_is_t
 
     response = test_client.get(f"/set_mantarray_nickname?nickname={test_nickname}")
     assert response.status_code == 400
-    assert response.status.endswith(f"Nickname exceeds {SERIAL_COMM_NICKNAME_BYTES_LENGTH} bytes") is True
+    assert response.status.endswith(f"Nickname exceeds {SERIAL_COMM_NICKNAME_BYTES_LENGTH} bytes")
 
 
 @pytest.mark.parametrize(
@@ -268,11 +270,8 @@ def test_send_single_start_calibration_command__returns_correct_response(
     response = test_client.get("/start_calibration")
     assert response.status_code == expected_status_code
     if expected_status_code == 403:
-        assert (
-            response.status.endswith(
-                "Route cannot be called unless in calibration_needed or calibrated state"
-            )
-            is True
+        assert response.status.endswith(
+            "Route cannot be called unless in calibration_needed or calibrated state"
         )
 
 
@@ -292,7 +291,7 @@ def test_start_calibration__returns_error_code_and_message_if_called_in_beta_2_m
 
     response = test_client.get("/start_calibration")
     assert response.status_code == 403
-    assert response.status.endswith("Cannot calibrate while stimulation is running") is True
+    assert response.status.endswith("Cannot calibrate while stimulation is running")
 
 
 def test_start_calibration__returns_error_code_and_message_if_called_in_beta_2_mode_while_stimulator_checks_are_running(
@@ -314,7 +313,7 @@ def test_start_calibration__returns_error_code_and_message_if_called_in_beta_2_m
 
     response = test_client.get("/start_calibration")
     assert response.status_code == 403
-    assert response.status.endswith("Cannot calibrate while stimulator checks are running") is True
+    assert response.status.endswith("Cannot calibrate while stimulator checks are running")
 
 
 def test_start_stim_checks__returns_error_code_and_message_if_called_in_beta_1_mode(
@@ -325,7 +324,7 @@ def test_start_stim_checks__returns_error_code_and_message_if_called_in_beta_1_m
 
     response = test_client.post("/start_stim_checks")
     assert response.status_code == 403
-    assert response.status.endswith("Route cannot be called in beta 1 mode") is True
+    assert response.status.endswith("Route cannot be called in beta 1 mode")
 
 
 @pytest.mark.parametrize(
@@ -361,7 +360,7 @@ def test_start_stim_checks__returns_correct_response(
     response = test_client.post("/start_stim_checks", json={"well_indices": [0]})
     assert response.status_code == expected_status_code
     if expected_status_code == 403:
-        assert response.status.endswith("Route cannot be called unless in calibrated state") is True
+        assert response.status.endswith("Route cannot be called unless in calibrated state")
 
 
 def test_start_stim_checks__returns_error_code_and_message_if_called_while_stimulating(
@@ -380,7 +379,7 @@ def test_start_stim_checks__returns_error_code_and_message_if_called_while_stimu
 
     response = test_client.post("/start_stim_checks")
     assert response.status_code == 403
-    assert response.status.endswith("Cannot perform stimulator checks while stimulation is running") is True
+    assert response.status.endswith("Cannot perform stimulator checks while stimulation is running")
 
 
 def test_set_start_stim_checks__returns_code_and_message_if_checks_are_already_running(
@@ -401,7 +400,7 @@ def test_set_start_stim_checks__returns_code_and_message_if_checks_are_already_r
 
     response = test_client.post("/start_stim_checks")
     assert response.status_code == 304
-    assert response.status.endswith("Stimulator checks already running") is True
+    assert response.status.endswith("Stimulator checks already running")
 
 
 def test_start_stim_checks__returns_error_code_and_message_if_called_without_well_indices_in_body(
@@ -417,7 +416,7 @@ def test_start_stim_checks__returns_error_code_and_message_if_called_without_wel
 
     response = test_client.post("/start_stim_checks")
     assert response.status_code == 400
-    assert response.status.endswith("Request body missing 'well_indices'") is True
+    assert response.status.endswith("Request body missing 'well_indices'")
 
 
 def test_start_stim_checks__returns_error_code_and_message_if_called_with_empty_well_indices_list(
@@ -433,7 +432,7 @@ def test_start_stim_checks__returns_error_code_and_message_if_called_with_empty_
 
     response = test_client.post("/start_stim_checks", json={"well_indices": []})
     assert response.status_code == 400
-    assert response.status.endswith("No well indices given") is True
+    assert response.status.endswith("No well indices given")
 
 
 def test_update_recording_name__returns_error_code_if_recording_name_exists(
@@ -554,7 +553,7 @@ def test_start_managed_acquisition__returns_error_code_and_message_if_mantarray_
 
     response = test_client.get(f"/start_managed_acquisition?plate_barcode={test_barcode}")
     assert response.status_code == 406
-    assert response.status.endswith("Mantarray has not been assigned a Serial Number") is True
+    assert response.status.endswith("Mantarray has not been assigned a Serial Number")
 
 
 def test_start_managed_acquisition__returns_error_code_and_message_called_while_stimulator_checks_are_running(
@@ -615,7 +614,7 @@ def test_start_data_analysis__returns_error_code_and_message_when_recording_dire
         "/start_data_analysis", json={"selected_recordings": ["recording_1", "recording_2"]}
     )
     assert response.status_code == 400
-    assert response.status.endswith("Root directories were not found") is True
+    assert response.status.endswith("Root directories were not found")
 
 
 def test_start_data_analysis__returns_empty_204_response_if_successful(
@@ -636,7 +635,7 @@ def test_update_settings__returns_error_message_when_recording_directory_does_no
     test_dir = "fake_dir/fake_sub_dir"
     response = test_client.get(f"/update_settings?recording_directory={test_dir}")
     assert response.status_code == 400
-    assert response.status.endswith(f"{repr(RecordingFolderDoesNotExistError(test_dir))}") is True
+    assert response.status.endswith(f"{repr(RecordingFolderDoesNotExistError(test_dir))}")
 
 
 def test_update_settings__returns_error_message_when_unexpected_argument_is_given(
@@ -645,7 +644,7 @@ def test_update_settings__returns_error_message_when_unexpected_argument_is_give
     test_arg = "bad_arg"
     response = test_client.get(f"/update_settings?{test_arg}=True")
     assert response.status_code == 400
-    assert response.status.endswith(f"Invalid argument given: {test_arg}") is True
+    assert response.status.endswith(f"Invalid argument given: {test_arg}")
 
 
 def test_update_settings__returns_correct_error_code_when_user_auth_fails(test_client, mocker):
@@ -708,7 +707,7 @@ def test_start_recording__returns_error_code_and_message_if_plate_barcode_is_not
 
     response = test_client.get("/start_recording")
     assert response.status_code == 400
-    assert response.status.endswith("Request missing 'plate_barcode' parameter") is True
+    assert response.status.endswith("Request missing 'plate_barcode' parameter")
 
 
 def test_start_recording__returns_error_code_and_message_if_stim_barcode_is_not_given_while_stim_is_running(
@@ -720,7 +719,7 @@ def test_start_recording__returns_error_code_and_message_if_stim_barcode_is_not_
 
     response = test_client.get(f"/start_recording?plate_barcode={MantarrayMcSimulator.default_plate_barcode}")
     assert response.status_code == 400
-    assert response.status.endswith("Request missing 'stim_barcode' parameter") is True
+    assert response.status.endswith("Request missing 'stim_barcode' parameter")
 
 
 @pytest.mark.parametrize("test_barcode_type", ["Stim", "Plate"])
@@ -758,7 +757,7 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
 
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
     assert response.status_code == 400
-    assert response.status.endswith(f"{test_barcode_type} {expected_error_message}") is True
+    assert response.status.endswith(f"{test_barcode_type} {expected_error_message}")
 
 
 @pytest.mark.parametrize(
@@ -788,7 +787,7 @@ def test_start_recording__returns_error_code_and_message_if_new_barcode_beta_1_m
 
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
     assert response.status_code == 400
-    assert response.status.endswith(f"Plate {expected_error_message}") is True
+    assert response.status.endswith(f"Plate {expected_error_message}")
 
 
 @pytest.mark.parametrize("test_barcode_type", ["Stim", "Plate"])
@@ -827,7 +826,7 @@ def test_start_recording__returns_error_code_and_message_if_new_barcode_beta_2_m
 
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
     assert response.status_code == 400
-    assert response.status.endswith(f"{test_barcode_type} {expected_error_message}") is True
+    assert response.status.endswith(f"{test_barcode_type} {expected_error_message}")
 
 
 @pytest.mark.parametrize(
@@ -878,7 +877,7 @@ def test_start_recording__returns_error_code_and_message_if_already_recording(
     }
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
     assert response.status_code == 304
-    assert response.status.endswith("Already recording") is True
+    assert response.status.endswith("Already recording")
 
 
 def test_route_with_no_url_rule__returns_error_message__and_logs_reponse_to_request(test_client, mocker):
@@ -886,7 +885,7 @@ def test_route_with_no_url_rule__returns_error_message__and_logs_reponse_to_requ
 
     response = test_client.get("/fake_route")
     assert response.status_code == 404
-    assert response.status.endswith("Route not implemented") is True
+    assert response.status.endswith("Route not implemented")
 
     mocked_logger.assert_called_once_with(f"Response to HTTP Request in next log entry: {response.status}")
 
@@ -902,7 +901,7 @@ def test_insert_xem_command_into_queue_routes__return_error_code_and_message_if_
 
     response = test_client.get("/insert_xem_command_into_queue/set_device_id")
     assert response.status_code == 403
-    assert response.status.endswith("Route cannot be called in beta 2 mode") is True
+    assert response.status.endswith("Route cannot be called in beta 2 mode")
 
     spied_queue_set_device_id.assert_not_called()
 
@@ -915,7 +914,7 @@ def test_boot_up__return_error_code_and_message_if_called_in_beta_2_mode(
 
     response = test_client.get("/boot_up")
     assert response.status_code == 403
-    assert response.status.endswith("Route cannot be called in beta 2 mode") is True
+    assert response.status.endswith("Route cannot be called in beta 2 mode")
 
 
 def test_set_stim_status__returns_error_code_if_called_in_beta_1_mode(
@@ -926,7 +925,7 @@ def test_set_stim_status__returns_error_code_if_called_in_beta_1_mode(
 
     response = test_client.post("/set_stim_status?running=true")
     assert response.status_code == 403
-    assert response.status.endswith("Route cannot be called in beta 1 mode") is True
+    assert response.status.endswith("Route cannot be called in beta 1 mode")
 
 
 def test_set_stim_status__returns_error_code_and_message_if_running_arg_is_not_given(
@@ -937,7 +936,7 @@ def test_set_stim_status__returns_error_code_and_message_if_running_arg_is_not_g
 
     response = test_client.post("/set_stim_status")
     assert response.status_code == 400
-    assert response.status.endswith("Request missing 'running' parameter") is True
+    assert response.status.endswith("Request missing 'running' parameter")
 
 
 @pytest.mark.parametrize("test_status", [True, False])
@@ -951,7 +950,7 @@ def test_set_stim_status__returns_error_code_and_message_if_called_before_protoc
 
     response = test_client.post(f"/set_stim_status?running={test_status}")
     assert response.status_code == 406
-    assert response.status.endswith("Protocols have not been set") is True
+    assert response.status.endswith("Protocols have not been set")
 
 
 @pytest.mark.parametrize(
@@ -971,7 +970,7 @@ def test_set_stim_status__returns_error_code_and_message_if_called_with_true_dur
 
     response = test_client.post("/set_stim_status?running=true")
     assert response.status_code == 403
-    assert response.status.endswith(f"Cannot start stimulation while {test_system_status}") is True
+    assert response.status.endswith(f"Cannot start stimulation while {test_system_status}")
 
 
 def test_set_stim_status__returns_error_code_and_message_if_called_with_true_before_initial_stim_circuit_checks_complete(
@@ -988,9 +987,8 @@ def test_set_stim_status__returns_error_code_and_message_if_called_with_true_bef
 
     response = test_client.post("/set_stim_status?running=true")
     assert response.status_code == 403
-    assert (
-        response.status.endswith("Cannot start stimulation before initial stimulator circuit checks complete")
-        is True
+    assert response.status.endswith(
+        "Cannot start stimulation before initial stimulator circuit checks complete"
     )
 
 
@@ -1014,7 +1012,7 @@ def test_set_stim_status__returns_error_code_and_message_if_called_with_true_if_
 
     response = test_client.post("/set_stim_status?running=true")
     assert response.status_code == 403
-    assert response.status.endswith("Cannot start stimulation when a stimulator has a short circuit") is True
+    assert response.status.endswith("Cannot start stimulation when a stimulator has a short circuit")
 
 
 def test_set_stim_status__returns_error_code_and_message_if_called_with_true_while_stim_circuit_checks_are_running(
@@ -1037,9 +1035,7 @@ def test_set_stim_status__returns_error_code_and_message_if_called_with_true_whi
 
     response = test_client.post("/set_stim_status?running=true")
     assert response.status_code == 403
-    assert (
-        response.status.endswith("Cannot start stimulation while running stimulator circuit checks") is True
-    )
+    assert response.status.endswith("Cannot start stimulation while running stimulator circuit checks")
 
 
 def test_set_stim_status__returns_code_and_message_if_new_status_is_the_same_as_the_current_status(
@@ -1057,12 +1053,12 @@ def test_set_stim_status__returns_code_and_message_if_new_status_is_the_same_as_
 
     response = test_client.post("/set_stim_status?running=false")
     assert response.status_code == 304
-    assert response.status.endswith("Status not updated") is True
+    assert response.status.endswith("Status not updated")
 
     shared_values_dict["stimulation_running"][0] = True  # arbitrary well
     response = test_client.post("/set_stim_status?running=true")
     assert response.status_code == 304
-    assert response.status.endswith("Status not updated") is True
+    assert response.status.endswith("Status not updated")
 
 
 @pytest.mark.parametrize(
@@ -1097,7 +1093,7 @@ def test_set_protocols__returns_error_code_if_called_in_beta_1_mode(
 
     response = test_client.post("/set_protocols")
     assert response.status_code == 403
-    assert response.status.endswith("Route cannot be called in beta 1 mode") is True
+    assert response.status.endswith("Route cannot be called in beta 1 mode")
 
 
 def test_set_protocols__returns_error_code_if_called_while_stimulation_is_running(
@@ -1110,7 +1106,7 @@ def test_set_protocols__returns_error_code_if_called_while_stimulation_is_runnin
 
     response = test_client.post("/set_protocols")
     assert response.status_code == 403
-    assert response.status.endswith("Cannot change protocols while stimulation is running") is True
+    assert response.status.endswith("Cannot change protocols while stimulation is running")
 
 
 @pytest.mark.parametrize(
@@ -1160,7 +1156,7 @@ def test_set_protocols__returns_error_code_if_two_protocols_are_given_with_the_s
                 "protocol_id": expected_id,
                 "run_until_stopped": False,
                 "stimulation_type": "V",
-                "subprotocols": [get_random_subprotocol()],
+                "subprotocols": [get_random_stim_pulse()],
             }
         ]
         * 2,
@@ -1206,71 +1202,105 @@ def test_set_protocols__returns_error_if_invalid_subprotocol_type_given(
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
-    assert response.endswith(f"Invalid stimulation type: {test_subprotocol_type}")
+    assert response.status.endswith(f"Invalid subprotocol type: {test_subprotocol_type}")
 
 
 @pytest.mark.parametrize(
     "test_subprotocol_type,test_subprotocol_component,test_value,test_stim_type,expected_error_message",
     [
         (
-            "monophasic" "phase_one_charge",
+            "delay",
+            "duration",
+            STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS - 1,
+            random_stim_type(),
+            "Subprotocol duration not long enough",
+        ),
+        (
+            "delay",
+            "duration",
+            STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS + 1,
+            random_stim_type(),
+            "Subprotocol duration too long",
+        ),
+        ("monophasic", "phase_one_duration", 0, random_stim_type(), "Invalid phase one duration: 0"),
+        ("monophasic", "phase_one_duration", -1, random_stim_type(), "Invalid phase one duration: -1"),
+        ("biphasic", "phase_one_duration", 0, random_stim_type(), "Invalid phase one duration: 0"),
+        ("biphasic", "phase_one_duration", -1, random_stim_type(), "Invalid phase one duration: -1"),
+        (
+            "monophasic",
+            "phase_one_charge",
             STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS + 1,
             "C",
             f"Invalid phase one charge: {STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS + 1}",
         ),
         (
+            "monophasic",
             "phase_one_charge",
             -STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS - 1,
             "C",
             f"Invalid phase one charge: {-STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS - 1}",
         ),
         (
-            "phase_two_charge",
-            STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS + 1,
-            "C",
-            f"Invalid phase two charge: {STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS + 1}",
-        ),
-        (
-            "phase_two_charge",
-            -STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS - 1,
-            "C",
-            f"Invalid phase two charge: {-STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS - 1}",
-        ),
-        (
+            "monophasic",
             "phase_one_charge",
             STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS + 1,
             "V",
             f"Invalid phase one charge: {STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS + 1}",
         ),
         (
+            "monophasic",
             "phase_one_charge",
             -STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS - 1,
             "V",
             f"Invalid phase one charge: {-STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS - 1}",
         ),
+        ("biphasic", "interphase_interval", -1, random_stim_type(), "Invalid interphase interval: -1"),
         (
+            "biphasic",
+            "phase_two_charge",
+            STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS + 1,
+            "C",
+            f"Invalid phase two charge: {STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS + 1}",
+        ),
+        (
+            "biphasic",
+            "phase_two_charge",
+            -STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS - 1,
+            "C",
+            f"Invalid phase two charge: {-STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS - 1}",
+        ),
+        (
+            "biphasic",
             "phase_two_charge",
             STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS + 1,
             "V",
             f"Invalid phase two charge: {STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS + 1}",
         ),
         (
+            "biphasic",
             "phase_two_charge",
             -STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS - 1,
             "V",
             f"Invalid phase two charge: {-STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS - 1}",
         ),
-        ("phase_one_duration", 0, "C", "Invalid phase one duration: 0"),
-        ("phase_one_duration", -1, "C", "Invalid phase one duration: -1"),
-        ("phase_two_duration", -1, "C", "Invalid phase two duration: -1"),
-        ("interphase_interval", -1, "C", "Invalid interphase interval: -1"),
-        ("postphase_interval", -1, "C", "Invalid postphase interval: -1"),
-        (
-            "total_active_duration",
-            STIM_MAX_PULSE_DURATION_MICROSECONDS // int(1e3) - 1,
-            "C",
-            "Total active duration less than the duration of the subprotocol",
-        ),
+        ("biphasic", "phase_two_duration", -1, random_stim_type(), "Invalid phase two duration: -1"),
+        ("monophasic", "postphase_interval", -1, random_stim_type(), "Invalid postphase interval: -1"),
+        # (
+        #     "monophasic",
+        #     "postphase_interval",
+        #     STIM_MAX_PULSE_DURATION_MICROSECONDS // int(1e3) - 1,
+        #     random_stim_type(),
+        #     "Total active duration less than the duration of the subprotocol",
+        # ),
+        ("biphasic", "postphase_interval", -1, random_stim_type(), "Invalid postphase interval: -1"),
+        # (
+        #     "biphasic",
+        #     "postphase_interval",
+        #     STIM_MAX_PULSE_DURATION_MICROSECONDS // int(1e3) - 1,
+        #     random_stim_type(),
+        #     "Total active duration less than the duration of the subprotocol",
+        # ),
+        # TODO
     ],
 )
 def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value(
@@ -1289,35 +1319,51 @@ def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
+    # create an arbitrary protocol to which an invalid value can easily be added
     test_base_charge = (
         STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS if test_stim_type == "V" else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
     )
-    # create an arbitrary protocol to which an invalid value can easily be added
+    test_subprotocol = {"type": test_subprotocol_type}
+
+    if test_subprotocol_type == "delay":
+        test_subprotocol["duration"] = STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
+    else:
+        test_subprotocol.update(
+            {
+                "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
+                "phase_one_charge": test_base_charge,
+                "postphase_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
+                "num_cycles": 10,  # "TODO"
+            }
+        )
+        # TODO add num_cycles
+        if test_subprotocol_type == "biphasic":
+            test_subprotocol.update(
+                {
+                    "interphase_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
+                    "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
+                    "phase_two_charge": -test_base_charge,
+                    "total_active_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
+                }
+            )
+
+    # add bad value
+    test_subprotocol[test_subprotocol_component] = test_value
+
+    # create stim info
     test_stim_info_dict = {
         "protocols": [
             {
                 "stimulation_type": test_stim_type,
                 "protocol_id": "A",
                 "run_until_stopped": False,
-                "subprotocols": [
-                    {
-                        "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
-                        "phase_one_charge": test_base_charge,
-                        "interphase_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
-                        "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
-                        "phase_two_charge": -test_base_charge,
-                        "postphase_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 4,
-                        "total_active_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
-                    }
-                ],
+                "subprotocols": [test_subprotocol],
             }
         ]
     }
-    # add bad value
-    test_stim_info_dict["protocols"][0]["subprotocols"][0][test_subprotocol_component] = test_value
 
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
-    assert f"400 {expected_error_message}" in response.status
+    assert f"400 Protocol A, Subprotocol 0, {expected_error_message}" in response.status
 
 
 def test_set_protocols__returns_error_code_when_pulse_duration_is_too_long(
@@ -1335,25 +1381,26 @@ def test_set_protocols__returns_error_code_when_pulse_duration_is_too_long(
                 "protocol_id": "A",
                 "run_until_stopped": True,
                 "subprotocols": [
-                    {
-                        "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
-                        "phase_one_charge": 0,
-                        "interphase_interval": 1,
-                        "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
-                        "phase_two_charge": 0,
-                        "postphase_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS * 10,
-                        "total_active_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS * 20,
-                    }
+                    get_random_biphasic_pulse(
+                        allow_errors=True,
+                        **{
+                            "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
+                            "interphase_interval": 1,
+                            "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
+                        },
+                    )
                 ],
             }
         ]
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
-    assert "400 Pulse duration too long" in response.status
+    assert response.status_code == 400
+    assert "Protocol A, Subprotocol 0, Pulse duration too long" in response.status
 
 
-def test_set_protocols__returns_error_code_if_a_single_well_is_missing_from_protocol_assignments(
-    client_and_server_manager_and_shared_values,
+@pytest.mark.parametrize("test_missing_wells", [{"A1"}, {"C4", "D6"}])
+def test_set_protocols__returns_error_code_if_any_well_is_missing_from_protocol_assignments(
+    client_and_server_manager_and_shared_values, test_missing_wells
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
@@ -1365,8 +1412,8 @@ def test_set_protocols__returns_error_code_if_a_single_well_is_missing_from_prot
         GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "A"
         for well_idx in range(test_num_wells)
     }
-    missing_well = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(randint(0, 23))
-    del protocol_assignments[missing_well]
+    for well_name in test_missing_wells:
+        del protocol_assignments[well_name]
 
     test_stim_info_dict = {
         "protocols": [
@@ -1374,21 +1421,22 @@ def test_set_protocols__returns_error_code_if_a_single_well_is_missing_from_prot
                 "protocol_id": "A",
                 "stimulation_type": "C",
                 "run_until_stopped": True,
-                "subprotocols": [get_random_subprotocol()],
+                "subprotocols": [get_random_stim_pulse()],
             }
         ],
         "protocol_assignments": protocol_assignments,
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
-    assert f"400 Protocol assignments missing well {missing_well}" in response.status
+    assert response.status_code == 400
+    assert f"Protocol assignments missing wells: {test_missing_wells}" in response.status
 
 
 @pytest.mark.parametrize(
-    "test_well_name,test_description",
-    [("Z1", "return error code with invalid well: Z1"), ("A99", "return error code with invalid well: A99")],
+    "test_well_names,test_bad_names",
+    [({"Z1"}, {"Z1"}), ({"C4", "A99"}, {"A99"}), ({"G6", "L2"}, {"G6", "L2"})],
 )
 def test_set_protocols__returns_error_code_with_invalid_well_name(
-    client_and_server_manager_and_shared_values, test_well_name, test_description
+    client_and_server_manager_and_shared_values, test_well_names, test_bad_names
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
@@ -1398,25 +1446,28 @@ def test_set_protocols__returns_error_code_with_invalid_well_name(
     protocol_assignments = {
         GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "F" for well_idx in range(24)
     }
-    protocol_assignments[test_well_name] = "F"
+    protocol_assignments.update({well: "F" for well in test_well_names})
+
     test_stim_info_dict = {
         "protocols": [
             {
                 "protocol_id": "F",
                 "run_until_stopped": False,
                 "stimulation_type": "V",
-                "subprotocols": [get_random_subprotocol()],
+                "subprotocols": [get_random_stim_pulse()],
             }
         ],
         "protocol_assignments": protocol_assignments,
     }
+
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
-    assert response.status.endswith(f"Protocol assignments contain invalid well: {test_well_name}") is True
+    assert response.status.endswith(f"Protocol assignments contain invalid wells: {test_bad_names}")
 
 
-def test_set_protocols__returns_error_code_if_protocol_assignments_contains_a_single_invalid_protocol_id(
-    client_and_server_manager_and_shared_values,
+@pytest.mark.parametrize("test_invalid_ids", [{"B"}, {"B", "C"}])
+def test_set_protocols__returns_error_code_if_protocol_assignments_contains_any_invalid_protocol_ids(
+    client_and_server_manager_and_shared_values, test_invalid_ids
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
@@ -1424,51 +1475,59 @@ def test_set_protocols__returns_error_code_if_protocol_assignments_contains_a_si
     shared_values_dict["stimulation_running"] = [False] * 24
 
     protocol_assignments = {
-        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "K" for well_idx in range(24)
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "A" for well_idx in range(24)
     }
     protocol_assignments["A1"] = None  # also make sure at least one well is not assigned a protocol
-    # assign invalid protocol ID
-    bad_id = "1"
-    protocol_assignments["B1"] = "1"
+    for i, invalid_id in enumerate(test_invalid_ids, 2):
+        protocol_assignments[f"A{i}"] = invalid_id
 
     test_stim_info_dict = {
         "protocols": [
             {
-                "protocol_id": "K",
+                "protocol_id": "A",
                 "run_until_stopped": False,
                 "stimulation_type": "V",
-                "subprotocols": [get_random_subprotocol()],
+                "subprotocols": [get_random_stim_pulse()],
             }
         ],
         "protocol_assignments": protocol_assignments,
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
-    assert response.status.endswith(f"Protocol assignments contain invalid protocol ID: {bad_id}") is True
+    assert response.status.endswith(f"Protocol assignments contain invalid protocol IDs: {test_invalid_ids}")
 
 
-def test_set_protocols__returns_error_code_if_one_of_the_given_protocols_is_not_assigned_to_any_wells(
-    client_and_server_manager_and_shared_values,
+@pytest.mark.parametrize("test_ids,test_unassigned_ids", [({"A", "B"}, {"A", "B"}), ({"A", "B"}, {"B"})])
+def test_set_protocols__returns_error_code_if_any_of_the_given_protocols_are_not_assigned_to_any_wells(
+    client_and_server_manager_and_shared_values, test_ids, test_unassigned_ids
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
-    test_ids = ("L", "M")
-    protocol_assignments = {
-        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): test_ids[0]
-        for well_idx in range(24)
-    }
-    protocol_assignments["D1"] = None  # also make sure at least one well is not assigned a protocol
+    test_ids_to_assign = list(test_ids - test_unassigned_ids)
+
+    if test_ids_to_assign:
+        protocol_assignments = {
+            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): test_ids_to_assign[
+                well_idx % len(test_ids_to_assign)
+            ]
+            for well_idx in range(24)
+        }
+        protocol_assignments["D1"] = None  # also make sure at least one well is not assigned a protocol
+    else:
+        protocol_assignments = {
+            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): None for well_idx in range(24)
+        }
 
     test_stim_info_dict = {
         "protocols": [
             {
                 "protocol_id": protocol_id,
                 "run_until_stopped": False,
-                "stimulation_type": "V",
-                "subprotocols": [get_random_subprotocol()],
+                "stimulation_type": random_stim_type(),
+                "subprotocols": [get_random_stim_pulse()],
             }
             for protocol_id in test_ids
         ],
@@ -1476,7 +1535,7 @@ def test_set_protocols__returns_error_code_if_one_of_the_given_protocols_is_not_
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
-    assert response.status.endswith(f"Protocol assignments missing protocol ID: {test_ids[1]}") is True
+    assert response.status.endswith(f"Protocol assignments missing protocol IDs: {test_unassigned_ids}")
 
 
 def test_set_protocols__returns_success_code_if_protocols_would_not_be_updated(
@@ -1493,7 +1552,7 @@ def test_set_protocols__returns_success_code_if_protocols_would_not_be_updated(
                 "protocol_id": "J",
                 "run_until_stopped": False,
                 "stimulation_type": "V",
-                "subprotocols": [get_random_subprotocol()],
+                "subprotocols": [get_random_stim_pulse()],
             }
         ],
         "protocol_assignments": {
@@ -1518,7 +1577,7 @@ def test_set_protocols__returns_no_error_code_if_called_correctly(
     shared_values_dict["stimulation_running"] = [False] * 24
     shared_values_dict["system_status"] = test_system_status
 
-    test_stim_info = copy.deepcopy(GENERIC_STIM_INFO)
+    test_stim_info = dict(GENERIC_STIM_INFO)
 
     # patch so route doesn't hang forever
     mocker.patch.object(
@@ -1537,7 +1596,7 @@ def test_latest_software_version__returns_error_code_when_version_param_is_not_g
 
     response = test_client.post("/latest_software_version")
     assert response.status_code == 400
-    assert response.status.endswith("Version not specified") is True
+    assert response.status.endswith("Version not specified")
 
 
 def test_latest_software_version__returns_error_code_when_version_string_is_not_a_valid_semantic_version(
@@ -1548,7 +1607,7 @@ def test_latest_software_version__returns_error_code_when_version_string_is_not_
 
     response = test_client.post("/latest_software_version?version=bad")
     assert response.status_code == 400
-    assert response.status.endswith("Invalid version string") is True
+    assert response.status.endswith("Invalid version string")
 
 
 def test_latest_software_version__returns_ok_when_version_string_is_a_valid_semantic_version(
@@ -1569,4 +1628,4 @@ def test_firmware_update_confirmation__returns_error_code_when_called_in_beta_1_
 
     response = test_client.post("/firmware_update_confirmation")
     assert response.status_code == 403
-    assert response.status.endswith("Route cannot be called in beta 1 mode") is True
+    assert response.status.endswith("Route cannot be called in beta 1 mode")

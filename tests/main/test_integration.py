@@ -100,8 +100,8 @@ from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import WELL_DEF_24
-from ..fixtures_mc_simulator import get_null_subprotocol
-from ..fixtures_mc_simulator import get_random_subprotocol
+from ..fixtures_mc_simulator import get_random_stim_delay
+from ..fixtures_mc_simulator import get_random_stim_pulse
 from ..fixtures_server import fixture_test_socketio_client
 from ..helpers import confirm_queue_is_eventually_empty
 
@@ -485,17 +485,17 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                 "stimulation_type": "V",
                 "run_until_stopped": True,
                 "subprotocols": [
-                    get_random_subprotocol(total_active_duration=1000),
-                    get_null_subprotocol(500),
-                    get_random_subprotocol(total_active_duration=1000),
-                    get_null_subprotocol(500),
+                    get_random_stim_pulse(total_active_duration=1000),
+                    get_random_stim_delay(500),
+                    get_random_stim_pulse(total_active_duration=1000),
+                    get_random_stim_delay(500),
                 ],
             },
             {
                 "protocol_id": "B",
                 "stimulation_type": "C",
                 "run_until_stopped": False,
-                "subprotocols": [get_random_subprotocol(total_active_duration=1000) for _ in range(3)],
+                "subprotocols": [get_random_stim_pulse(total_active_duration=1000) for _ in range(3)],
             },
         ],
         "protocol_assignments": test_protocol_assignments,

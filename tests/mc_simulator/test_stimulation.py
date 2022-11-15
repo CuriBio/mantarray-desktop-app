@@ -29,8 +29,8 @@ from stdlib_utils import invoke_process_run_and_check_errors
 from ..fixtures_mc_simulator import create_converted_stim_info
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
-from ..fixtures_mc_simulator import get_null_subprotocol
-from ..fixtures_mc_simulator import get_random_subprotocol
+from ..fixtures_mc_simulator import get_random_stim_delay
+from ..fixtures_mc_simulator import get_random_stim_pulse
 from ..fixtures_mc_simulator import random_stim_type
 from ..fixtures_mc_simulator import set_stim_info_and_start_stimulating
 from ..helpers import assert_serial_packet_is_expected
@@ -87,7 +87,7 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
                 "stimulation_type": random_stim_type(),
                 "run_until_stopped": choice([True, False]),
                 "subprotocols": [
-                    choice([get_random_subprotocol(), get_null_subprotocol(600)])
+                    choice([get_random_stim_pulse(), get_random_stim_delay(600)])
                     for _ in range(randint(1, 3))
                 ],
             }
@@ -146,7 +146,7 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
                 "protocol_id": protocol_id,
                 "stimulation_type": random_stim_type(),
                 "run_until_stopped": choice([True, False]),
-                "subprotocols": [get_random_subprotocol()],
+                "subprotocols": [get_random_stim_pulse()],
             }
             for protocol_id in test_protocol_ids
         ],
@@ -194,7 +194,7 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
                 "protocol_id": "V",
                 "stimulation_type": random_stim_type(),
                 "run_until_stopped": choice([True, False]),
-                "subprotocols": [get_random_subprotocol()],
+                "subprotocols": [get_random_stim_pulse()],
             }
         ],
         "protocol_assignments": {
@@ -238,7 +238,7 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
                 "stimulation_type": random_stim_type(),
                 "run_until_stopped": choice([True, False]),
                 "subprotocols": [
-                    choice([get_random_subprotocol(), get_null_subprotocol(130)])
+                    choice([get_random_stim_pulse(), get_random_stim_delay(130)])
                     for _ in range(STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL + 1)
                 ],
             }
@@ -311,7 +311,7 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__after_protoc
             "protocol_id": "A",
             "stimulation_type": "C",
             "run_until_stopped": True,
-            "subprotocols": [get_random_subprotocol()],
+            "subprotocols": [get_random_stim_pulse()],
         }
     ]
     stim_info["protocol_assignments"] = {
@@ -359,7 +359,7 @@ def test_MantarrayMcSimulator__processes_stop_stimulation_command(mantarray_mc_s
             "protocol_id": "B",
             "stimulation_type": "V",
             "run_until_stopped": True,
-            "subprotocols": [get_random_subprotocol()],
+            "subprotocols": [get_random_stim_pulse()],
         }
     ]
     stim_info["protocol_assignments"] = {
@@ -440,7 +440,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_packet_for_initial_subproto
                     "protocol_id": "A",
                     "stimulation_type": "C",
                     "run_until_stopped": True,
-                    "subprotocols": [get_random_subprotocol(), get_random_subprotocol()],
+                    "subprotocols": [get_random_stim_pulse(), get_random_stim_pulse()],
                 }
             ],
             "protocol_assignments": {
@@ -498,8 +498,8 @@ def test_MantarrayMcSimulator__sends_protocol_status_packet_when_a_new_subprotoc
                     "stimulation_type": "C",
                     "run_until_stopped": True,
                     "subprotocols": [
-                        get_random_subprotocol(total_active_duration=test_duration_ms),
-                        get_random_subprotocol(),
+                        get_random_stim_pulse(total_active_duration=test_duration_ms),
+                        get_random_stim_pulse(),
                     ],
                 }
             ],
@@ -557,8 +557,8 @@ def test_MantarrayMcSimulator__sends_protocol_status_packets_when_multiple_wells
                     "stimulation_type": "C",
                     "run_until_stopped": True,
                     "subprotocols": [
-                        get_random_subprotocol(total_active_duration=test_duration_ms),
-                        get_random_subprotocol(),
+                        get_random_stim_pulse(total_active_duration=test_duration_ms),
+                        get_random_stim_pulse(),
                     ],
                 }
             ],
@@ -622,9 +622,9 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_multipl
                     "stimulation_type": "C",
                     "run_until_stopped": True,
                     "subprotocols": [
-                        get_random_subprotocol(total_active_duration=test_duration_ms_1),
-                        get_random_subprotocol(total_active_duration=test_duration_ms_2),
-                        get_random_subprotocol(),
+                        get_random_stim_pulse(total_active_duration=test_duration_ms_1),
+                        get_random_stim_pulse(total_active_duration=test_duration_ms_2),
+                        get_random_stim_pulse(),
                     ],
                 }
             ],
@@ -700,8 +700,8 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_subprot
                     "stimulation_type": "C",
                     "run_until_stopped": True,
                     "subprotocols": [
-                        get_random_subprotocol(total_active_duration=test_duration_ms_1),
-                        get_random_subprotocol(),
+                        get_random_stim_pulse(total_active_duration=test_duration_ms_1),
+                        get_random_stim_pulse(),
                     ],
                 },
                 {
@@ -709,8 +709,8 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_subprot
                     "stimulation_type": "C",
                     "run_until_stopped": True,
                     "subprotocols": [
-                        get_random_subprotocol(total_active_duration=test_duration_ms_2),
-                        get_random_subprotocol(),
+                        get_random_stim_pulse(total_active_duration=test_duration_ms_2),
+                        get_random_stim_pulse(),
                     ],
                 },
             ],
@@ -784,8 +784,8 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_null_status_correctly(
                     "stimulation_type": "C",
                     "run_until_stopped": True,
                     "subprotocols": [
-                        get_random_subprotocol(total_active_duration=test_duration_ms),
-                        get_null_subprotocol(10),
+                        get_random_stim_pulse(total_active_duration=test_duration_ms),
+                        get_random_stim_delay(10),
                     ],
                 }
             ],
@@ -843,7 +843,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_restarting_status_corr
                     "stimulation_type": "C",
                     "run_until_stopped": True,
                     "subprotocols": [
-                        get_random_subprotocol(total_active_duration=test_duration_ms),
+                        get_random_stim_pulse(total_active_duration=test_duration_ms),
                     ],
                 }
             ],
@@ -916,7 +916,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
                     "stimulation_type": "C",
                     "run_until_stopped": False,
                     "subprotocols": [
-                        get_random_subprotocol(total_active_duration=test_duration_ms),
+                        get_random_stim_pulse(total_active_duration=test_duration_ms),
                     ],
                 },
                 {
@@ -924,7 +924,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
                     "stimulation_type": "C",
                     "run_until_stopped": False,
                     "subprotocols": [
-                        get_random_subprotocol(total_active_duration=test_duration_ms * 2),
+                        get_random_stim_pulse(total_active_duration=test_duration_ms * 2),
                     ],
                 },
             ],

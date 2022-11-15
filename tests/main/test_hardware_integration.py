@@ -41,7 +41,7 @@ RANDOM_STIM_INFO_1 = {
                     "postphase_interval": 50000,
                     "total_active_duration": 5000,
                 },
-                # get_null_subprotocol(1000),  # type: ignore
+                # get_random_stim_delay(1000),  # type: ignore
             ],
         }
     ],

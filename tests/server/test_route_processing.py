@@ -52,7 +52,7 @@ from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import populate_calibration_folder
 from ..fixtures_mc_simulator import create_random_stim_info
-from ..fixtures_mc_simulator import get_random_subprotocol
+from ..fixtures_mc_simulator import get_random_stim_pulse
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
 from ..fixtures_server import fixture_server_manager
@@ -1259,7 +1259,7 @@ def test_set_protocols__waits_for_stim_info_in_shared_values_dict_to_be_updated_
                 "protocol_id": "S",
                 "stimulation_type": "C",
                 "run_until_stopped": True,
-                "subprotocols": [get_random_subprotocol(), get_random_subprotocol()],
+                "subprotocols": [get_random_stim_pulse(), get_random_stim_pulse()],
             }
         ],
         "protocol_assignments": {
