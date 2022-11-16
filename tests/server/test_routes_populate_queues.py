@@ -94,6 +94,36 @@ def test_send_single_set_mantarray_nickname_command__populates_queue(
     assert response_json["mantarray_nickname"] == expected_nickname
 
 
+@pytest.mark.parametrize(
+    "test_new_name,expected_new_name",
+    [
+        ("NormalName", "NormalName"),
+        ("  TestName", "TestName"),
+        ("TestName  ", "TestName"),
+        ("  TestName  ", "TestName"),
+    ],
+)
+def test_send_single_update_recording_name_command__populates_queue(
+    test_new_name,
+    expected_new_name,
+    client_and_server_manager_and_shared_values,
+):
+    test_client, (test_server, _), shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["new_name"] = test_new_name
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["config_settings"]["recording_directory"] = "/test/recording/directory"
+
+    response = test_client.post(
+        f"/update_recording_name?new_name={test_new_name}&default_name=old_name&snapshot_enabled=false"
+    )
+    assert response.status_code == 200
+
+    to_main_queue = test_server.get_queue_to_main()
+    assert is_queue_eventually_not_empty(to_main_queue) is True
+    communication = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["new_name"] == expected_new_name
+
+
 def test_send_single_initialize_board_command_with_bit_file__populates_queue(
     client_and_server_manager_and_shared_values,
 ):

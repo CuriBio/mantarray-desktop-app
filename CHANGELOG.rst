@@ -11,6 +11,8 @@ Added:
   The message will include a link to download the installer for the most recent compatible software version.
 - Ability to change individual subprotocol colors in the Stimulation Studio
 - Ability to choose from previously used usernames when logging in
+- Fixed issue where filenames with leading or trailing spaces would error
+
 
 1.0.3 (2022-10-15)
 ------------------
