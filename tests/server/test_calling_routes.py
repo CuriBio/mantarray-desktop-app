@@ -489,7 +489,7 @@ def test_update_recording_name__returns_ok_if_recording_name_doesnt_exist(
     "test_new_file_name",
     ["NormalName", "  TestName", "TestName  ", "  TestName  "],
 )
-def test_update_recording_name__trims_spaces_from_start_and_end_beta1(
+def test_update_recording_name__trims_spaces_from_start_and_end_beta_1_mode(
     test_new_file_name, client_and_server_manager_and_shared_values, mocker
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
@@ -509,7 +509,7 @@ def test_update_recording_name__trims_spaces_from_start_and_end_beta1(
     "test_new_file_name",
     ["NormalName", "  TestName", "TestName  ", "  TestName  "],
 )
-def test_update_recording_name__trims_spaces_from_start_and_end_beta2(
+def test_update_recording_name__trims_spaces_from_start_and_end_beta_2_mode(
     test_new_file_name, client_and_server_manager_and_shared_values, mocker
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
