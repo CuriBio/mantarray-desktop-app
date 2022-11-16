@@ -12,6 +12,7 @@ Added:
 - Ability to change individual subprotocol colors in the Stimulation Studio
 - Spaces before and after new filename now get trimmed off
 
+
 1.0.3 (2022-10-15)
 ------------------
 
