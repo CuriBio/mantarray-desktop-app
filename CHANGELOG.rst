@@ -10,6 +10,7 @@ Added:
 - Error message if software version is incompatible with an instrument's firmware version.
   The message will include a link to download the installer for the most recent compatible software version.
 - Ability to change individual subprotocol colors in the Stimulation Studio
+- Spaces before and after new filename now get trimmed off
 
 1.0.3 (2022-10-15)
 ------------------
