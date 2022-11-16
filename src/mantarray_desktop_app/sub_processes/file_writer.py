@@ -1257,7 +1257,6 @@ class FileWriterProcess(InfiniteProcess):
         """Rename recording directory and h5 files to kick off auto upload."""
         # only perform if new name is different from the original default name
         if self._current_recording_dir == comm["default_name"] != comm["new_name"]:
-            comm["new_name"] = comm["new_name"].strip()
             new_recording_path = os.path.join(self._file_directory, comm["new_name"])
             if os.path.exists(new_recording_path):
                 # remove current recording if it already exists
