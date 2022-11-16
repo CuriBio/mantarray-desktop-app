@@ -48,6 +48,7 @@ const create_store = function ({ file_path = undefined, file_name = "mantarray_c
     deserialize: yaml.load,
     defaults: {
       customer_id: null,
+      usernames: [],
       beta_2_mode: true,
     },
   });
