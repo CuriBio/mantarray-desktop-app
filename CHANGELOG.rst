@@ -11,6 +11,10 @@ Added:
   The message will include a link to download the installer for the most recent compatible software version.
 - Ability to change individual subprotocol colors in the Stimulation Studio
 
+Changed:
+^^^^^^^^
+- Max recording time limit is now 10 minutes.
+
 1.0.3 (2022-10-15)
 ------------------
 
