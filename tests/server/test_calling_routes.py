@@ -489,26 +489,6 @@ def test_update_recording_name__returns_ok_if_recording_name_doesnt_exist(
     "test_new_file_name",
     ["NormalName", "  TestName", "TestName  ", "  TestName  "],
 )
-def test_update_recording_name__trims_spaces_from_start_and_end_beta_1_mode(
-    test_new_file_name, client_and_server_manager_and_shared_values, mocker
-):
-    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    shared_values_dict["beta_2_mode"] = False
-    shared_values_dict["config_settings"]["recording_directory"] = "/test/recording/directory"
-
-    mocker.patch.object(os.path, "exists", return_value=False)
-
-    response = test_client.post(
-        f"/update_recording_name?new_name={test_new_file_name}&default_name=old_name&snapshot_enabled=true"
-    )
-    assert response.status_code == 403
-    assert response.status.endswith("Cannot run recording snapshot in Beta 1 mode")
-
-
-@pytest.mark.parametrize(
-    "test_new_file_name",
-    ["NormalName", "  TestName", "TestName  ", "  TestName  "],
-)
 def test_update_recording_name__trims_spaces_from_start_and_end_beta_2_mode(
     test_new_file_name, client_and_server_manager_and_shared_values, mocker
 ):
