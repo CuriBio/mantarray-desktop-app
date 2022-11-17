@@ -39,8 +39,8 @@ from pulse3D.transforms import calculate_displacement_from_voltage
 from pulse3D.transforms import calculate_force_from_displacement
 from pulse3D.transforms import calculate_voltage_from_gmr
 from pulse3D.transforms import create_filter
-from pulse3D.transforms import get_stiffness_factor
 from pulse3D.utils import get_experiment_id
+from pulse3D.utils import get_stiffness_factor
 from stdlib_utils import create_metrics_stats
 from stdlib_utils import drain_queue
 from stdlib_utils import InfiniteProcess
@@ -57,6 +57,7 @@ from ..constants import MICROSECONDS_PER_CENTIMILLISECOND
 from ..constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from ..constants import MM_PER_MT_Z_AXIS_SENSOR_0
 from ..constants import PERFOMANCE_LOGGING_PERIOD_SECS
+from ..constants import RECORDING_SNAPSHOT_DUR_SECS
 from ..constants import REF_INDEX_TO_24_WELL_INDEX
 from ..constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from ..exceptions import StartManagedAcquisitionWithoutBarcodeError
@@ -656,7 +657,8 @@ class DataAnalyzerProcess(InfiniteProcess):
 
     def _start_recording_snapshot_analysis(self, recording_path: str) -> None:
         # TODO (9/16/22): this should be run in a thread so that this process is still responsive to main
-        snapshot_dfs = run_magnet_finding_alg({}, [recording_path], end_time=5)
+        # TODO (11/16/22): add error handling. If the analysis fails here, then snapshot_dfs[0] will raise a KeyError
+        snapshot_dfs = run_magnet_finding_alg({}, [recording_path], end_time=RECORDING_SNAPSHOT_DUR_SECS)
         snapshot_dict = snapshot_dfs[0].to_dict()
         snapshot_list = [list(snapshot_dict[key].values()) for key in snapshot_dict.keys()]
 
