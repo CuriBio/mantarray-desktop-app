@@ -40,6 +40,7 @@ import pytest
 
 from ..fixtures import fixture_patch_print
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
+from ..helpers import assert_subprotocol_bytes_are_expected
 
 
 __fixtures__ = [fixture_patch_print, fixture_mantarray_mc_simulator_no_beacon]
@@ -196,6 +197,7 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__for_voltage_
         "phase_one_duration": 0x321,
         "phase_one_charge": 0x333,
         "postphase_interval": 0x123,
+        "num_cycles": 1,
     }
     # fmt: off
     expected_bytes = bytes(
@@ -206,15 +208,15 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__for_voltage_
             0, 0,  # interphase_interval amplitude (always 0)
             0, 0, 0, 0,  # phase_two_duration (always 0 for monophasic)
             0, 0,  # phase_two_charge (always 0 for monophasic)
-            0x12, 3, 0, 0,  # postphase_interval
+            0x23, 1, 0, 0,  # postphase_interval
             0, 0,  # postphase_interval amplitude (always 0)
-            0x34, 0x12, 0, 0,  # total_active_duration
+            0x44, 4, 0, 0,  # duration
             0,  # is_null_subprotocol
         ]
     )
     # fmt: on
     actual = convert_subprotocol_dict_to_bytes(test_subprotocol_dict, is_voltage=True)
-    assert actual == expected_bytes
+    assert_subprotocol_bytes_are_expected(actual, expected_bytes)
 
 
 def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__for_current_controlled_monophasic_pulse():
@@ -223,6 +225,7 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__for_current_
         "phase_one_duration": 0x111,
         "phase_one_charge": 50,
         "postphase_interval": 0x999,
+        "num_cycles": 3,
     }
     # fmt: off
     expected_bytes = bytes(
@@ -235,13 +238,13 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__for_current_
             0, 0,  # phase_two_charge (always 0 for monophasic)
             0x99, 9, 0, 0,  # postphase_interval
             0, 0,  # postphase_interval amplitude (always 0)
-            0x34, 0x12, 0, 0,  # total_active_duration
+            0xFE, 0x1F, 0, 0,  # duration
             0,  # is_null_subprotocol
         ]
     )
     # fmt: on
     actual = convert_subprotocol_dict_to_bytes(test_subprotocol_dict)
-    assert actual == expected_bytes
+    assert_subprotocol_bytes_are_expected(actual, expected_bytes)
 
 
 def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__for_voltage_controlled_biphasic_pulse():
@@ -253,7 +256,7 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__for_voltage_
         "phase_two_duration": 0x777,
         "phase_two_charge": -1,
         "postphase_interval": 0x999,
-        "total_active_duration": 0x1234,
+        "num_cycles": 100,
     }
     # fmt: off
     expected_bytes = bytes(
@@ -266,13 +269,13 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__for_voltage_
             0xFF, 0xFF,  # phase_two_charge
             0x99, 9, 0, 0,  # postphase_interval
             0, 0,  # postphase_interval amplitude (always 0)
-            0x34, 0x12, 0, 0,  # total_active_duration
+            0x18, 0x2a, 9, 0,  # duration
             0,  # is_null_subprotocol
         ]
     )
     # fmt: on
     actual = convert_subprotocol_dict_to_bytes(test_subprotocol_dict, is_voltage=True)
-    assert actual == expected_bytes
+    assert_subprotocol_bytes_are_expected(actual, expected_bytes)
 
 
 def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__for_current_controlled_biphasic_pulse():
@@ -284,7 +287,7 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__for_current_
         "phase_two_duration": 0x777,
         "phase_two_charge": -50,
         "postphase_interval": 0x999,
-        "total_active_duration": 0x1234,
+        "num_cycles": 16,
     }
     # fmt: off
     expected_bytes = bytes(
@@ -297,13 +300,13 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__for_current_
             0xFB, 0xFF,  # phase_two_charge  # Tanner (11/15/22): this currently gets divided by 10
             0x99, 9, 0, 0,  # postphase_interval
             0, 0,  # postphase_interval amplitude (always 0)
-            0x34, 0x12, 0, 0,  # total_active_duration
+            0x60, 0x77, 1, 0,  # duration
             0,  # is_null_subprotocol
         ]
     )
     # fmt: on
     actual = convert_subprotocol_dict_to_bytes(test_subprotocol_dict)
-    assert actual == expected_bytes
+    assert_subprotocol_bytes_are_expected(actual, expected_bytes)
 
 
 def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_subprotocol_is_a_delay():
@@ -319,13 +322,71 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_subprot
             0, 0,  # phase_two_charge
             0, 0, 0, 0,  # postphase_interval
             0, 0,  # postphase_interval amplitude (always 0)
-            0x11, 1, 0, 0,  # total_active_duration
+            0x11, 1, 0, 0,  # duration
             1,  # is_null_subprotocol
         ]
     )
     # fmt: on
     actual = convert_subprotocol_dict_to_bytes(test_subprotocol_dict)
     assert actual == expected_bytes
+
+
+def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__for_voltage_controlled_monophasic_pulse():
+    # fmt: off
+    test_bytes = bytes(
+        [
+            0x99, 9, 0, 0,  # phase_one_duration
+            0x77, 7,  # phase_one_charge
+            0, 0, 0, 0,  # interphase_interval
+            0, 0,  # interphase_interval amplitude (always 0)
+            0, 0, 0, 0,  # phase_two_duration
+            0, 0,  # phase_two_charge
+            0x11, 1, 0, 0,  # postphase_interval
+            0, 0,  # postphase_interval amplitude (always 0)
+            0xA6, 0x4A, 0, 0,  # duration
+            0,  # is_null_subprotocol
+        ]
+    )
+    # fmt: on
+    expected_subprotocol_dict = {
+        "type": "monophasic",
+        "phase_one_duration": 0x999,
+        "phase_one_charge": 0x777,
+        "postphase_interval": 0x111,
+        "num_cycles": 7,
+    }
+
+    actual = convert_bytes_to_subprotocol_dict(test_bytes, is_voltage=True)
+    assert actual == expected_subprotocol_dict
+
+
+def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__for_current_controlled_monophasic_pulse():
+    # fmt: off
+    test_bytes = bytes(
+        [
+            0x99, 9, 0, 0,  # phase_one_duration
+            0x77, 7,  # phase_one_charge
+            0, 0, 0, 0,  # interphase_interval
+            0, 0,  # interphase_interval amplitude (always 0)
+            0, 0, 0, 0,  # phase_two_duration
+            0, 0,  # phase_two_charge
+            0x11, 1, 0, 0,  # postphase_interval
+            0, 0,  # postphase_interval amplitude (always 0)
+            0xAA, 0xA, 0, 0,  # duration
+            0,  # is_null_subprotocol
+        ]
+    )
+    # fmt: on
+    expected_subprotocol_dict = {
+        "type": "monophasic",
+        "phase_one_duration": 0x999,
+        "phase_one_charge": 0x777 * 10,
+        "postphase_interval": 0x111,
+        "num_cycles": 1,
+    }
+
+    actual = convert_bytes_to_subprotocol_dict(test_bytes)
+    assert actual == expected_subprotocol_dict
 
 
 def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__for_voltage_controlled_biphasic_pulse():
@@ -340,19 +401,20 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__for_voltage_c
             0xFF, 0xFF,  # phase_two_charge
             0x11, 1, 0, 0,  # postphase_interval
             0, 0,  # postphase_interval amplitude (always 0)
-            0x21, 0x43, 0, 0,  # total_active_duration
+            6, 0x39, 9, 0,  # duration
             0,  # is_null_subprotocol
         ]
     )
     # fmt: on
     expected_subprotocol_dict = {
+        "type": "biphasic",
         "phase_one_duration": 0x999,
         "phase_one_charge": 0x777,
         "interphase_interval": 0x555,
         "phase_two_duration": 0x333,
         "phase_two_charge": -1,
         "postphase_interval": 0x111,
-        "total_active_duration": 0x4321,
+        "num_cycles": 123,
     }
 
     actual = convert_bytes_to_subprotocol_dict(test_bytes, is_voltage=True)
@@ -371,19 +433,20 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__for_current_c
             0xFF, 0xFF,  # phase_two_charge
             0x11, 1, 0, 0,  # postphase_interval
             0, 0,  # postphase_interval amplitude (always 0)
-            0x21, 0x43, 0, 0,  # total_active_duration
+            0xAE, 0x52, 8, 0,  # duration
             0,  # is_null_subprotocol
         ]
     )
     # fmt: on
     expected_subprotocol_dict = {
+        "type": "biphasic",
         "phase_one_duration": 0x999,
         "phase_one_charge": 0x777 * 10,
         "interphase_interval": 0x555,
         "phase_two_duration": 0x333,
         "phase_two_charge": -1 * 10,
         "postphase_interval": 0x111,
-        "total_active_duration": 0x4321,
+        "num_cycles": 111,
     }
 
     actual = convert_bytes_to_subprotocol_dict(test_bytes)
@@ -394,7 +457,7 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_subproto
     # fmt: off
     test_bytes = bytes(
         [
-            0x88, 8, 0, 0,  # phase_one_duration
+            0, 0, 0, 0,  # phase_one_duration
             0, 0,  # phase_one_charge
             0, 0, 0, 0,  # interphase_interval
             0, 0,  # interphase_interval amplitude (always 0)
@@ -402,20 +465,12 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_subproto
             0, 0,  # phase_two_charge
             0, 0, 0, 0,  # postphase_interval
             0, 0,  # postphase_interval amplitude (always 0)
-            0x88, 8, 0, 0,  # total_active_duration
+            0x88, 8, 0, 0,  # duration
             1,  # is_null_subprotocol
         ]
     )
     # fmt: on
-    expected_subprotocol_dict = {
-        "phase_one_duration": 0x888,
-        "phase_one_charge": 0,
-        "interphase_interval": 0,
-        "phase_two_duration": 0,
-        "phase_two_charge": 0,
-        "postphase_interval": 0,
-        "total_active_duration": 0x888,
-    }
+    expected_subprotocol_dict = {"type": "delay", "duration": 0x888}
 
     actual = convert_bytes_to_subprotocol_dict(test_bytes)
     assert actual == expected_subprotocol_dict
@@ -442,23 +497,13 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
                 "stimulation_type": "C",
                 "subprotocols": [
                     {
+                        "type": "monophasic",
                         "phase_one_duration": randint(1, 50),
                         "phase_one_charge": randint(1, 100),
-                        "interphase_interval": randint(1, 50),
-                        "phase_two_duration": randint(1, 100),
-                        "phase_two_charge": randint(1, 50),
                         "postphase_interval": randint(0, 50),
-                        "total_active_duration": randint(150, 300),
+                        "num_cycles": randint(1, 100),
                     },
-                    {
-                        "phase_one_duration": 250,
-                        "phase_one_charge": 0,
-                        "interphase_interval": 0,
-                        "phase_two_duration": 0,
-                        "phase_two_charge": 0,
-                        "postphase_interval": 0,
-                        "total_active_duration": 250,
-                    },
+                    {"type": "delay", "duration": 250},
                 ],
             },
             {
@@ -467,13 +512,14 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
                 "run_until_stopped": False,
                 "subprotocols": [
                     {
+                        "type": "biphasic",
                         "phase_one_duration": randint(1, 50),
                         "phase_one_charge": randint(1, 100),
                         "interphase_interval": randint(1, 50),
                         "phase_two_duration": randint(1, 100),
                         "phase_two_charge": randint(1, 50),
                         "postphase_interval": randint(0, 50),
-                        "total_active_duration": randint(150, 300),
+                        "num_cycles": randint(1, 100),
                     },
                 ],
             },
@@ -481,28 +527,30 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
         "protocol_assignments": protocol_assignments_dict,
     }
 
-    expected_bytes = bytes([2])  # num unique protocols
-    # bytes for protocol A
-    expected_bytes += bytes([2])  # num subprotocols in protocol A
-    expected_bytes += convert_subprotocol_dict_to_bytes(
-        stim_info_dict["protocols"][0]["subprotocols"][0], is_voltage=False
+    expected_bytes = (
+        bytes([2])  # num unique protocols
+        # bytes for protocol A
+        + bytes([2])  # num subprotocols in protocol A
+        + convert_subprotocol_dict_to_bytes(
+            stim_info_dict["protocols"][0]["subprotocols"][0], is_voltage=False
+        )
+        + convert_subprotocol_dict_to_bytes(
+            stim_info_dict["protocols"][0]["subprotocols"][1], is_voltage=False
+        )
+        + bytes([0])  # control method
+        + bytes([1])  # schedule mode
+        + bytes(1)  # data type
+        # bytes for protocol D
+        + bytes([1])  # num subprotocols in protocol B
+        + convert_subprotocol_dict_to_bytes(
+            stim_info_dict["protocols"][1]["subprotocols"][0], is_voltage=True
+        )
+        + bytes([1])  # control method
+        + bytes([0])  # schedule mode
+        + bytes(1)  # data type
+        # module/protocol pairs
+        + bytes(expected_module_protocol_pairs)
     )
-    expected_bytes += convert_subprotocol_dict_to_bytes(
-        stim_info_dict["protocols"][0]["subprotocols"][1], is_voltage=False
-    )
-    expected_bytes += bytes([0])  # control method
-    expected_bytes += bytes([1])  # schedule mode
-    expected_bytes += bytes(1)  # data type
-    # bytes for protocol D
-    expected_bytes += bytes([1])  # num subprotocols in protocol B
-    expected_bytes += convert_subprotocol_dict_to_bytes(
-        stim_info_dict["protocols"][1]["subprotocols"][0], is_voltage=True
-    )
-    expected_bytes += bytes([1])  # control method
-    expected_bytes += bytes([0])  # schedule mode
-    expected_bytes += bytes(1)  # data type
-    # module/protocol pairs
-    expected_bytes += bytes(expected_module_protocol_pairs)
 
     actual = convert_stim_dict_to_bytes(stim_info_dict)
     assert actual == expected_bytes

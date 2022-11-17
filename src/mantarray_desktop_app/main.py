@@ -104,21 +104,23 @@ def _set_up_socketio_handlers(ws_queue: LightQueue) -> Callable[[], None]:
 
 
 def _log_system_info() -> None:
-    system_messages = list()
     uname = platform.uname()
     uname_sys = getattr(uname, "system")
     uname_release = getattr(uname, "release")
     uname_version = getattr(uname, "version")
-    system_messages.append(f"System: {uname_sys}")
-    system_messages.append(f"Release: {uname_release}")
-    system_messages.append(f"Version: {uname_version}")
-    system_messages.append(f"Machine: {getattr(uname, 'machine')}")
-    system_messages.append(f"Processor: {getattr(uname, 'processor')}")
-    system_messages.append(f"Win 32 Ver: {platform.win32_ver()}")
-    system_messages.append(
-        f"Platform: {platform.platform()}, Architecture: {platform.architecture()}, Interpreter is 64-bits: {sys.maxsize > 2**32}, System Alias: {platform.system_alias(uname_sys, uname_release, uname_version)}"
-    )
-    for msg in system_messages:
+
+    for msg in (
+        f"System: {uname_sys}",
+        f"Release: {uname_release}",
+        f"Version: {uname_version}",
+        f"Machine: {getattr(uname, 'machine')}",
+        f"Processor: {getattr(uname, 'processor')}",
+        f"Win 32 Ver: {platform.win32_ver()}",
+        f"Platform: {platform.platform()}",
+        f"Architecture: {platform.architecture()}",
+        f"Interpreter is 64-bits: {sys.maxsize > 2**32}",
+        f"System Alias: {platform.system_alias(uname_sys, uname_release, uname_version)}",
+    ):
         logger.info(msg)
 
 

@@ -215,7 +215,7 @@ def system_status() -> Response:
     status = shared_values_dict["system_status"]
     status_dict = {
         "ui_status_code": str(SYSTEM_STATUS_UUIDS[status]),
-        "is_stimulating": False if not shared_values_dict["beta_2_mode"] else _is_stimulating_on_any_well(),
+        "is_stimulating": shared_values_dict["beta_2_mode"] and _is_stimulating_on_any_well(),
         # Tanner (7/1/20): this route may be called before process_monitor adds the following values to shared_values_dict, so default values are needed
         "in_simulation_mode": shared_values_dict.get("in_simulation_mode", False),
         "mantarray_serial_number": shared_values_dict.get("mantarray_serial_number", ""),
