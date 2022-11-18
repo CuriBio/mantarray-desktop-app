@@ -383,12 +383,19 @@ class MantarrayProcessesMonitor(InfiniteThread):
         except queue.Empty:
             return
 
+        communication_type = communication["communication_type"]
+
+        # TODO unit test this
+        if communication_type == "mag_analysis_complete":
+            data_type = communication["content"]["data_type"]
+            comm_str = f"Magnet Finding Analysis complete for {data_type}"
+        else:
+            comm_str = str(communication)
+        msg = f"Communication from the Data Analyzer: {comm_str}"
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
-        msg = f"Communication from the Data Analyzer: {communication}"
         with self._lock:
             logger.info(msg)
 
-        communication_type = communication["communication_type"]
         if communication_type == "data_available":
             if self._values_to_share_to_server["system_status"] == BUFFERING_STATE:
                 self._data_dump_buffer_size += 1

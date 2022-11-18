@@ -643,10 +643,7 @@ class DataAnalyzerProcess(InfiniteProcess):
 
         self._mag_finder_worker_thread.join()
 
-        outgoing_msg = {
-            "data_type": "data_analysis_complete",
-            "data_json": json.dumps(self._mag_finder_thread_dict),
-        }
+        outgoing_msg = {"data_type": "local_analysis", "data_json": json.dumps(self._mag_finder_thread_dict)}
         self._comm_to_main_queue.put_nowait(
             {"communication_type": "mag_analysis_complete", "content": outgoing_msg}
         )

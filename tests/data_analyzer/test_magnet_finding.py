@@ -102,7 +102,7 @@ def test_DataAnalyzerProcess__handles_successful_completion_of_magnet_finder_wor
 
     assert command_response == {
         "communication_type": "mag_analysis_complete",
-        "content": {"data_type": "data_analysis_complete", "data_json": json.dumps(expected_result_dict)},
+        "content": {"data_type": "local_analysis", "data_json": json.dumps(expected_result_dict)},
     }
 
 
