@@ -96,6 +96,7 @@ from ..utils.serial_comm import convert_module_id_to_well_name
 from ..utils.serial_comm import convert_stim_bytes_to_dict
 from ..utils.serial_comm import convert_well_name_to_module_id
 from ..utils.serial_comm import create_data_packet
+from ..utils.serial_comm import get_subprotocol_pulse_duration
 from ..utils.serial_comm import is_null_subprotocol
 from ..utils.serial_comm import validate_checksum
 
@@ -740,10 +741,9 @@ class MantarrayMcSimulator(InfiniteProcess):
             if self._stim_subprotocol_indices[protocol_idx] == -1:
                 curr_subprotocol_duration_us = 0
             else:
-                curr_subprotocol_duration_us = subprotocols[self._stim_subprotocol_indices[protocol_idx]][
-                    "total_active_duration"
-                ]
-                curr_subprotocol_duration_us *= int(1e3)  # convert from ms to µs
+                curr_subprotocol_duration_us = get_subprotocol_pulse_duration(
+                    subprotocols[self._stim_subprotocol_indices[protocol_idx]]
+                ) * int(1e3)
             dur_since_subprotocol_start = _get_us_since_subprotocol_start(start_timepoint)
             while dur_since_subprotocol_start >= curr_subprotocol_duration_us:
                 # update time index for subprotocol
@@ -796,10 +796,9 @@ class MantarrayMcSimulator(InfiniteProcess):
                     protocol_idx
                 ] += curr_subprotocol_duration_us
                 dur_since_subprotocol_start -= curr_subprotocol_duration_us
-                curr_subprotocol_duration_us = subprotocols[self._stim_subprotocol_indices[protocol_idx]][
-                    "total_active_duration"
-                ]
-                curr_subprotocol_duration_us *= int(1e3)  # convert from ms to µs
+                curr_subprotocol_duration_us = get_subprotocol_pulse_duration(
+                    subprotocols[self._stim_subprotocol_indices[protocol_idx]]
+                ) * int(1e3)
         if num_status_updates > 0:
             packet_bytes = bytes([num_status_updates]) + packet_bytes
             self._send_data_packet(SERIAL_COMM_STIM_STATUS_PACKET_TYPE, packet_bytes)

@@ -227,8 +227,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
             "timepoint_to_begin_recording_at": 0,
         }
     )
-    expected_start_recording_command["metadata_to_copy_onto_main_file_attributes"].update(
-        {
+    # this is an immutable dict, so converting to a regular dict and updating all in one step
+    expected_start_recording_command["metadata_to_copy_onto_main_file_attributes"] = {
+        **expected_start_recording_command["metadata_to_copy_onto_main_file_attributes"],
+        **{
             START_RECORDING_TIME_INDEX_UUID: 0,
             PLATE_BARCODE_UUID: NOT_APPLICABLE_H5_METADATA,
             PLATE_BARCODE_IS_FROM_SCANNER_UUID: NOT_APPLICABLE_H5_METADATA,
@@ -242,8 +244,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
             INITIAL_MAGNET_FINDING_PARAMS_UUID: GENERIC_BETA_2_START_RECORDING_COMMAND[
                 "metadata_to_copy_onto_main_file_attributes"
             ][INITIAL_MAGNET_FINDING_PARAMS_UUID],
-        }
-    )
+        },
+    }
     assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_start_recording_command
 
     expected_stop_recording_command = {

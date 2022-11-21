@@ -117,25 +117,32 @@ GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
     "timepoint_to_begin_recording_at": 298518 * 125,
     "is_calibration_recording": False,
     "is_hardware_test_recording": False,
-    "metadata_to_copy_onto_main_file_attributes": {
-        HARDWARE_TEST_RECORDING_UUID: False,
-        UTC_BEGINNING_DATA_ACQUISTION_UUID: datetime.datetime(
-            year=2020, month=2, day=9, hour=19, minute=3, second=22, microsecond=332597
-        ),
-        START_RECORDING_TIME_INDEX_UUID: 298518 * 125,
-        CUSTOMER_ACCOUNT_ID_UUID: TEST_CUSTOMER_ID,
-        USER_ACCOUNT_ID_UUID: TEST_USER_NAME,
-        SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
-        SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
-        BACKEND_LOG_UUID: uuid.UUID("9a3d03f2-1f5a-4ecd-b843-0dc9ecde5f67"),
-        COMPUTER_NAME_HASH_UUID: hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest(),
-        PLATE_BARCODE_IS_FROM_SCANNER_UUID: True,
-    },
-    "active_well_indices": set(range(24)),
+    "metadata_to_copy_onto_main_file_attributes": immutabledict(
+        {
+            HARDWARE_TEST_RECORDING_UUID: False,
+            UTC_BEGINNING_DATA_ACQUISTION_UUID: datetime.datetime(
+                year=2020, month=2, day=9, hour=19, minute=3, second=22, microsecond=332597
+            ),
+            START_RECORDING_TIME_INDEX_UUID: 298518 * 125,
+            CUSTOMER_ACCOUNT_ID_UUID: TEST_CUSTOMER_ID,
+            USER_ACCOUNT_ID_UUID: TEST_USER_NAME,
+            SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
+            SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
+            BACKEND_LOG_UUID: uuid.UUID("9a3d03f2-1f5a-4ecd-b843-0dc9ecde5f67"),
+            COMPUTER_NAME_HASH_UUID: hashlib.sha512(
+                socket.gethostname().encode(encoding="UTF-8")
+            ).hexdigest(),
+            PLATE_BARCODE_IS_FROM_SCANNER_UUID: True,
+        }
+    ),
+    "active_well_indices": frozenset(range(24)),
 }
 GENERIC_BASE_START_RECORDING_COMMAND = immutabledict(GENERIC_BASE_START_RECORDING_COMMAND)
 
-GENERIC_BETA_1_START_RECORDING_COMMAND = copy.deepcopy(GENERIC_BASE_START_RECORDING_COMMAND)
+GENERIC_BETA_1_START_RECORDING_COMMAND = dict(copy.deepcopy(GENERIC_BASE_START_RECORDING_COMMAND))
+GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"] = dict(
+    GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"]
+)
 GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"].update(
     {
         UTC_BEGINNING_RECORDING_UUID: GENERIC_BASE_START_RECORDING_COMMAND[
@@ -153,9 +160,15 @@ GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
         "adc_offsets": GENERIC_ADC_OFFSET_VALUES,
     }
 )
+GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"] = immutabledict(
+    GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"]
+)
 GENERIC_BETA_1_START_RECORDING_COMMAND = immutabledict(GENERIC_BETA_1_START_RECORDING_COMMAND)
 
-GENERIC_BETA_2_START_RECORDING_COMMAND = copy.deepcopy(GENERIC_BASE_START_RECORDING_COMMAND)
+GENERIC_BETA_2_START_RECORDING_COMMAND = dict(copy.deepcopy(GENERIC_BASE_START_RECORDING_COMMAND))
+GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"] = dict(
+    GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"]
+)
 GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"].update(
     {
         UTC_BEGINNING_RECORDING_UUID: GENERIC_BASE_START_RECORDING_COMMAND[
@@ -175,6 +188,9 @@ GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
             dict(MantarrayMcSimulator.initial_magnet_finding_params)
         ),
     }
+)
+GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"] = immutabledict(
+    GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"]
 )
 GENERIC_BETA_2_START_RECORDING_COMMAND = immutabledict(GENERIC_BETA_2_START_RECORDING_COMMAND)
 

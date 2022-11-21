@@ -60,6 +60,13 @@ METADATA_TYPES: immutabledict[UUID, str] = immutabledict(
     }
 )
 
+SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS = frozenset(
+    ["interphase_interval", "phase_two_duration", "phase_two_charge"]
+)
+SUBPROTOCOL_DUR_COMPONENTS = frozenset(
+    ["phase_one_duration", "interphase_interval", "phase_two_duration", "postphase_interval"]
+)
+
 
 def _get_checksum_bytes(packet: bytes) -> bytes:
     return crc32(packet).to_bytes(SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little")
@@ -214,8 +221,7 @@ def convert_subprotocol_dict_to_bytes(
     is_null = is_null_subprotocol(subprotocol_dict)
 
     # for mypy
-    subprotocol_type: str = subprotocol_dict.pop("type")  # type: ignore
-    subprotocol_components: Dict[str, int] = subprotocol_dict  # type: ignore
+    subprotocol_components: Dict[str, int] = {k: v for k, v in subprotocol_dict.items() if isinstance(v, int)}
 
     if is_null:
         subprotocol_bytes = bytes(24) + subprotocol_components["duration"].to_bytes(4, byteorder="little")
@@ -225,7 +231,7 @@ def convert_subprotocol_dict_to_bytes(
         ).to_bytes(2, byteorder="little", signed=True)
         duration = subprotocol_components["phase_one_duration"]
 
-        if subprotocol_type == "monophasic":
+        if subprotocol_dict["type"] == "monophasic":
             subprotocol_bytes += bytes(12)
         else:
             subprotocol_bytes += (
@@ -247,6 +253,7 @@ def convert_subprotocol_dict_to_bytes(
         )
         duration += subprotocol_components["postphase_interval"]
         duration *= subprotocol_components["num_cycles"]
+        duration //= int(1e3)  # convert from µs from ms
         subprotocol_bytes += duration.to_bytes(4, byteorder="little")
 
     subprotocol_bytes += bytes([is_null])
@@ -256,11 +263,11 @@ def convert_subprotocol_dict_to_bytes(
 def convert_bytes_to_subprotocol_dict(
     subprotocol_bytes: bytes, is_voltage: bool = False
 ) -> Dict[str, Union[int, str]]:
-    duration = int.from_bytes(subprotocol_bytes[24:28], byteorder="little")
+    duration_ms = int.from_bytes(subprotocol_bytes[24:28], byteorder="little")
 
     if subprotocol_bytes[-1]:
         # the final byte is a flag indicating whether or not this subprotocol is a delay
-        return {"type": "delay", "duration": duration}
+        return {"type": "delay", "duration": duration_ms}
 
     conversion_factor = 1 if is_voltage else 10
     subprotocol_dict: Dict[str, Union[int, str]] = {
@@ -275,18 +282,23 @@ def convert_bytes_to_subprotocol_dict(
         "postphase_interval": int.from_bytes(subprotocol_bytes[18:22], byteorder="little"),
     }
 
-    biphasic_only_components = {"interphase_interval", "phase_two_duration", "phase_two_charge"}
-    dur_components = {"phase_one_duration", "interphase_interval", "phase_two_duration", "postphase_interval"}
-
-    if not any(subprotocol_dict[k] for k in biphasic_only_components):
+    if not any(subprotocol_dict[k] for k in SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS):
         subprotocol_dict["type"] = "monophasic"
-        for k in biphasic_only_components:
+        for k in SUBPROTOCOL_DUR_COMPONENTS:
             subprotocol_dict.pop(k)
-        dur_components -= biphasic_only_components
 
-    subprotocol_dict["num_cycles"] = duration // sum(subprotocol_dict[comp] for comp in dur_components)  # type: ignore
+    subprotocol_dict["num_cycles"] = (
+        duration_ms * int(1e3) // get_subprotocol_pulse_duration(subprotocol_dict)
+    )
 
     return subprotocol_dict
+
+
+def get_subprotocol_pulse_duration(subprotocol: Dict[str, Union[str, int]]) -> int:
+    dur_components = set(SUBPROTOCOL_DUR_COMPONENTS)
+    if subprotocol["type"] == "monophasic":
+        dur_components -= SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS
+    return sum(subprotocol[comp] for comp in dur_components)  # type: ignore
 
 
 def convert_well_name_to_module_id(well_name: str, use_stim_mapping: bool = False) -> int:

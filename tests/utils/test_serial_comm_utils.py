@@ -194,23 +194,23 @@ def test_convert_status_code_bytes_to_dict__raises_error_if_given_value_does_not
 def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__for_voltage_controlled_monophasic_pulse():
     test_subprotocol_dict = {
         "type": "monophasic",
-        "phase_one_duration": 0x321,
+        "phase_one_duration": 0x654321,
         "phase_one_charge": 0x333,
-        "postphase_interval": 0x123,
+        "postphase_interval": 0x3BA,
         "num_cycles": 1,
     }
     # fmt: off
     expected_bytes = bytes(
         [
-            0x21, 3, 0, 0,  # phase_one_duration
+            0x21, 0x43, 0x65, 0,  # phase_one_duration
             0x33, 3,  # phase_one_charge
             0, 0, 0, 0,  # interphase_interval (always 0 for monophasic)
             0, 0,  # interphase_interval amplitude (always 0)
             0, 0, 0, 0,  # phase_two_duration (always 0 for monophasic)
             0, 0,  # phase_two_charge (always 0 for monophasic)
-            0x23, 1, 0, 0,  # postphase_interval
+            0xBA, 3, 0, 0,  # postphase_interval
             0, 0,  # postphase_interval amplitude (always 0)
-            0x44, 4, 0, 0,  # duration
+            0xAA, 4, 0, 0,  # duration
             0,  # is_null_subprotocol
         ]
     )
@@ -224,7 +224,7 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__for_current_
         "type": "monophasic",
         "phase_one_duration": 0x111,
         "phase_one_charge": 50,
-        "postphase_interval": 0x999,
+        "postphase_interval": 0x6BF,
         "num_cycles": 3,
     }
     # fmt: off
@@ -236,9 +236,9 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__for_current_
             0, 0,  # interphase_interval amplitude (always 0)
             0, 0, 0, 0,  # phase_two_duration (always 0 for monophasic)
             0, 0,  # phase_two_charge (always 0 for monophasic)
-            0x99, 9, 0, 0,  # postphase_interval
+            0xBF, 6, 0, 0,  # postphase_interval
             0, 0,  # postphase_interval amplitude (always 0)
-            0xFE, 0x1F, 0, 0,  # duration
+            6, 0, 0, 0,  # duration
             0,  # is_null_subprotocol
         ]
     )
@@ -255,7 +255,7 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__for_voltage_
         "interphase_interval": 0x555,
         "phase_two_duration": 0x777,
         "phase_two_charge": -1,
-        "postphase_interval": 0x999,
+        "postphase_interval": 0x993,
         "num_cycles": 100,
     }
     # fmt: off
@@ -267,9 +267,9 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__for_voltage_
             0, 0,  # interphase_interval amplitude (always 0)
             0x77, 7, 0, 0,  # phase_two_duration
             0xFF, 0xFF,  # phase_two_charge
-            0x99, 9, 0, 0,  # postphase_interval
+            0x93, 9, 0, 0,  # postphase_interval
             0, 0,  # postphase_interval amplitude (always 0)
-            0x18, 0x2a, 9, 0,  # duration
+            0x58, 2, 0, 0,  # duration
             0,  # is_null_subprotocol
         ]
     )
@@ -286,7 +286,7 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__for_current_
         "interphase_interval": 0x555,
         "phase_two_duration": 0x777,
         "phase_two_charge": -50,
-        "postphase_interval": 0x999,
+        "postphase_interval": 0x993,
         "num_cycles": 16,
     }
     # fmt: off
@@ -298,9 +298,9 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__for_current_
             0, 0,  # interphase_interval amplitude (always 0)
             0x77, 7, 0, 0,  # phase_two_duration
             0xFB, 0xFF,  # phase_two_charge  # Tanner (11/15/22): this currently gets divided by 10
-            0x99, 9, 0, 0,  # postphase_interval
+            0x93, 9, 0, 0,  # postphase_interval
             0, 0,  # postphase_interval amplitude (always 0)
-            0x60, 0x77, 1, 0,  # duration
+            0x60, 0, 0, 0,  # duration
             0,  # is_null_subprotocol
         ]
     )
@@ -343,7 +343,7 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__for_voltage_c
             0, 0,  # phase_two_charge
             0x11, 1, 0, 0,  # postphase_interval
             0, 0,  # postphase_interval amplitude (always 0)
-            0xA6, 0x4A, 0, 0,  # duration
+            0x13, 0, 0, 0,  # duration
             0,  # is_null_subprotocol
         ]
     )
@@ -353,7 +353,7 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__for_voltage_c
         "phase_one_duration": 0x999,
         "phase_one_charge": 0x777,
         "postphase_interval": 0x111,
-        "num_cycles": 7,
+        "num_cycles": 6,
     }
 
     actual = convert_bytes_to_subprotocol_dict(test_bytes, is_voltage=True)
@@ -364,7 +364,7 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__for_current_c
     # fmt: off
     test_bytes = bytes(
         [
-            0x99, 9, 0, 0,  # phase_one_duration
+            0xBF, 6, 0, 0,  # phase_one_duration
             0x77, 7,  # phase_one_charge
             0, 0, 0, 0,  # interphase_interval
             0, 0,  # interphase_interval amplitude (always 0)
@@ -372,14 +372,14 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__for_current_c
             0, 0,  # phase_two_charge
             0x11, 1, 0, 0,  # postphase_interval
             0, 0,  # postphase_interval amplitude (always 0)
-            0xAA, 0xA, 0, 0,  # duration
+            2, 0, 0, 0,  # duration
             0,  # is_null_subprotocol
         ]
     )
     # fmt: on
     expected_subprotocol_dict = {
         "type": "monophasic",
-        "phase_one_duration": 0x999,
+        "phase_one_duration": 0x6BF,
         "phase_one_charge": 0x777 * 10,
         "postphase_interval": 0x111,
         "num_cycles": 1,
@@ -393,7 +393,7 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__for_voltage_c
     # fmt: off
     test_bytes = bytes(
         [
-            0x99, 9, 0, 0,  # phase_one_duration
+            0x93, 9, 0, 0,  # phase_one_duration
             0x77, 7,  # phase_one_charge
             0x55, 5, 0, 0,  # interphase_interval
             0, 0,  # interphase_interval amplitude (always 0)
@@ -401,20 +401,20 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__for_voltage_c
             0xFF, 0xFF,  # phase_two_charge
             0x11, 1, 0, 0,  # postphase_interval
             0, 0,  # postphase_interval amplitude (always 0)
-            6, 0x39, 9, 0,  # duration
+            0x5b, 2, 0, 0,  # duration
             0,  # is_null_subprotocol
         ]
     )
     # fmt: on
     expected_subprotocol_dict = {
         "type": "biphasic",
-        "phase_one_duration": 0x999,
+        "phase_one_duration": 0x993,
         "phase_one_charge": 0x777,
         "interphase_interval": 0x555,
         "phase_two_duration": 0x333,
         "phase_two_charge": -1,
         "postphase_interval": 0x111,
-        "num_cycles": 123,
+        "num_cycles": 122,
     }
 
     actual = convert_bytes_to_subprotocol_dict(test_bytes, is_voltage=True)
@@ -425,7 +425,7 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__for_current_c
     # fmt: off
     test_bytes = bytes(
         [
-            0x99, 9, 0, 0,  # phase_one_duration
+            0x93, 9, 0, 0,  # phase_one_duration
             0x77, 7,  # phase_one_charge
             0x55, 5, 0, 0,  # interphase_interval
             0, 0,  # interphase_interval amplitude (always 0)
@@ -433,14 +433,14 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__for_current_c
             0xFF, 0xFF,  # phase_two_charge
             0x11, 1, 0, 0,  # postphase_interval
             0, 0,  # postphase_interval amplitude (always 0)
-            0xAE, 0x52, 8, 0,  # duration
+            0x21, 2, 0, 0,  # duration
             0,  # is_null_subprotocol
         ]
     )
     # fmt: on
     expected_subprotocol_dict = {
         "type": "biphasic",
-        "phase_one_duration": 0x999,
+        "phase_one_duration": 0x993,
         "phase_one_charge": 0x777 * 10,
         "interphase_interval": 0x555,
         "phase_two_duration": 0x333,

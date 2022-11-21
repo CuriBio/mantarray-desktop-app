@@ -179,8 +179,11 @@ def test_main__logs_system_info__and_software_version_at_very_start(
         spied_info_logger.assert_any_call(f"Machine: {getattr(uname, 'machine')}")
         spied_info_logger.assert_any_call(f"Processor: {getattr(uname, 'processor')}")
         spied_info_logger.assert_any_call(f"Win 32 Ver: {platform.win32_ver()}")
+        spied_info_logger.assert_any_call(f"Platform: {platform.platform()}")
+        spied_info_logger.assert_any_call(f"Architecture: {platform.architecture()}")
+        spied_info_logger.assert_any_call(f"Interpreter is 64-bits: {sys.maxsize > 2**32}")
         spied_info_logger.assert_any_call(
-            f"Platform: {platform.platform()}, Architecture: {platform.architecture()}, Interpreter is 64-bits: {sys.maxsize > 2**32}, System Alias: {platform.system_alias(uname_sys, uname_release, uname_version)}"
+            f"System Alias: {platform.system_alias(uname_sys, uname_release, uname_version)}"
         )
 
 
