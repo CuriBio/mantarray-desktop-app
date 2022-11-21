@@ -17,6 +17,10 @@ Changed:
 ^^^^^^^^
 - Max recording time limit is now 10 minutes.
 
+Fixed:
+^^^^^^
+- Non-integer Active Duration values for stimulation subprotocols causing the app to crash.
+
 
 1.0.3 (2022-10-15)
 ------------------

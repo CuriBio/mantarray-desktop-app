@@ -506,7 +506,6 @@ def set_protocols() -> Response:
         )
         charge_unit = "mV" if protocol["stimulation_type"] == "V" else "µA"
         # validate subprotocol dictionaries
-        total_protocol_dur_microsecs = 0
         for subprotocol in protocol["subprotocols"]:
             # subprotocol components
             if subprotocol["phase_one_duration"] <= 0:
@@ -543,8 +542,9 @@ def set_protocols() -> Response:
             # make sure subprotocol is set to run for at least one full pulse
             if subprotocol["total_active_duration"] * int(1e3) < single_pulse_dur_microsecs:
                 return Response(status="400 Total active duration less than the duration of the subprotocol")
-            # add total time for running this subprotocol to total time of protocol
-            total_protocol_dur_microsecs += subprotocol["total_active_duration"]
+            # make sure neither of these values or floats
+            for component in ("phase_one_duration", "total_active_duration"):
+                subprotocol[component] = int(subprotocol[component])
     # make sure protocol assignments are not missing any wells and do not contain any invalid wells
     protocol_assignments_dict = stim_info["protocol_assignments"]
     expected_well_names = set(
