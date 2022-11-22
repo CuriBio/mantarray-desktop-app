@@ -353,7 +353,7 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__for_voltage_c
         "phase_one_duration": 0x999,
         "phase_one_charge": 0x777,
         "postphase_interval": 0x111,
-        "num_cycles": 6,
+        "num_cycles": 7,
     }
 
     actual = convert_bytes_to_subprotocol_dict(test_bytes, is_voltage=True)
@@ -414,7 +414,7 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__for_voltage_c
         "phase_two_duration": 0x333,
         "phase_two_charge": -1,
         "postphase_interval": 0x111,
-        "num_cycles": 122,
+        "num_cycles": 123,
     }
 
     actual = convert_bytes_to_subprotocol_dict(test_bytes, is_voltage=True)
@@ -446,7 +446,7 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__for_current_c
         "phase_two_duration": 0x333,
         "phase_two_charge": -1 * 10,
         "postphase_interval": 0x111,
-        "num_cycles": 111,
+        "num_cycles": 112,
     }
 
     actual = convert_bytes_to_subprotocol_dict(test_bytes)

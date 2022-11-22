@@ -24,7 +24,6 @@ from mantarray_desktop_app.constants import STIM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app.simulators import mc_simulator
 from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_circuit_status
 from mantarray_desktop_app.utils.serial_comm import get_subprotocol_duration
-from mantarray_desktop_app.utils.serial_comm import is_null_subprotocol
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -89,7 +88,7 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
                 "stimulation_type": random_stim_type(),
                 "run_until_stopped": choice([True, False]),
                 "subprotocols": [
-                    choice([get_random_stim_pulse(), get_random_stim_delay()]) for _ in range(randint(1, 3))
+                    choice([get_random_stim_pulse, get_random_stim_delay])() for _ in range(randint(1, 3))
                 ],
             }
             for protocol_id in test_protocol_ids[:-1]
@@ -115,11 +114,6 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
     for protocol_idx in range(len(test_protocol_ids) - 1):
         # the actual protocol ID letter is not included
         del stim_info_dict["protocols"][protocol_idx]["protocol_id"]
-        # adjust phase_one_duration for delays
-        for subprotocol in stim_info_dict["protocols"][protocol_idx]["subprotocols"]:
-            if is_null_subprotocol(subprotocol):
-                subprotocol["phase_one_duration"] = 0
-
         assert actual["protocols"][protocol_idx] == stim_info_dict["protocols"][protocol_idx], protocol_idx
 
     assert actual["protocol_assignments"] == {  # indices of the protocol are used instead
@@ -239,7 +233,7 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
                 "stimulation_type": random_stim_type(),
                 "run_until_stopped": choice([True, False]),
                 "subprotocols": [
-                    choice([get_random_stim_pulse(), get_random_stim_delay()])
+                    choice([get_random_stim_pulse, get_random_stim_delay])()
                     for _ in range(STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL + 1)
                 ],
             }

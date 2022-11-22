@@ -18,6 +18,7 @@ from mantarray_desktop_app.constants import STIM_MODULE_ID_TO_WELL_IDX
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.simulators import mc_simulator
 from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_circuit_status
+from mantarray_desktop_app.utils.serial_comm import get_subprotocol_duration
 import numpy as np
 import pytest
 from stdlib_utils import drain_queue
@@ -239,10 +240,10 @@ def test_McCommunicationProcess__raises_error_if_set_protocols_command_fails(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
-    # send set protocols command with too many subprotocols in a protocol and confirm error is raised
+    # send set_protocols command with too many subprotocols in one protocol and confirm error is raised
     bad_stim_info = create_random_stim_info()
     bad_stim_info["protocols"][0]["subprotocols"].extend(
-        [get_random_stim_delay(19000)] * STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
+        [get_random_stim_delay()] * STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
     )
     with pytest.raises(StimulationProtocolUpdateFailedError):
         set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, bad_stim_info)
@@ -616,7 +617,8 @@ def test_McCommunicationProcess__protocols_can_be_updated_and_stimulation_can_be
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
-    total_active_duration_ms = 1400
+    test_first_subprotocol = get_random_stim_pulse()
+
     test_well_indices = [randint(0, 11), randint(12, 23)]
     test_stim_info = {
         "protocols": [
@@ -624,7 +626,7 @@ def test_McCommunicationProcess__protocols_can_be_updated_and_stimulation_can_be
                 "protocol_id": "A",
                 "stimulation_type": "C",
                 "run_until_stopped": False,
-                "subprotocols": [get_random_stim_pulse(total_active_duration=total_active_duration_ms)],
+                "subprotocols": [test_first_subprotocol],
             }
         ],
         "protocol_assignments": {
@@ -636,13 +638,10 @@ def test_McCommunicationProcess__protocols_can_be_updated_and_stimulation_can_be
     }
     set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, test_stim_info)
 
+    test_duration_us = get_subprotocol_duration(test_first_subprotocol) * int(1e3)
     # mock so protocol will complete in first iteration
-    mocker.patch.object(
-        mc_simulator,
-        "_get_us_since_subprotocol_start",
-        autospec=True,
-        return_value=total_active_duration_ms * int(1e3),
-    )
+    mocked_get_us_sss = mocker.patch.object(mc_simulator, "_get_us_since_subprotocol_start", autospec=True)
+    mocked_get_us_sss.return_value = test_duration_us
 
     # send start stimulation command
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -662,6 +661,9 @@ def test_McCommunicationProcess__protocols_can_be_updated_and_stimulation_can_be
     msg_to_main = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert set(msg_to_main["wells_done_stimulating"]) == set(test_well_indices)
 
+    # mock so no more stim packets are sent
+    mocked_get_us_sss.return_value = 0
+
     # update protocols
     set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, create_random_stim_info())
     # restart stimulation
@@ -669,11 +671,11 @@ def test_McCommunicationProcess__protocols_can_be_updated_and_stimulation_can_be
         {"communication_type": "stimulation", "command": "start_stimulation"}, input_queue
     )
     invoke_process_run_and_check_errors(mc_process)
-    # process command, send back response and both stim status packet
+    # process command, send back response
     invoke_process_run_and_check_errors(simulator)
-    # process command response and both stim packets
+    # process command response
     invoke_process_run_and_check_errors(mc_process)
-    # confirm start stim response send to main
+    # confirm start stim response sent to main
 
     start_stim_response = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert start_stim_response["communication_type"] == "stimulation"

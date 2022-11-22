@@ -287,8 +287,8 @@ def convert_bytes_to_subprotocol_dict(
         for k in SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS:
             subprotocol_dict.pop(k)
 
-    subprotocol_dict["num_cycles"] = (
-        duration_ms * int(1e3) // get_subprotocol_cycle_duration(subprotocol_dict)
+    subprotocol_dict["num_cycles"] = math.ceil(
+        duration_ms * 1e3 / get_subprotocol_cycle_duration(subprotocol_dict)
     )
 
     return subprotocol_dict
@@ -366,7 +366,7 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
 
         subprotocol_bytes_list = []
         for _ in range(num_subprotocols):
-            subprotocol_bytes_list.append(stim_bytes[curr_byte_idx : curr_byte_idx + 28])
+            subprotocol_bytes_list.append(stim_bytes[curr_byte_idx : curr_byte_idx + 29])
             curr_byte_idx += 29  # is_null_subprotocol byte is unused here
 
         stimulation_type = "V" if stim_bytes[curr_byte_idx] else "C"
