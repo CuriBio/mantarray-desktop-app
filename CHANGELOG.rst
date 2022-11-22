@@ -2,12 +2,13 @@ Changelog for Mantarray Desktop App
 ===================================
 
 
-1.0.5 (unreleased)
+1.1.0 (unreleased)
 ------------------
 
 Added:
 ^^^^^^
 - Ability to choose from previously used usernames when logging in.
+- Improvement to accuracy of stim subprotocol timing.
 
 Fixed:
 ^^^^^^
