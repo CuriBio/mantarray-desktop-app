@@ -96,7 +96,7 @@ from ..utils.serial_comm import convert_module_id_to_well_name
 from ..utils.serial_comm import convert_stim_bytes_to_dict
 from ..utils.serial_comm import convert_well_name_to_module_id
 from ..utils.serial_comm import create_data_packet
-from ..utils.serial_comm import get_subprotocol_pulse_duration
+from ..utils.serial_comm import get_subprotocol_duration
 from ..utils.serial_comm import is_null_subprotocol
 from ..utils.serial_comm import validate_checksum
 
@@ -138,7 +138,6 @@ def _get_us_since_subprotocol_start(start_time_us: int) -> int:
     return _perf_counter_us() - start_time_us
 
 
-# pylint: disable=too-many-instance-attributes
 class MantarrayMcSimulator(InfiniteProcess):
     """Simulate a running Mantarray instrument with Microcontroller.
 
@@ -741,7 +740,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             if self._stim_subprotocol_indices[protocol_idx] == -1:
                 curr_subprotocol_duration_us = 0
             else:
-                curr_subprotocol_duration_us = get_subprotocol_pulse_duration(
+                curr_subprotocol_duration_us = get_subprotocol_duration(
                     subprotocols[self._stim_subprotocol_indices[protocol_idx]]
                 ) * int(1e3)
             dur_since_subprotocol_start = _get_us_since_subprotocol_start(start_timepoint)
@@ -796,7 +795,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                     protocol_idx
                 ] += curr_subprotocol_duration_us
                 dur_since_subprotocol_start -= curr_subprotocol_duration_us
-                curr_subprotocol_duration_us = get_subprotocol_pulse_duration(
+                curr_subprotocol_duration_us = get_subprotocol_duration(
                     subprotocols[self._stim_subprotocol_indices[protocol_idx]]
                 ) * int(1e3)
         if num_status_updates > 0:

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import copy
 from random import choice
 from random import randint
 import struct
@@ -22,6 +23,7 @@ from mantarray_desktop_app.constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PAC
 from mantarray_desktop_app.constants import STIM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app.simulators import mc_simulator
 from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_circuit_status
+from mantarray_desktop_app.utils.serial_comm import get_subprotocol_duration
 from mantarray_desktop_app.utils.serial_comm import is_null_subprotocol
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -87,8 +89,7 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
                 "stimulation_type": random_stim_type(),
                 "run_until_stopped": choice([True, False]),
                 "subprotocols": [
-                    choice([get_random_stim_pulse(), get_random_stim_delay(600)])
-                    for _ in range(randint(1, 3))
+                    choice([get_random_stim_pulse(), get_random_stim_delay()]) for _ in range(randint(1, 3))
                 ],
             }
             for protocol_id in test_protocol_ids[:-1]
@@ -487,7 +488,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_packet_when_a_new_subprotoc
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
-    test_duration_ms = 50
+    test_first_subprotocol = get_random_stim_pulse()
     test_well_idx = randint(0, 23)
 
     test_stim_info = create_converted_stim_info(
@@ -497,27 +498,25 @@ def test_MantarrayMcSimulator__sends_protocol_status_packet_when_a_new_subprotoc
                     "protocol_id": "A",
                     "stimulation_type": "C",
                     "run_until_stopped": True,
-                    "subprotocols": [
-                        get_random_stim_pulse(total_active_duration=test_duration_ms),
-                        get_random_stim_pulse(),
-                    ],
+                    "subprotocols": [test_first_subprotocol, get_random_stim_pulse()],
                 }
             ],
             "protocol_assignments": {
-                GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "A"
-                if well_idx == test_well_idx
-                else None
+                GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): (
+                    "A" if well_idx == test_well_idx else None
+                )
                 for well_idx in range(24)
             },
         }
     )
     set_stim_info_and_start_stimulating(mantarray_mc_simulator_no_beacon, test_stim_info)
 
+    test_duration_us = get_subprotocol_duration(test_first_subprotocol) * int(1e3)
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_subprotocol_start",
         autospec=True,
-        side_effect=[test_duration_ms * int(1e3) - 1, test_duration_ms * int(1e3), 0],
+        side_effect=[test_duration_us - 1, test_duration_us, 0],
     )
 
     invoke_process_run_and_check_errors(simulator)
@@ -529,7 +528,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_packet_when_a_new_subprotoc
         bytes([1])  # number of status updates in this packet
         + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
         + bytes([StimProtocolStatuses.ACTIVE])
-        + (spied_global_timer.spy_return + test_duration_ms * int(1e3)).to_bytes(8, byteorder="little")
+        + (spied_global_timer.spy_return + test_duration_us).to_bytes(8, byteorder="little")
         + bytes([1])  # subprotocol idx
     )
     expected_size = get_full_packet_size_from_payload_len(len(additional_bytes))
@@ -546,7 +545,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_packets_when_multiple_wells
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
-    test_duration_ms = 500
+    test_first_subprotocol = get_random_stim_pulse()
     test_well_idxs = (0, 10)
 
     test_stim_info = create_converted_stim_info(
@@ -556,10 +555,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_packets_when_multiple_wells
                     "protocol_id": "A",
                     "stimulation_type": "C",
                     "run_until_stopped": True,
-                    "subprotocols": [
-                        get_random_stim_pulse(total_active_duration=test_duration_ms),
-                        get_random_stim_pulse(),
-                    ],
+                    "subprotocols": [test_first_subprotocol, get_random_stim_pulse()],
                 }
             ],
             "protocol_assignments": {
@@ -572,11 +568,12 @@ def test_MantarrayMcSimulator__sends_protocol_status_packets_when_multiple_wells
     )
     set_stim_info_and_start_stimulating(mantarray_mc_simulator_no_beacon, test_stim_info)
 
+    test_duration_us = get_subprotocol_duration(test_first_subprotocol) * int(1e3)
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_subprotocol_start",
         autospec=True,
-        side_effect=[test_duration_ms * int(1e3) - 1, test_duration_ms * int(1e3), 0],
+        side_effect=[test_duration_us - 1, test_duration_us, 0],
     )
 
     invoke_process_run_and_check_errors(simulator)
@@ -586,7 +583,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_packets_when_multiple_wells
 
     status_bytes = (
         bytes([StimProtocolStatuses.ACTIVE])
-        + (spied_global_timer.spy_return + test_duration_ms * int(1e3)).to_bytes(8, byteorder="little")
+        + (spied_global_timer.spy_return + test_duration_us).to_bytes(8, byteorder="little")
         + bytes([1])  # subprotocol idx
     )
     additional_bytes = (
@@ -610,8 +607,8 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_multipl
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
-    test_duration_ms_1 = 60
-    test_duration_ms_2 = 100
+    test_first_subprotocol = get_random_stim_pulse()
+    test_second_subprotocol = get_random_stim_pulse()
     test_well_idx = randint(0, 23)
 
     test_stim_info = create_converted_stim_info(
@@ -622,8 +619,8 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_multipl
                     "stimulation_type": "C",
                     "run_until_stopped": True,
                     "subprotocols": [
-                        get_random_stim_pulse(total_active_duration=test_duration_ms_1),
-                        get_random_stim_pulse(total_active_duration=test_duration_ms_2),
+                        test_first_subprotocol,
+                        test_second_subprotocol,
                         get_random_stim_pulse(),
                     ],
                 }
@@ -638,15 +635,13 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_multipl
     )
     set_stim_info_and_start_stimulating(mantarray_mc_simulator_no_beacon, test_stim_info)
 
+    test_duration_us_1 = get_subprotocol_duration(test_first_subprotocol) * int(1e3)
+    test_duration_us_2 = get_subprotocol_duration(test_second_subprotocol) * int(1e3)
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_subprotocol_start",
         autospec=True,
-        side_effect=[
-            test_duration_ms_1 * int(1e3) - 1,
-            (test_duration_ms_1 + test_duration_ms_2) * int(1e3),
-            0,
-        ],
+        side_effect=[test_duration_us_1 - 1, test_duration_us_1 + test_duration_us_2, 0],
     )
 
     invoke_process_run_and_check_errors(simulator)
@@ -656,12 +651,12 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_multipl
 
     status_bytes_1 = (
         bytes([StimProtocolStatuses.ACTIVE])
-        + (spied_global_timer.spy_return + test_duration_ms_1 * int(1e3)).to_bytes(8, byteorder="little")
+        + (spied_global_timer.spy_return + test_duration_us_1).to_bytes(8, byteorder="little")
         + bytes([1])  # subprotocol idx
     )
     status_bytes_2 = (
         bytes([StimProtocolStatuses.ACTIVE])
-        + (spied_global_timer.spy_return + (test_duration_ms_1 + test_duration_ms_2) * int(1e3)).to_bytes(
+        + (spied_global_timer.spy_return + test_duration_us_1 + test_duration_us_2).to_bytes(
             8, byteorder="little"
         )
         + bytes([2])  # subprotocol idx
@@ -687,8 +682,8 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_subprot
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
-    test_duration_ms_1 = 650
-    test_duration_ms_2 = 670
+    test_first_subprotocol = get_random_stim_pulse()
+    test_second_subprotocol = get_random_stim_pulse()
     test_well_idxs = (4, 8)
 
     protocol_id_iter = iter(["A", "B"])
@@ -699,19 +694,13 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_subprot
                     "protocol_id": "A",
                     "stimulation_type": "C",
                     "run_until_stopped": True,
-                    "subprotocols": [
-                        get_random_stim_pulse(total_active_duration=test_duration_ms_1),
-                        get_random_stim_pulse(),
-                    ],
+                    "subprotocols": [test_first_subprotocol, get_random_stim_pulse()],
                 },
                 {
                     "protocol_id": "B",
                     "stimulation_type": "C",
                     "run_until_stopped": True,
-                    "subprotocols": [
-                        get_random_stim_pulse(total_active_duration=test_duration_ms_2),
-                        get_random_stim_pulse(),
-                    ],
+                    "subprotocols": [test_second_subprotocol, get_random_stim_pulse()],
                 },
             ],
             "protocol_assignments": {
@@ -724,15 +713,17 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_subprot
     )
     set_stim_info_and_start_stimulating(mantarray_mc_simulator_no_beacon, test_stim_info)
 
+    test_duration_us_1 = get_subprotocol_duration(test_first_subprotocol) * int(1e3)
+    test_duration_us_2 = get_subprotocol_duration(test_second_subprotocol) * int(1e3)
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_subprotocol_start",
         autospec=True,
         side_effect=[
-            test_duration_ms_1 * int(1e3) - 1,
-            test_duration_ms_2 * int(1e3) - 1,
-            test_duration_ms_1 * int(1e3),
-            test_duration_ms_2 * int(1e3),
+            test_duration_us_1 - 1,
+            test_duration_us_2 - 1,
+            test_duration_us_1,
+            test_duration_us_2,
             0,
         ],
     )
@@ -744,12 +735,12 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_subprot
 
     status_bytes_1 = (
         bytes([StimProtocolStatuses.ACTIVE])
-        + (spied_global_timer.spy_return + test_duration_ms_1 * int(1e3)).to_bytes(8, byteorder="little")
+        + (spied_global_timer.spy_return + test_duration_us_1).to_bytes(8, byteorder="little")
         + bytes([1])  # subprotocol idx
     )
     status_bytes_2 = (
         bytes([StimProtocolStatuses.ACTIVE])
-        + (spied_global_timer.spy_return + test_duration_ms_2 * int(1e3)).to_bytes(8, byteorder="little")
+        + (spied_global_timer.spy_return + test_duration_us_2).to_bytes(8, byteorder="little")
         + bytes([1])  # subprotocol idx
     )
     additional_bytes = (
@@ -773,7 +764,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_null_status_correctly(
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
-    test_duration_ms = 75
+    test_first_subprotocol = get_random_stim_pulse()
     test_well_idx = randint(0, 23)
 
     test_stim_info = create_converted_stim_info(
@@ -783,10 +774,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_null_status_correctly(
                     "protocol_id": "A",
                     "stimulation_type": "C",
                     "run_until_stopped": True,
-                    "subprotocols": [
-                        get_random_stim_pulse(total_active_duration=test_duration_ms),
-                        get_random_stim_delay(10),
-                    ],
+                    "subprotocols": [test_first_subprotocol, get_random_stim_delay()],
                 }
             ],
             "protocol_assignments": {
@@ -799,11 +787,12 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_null_status_correctly(
     )
     set_stim_info_and_start_stimulating(mantarray_mc_simulator_no_beacon, test_stim_info)
 
+    test_duration_us = get_subprotocol_duration(test_first_subprotocol) * int(1e3)
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_subprotocol_start",
         autospec=True,
-        side_effect=[test_duration_ms * int(1e3) - 1, test_duration_ms * int(1e3), 0],
+        side_effect=[test_duration_us - 1, test_duration_us, 0],
     )
 
     invoke_process_run_and_check_errors(simulator)
@@ -815,7 +804,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_null_status_correctly(
         bytes([1])  # number of status updates in this packet
         + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
         + bytes([StimProtocolStatuses.NULL])
-        + (spied_global_timer.spy_return + test_duration_ms * int(1e3)).to_bytes(8, byteorder="little")
+        + (spied_global_timer.spy_return + test_duration_us).to_bytes(8, byteorder="little")
         + bytes([1])  # subprotocol idx
     )
     expected_size = get_full_packet_size_from_payload_len(len(additional_bytes))
@@ -832,7 +821,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_restarting_status_corr
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
-    test_duration_ms = 59
+    test_first_subprotocol = get_random_stim_pulse()
     test_well_idx = randint(0, 23)
 
     test_stim_info = create_converted_stim_info(
@@ -842,9 +831,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_restarting_status_corr
                     "protocol_id": "A",
                     "stimulation_type": "C",
                     "run_until_stopped": True,
-                    "subprotocols": [
-                        get_random_stim_pulse(total_active_duration=test_duration_ms),
-                    ],
+                    "subprotocols": [test_first_subprotocol],
                 }
             ],
             "protocol_assignments": {
@@ -857,11 +844,12 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_restarting_status_corr
     )
     set_stim_info_and_start_stimulating(mantarray_mc_simulator_no_beacon, test_stim_info)
 
+    test_duration_us = get_subprotocol_duration(test_first_subprotocol) * int(1e3)
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_subprotocol_start",
         autospec=True,
-        side_effect=[test_duration_ms * int(1e3) - 1, test_duration_ms * int(1e3), 0],
+        side_effect=[test_duration_us - 1, test_duration_us, 0],
     )
 
     invoke_process_run_and_check_errors(simulator)
@@ -873,11 +861,11 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_restarting_status_corr
         bytes([2])  # number of status updates in this packet
         + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
         + bytes([StimProtocolStatuses.RESTARTING])
-        + (spied_global_timer.spy_return + test_duration_ms * int(1e3)).to_bytes(8, byteorder="little")
+        + (spied_global_timer.spy_return + test_duration_us).to_bytes(8, byteorder="little")
         + bytes([0])  # subprotocol idx
         + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
         + bytes([StimProtocolStatuses.ACTIVE])
-        + (spied_global_timer.spy_return + test_duration_ms * int(1e3)).to_bytes(8, byteorder="little")
+        + (spied_global_timer.spy_return + test_duration_us).to_bytes(8, byteorder="little")
         + bytes([0])  # subprotocol idx
     )
     expected_size = get_full_packet_size_from_payload_len(len(additional_bytes))
@@ -894,7 +882,10 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
 
-    test_duration_ms = 63
+    test_first_subprotocol = get_random_stim_pulse()
+    test_second_subprotocol = copy.deepcopy(test_first_subprotocol)
+    test_second_subprotocol["num_cycles"] *= 2
+
     test_well_idx_to_stop = randint(0, 11)
     test_well_name_to_stop = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_idx_to_stop)
     test_well_idx_to_continue = randint(12, 23)
@@ -915,17 +906,13 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
                     "protocol_id": "A",
                     "stimulation_type": "C",
                     "run_until_stopped": False,
-                    "subprotocols": [
-                        get_random_stim_pulse(total_active_duration=test_duration_ms),
-                    ],
+                    "subprotocols": [test_first_subprotocol],
                 },
                 {
                     "protocol_id": "B",
                     "stimulation_type": "C",
                     "run_until_stopped": False,
-                    "subprotocols": [
-                        get_random_stim_pulse(total_active_duration=test_duration_ms * 2),
-                    ],
+                    "subprotocols": [test_second_subprotocol],
                 },
             ],
             "protocol_assignments": test_protocol_assignments,
@@ -933,18 +920,12 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
     )
     set_stim_info_and_start_stimulating(mantarray_mc_simulator_no_beacon, test_stim_info)
 
+    test_duration_us = get_subprotocol_duration(test_first_subprotocol) * int(1e3)
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_subprotocol_start",
         autospec=True,
-        side_effect=[
-            test_duration_ms * int(1e3) - 1,
-            test_duration_ms * int(1e3) - 1,
-            test_duration_ms * int(1e3),
-            test_duration_ms * int(1e3),
-            test_duration_ms * int(1e3),
-            test_duration_ms * int(1e3),
-        ],
+        side_effect=[*([test_duration_us - 1] * 2), *([test_duration_us] * 4)],
     )
 
     invoke_process_run_and_check_errors(simulator)
@@ -956,7 +937,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
         bytes([1])  # number of status updates in this packet
         + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx_to_stop]])
         + bytes([StimProtocolStatuses.FINISHED])
-        + (spied_global_timer.spy_return + test_duration_ms * int(1e3)).to_bytes(8, byteorder="little")
+        + (spied_global_timer.spy_return + test_duration_us).to_bytes(8, byteorder="little")
         + bytes([STIM_COMPLETE_SUBPROTOCOL_IDX])
     )
     expected_size = get_full_packet_size_from_payload_len(len(additional_bytes))

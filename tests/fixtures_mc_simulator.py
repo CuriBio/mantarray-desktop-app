@@ -64,7 +64,7 @@ def get_random_stim_delay(duration=None):
     if duration is None:
         duration = randint(
             STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS, STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
-        )
+        ) // int(1e3)
     elif not (
         STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS < duration < STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
     ):

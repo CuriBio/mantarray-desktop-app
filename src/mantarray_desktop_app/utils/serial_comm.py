@@ -284,21 +284,30 @@ def convert_bytes_to_subprotocol_dict(
 
     if not any(subprotocol_dict[k] for k in SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS):
         subprotocol_dict["type"] = "monophasic"
-        for k in SUBPROTOCOL_DUR_COMPONENTS:
+        for k in SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS:
             subprotocol_dict.pop(k)
 
     subprotocol_dict["num_cycles"] = (
-        duration_ms * int(1e3) // get_subprotocol_pulse_duration(subprotocol_dict)
+        duration_ms * int(1e3) // get_subprotocol_cycle_duration(subprotocol_dict)
     )
 
     return subprotocol_dict
 
 
-def get_subprotocol_pulse_duration(subprotocol: Dict[str, Union[str, int]]) -> int:
+def get_subprotocol_cycle_duration(subprotocol: Dict[str, Union[str, int]]) -> int:
     dur_components = set(SUBPROTOCOL_DUR_COMPONENTS)
     if subprotocol["type"] == "monophasic":
         dur_components -= SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS
     return sum(subprotocol[comp] for comp in dur_components)  # type: ignore
+
+
+def get_subprotocol_duration(subprotocol: Dict[str, Union[str, int]]) -> int:
+    duration = (
+        subprotocol["duration"]
+        if subprotocol["type"] == "delay"
+        else get_subprotocol_cycle_duration(subprotocol) * subprotocol["num_cycles"]
+    )
+    return duration  # type: ignore
 
 
 def convert_well_name_to_module_id(well_name: str, use_stim_mapping: bool = False) -> int:
