@@ -2,6 +2,16 @@ Changelog for Mantarray Desktop App
 ===================================
 
 
+1.0.5 (unreleased)
+------------------
+
+Added:
+^^^^^^
+- Ability to change individual subprotocol colors in the Stimulation Studio
+- Ability to choose from previously used usernames when logging in
+- Fixed issue where filenames with leading or trailing spaces would error
+
+
 1.0.4 (2022-11-21)
 ------------------
 

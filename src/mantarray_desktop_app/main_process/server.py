@@ -751,7 +751,7 @@ def update_recording_name() -> Response:
     shared_values_dict = _get_values_from_process_monitor()
     recording_dir = shared_values_dict["config_settings"]["recording_directory"]
 
-    new_recording_name = request.args["new_name"]
+    new_recording_name = request.args["new_name"].strip()
     snapshot_enabled = request.args["snapshot_enabled"] == "true"
 
     if not shared_values_dict["beta_2_mode"] and snapshot_enabled:

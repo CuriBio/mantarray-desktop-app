@@ -24,7 +24,12 @@
             </div>
           </div>
         </NuxtLink>
-        <b-collapse id="data-acquisition-card" visible accordion="controls-accordion" role="tabpanel">
+        <b-collapse
+          v-model="data_acquisition_visibility"
+          visible
+          accordion="controls-accordion"
+          role="tabpanel"
+        >
           <div class="div__plate-barcode-container">
             <BarcodeViewer />
           </div>
@@ -39,7 +44,7 @@
             />
           </div>
           <div class="div__player-controls-container">
-            <DesktopPlayerControls @save_customer_id="save_customer_id" />
+            <DesktopPlayerControls @save_account_info="save_account_info" />
           </div>
           <div class="div__screen-view-options-text">Screen View Options</div>
           <div class="div__screen-view-container">
@@ -82,7 +87,7 @@
             </div>
           </div>
         </NuxtLink>
-        <b-collapse id="stim-studio-card" accordion="controls-accordion" role="tabpanel">
+        <b-collapse v-model="stim_studio_visibility" accordion="controls-accordion" role="tabpanel">
           <div class="div__stim-barcode-container">
             <BarcodeViewer :barcode_type="'stim_barcode'" />
           </div>
@@ -186,19 +191,21 @@ export default {
       data_analysis_hover: false,
       data_acquisition_hover: false,
       stim_studio_hover: false,
-      request_stored_customer_id: true,
+      request_stored_accounts: true,
       da_check: false,
+      stored_accounts: {},
     };
   },
   computed: {
     ...mapState("settings", [
       "user_accounts",
       "active_user_index",
+      "active_customer_id",
       "allow_sw_update_install",
       "recordings_list",
       "root_recording_path",
     ]),
-    ...mapState("playback", ["data_analysis_state", "playback_state"]),
+    ...mapState("playback", ["data_analysis_state", "playback_state", "start_recording_from_stim"]),
     ...mapState("stimulation", ["stim_play_state"]),
     ...mapState("flask", ["status_uuid"]),
     data_acquisition_dynamic_class: function () {
@@ -214,6 +221,14 @@ export default {
   watch: {
     allow_sw_update_install: function () {
       ipcRenderer.send("set_sw_update_auto_install", this.allow_sw_update_install);
+    },
+    start_recording_from_stim(start_rec) {
+      // start recording if set to true
+      if (start_rec) {
+        // if recording has been started from stim studio, redirect to live view page
+        this.$router.push({ path: "/" });
+        this.handle_tab_visibility(0);
+      }
     },
   },
   created: async function () {
@@ -284,12 +299,15 @@ export default {
       ipcRenderer.send("beta_2_mode_request");
     }
 
-    ipcRenderer.on("stored_customer_id_response", (_, stored_customer_id) => {
-      this.request_stored_customer_id = false;
-      this.$store.commit("settings/set_stored_customer_id", stored_customer_id);
+    ipcRenderer.on("stored_accounts_response", (_, stored_accounts) => {
+      // stored_accounts will contain both customer_id and usernames
+      this.request_stored_accounts = false;
+      this.stored_accounts = stored_accounts;
+      this.$store.commit("settings/set_stored_accounts", stored_accounts);
     });
-    if (this.request_stored_customer_id) {
-      ipcRenderer.send("stored_customer_id_request");
+
+    if (this.request_stored_accounts) {
+      ipcRenderer.send("stored_accounts_request");
     }
   },
   methods: {
@@ -297,10 +315,14 @@ export default {
       ipcRenderer.send("confirmation_response", idx);
       this.$store.commit("settings/set_confirmation_request", false);
     },
-    save_customer_id: function () {
+    save_account_info: function () {
+      // this gets called before any vuex actions/muts to store account details so logic to username is in electron main process
       const customer_id = this.user_accounts[this.active_user_index].customer_id;
-      ipcRenderer.send("save_customer_id", customer_id);
-      this.$store.commit("settings/set_stored_customer_id", customer_id);
+      const username = this.user_accounts[this.active_user_index].user_name;
+
+      ipcRenderer.invoke("save_account_info", { customer_id, username }).then((response) => {
+        this.$store.commit("settings/set_stored_accounts", response);
+      });
     },
     handle_tab_visibility: function (tab) {
       this.data_acquisition_visibility = tab === 0 && !this.data_acquisition_visibility;
@@ -329,6 +351,7 @@ body {
 /* ACCORDIAN*/
 #stim-studio-card {
   padding-bottom: 10px;
+  width: 390px;
 }
 
 #data-acquisition-card {
