@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import copy
 import datetime
 import json
 import urllib
@@ -1362,21 +1363,34 @@ def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
+    test_delay_dur = 5000.4321
+    test_pulse_dur = 1000.1234
+
     test_protocol_dict = {
         "protocols": [
             {
                 "stimulation_type": "C",
                 "protocol_id": "X",
                 "run_until_stopped": True,
-                "subprotocols": [get_null_subprotocol(5000), get_random_subprotocol()],
+                "subprotocols": [
+                    get_null_subprotocol(test_delay_dur),
+                    get_random_subprotocol(total_active_duration=test_pulse_dur),
+                ],
             }
         ],
         "protocol_assignments": {
             GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "X" for well_idx in range(24)
         },
     }
+
+    expected_protocol_dict = copy.deepcopy(test_protocol_dict)
+    for subprotocol in expected_protocol_dict["protocols"][0]["subprotocols"]:
+        for component in ("phase_one_duration", "total_active_duration"):
+            subprotocol[component] = int(subprotocol[component])
+
+    # Tanner (11/21/22): using side_effect here so that if this function gets called more than once and error will be raised and prevent the test from hanging
     mocker.patch.object(
-        server, "_get_stim_info_from_process_monitor", autospec=True, return_value=test_protocol_dict
+        server, "_get_stim_info_from_process_monitor", autospec=True, side_effect=[expected_protocol_dict]
     )
 
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_protocol_dict)})
@@ -1387,7 +1401,7 @@ def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "stimulation"
     assert communication["command"] == "set_protocols"
-    assert communication["stim_info"] == test_protocol_dict
+    assert communication["stim_info"] == expected_protocol_dict
 
 
 @pytest.mark.parametrize(

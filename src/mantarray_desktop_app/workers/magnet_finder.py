@@ -36,14 +36,14 @@ def run_magnet_finding_alg(
         if not output_dir:
             output_dir = tmpdir
 
+        is_recording_snapshot = output_dir == tmpdir
+
         for rec_path in recordings:
             try:
                 # copy existing h5 directories to temp directory
                 recording_name = os.path.basename(rec_path)
                 recording_copy_path = os.path.join(tmpdir, recording_name)
                 shutil.copytree(rec_path, recording_copy_path)
-
-                is_recording_snapshot = output_dir == tmpdir
 
                 pr = PlateRecording(recording_copy_path, end_time=end_time)
                 df = pr.to_dataframe()

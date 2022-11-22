@@ -2,16 +2,36 @@ Changelog for Mantarray Desktop App
 ===================================
 
 
-1.0.4 (unreleased)
+1.0.5 (unreleased)
 ------------------
 
 Added:
 ^^^^^^
+- Ability to choose from previously used usernames when logging in.
+
+Fixed:
+^^^^^^
+- Error from renaming a recording file with leading or trailing spaces.
+
+
+1.0.4 (2022-11-21)
+------------------
+
+Added:
+^^^^^^
+- Boost to Recording Snapshot speed.
+- Improvements to accuracy of Local Analysis and Recording Snapshot features.
 - Error message if software version is incompatible with an instrument's firmware version.
   The message will include a link to download the installer for the most recent compatible software version.
-- Ability to change individual subprotocol colors in the Stimulation Studio
-- Ability to choose from previously used usernames when logging in
-- Fixed issue where filenames with leading or trailing spaces would error
+- Ability to change individual subprotocol colors in the Stimulation Studio.
+
+Changed:
+^^^^^^^^
+- Max recording time limit is now 10 minutes.
+
+Fixed:
+^^^^^^
+- Error with using non-integer Active Duration values in stimulation subprotocols.
 
 
 1.0.3 (2022-10-15)
