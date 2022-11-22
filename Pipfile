@@ -4,7 +4,7 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
-atomicwrites = "==1.4.0" # Tanner (7/11/22): pytest on windows needs this, so need to explicitly keep this here until pytest drops this package.  TODO check and see if pytest dropped this package
+atomicwrites = "==1.4.1" # Tanner (7/11/22): pytest on windows needs this, so need to explicitly keep this here until pytest drops this package.  TODO check and see if pytest dropped this package
 boto3 = "==1.17.32"
 click = "==8.0.3"  # Tanner (4/11/22): pinned for black
 cython = "==0.29.23"
