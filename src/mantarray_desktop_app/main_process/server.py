@@ -566,6 +566,10 @@ def set_protocols() -> Response:
                 )
             if total_subprotocol_duration > STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS:
                 return Response(status=f"400 Protocol A, Subprotocol {idx}, Subprotocol duration too long")
+            # TODO remove this and prevent using decimal values for a delay duration in the FE
+            # make sure this value is not a float
+            if subprotocol_type == "delay":
+                subprotocol["duration"] = int(subprotocol["duration"])
 
     protocol_assignments_dict = stim_info["protocol_assignments"]
     # make sure protocol assignments are not missing any wells and do not contain any invalid wells
@@ -768,7 +772,7 @@ def update_recording_name() -> Response:
     shared_values_dict = _get_values_from_process_monitor()
     recording_dir = shared_values_dict["config_settings"]["recording_directory"]
 
-    new_recording_name = request.args["new_name"]
+    new_recording_name = request.args["new_name"].strip()
     snapshot_enabled = request.args["snapshot_enabled"] == "true"
 
     if not shared_values_dict["beta_2_mode"] and snapshot_enabled:

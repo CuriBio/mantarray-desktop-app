@@ -10,6 +10,7 @@ import sys
 from stdlib_utils import configure_logging
 from stdlib_utils import get_current_file_abs_directory
 from mantarray_desktop_app import get_latest_firmware
+import scipy
 
 # https://stackoverflow.com/questions/37319911/python-how-to-specify-output-folders-in-pyinstaller-spec-file?rq=1
 
@@ -25,27 +26,22 @@ LATEST_FIRMWARE_FILE = get_latest_firmware()
 print(f"Latest firmware file: {LATEST_FIRMWARE_FILE}")
 
 
+scipy_libs_dir = os.path.join(scipy.__file__, os.pardir, os.pardir, "scipy.libs")
+
+
 a = Analysis(  # type: ignore # noqa: F821     the 'Analysis' object is special to how pyinstaller reads the file
     [os.path.join("src", "entrypoint.py")],
     pathex=["dist"],
     binaries=[],
     datas=[
-        (
-            os.path.join("src", "xem_scripts", "*.txt"),
-            os.path.join("src", "xem_scripts"),
-        ),
-        (
-            os.path.join("src", "firmware", LATEST_FIRMWARE_FILE),
-            os.path.join("src", "firmware"),
-        ),
+        (os.path.join("src", "xem_scripts", "*.txt"), os.path.join("src", "xem_scripts")),
+        (os.path.join("src", "firmware", LATEST_FIRMWARE_FILE), os.path.join("src", "firmware")),
         (
             os.path.join("src", "drivers", "FrontPanelUSB-DriverOnly-5.2.2.exe"),
             os.path.join("src", "drivers"),
         ),
-        (
-            os.path.join("src", "simulated_data", "*.csv"),
-            os.path.join("src", "simulated_data"),
-        ),
+        (os.path.join("src", "simulated_data", "*.csv"), os.path.join("src", "simulated_data")),
+        (os.path.join(scipy_libs_dir, "*"), "scipy.libs"),
     ],
     hiddenimports=[
         "xem_wrapper._windows._ok",

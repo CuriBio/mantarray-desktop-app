@@ -36,11 +36,11 @@ itsdangerous = "==2.0.1"  # Tanner (4/7/22): pinned for flask
 Jinja2 = "==3.0.3"  # Tanner (4/7/22): pinned for flask
 jsonschema = "==4.1.0"  # Tanner (11/8/21): latest version is having issues in compiled executable
 nptyping = "==1.4.4"  # Tanner (4/7/22): pinned for pulse3D
-numpy = "==1.22.4"
+numpy = "==1.23.4"
 psutil = "==5.8.0"
-pulse3d = "==0.27.0"
+pulse3d = "==0.28.0"
 pyserial = "==3.5"
-scipy = "==1.8.1"
+scipy = "==1.9.3"
 secrets-manager = "==0.4"
 semver = "==2.13.0"
 stdlib-utils = "==0.5.2"

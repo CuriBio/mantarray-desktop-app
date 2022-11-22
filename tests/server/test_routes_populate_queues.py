@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import copy
 import datetime
 import json
 import urllib
@@ -14,6 +15,7 @@ from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.main_process import server
 from mantarray_desktop_app.simulators.mc_simulator import MantarrayMcSimulator
@@ -92,6 +94,36 @@ def test_send_single_set_mantarray_nickname_command__populates_queue(
     response_json = response.get_json()
     assert response_json["command"] == "set_mantarray_nickname"
     assert response_json["mantarray_nickname"] == expected_nickname
+
+
+@pytest.mark.parametrize(
+    "test_new_name,expected_new_name",
+    [
+        ("NormalName", "NormalName"),
+        ("  TestName", "TestName"),
+        ("TestName  ", "TestName"),
+        ("  TestName  ", "TestName"),
+    ],
+)
+def test_send_single_update_recording_name_command__populates_queue(
+    test_new_name,
+    expected_new_name,
+    client_and_server_manager_and_shared_values,
+):
+    test_client, (test_server, _), shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["new_name"] = test_new_name
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["config_settings"]["recording_directory"] = "/test/recording/directory"
+
+    response = test_client.post(
+        f"/update_recording_name?new_name={test_new_name}&default_name=old_name&snapshot_enabled=false"
+    )
+    assert response.status_code == 200
+
+    to_main_queue = test_server.get_queue_to_main()
+    assert is_queue_eventually_not_empty(to_main_queue) is True
+    communication = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication["new_name"] == expected_new_name
 
 
 def test_send_single_initialize_board_command_with_bit_file__populates_queue(
@@ -1324,21 +1356,29 @@ def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
+    test_delay_dur = STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS + 0.4321
+
     test_protocol_dict = {
         "protocols": [
             {
                 "stimulation_type": "C",
                 "protocol_id": "X",
                 "run_until_stopped": True,
-                "subprotocols": [get_random_stim_delay(), get_random_stim_pulse()],
+                "subprotocols": [get_random_stim_delay(test_delay_dur), get_random_stim_pulse()],
             }
         ],
         "protocol_assignments": {
             GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "X" for well_idx in range(24)
         },
     }
+
+    expected_protocol_dict = copy.deepcopy(test_protocol_dict)
+    expected_delay_subprotocol = expected_protocol_dict["protocols"][0]["subprotocols"][0]
+    expected_delay_subprotocol["duration"] = int(expected_delay_subprotocol["duration"])
+
+    # Tanner (11/21/22): using side_effect here so that if this function gets called more than once and error will be raised and prevent the test from hanging
     mocker.patch.object(
-        server, "_get_stim_info_from_process_monitor", autospec=True, return_value=test_protocol_dict
+        server, "_get_stim_info_from_process_monitor", autospec=True, side_effect=[expected_protocol_dict]
     )
 
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_protocol_dict)})
@@ -1349,7 +1389,7 @@ def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "stimulation"
     assert communication["command"] == "set_protocols"
-    assert communication["stim_info"] == test_protocol_dict
+    assert communication["stim_info"] == expected_protocol_dict
 
 
 @pytest.mark.parametrize(

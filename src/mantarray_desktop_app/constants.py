@@ -447,3 +447,6 @@ CALIBRATION_RECORDING_DUR_SECONDS = 30
 
 # Live View Conversion (last updated 9/27/22)
 MM_PER_MT_Z_AXIS_SENSOR_0 = 8
+
+# Recording Snapshot
+RECORDING_SNAPSHOT_DUR_SECS = 5

@@ -2,6 +2,7 @@
 import json
 
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
+from mantarray_desktop_app.constants import RECORDING_SNAPSHOT_DUR_SECS
 from mantarray_desktop_app.exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
 from mantarray_desktop_app.sub_processes import data_analyzer
 from mantarray_desktop_app.workers.magnet_finder import run_magnet_finding_alg
@@ -101,7 +102,7 @@ def test_DataAnalyzerProcess__handles_successful_completion_of_magnet_finder_wor
 
     assert command_response == {
         "communication_type": "mag_analysis_complete",
-        "content": {"data_type": "data_analysis_complete", "data_json": json.dumps(expected_result_dict)},
+        "content": {"data_type": "local_analysis", "data_json": json.dumps(expected_result_dict)},
     }
 
 
@@ -135,7 +136,9 @@ def test_DataAnalyzerProcess__correctly_handles_recording_snapshot_command(
     for force_data in parsed_data["force"]:
         assert len(parsed_data["time"]) == len(force_data)
 
-    mocked_run_alg.assert_called_once_with({}, [test_command["recording_path"]], end_time=5)
+    mocked_run_alg.assert_called_once_with(
+        {}, [test_command["recording_path"]], end_time=RECORDING_SNAPSHOT_DUR_SECS
+    )
 
 
 def test_DataAnalyzerProcess__raises_error_when_receiving_unrecognized_mag_finding_analysis_command(

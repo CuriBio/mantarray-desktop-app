@@ -270,28 +270,36 @@ def test_MantarrayProcessesMonitor__logs_messages_from_data_analyzer(
     mocked_logger.assert_called_once_with(f"Communication from the Data Analyzer: {expected_comm}")
 
 
-def test_MantarrayProcessesMonitor__handled_completed_mag_analysis_command_correctly_from_data_analyzer(
+def test_MantarrayProcessesMonitor__handled_completed_mag_analysis_command_correctly_from_data_analyzer__and_logs_correctly(
     mocker, test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    queue_to_server_ws = test_process_manager.queue_container.to_server
+    mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
 
+    queue_to_server_ws = test_process_manager.queue_container.to_server
     data_analyzer_to_main = test_process_manager.queue_container.from_data_analyzer
+
+    expected_data_json = json.dumps([])
+    expected_data_type = choice(["mag_analysis_complete", "local_analysis"])
+
     expected_comm = {
         "communication_type": "mag_analysis_complete",
-        "content": {"data_type": "mag_analysis_complete", "data_json": json.dumps([])},
+        "content": {"data_type": expected_data_type, "data_json": expected_data_json},
     }
     data_analyzer_to_main.put_nowait(expected_comm)
     assert is_queue_eventually_not_empty(data_analyzer_to_main) is True
+
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(data_analyzer_to_main) is True
+
     ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert ws_message == {
-        "data_type": "mag_analysis_complete",
-        "data_json": json.dumps([]),
-    }
+    assert ws_message == {"data_type": expected_data_type, "data_json": expected_data_json}
+
+    mocked_logger.assert_called_once_with(
+        f"Communication from the Data Analyzer: Magnet Finding Analysis complete for {expected_data_type}"
+    )
 
 
 def test_MantarrayProcessesMonitor__pulls_outgoing_data_from_data_analyzer_and_makes_it_available_to_server(

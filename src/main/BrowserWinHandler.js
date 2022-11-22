@@ -108,8 +108,11 @@ export default class BrowserWinHandler {
     ipcMain.once("beta_2_mode_request", (event) => {
       event.reply("beta_2_mode_response", store.get("beta_2_mode"));
     });
-    ipcMain.once("stored_customer_id_request", (event) => {
-      event.reply("stored_customer_id_response", store.get("customer_id"));
+    ipcMain.once("stored_accounts_request", (event) => {
+      event.reply("stored_accounts_response", {
+        customer_id: store.get("customer_id"),
+        usernames: store.get("usernames"),
+      });
     });
     ipcMain.once("logs_flask_dir_request", (event) => {
       event.reply("logs_flask_dir_response", get_flask_logs_full_path(store));
