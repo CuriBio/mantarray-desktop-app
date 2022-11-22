@@ -385,7 +385,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         communication_type = communication["communication_type"]
 
-        # TODO unit test this
         if communication_type == "mag_analysis_complete":
             data_type = communication["content"]["data_type"]
             comm_str = f"Magnet Finding Analysis complete for {data_type}"
