@@ -7,9 +7,11 @@ Changelog for Mantarray Desktop App
 
 Added:
 ^^^^^^
-- Ability to change individual subprotocol colors in the Stimulation Studio
-- Ability to choose from previously used usernames when logging in
-- Fixed issue where filenames with leading or trailing spaces would error
+- Ability to choose from previously used usernames when logging in.
+
+Fixed:
+^^^^^^
+- Error from renaming a recording file with leading or trailing spaces.
 
 
 1.0.4 (2022-11-21)
@@ -29,7 +31,7 @@ Changed:
 
 Fixed:
 ^^^^^^
-- Non-integer Active Duration values for stimulation subprotocols causing the app to crash.
+- Error with using non-integer Active Duration values in stimulation subprotocols.
 
 
 1.0.3 (2022-10-15)
