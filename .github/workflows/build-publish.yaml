@@ -52,11 +52,11 @@ jobs:
           echo "SHA of current branch: ${{ steps.extract_branch.outputs.sha-of-current-branch }}"
           echo "SHA of main branch: ${{ steps.extract_branch.outputs.sha-of-main-branch }}"
 
-      # - name: Fail if attempting to publish to prod release channel incorrectly
-      #   if: github.event.inputs.release_channel == 'prod'
-      #   run: |
-      #     if [ "${{github.event.inputs.api_endpoint}}" = "prod" ] ; then echo "Using prod API endpoint, can proceed to publish"; else exit 1; fi
-      #     if [ "${{ steps.extract_branch.outputs.sha-of-current-branch}}" = "${{ steps.extract_branch.outputs.sha-of-main-branch}}" ] ; then echo "Running on main branch, can proceed to publish"; else exit 1; fi
+      - name: Fail if attempting to publish to prod release channel incorrectly
+        if: github.event.inputs.release_channel == 'prod'
+        run: |
+          if [ "${{github.event.inputs.api_endpoint}}" = "prod" ] ; then echo "Using prod API endpoint, can proceed to publish"; else exit 1; fi
+          if [ "${{ steps.extract_branch.outputs.sha-of-current-branch}}" = "${{ steps.extract_branch.outputs.sha-of-main-branch}}" ] ; then echo "Running on main branch, can proceed to publish"; else exit 1; fi
 
       - name: Fail if attempting to publish to unstable release channel incorrectly
         if: github.event.inputs.release_channel == 'unstable'
