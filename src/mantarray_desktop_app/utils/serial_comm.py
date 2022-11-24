@@ -9,6 +9,7 @@ import struct
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Tuple
 from typing import Union
 from uuid import UUID
 from zlib import crc32
@@ -401,16 +402,25 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
     return stim_info_dict
 
 
-def chunk_protocols_in_stim_info(stim_info: Dict[str, Any]) -> Dict[str, Any]:
+def chunk_protocols_in_stim_info(
+    stim_info: Dict[str, Any]
+) -> Tuple[Dict[str, Any], Dict[str, Dict[int, int]]]:
     # copying so the original dict passed in does not get modified
     stim_info_copy = copy.deepcopy(stim_info)
 
-    for protocol in stim_info_copy["protocols"]:
-        subprotocol_chunks = []
+    subprotocol_idx_mappings = {}
 
-        for subprotocol in protocol["subprotocols"]:
+    for protocol in stim_info_copy["protocols"]:
+        chunked_idx_to_original_idx = {}
+        curr_idx = 0
+
+        subprotocol_chunks = []
+        for original_idx, subprotocol in enumerate(protocol["subprotocols"]):
             if subprotocol["type"] == "delay":
                 subprotocol_chunks.append(subprotocol)
+
+                chunked_idx_to_original_idx[curr_idx] = original_idx
+                curr_idx += 1
             else:
                 subprotocol_cycle_dur = get_subprotocol_cycle_duration(subprotocol)
                 total_num_cycles = subprotocol["num_cycles"]
@@ -422,11 +432,20 @@ def chunk_protocols_in_stim_info(stim_info: Dict[str, Any]) -> Dict[str, Any]:
                 subprotocol_chunks.extend(
                     [{**subprotocol, "num_cycles": num_cycles_per_full_chunk}] * num_full_chunks
                 )
-                # if necessary add one more incomplete chunk to reach the total number of cycles
+
+                # update mapping
+                chunked_idx_to_original_idx.update(
+                    {chunked_idx: original_idx for chunked_idx in range(curr_idx, curr_idx + num_full_chunks)}
+                )
+                curr_idx += num_full_chunks
+
+                # if necessary, add one more incomplete chunk to reach the total number of cycles
                 if num_remaining_cycles := total_num_cycles - (num_cycles_per_full_chunk * num_full_chunks):
                     subprotocol_chunks.append({**subprotocol, "num_cycles": num_remaining_cycles})
+                    chunked_idx_to_original_idx[curr_idx] = original_idx
+                    curr_idx += 1
 
         protocol["subprotocols"] = subprotocol_chunks
+        subprotocol_idx_mappings[protocol["protocol_id"]] = chunked_idx_to_original_idx
 
-    # TODO return info about how the protocols were chunked
-    return stim_info_copy
+    return stim_info_copy, subprotocol_idx_mappings

@@ -564,7 +564,7 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
     assert actual == expected_bytes
 
 
-def test_chunk_protocols_in_stim_info__returns_correct_value():
+def test_chunk_protocols_in_stim_info__returns_correct_values():
     test_stim_info = {
         "protocols": [
             {
@@ -642,8 +642,9 @@ def test_chunk_protocols_in_stim_info__returns_correct_value():
         {**test_stim_info["protocols"][1]["subprotocols"][2], "num_cycles": 2},
     ]
 
-    actual_stim_info = chunk_protocols_in_stim_info(test_stim_info)
+    actual_stim_info, subprotocol_idx_mappings = chunk_protocols_in_stim_info(test_stim_info)
 
+    # test chunked protocol
     for protocol_idx, (actual_protocol, expected_protocol) in enumerate(
         itertools.zip_longest(actual_stim_info.pop("protocols"), expected_chunked_stim_info.pop("protocols"))
     ):
@@ -659,3 +660,6 @@ def test_chunk_protocols_in_stim_info__returns_correct_value():
 
     # make sure other stim info wasn't changed
     assert actual_stim_info == expected_chunked_stim_info
+
+    # test mapping
+    assert subprotocol_idx_mappings == {"A": {0: 0, 1: 0, 2: 1}, "B": {0: 0, 1: 1, 2: 2, 3: 2, 4: 2}}
