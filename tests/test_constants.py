@@ -169,6 +169,8 @@ from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
 from mantarray_desktop_app.constants import SOFTWARE_RELEASE_CHANNEL
+from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
+from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MINS
 from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
@@ -529,6 +531,12 @@ def test_serial_comm():
     assert STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS == int(100e3)
     assert STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS == int(1.2e3)
     assert STIM_MAX_PULSE_DURATION_MICROSECONDS == int(50e3)
+
+    assert STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MINS == 1
+    assert (
+        STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
+        == STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MINS * 60 * MICRO_TO_BASE_CONVERSION
+    )
 
     assert STIM_COMPLETE_SUBPROTOCOL_IDX == 255
 
