@@ -141,8 +141,7 @@ def test_McCommunicationProcess__processes_start_managed_acquisition_command__an
 
     # put simulator in data streaming mode
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "set_data_streaming_status", "data_streaming_status": True},
-        testing_queue,
+        {"command": "set_data_streaming_status", "data_streaming_status": True}, testing_queue
     )
 
     expected_response = dict(START_MANAGED_ACQUISITION_COMMUNICATION)

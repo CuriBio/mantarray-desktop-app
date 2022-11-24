@@ -370,7 +370,7 @@ def test_McCommunicationProcess__processes_set_sampling_period_command(
     assert message_to_main == expected_response
 
 
-def test_McCommunicationProcess__processes_set_protocols_command(
+def test_McCommunicationProcess__processes_set_protocols_command__and_breaks_up_long_subprotocol_into_appropriately_sized_chunks(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
 ):
