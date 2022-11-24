@@ -26,7 +26,7 @@ from mantarray_desktop_app import validate_checksum
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_PACKET_BASE_LENGTH_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
-from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_US
+from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
 from mantarray_desktop_app.constants import STIM_SHORT_CIRCUIT_THRESHOLD_OHMS
@@ -575,20 +575,20 @@ def test_chunk_protocols_in_stim_info__returns_correct_values():
                     # this will run for one cycle longer a full chunk, so will be split into two chunks
                     {
                         "type": "monophasic",
-                        "phase_one_duration": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_US // 6,
+                        "phase_one_duration": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 6,
                         "phase_one_charge": randint(1, 10),
-                        "postphase_interval": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_US // 6,
+                        "postphase_interval": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 6,
                         "num_cycles": 4,
                     },
                     # this will run for exactly the max length of a chunk, so shouldn't be modified at all
                     {
                         "type": "biphasic",
-                        "phase_one_duration": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_US // 8,
+                        "phase_one_duration": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 8,
                         "phase_one_charge": randint(1, 10),
-                        "interphase_interval": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_US // 8,
-                        "phase_two_duration": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_US // 8,
+                        "interphase_interval": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 8,
+                        "phase_two_duration": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 8,
                         "phase_two_charge": randint(1, 10),
-                        "postphase_interval": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_US // 8,
+                        "postphase_interval": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 8,
                         "num_cycles": 2,
                     },
                 ],
@@ -601,9 +601,9 @@ def test_chunk_protocols_in_stim_info__returns_correct_values():
                     # this will run for exactly the max length of a chunk, so shouldn't be modified at all
                     {
                         "type": "monophasic",
-                        "phase_one_duration": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_US // 2,
+                        "phase_one_duration": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 2,
                         "phase_one_charge": randint(1, 10),
-                        "postphase_interval": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_US // 2,
+                        "postphase_interval": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 2,
                         "num_cycles": 1,
                     },
                     # delays don't need to be chunked, so this shouldn't be modified at all
@@ -611,12 +611,12 @@ def test_chunk_protocols_in_stim_info__returns_correct_values():
                     # this will run for two cycles longer than two full chunks, so will be split into three chunks
                     {
                         "type": "biphasic",
-                        "phase_one_duration": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_US // 10,
+                        "phase_one_duration": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 10,
                         "phase_one_charge": randint(1, 10),
                         "interphase_interval": 0,
-                        "phase_two_duration": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_US // 10,
+                        "phase_two_duration": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 10,
                         "phase_two_charge": randint(1, 10),
-                        "postphase_interval": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_US // 10,
+                        "postphase_interval": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 10,
                         "num_cycles": 8,
                     },
                 ],

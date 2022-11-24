@@ -60,7 +60,6 @@ from mantarray_desktop_app import MICROSECONDS_PER_MILLISECOND
 from mantarray_desktop_app import MIDSCALE_CODE
 from mantarray_desktop_app import MILLIVOLTS_PER_VOLT
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
-from mantarray_desktop_app import NANOSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import NO_PLATE_DETECTED_BARCODE_VALUE
 from mantarray_desktop_app import NO_PLATE_DETECTED_UUID
 from mantarray_desktop_app import NUM_INITIAL_PACKETS_TO_DROP
@@ -162,6 +161,7 @@ from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 from mantarray_desktop_app.constants import ALL_VALID_BARCODE_HEADERS
 from mantarray_desktop_app.constants import BARCODE_HEADERS
 from mantarray_desktop_app.constants import BARCODE_LEN
+from mantarray_desktop_app.constants import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app.constants import MM_PER_MT_Z_AXIS_SENSOR_0
 from mantarray_desktop_app.constants import PERFOMANCE_LOGGING_PERIOD_SECS
 from mantarray_desktop_app.constants import RECORDING_SNAPSHOT_DUR_SECS
@@ -169,6 +169,8 @@ from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
 from mantarray_desktop_app.constants import SOFTWARE_RELEASE_CHANNEL
+from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
+from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MINS
 from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
@@ -235,9 +237,15 @@ def test_hardware_time_constants():
     assert REFERENCE_SENSOR_SAMPLING_PERIOD == ROUND_ROBIN_PERIOD // 4
     assert CONSTRUCT_SENSOR_SAMPLING_PERIOD == ROUND_ROBIN_PERIOD
     assert TIMESTEP_CONVERSION_FACTOR == 5
+
+
+def test_time_conversions():
     assert MICROSECONDS_PER_CENTIMILLISECOND == 10
-    assert NANOSECONDS_PER_CENTIMILLISECOND == 10**4
-    assert MICROSECONDS_PER_MILLISECOND == 10**3
+    assert MICROSECONDS_PER_MILLISECOND == int(1e3)
+
+
+def test_generic_conversions():
+    assert MICRO_TO_BASE_CONVERSION == int(1e6)
 
 
 def test_adc_reading_constants():
@@ -523,6 +531,12 @@ def test_serial_comm():
     assert STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS == int(100e3)
     assert STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS == int(1.2e3)
     assert STIM_MAX_PULSE_DURATION_MICROSECONDS == int(50e3)
+
+    assert STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MINS == 1
+    assert (
+        STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
+        == STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MINS * 60 * MICRO_TO_BASE_CONVERSION
+    )
 
     assert STIM_COMPLETE_SUBPROTOCOL_IDX == 255
 

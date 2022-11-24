@@ -37,7 +37,7 @@ from ..constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from ..constants import SERIAL_COMM_TIMESTAMP_EPOCH
 from ..constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from ..constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
-from ..constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_US
+from ..constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
 from ..constants import STIM_MODULE_ID_TO_WELL_IDX
 from ..constants import STIM_NO_PROTOCOL_ASSIGNED
 from ..constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
@@ -425,7 +425,9 @@ def chunk_protocols_in_stim_info(
                 subprotocol_cycle_dur = get_subprotocol_cycle_duration(subprotocol)
                 total_num_cycles = subprotocol["num_cycles"]
 
-                num_cycles_per_full_chunk = STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_US // subprotocol_cycle_dur
+                num_cycles_per_full_chunk = (
+                    STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // subprotocol_cycle_dur
+                )
                 num_full_chunks = total_num_cycles // num_cycles_per_full_chunk
 
                 # add full chunks

@@ -62,7 +62,6 @@ from .constants import MICROSECONDS_PER_MILLISECOND
 from .constants import MIDSCALE_CODE
 from .constants import MILLIVOLTS_PER_VOLT
 from .constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
-from .constants import NANOSECONDS_PER_CENTIMILLISECOND
 from .constants import NO_PLATE_DETECTED_BARCODE_VALUE
 from .constants import NO_PLATE_DETECTED_UUID
 from .constants import NUM_INITIAL_PACKETS_TO_DROP
@@ -446,7 +445,6 @@ __all__ = [
     "SERIAL_COMM_MAGIC_WORD_BYTES",
     "SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS",
     "UnrecognizedSimulatorTestCommandError",
-    "NANOSECONDS_PER_CENTIMILLISECOND",
     "InstrumentCommProcess",
     "InstrumentCommIncorrectHeaderError",
     "SERIAL_COMM_STATUS_BEACON_PACKET_TYPE",
