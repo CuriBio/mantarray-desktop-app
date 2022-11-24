@@ -2,6 +2,7 @@
 """Utility functions for Serial Communication."""
 from __future__ import annotations
 
+import copy
 import datetime
 import math
 import struct
@@ -36,6 +37,7 @@ from ..constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from ..constants import SERIAL_COMM_TIMESTAMP_EPOCH
 from ..constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from ..constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
+from ..constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_US
 from ..constants import STIM_MODULE_ID_TO_WELL_IDX
 from ..constants import STIM_NO_PROTOCOL_ASSIGNED
 from ..constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
@@ -401,3 +403,34 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
         stim_info_dict["protocol_assignments"][well_name] = protocol_id_idx
         curr_byte_idx += 1
     return stim_info_dict
+
+
+def chunk_protocols_in_stim_info(stim_info: Dict[str, Any]) -> Dict[str, Any]:
+    # copying so the original dict passed in does not get modified
+    stim_info_copy = copy.deepcopy(stim_info)
+
+    for protocol in stim_info_copy["protocols"]:
+        subprotocol_chunks = []
+
+        for subprotocol in protocol["subprotocols"]:
+            if subprotocol["type"] == "delay":
+                subprotocol_chunks.append(subprotocol)
+            else:
+                subprotocol_cycle_dur = get_subprotocol_cycle_duration(subprotocol)
+                total_num_cycles = subprotocol["num_cycles"]
+
+                num_cycles_per_full_chunk = STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_US // subprotocol_cycle_dur
+                num_full_chunks = total_num_cycles // num_cycles_per_full_chunk
+
+                # add full chunks
+                subprotocol_chunks.extend(
+                    [{**subprotocol, "num_cycles": num_cycles_per_full_chunk}] * num_full_chunks
+                )
+                # if necessary add one more incomplete chunk to reach the total number of cycles
+                if num_remaining_cycles := total_num_cycles - (num_cycles_per_full_chunk * num_full_chunks):
+                    subprotocol_chunks.append({**subprotocol, "num_cycles": num_remaining_cycles})
+
+        protocol["subprotocols"] = subprotocol_chunks
+
+    # TODO return info about how the protocols were chunked
+    return stim_info_copy
