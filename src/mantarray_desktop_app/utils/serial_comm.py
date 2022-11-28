@@ -410,11 +410,11 @@ def chunk_protocols_in_stim_info(
     stim_info: Dict[str, Any]
 ) -> Tuple[Dict[str, Any], Dict[str, Dict[int, int]]]:
     # copying so the original dict passed in does not get modified
-    stim_info_copy = copy.deepcopy(stim_info)
+    chunked_stim_info = copy.deepcopy(stim_info)
 
     subprotocol_idx_mappings = {}
 
-    for protocol in stim_info_copy["protocols"]:
+    for protocol in chunked_stim_info["protocols"]:
         chunked_idx_to_original_idx = {}
         curr_idx = 0
 
@@ -454,4 +454,4 @@ def chunk_protocols_in_stim_info(
         protocol["subprotocols"] = subprotocol_chunks
         subprotocol_idx_mappings[protocol["protocol_id"]] = chunked_idx_to_original_idx
 
-    return stim_info_copy, subprotocol_idx_mappings
+    return chunked_stim_info, subprotocol_idx_mappings
