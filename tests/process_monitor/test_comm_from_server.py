@@ -788,7 +788,7 @@ def test_MantarrayProcessesMonitor__processes_set_stim_status_command(
 
 
 def test_MantarrayProcessesMonitor__processes_set_protocols_command(
-    test_process_manager_creator, test_monitor
+    test_process_manager_creator, test_monitor, mocker
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
@@ -796,12 +796,21 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
     main_to_ic_queue = test_process_manager.queue_container.to_instrument_comm(0)
     main_to_fw_queue = test_process_manager.queue_container.to_file_writer
 
+    mocked_chunk = mocker.patch.object(
+        process_monitor,
+        "chunk_protocols_in_stim_info",
+        autospec=True,
+        return_value=(mocker.Mock(), mocker.Mock()),
+    )
+
     shared_values_dict["stimulation_running"] = [False] * 24
+
+    test_stim_info = {"protocols": [None] * 3, "protocol_assignments": {"dummy": "values"}}
 
     test_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
-        "stim_info": {"protocols": [None] * 3, "protocol_assignments": {"dummy": "values"}},
+        "stim_info": test_stim_info,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)
 
@@ -810,9 +819,16 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
     assert shared_values_dict["stimulation_info"] == test_command["stim_info"]
 
     confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
-    assert main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == test_command
+    assert main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == {
+        **test_command,
+        "stim_info": mocked_chunk.return_value[0],
+    }
+
     confirm_queue_is_eventually_of_size(main_to_fw_queue, 1)
-    assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == test_command
+    assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == {
+        **test_command,
+        "stim_info": {**test_stim_info, "subprotocol_idx_mappings": mocked_chunk.return_value[1]},
+    }
 
 
 @pytest.mark.parametrize(
