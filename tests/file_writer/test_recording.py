@@ -33,6 +33,7 @@ from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.utils.serial_comm import chunk_protocols_in_stim_info
 import numpy as np
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import ADC_REF_OFFSET_UUID
@@ -458,11 +459,12 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    expected_stim_info = dict(copy.deepcopy(GENERIC_STIM_INFO))
+    expected_stim_info, expected_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
         "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": expected_subprotocol_idx_mappings,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
@@ -530,11 +532,12 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
     start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     # send set_protocols command
-    expected_stim_info = dict(copy.deepcopy(GENERIC_STIM_INFO))
+    expected_stim_info, expected_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
         "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": expected_subprotocol_idx_mappings,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     # process both commands
@@ -1212,10 +1215,12 @@ def test_FileWriterProcess__adds_incoming_stim_data_to_internal_buffers(
         for well_idx in range(24)
     }
 
+    expected_stim_info, expected_subprotocol_idx_mappings = chunk_protocols_in_stim_info(test_stim_info)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
-        "stim_info": test_stim_info,
+        "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": expected_subprotocol_idx_mappings,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
@@ -1282,10 +1287,12 @@ def test_FileWriterProcess__does_not_add_incoming_stim_data_to_internal_buffer_i
         for well_idx in range(24)
     }
 
+    expected_stim_info, expected_subprotocol_idx_mappings = chunk_protocols_in_stim_info(test_stim_info)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
-        "stim_info": test_stim_info,
+        "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": expected_subprotocol_idx_mappings,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
@@ -1340,10 +1347,12 @@ def test_FileWriterProcess__clears_leftover_stim_data_of_previous_stream_from_bu
         for well_idx in range(24)
     }
 
+    expected_stim_info, expected_subprotocol_idx_mappings = chunk_protocols_in_stim_info(test_stim_info)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
-        "stim_info": test_stim_info,
+        "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": expected_subprotocol_idx_mappings,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
@@ -1430,10 +1439,12 @@ def test_FileWriterProcess__records_all_relevant_stim_statuses_in_buffer_when_st
         for well_idx in range(24)
     }
 
+    expected_stim_info, expected_subprotocol_idx_mappings = chunk_protocols_in_stim_info(test_stim_info)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
-        "stim_info": test_stim_info,
+        "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": expected_subprotocol_idx_mappings,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
@@ -1474,7 +1485,9 @@ def test_FileWriterProcess__records_all_relevant_stim_statuses_in_buffer_when_st
     invoke_process_run_and_check_errors(file_writer_process)
 
     expected_stim_data = np.array(
-        [expected_time_indices, np.ones(expected_total_num_data_points, dtype=np.int64)], dtype=np.int64
+        # ones will get converted to zeros
+        [expected_time_indices, np.zeros(expected_total_num_data_points, dtype=np.int64)],
+        dtype=np.int64,
     )
 
     expected_plate_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
@@ -1855,10 +1868,12 @@ def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
         for well_idx in range(24)
     }
 
+    expected_stim_info, expected_subprotocol_idx_mappings = chunk_protocols_in_stim_info(test_stim_info)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
-        "stim_info": test_stim_info,
+        "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": expected_subprotocol_idx_mappings,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         set_protocols_command, comm_from_main_queue
@@ -1936,7 +1951,9 @@ def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
     invoke_process_run_and_check_errors(file_writer_process)
 
     expected_stim_data = np.array(
-        [expected_time_indices, np.ones(expected_total_num_data_points, dtype=np.int64)], dtype=np.int64
+        # ones will get converted to zeros
+        [expected_time_indices, np.zeros(expected_total_num_data_points, dtype=np.int64)],
+        dtype=np.int64,
     )
 
     expected_plate_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
