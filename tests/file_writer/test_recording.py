@@ -824,24 +824,24 @@ def test_FileWriterProcess__closes_the_files_and_sends_communication_to_main_whe
         active_well_indices=[0],
     )
 
-    actual_file = open_the_generic_h5_file(file_dir, well_name="A1", timestamp_str="2020_02_09_190322")
-    # confirm some data already recorded to file
-    actual_data = get_reference_dataset_from_file(actual_file)
-    assert actual_data.shape == (test_num_data_points,)
-    assert actual_data[4] == 8
-    assert actual_data[8] == 16
+    with open_the_generic_h5_file(file_dir, well_name="A1", timestamp_str="2020_02_09_190322") as actual_file:
+        # confirm some data already recorded to file
+        actual_data = get_reference_dataset_from_file(actual_file)
+        assert actual_data.shape == (test_num_data_points,)
+        assert actual_data[4] == 8
+        assert actual_data[8] == 16
 
-    actual_data = get_tissue_dataset_from_file(actual_file)
-    assert actual_data.shape == (test_num_data_points,)
-    assert actual_data[3] == 6
-    assert actual_data[9] == 18
+        actual_data = get_tissue_dataset_from_file(actual_file)
+        assert actual_data.shape == (test_num_data_points,)
+        assert actual_data[3] == 6
+        assert actual_data[9] == 18
 
-    # corruption check closes file for a second time
-    assert spied_h5_close.call_count == 2
+        # corruption check closes file for a second time
+        assert spied_h5_close.call_count == 2
 
-    finalization_msg = msgs_to_main[0]
-    assert finalization_msg["communication_type"] == "file_finalized"
-    assert "_A1" in finalization_msg["file_path"]
+        finalization_msg = msgs_to_main[0]
+        assert finalization_msg["communication_type"] == "file_finalized"
+        assert "_A1" in finalization_msg["file_path"]
 
 
 def test_FileWriterProcess__sends_message_to_main_if_a_corrupt_file_is_found(

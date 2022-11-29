@@ -97,20 +97,20 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_
         board_queues[0][0],
     )
     invoke_process_run_and_check_errors(file_writer_process)
-    actual_file = open_the_generic_h5_file(file_dir, well_name="D1")
 
-    expected_timestamp = this_command["metadata_to_copy_onto_main_file_attributes"][
-        UTC_BEGINNING_DATA_ACQUISTION_UUID
-    ] + datetime.timedelta(
-        seconds=this_command["timepoint_to_begin_recording_at"] / CENTIMILLISECONDS_PER_SECOND
-    )
-    assert actual_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
-        "%Y-%m-%d %H:%M:%S.%f"
-    )
-    actual_tissue_data = get_tissue_dataset_from_file(actual_file)
-    assert actual_tissue_data.shape == (50,)
-    assert actual_tissue_data[3] == 6
-    assert actual_tissue_data[9] == 18
+    with open_the_generic_h5_file(file_dir, well_name="D1") as actual_file:
+        expected_timestamp = this_command["metadata_to_copy_onto_main_file_attributes"][
+            UTC_BEGINNING_DATA_ACQUISTION_UUID
+        ] + datetime.timedelta(
+            seconds=this_command["timepoint_to_begin_recording_at"] / CENTIMILLISECONDS_PER_SECOND
+        )
+        assert actual_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
+            "%Y-%m-%d %H:%M:%S.%f"
+        )
+        actual_tissue_data = get_tissue_dataset_from_file(actual_file)
+        assert actual_tissue_data.shape == (50,)
+        assert actual_tissue_data[3] == 6
+        assert actual_tissue_data[9] == 18
 
 
 def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_timestamp_idx_starts_part_way_through_the_chunk__and_sets_timestamp_metadata_for_tissue_since_this_is_first_piece_of_data(
@@ -147,21 +147,20 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
-    actual_file = open_the_generic_h5_file(file_dir)
-
-    expected_timestamp = this_command["metadata_to_copy_onto_main_file_attributes"][
-        UTC_BEGINNING_DATA_ACQUISTION_UUID
-    ] + datetime.timedelta(
-        seconds=(this_command["timepoint_to_begin_recording_at"] + DATA_FRAME_PERIOD)
-        / CENTIMILLISECONDS_PER_SECOND
-    )
-    assert actual_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
-        "%Y-%m-%d %H:%M:%S.%f"
-    )
-    actual_tissue_data = get_tissue_dataset_from_file(actual_file)
-    assert actual_tissue_data.shape == (50,)
-    assert actual_tissue_data[0] == 50
-    assert actual_tissue_data[2] == 54
+    with open_the_generic_h5_file(file_dir) as actual_file:
+        expected_timestamp = this_command["metadata_to_copy_onto_main_file_attributes"][
+            UTC_BEGINNING_DATA_ACQUISTION_UUID
+        ] + datetime.timedelta(
+            seconds=(this_command["timepoint_to_begin_recording_at"] + DATA_FRAME_PERIOD)
+            / CENTIMILLISECONDS_PER_SECOND
+        )
+        assert actual_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
+            "%Y-%m-%d %H:%M:%S.%f"
+        )
+        actual_tissue_data = get_tissue_dataset_from_file(actual_file)
+        assert actual_tissue_data.shape == (50,)
+        assert actual_tissue_data[0] == 50
+        assert actual_tissue_data[2] == 54
 
 
 def test_FileWriterProcess__process_next_data_packet__does_not_write_tissue_data_if_data_chunk_is_all_before_the_timestamp_idx(
@@ -197,10 +196,10 @@ def test_FileWriterProcess__process_next_data_packet__does_not_write_tissue_data
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
-    actual_file = open_the_generic_h5_file(file_dir)
-    assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) not in actual_file.attrs
-    actual_tissue_data = get_tissue_dataset_from_file(actual_file)
-    assert actual_tissue_data.shape == (0,)
+    with open_the_generic_h5_file(file_dir) as actual_file:
+        assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) not in actual_file.attrs
+        actual_tissue_data = get_tissue_dataset_from_file(actual_file)
+        assert actual_tissue_data.shape == (0,)
 
 
 def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_for_two_packets_when_the_timestamp_idx_starts_part_way_through_the_first_packet__and_sets_timestamp_metadata_for_tissue_since_this_is_first_piece_of_data(
@@ -247,20 +246,20 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_for_two
     )
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=2)
 
-    actual_file = open_the_generic_h5_file(file_dir)
-    expected_timestamp = this_command["metadata_to_copy_onto_main_file_attributes"][
-        UTC_BEGINNING_DATA_ACQUISTION_UUID
-    ] + datetime.timedelta(
-        seconds=(this_command["timepoint_to_begin_recording_at"] + DATA_FRAME_PERIOD)
-        / CENTIMILLISECONDS_PER_SECOND
-    )
-    assert actual_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
-        "%Y-%m-%d %H:%M:%S.%f"
-    )
-    actual_tissue_data = get_tissue_dataset_from_file(actual_file)
-    assert actual_tissue_data.shape == (60,)
-    assert actual_tissue_data[0] == 60
-    assert actual_tissue_data[-1] == 1028
+    with open_the_generic_h5_file(file_dir) as actual_file:
+        expected_timestamp = this_command["metadata_to_copy_onto_main_file_attributes"][
+            UTC_BEGINNING_DATA_ACQUISTION_UUID
+        ] + datetime.timedelta(
+            seconds=(this_command["timepoint_to_begin_recording_at"] + DATA_FRAME_PERIOD)
+            / CENTIMILLISECONDS_PER_SECOND
+        )
+        assert actual_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
+            "%Y-%m-%d %H:%M:%S.%f"
+        )
+        actual_tissue_data = get_tissue_dataset_from_file(actual_file)
+        assert actual_tissue_data.shape == (60,)
+        assert actual_tissue_data[0] == 60
+        assert actual_tissue_data[-1] == 1028
 
 
 def test_FileWriterProcess__process_next_data_packet__writes_reference_data_to_active_subset_of_wells_if_the_timestamp_idx_starts_part_way_through_the_chunk__and_sets_timestamp_metadata_for_reference_sensor_since_this_is_first_piece_of_data(
@@ -371,20 +370,16 @@ def test_FileWriterProcess__process_next_data_packet__does_not_add_a_data_packet
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
-    actual_tissue_data_file = open_the_generic_h5_file(file_dir)
-
-    # confirm some data already recorded to file
-    actual_tissue_data = get_tissue_dataset_from_file(actual_tissue_data_file)
-    assert actual_tissue_data.shape == (10,)
-    assert actual_tissue_data[9] == 18
-    assert actual_tissue_data[3] == 6
+    with open_the_generic_h5_file(file_dir) as actual_tissue_data_file:
+        # confirm some data already recorded to file
+        actual_tissue_data = get_tissue_dataset_from_file(actual_tissue_data_file)
+        assert actual_tissue_data.shape == (10,)
+        assert actual_tissue_data[9] == 18
+        assert actual_tissue_data[3] == 6
 
     stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        stop_command,
-        from_main_queue,
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
 
     data_after_stop = np.zeros((2, num_data_points), dtype=np.int32)
     for this_index in range(num_data_points):
@@ -393,15 +388,13 @@ def test_FileWriterProcess__process_next_data_packet__does_not_add_a_data_packet
         )
     this_data_packet["data"] = data_after_stop
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_data_packet,
-        board_queues[0][0],
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_data_packet, board_queues[0][0])
     invoke_process_run_and_check_errors(file_writer_process)
 
     # confirm no additional data added to file
-    actual_tissue_data = get_tissue_dataset_from_file(actual_tissue_data_file)
-    assert actual_tissue_data.shape == (10,)
+    with open_the_generic_h5_file(file_dir) as actual_tissue_data_file:
+        actual_tissue_data = get_tissue_dataset_from_file(actual_tissue_data_file)
+        assert actual_tissue_data.shape == (10,)
 
     tissue_status, _ = file_writer_process.get_recording_finalization_statuses()
     assert tissue_status[0][4] is True
@@ -441,20 +434,16 @@ def test_FileWriterProcess__process_next_data_packet__adds_part_of_a_data_packet
 
     invoke_process_run_and_check_errors(file_writer_process)
 
-    actual_file = open_the_generic_h5_file(file_dir)
-
     # confirm some data already recorded to file
-    actual_data_in_file = get_reference_dataset_from_file(actual_file)
-    assert actual_data_in_file.shape == (10,)
-    assert actual_data_in_file[4] == 8
-    assert actual_data_in_file[8] == 16
+    with open_the_generic_h5_file(file_dir) as actual_file:
+        actual_data_in_file = get_reference_dataset_from_file(actual_file)
+        assert actual_data_in_file.shape == (10,)
+        assert actual_data_in_file[4] == 8
+        assert actual_data_in_file[8] == 16
 
     stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        stop_command,
-        from_main_queue,
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
 
     data_after_stop = np.zeros((2, num_data_points), dtype=np.int32)
     for this_index in range(num_data_points):
@@ -465,17 +454,15 @@ def test_FileWriterProcess__process_next_data_packet__adds_part_of_a_data_packet
         data_after_stop[1, this_index] = this_index * 5
     this_data_packet["data"] = data_after_stop
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_data_packet,
-        board_queues[0][0],
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_data_packet, board_queues[0][0])
     invoke_process_run_and_check_errors(file_writer_process)
 
     # confirm additional data added to file
-    actual_data = get_reference_dataset_from_file(actual_file)
-    assert actual_data.shape == (15,)
-    assert actual_data[11] == 5
-    assert actual_data[14] == 20
+    with open_the_generic_h5_file(file_dir) as actual_file:
+        actual_data = get_reference_dataset_from_file(actual_file)
+        assert actual_data.shape == (15,)
+        assert actual_data[11] == 5
+        assert actual_data[14] == 20
 
     _, reference_status = file_writer_process.get_recording_finalization_statuses()
     assert reference_status[0][4] is True
@@ -516,20 +503,16 @@ def test_FileWriterProcess__process_next_data_packet__adds_a_data_packet_before_
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
-    actual_file = open_the_generic_h5_file(file_dir)
-
     # confirm some data already recorded to file
-    actual_tissue_data = get_tissue_dataset_from_file(actual_file)
-    assert actual_tissue_data.shape == (10,)
-    assert actual_tissue_data[9] == 18
-    assert actual_tissue_data[3] == 6
+    with open_the_generic_h5_file(file_dir) as actual_file:
+        actual_tissue_data = get_tissue_dataset_from_file(actual_file)
+        assert actual_tissue_data.shape == (10,)
+        assert actual_tissue_data[9] == 18
+        assert actual_tissue_data[3] == 6
 
     stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        stop_command,
-        from_main_queue,
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
     data_before_stop = np.zeros((2, num_data_points), dtype=np.int32)
     for this_index in range(num_data_points):
         data_before_stop[0, this_index] = (
@@ -539,17 +522,15 @@ def test_FileWriterProcess__process_next_data_packet__adds_a_data_packet_before_
         data_before_stop[1, this_index] = this_index * 5
     this_data_packet["data"] = data_before_stop
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_data_packet,
-        board_queues[0][0],
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_data_packet, board_queues[0][0])
     invoke_process_run_and_check_errors(file_writer_process)
 
     # confirm additional data added to file
-    actual_data = get_tissue_dataset_from_file(actual_file)
-    assert actual_data.shape == (20,)
-    assert actual_data[11] == 5
-    assert actual_data[14] == 20
+    with open_the_generic_h5_file(file_dir) as actual_file:
+        actual_data = get_tissue_dataset_from_file(actual_file)
+        assert actual_data.shape == (20,)
+        assert actual_data[11] == 5
+        assert actual_data[14] == 20
 
     tissue_status, _ = file_writer_process.get_recording_finalization_statuses()
     assert tissue_status[0][4] is False

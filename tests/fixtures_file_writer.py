@@ -256,14 +256,13 @@ def open_the_generic_h5_file(
 ) -> h5py._hl.files.File:  # pylint: disable=protected-access # this is the only type definition Eli (2/24/20) could find for a File
     if timestamp_str is None:
         timestamp_str = "2020_02_09_190935" if beta_version == 1 else "2020_02_09_190359"
-    if beta_version == 1:
-        plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-            PLATE_BARCODE_UUID
-        ]
-    else:
-        plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-            PLATE_BARCODE_UUID
-        ]
+
+    start_recording_command = (
+        GENERIC_BETA_1_START_RECORDING_COMMAND
+        if beta_version == 1
+        else GENERIC_BETA_2_START_RECORDING_COMMAND
+    )
+    plate_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID]
 
     actual_file = h5py.File(
         os.path.join(
