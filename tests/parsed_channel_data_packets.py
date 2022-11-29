@@ -6,6 +6,7 @@ from mantarray_desktop_app import SERIAL_COMM_DEFAULT_DATA_CHANNEL
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 import numpy as np
 
+# TODO make these all immutable
 SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0 = {
     "is_reference_sensor": False,
     "well_index": 0,

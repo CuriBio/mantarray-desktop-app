@@ -827,7 +827,7 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
     confirm_queue_is_eventually_of_size(main_to_fw_queue, 1)
     assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == {
         **test_command,
-        "stim_info": {**test_stim_info, "subprotocol_idx_mappings": mocked_chunk.return_value[1]},
+        "subprotocol_idx_mappings": mocked_chunk.return_value[1],
     }
 
 

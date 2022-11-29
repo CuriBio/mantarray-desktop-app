@@ -87,7 +87,10 @@ def handle_putting_multiple_objects_into_empty_queue(
     for next_obj in objs:
         the_queue.put_nowait(next_obj)
     confirm_queue_is_eventually_of_size(
-        the_queue, len(objs), sleep_after_confirm_seconds=sleep_after_confirm_seconds
+        the_queue,
+        len(objs),
+        timeout_seconds=timeout_seconds,
+        sleep_after_confirm_seconds=sleep_after_confirm_seconds,
     )
     start = perf_counter()
     while perf_counter() - start < QUEUE_EMPTY_CHECK_TIMEOUT_SECONDS:

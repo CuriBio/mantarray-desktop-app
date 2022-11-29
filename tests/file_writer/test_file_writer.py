@@ -383,13 +383,9 @@ def test_FileWriterProcess__does_not_log_percent_use_metrics_in_first_logging_cy
     assert "percent_use_metrics" not in actual
 
 
-@pytest.mark.slow
-@pytest.mark.parametrize(
-    "test_beta_version,test_description",
-    [(1, "logs correctly with beta 1 data"), (2, "logs correctly with beta 2 data")],
-)
+@pytest.mark.parametrize("beta_2_mode", [True, False])
 def test_FileWriterProcess__logs_metrics_of_data_recording_correctly(
-    test_beta_version, test_description, four_board_file_writer_process, mocker
+    beta_2_mode, four_board_file_writer_process, mocker
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     board_queues = four_board_file_writer_process["board_queues"]
@@ -400,21 +396,27 @@ def test_FileWriterProcess__logs_metrics_of_data_recording_correctly(
     file_writer_process._logging_level = logging.DEBUG
 
     # set to 0 to speed up test
-    file_writer_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
+    file_writer_process._minimum_iteration_duration_seconds = 0
 
     num_packets_to_send = 5  # arbitrary value
-    if test_beta_version == 1:
-        start_recording_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
-        data_packet = copy.deepcopy(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
-        num_points_per_packet = data_packet["data"].shape[1]
-    else:
+    if beta_2_mode:
         file_writer_process.set_beta_2_mode()
         populate_calibration_folder(file_writer_process)
+
         start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
         data_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
         num_points_per_packet = data_packet["time_indices"].shape[0]
+    else:
+        start_recording_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
+        data_packet = copy.deepcopy(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
+        num_points_per_packet = data_packet["data"].shape[1]
 
-    start_recording_command["metadata_to_copy_onto_main_file_attributes"][START_RECORDING_TIME_INDEX_UUID] = 0
+    # convert to regular dict and modify value
+    start_recording_command["metadata_to_copy_onto_main_file_attributes"] = {
+        **start_recording_command["metadata_to_copy_onto_main_file_attributes"],
+        START_RECORDING_TIME_INDEX_UUID: 0,
+    }
+
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process, perform_setup_before_loop=True)
     # Tanner (9/10/20): remove start_recording confirmation

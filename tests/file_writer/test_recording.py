@@ -3,6 +3,7 @@ import copy
 import glob
 import json
 import os
+from random import choice
 
 import h5py
 from mantarray_desktop_app import CalibrationFilesMissingError
@@ -31,6 +32,8 @@ from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.utils.serial_comm import chunk_protocols_in_stim_info
 import numpy as np
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import ADC_REF_OFFSET_UUID
@@ -448,7 +451,7 @@ def test_FileWriterProcess__beta_2_mode__creates_files_for_all_active_wells__whe
 
 @pytest.mark.timeout(4)
 def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_metadata__when_receiving_communication_to_start_recording__after_protocols_have_been_set(
-    four_board_file_writer_process, mocker
+    four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
@@ -456,14 +459,16 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    # send set_protocols command
-    expected_stim_info = copy.deepcopy(GENERIC_STIM_INFO)
+    expected_stim_info, expected_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
         "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": expected_subprotocol_idx_mappings,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
+
     # send start_recording command after set_protocols command
     file_timestamp_str = "2020_02_09_190359"
     expected_plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND[
@@ -511,7 +516,7 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
 
 @pytest.mark.timeout(4)
 def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_metadata__when_receiving_communication_to_start_recording__before_protocols_have_been_set(
-    four_board_file_writer_process, mocker
+    four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
@@ -527,11 +532,12 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
     start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     # send set_protocols command
-    expected_stim_info = copy.deepcopy(GENERIC_STIM_INFO)
+    expected_stim_info, expected_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
         "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": expected_subprotocol_idx_mappings,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     # process both commands
@@ -574,7 +580,7 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
 
 @pytest.mark.timeout(4)
 def test_FileWriterProcess__beta_2_mode__creates_calibration_files_in_correct_folder__when_receiving_communication_to_start_recording(
-    four_board_file_writer_process, mocker
+    four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
@@ -618,7 +624,7 @@ def test_FileWriterProcess__beta_2_mode__creates_calibration_files_in_correct_fo
 
 
 def test_FileWriterProcess__beta_2_mode__copies_calibration_files_to_new_recording_folder__when_receiving_communication_to_start_recording(
-    four_board_file_writer_process, mocker
+    four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
@@ -658,7 +664,7 @@ def test_FileWriterProcess__beta_2_mode__copies_calibration_files_to_new_recordi
 
 
 def test_FileWriterProcess__beta_2_mode__raises_error_if_calibration_files_are_missing__when_receiving_communication_to_start_recording(
-    four_board_file_writer_process, mocker, patch_print
+    four_board_file_writer_process, patch_print
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
@@ -1199,8 +1205,26 @@ def test_FileWriterProcess__adds_incoming_stim_data_to_internal_buffers(
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
-    board_queues = four_board_file_writer_process["board_queues"]
+
     board_idx = 0
+    board_queues = four_board_file_writer_process["board_queues"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    test_stim_info = dict(copy.deepcopy(GENERIC_STIM_INFO))
+    test_stim_info["protocol_assignments"] = {
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(["A", "B"])
+        for well_idx in range(24)
+    }
+
+    expected_stim_info, expected_subprotocol_idx_mappings = chunk_protocols_in_stim_info(test_stim_info)
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": expected_subprotocol_idx_mappings,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
 
     expected_num_packets = 3
     expected_num_items = (
@@ -1258,6 +1282,22 @@ def test_FileWriterProcess__does_not_add_incoming_stim_data_to_internal_buffer_i
     board_idx = 0
     test_stim_buffers = file_writer_process.get_stim_data_buffers(board_idx)
 
+    test_stim_info = dict(copy.deepcopy(GENERIC_STIM_INFO))
+    test_stim_info["protocol_assignments"] = {
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(["A", "B"])
+        for well_idx in range(24)
+    }
+
+    expected_stim_info, expected_subprotocol_idx_mappings = chunk_protocols_in_stim_info(test_stim_info)
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": expected_subprotocol_idx_mappings,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
+
     test_num_items = 3
     packet_len = SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS["well_statuses"][0].shape[1]
     for packet_num in range(test_num_items):
@@ -1268,6 +1308,7 @@ def test_FileWriterProcess__does_not_add_incoming_stim_data_to_internal_buffer_i
         board_queues[board_idx][0].put_nowait(test_packet)
     confirm_queue_is_eventually_of_size(board_queues[board_idx][0], test_num_items)
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=test_num_items - 1)
+
     for well_idx in range(24):
         well_buffers = test_stim_buffers[well_idx]
         assert len(well_buffers[0]) == (test_num_items - 1) * packet_len, well_idx
@@ -1294,9 +1335,28 @@ def test_FileWriterProcess__clears_leftover_stim_data_of_previous_stream_from_bu
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
+
     board_idx = 0
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
     board_queues = four_board_file_writer_process["board_queues"][board_idx]
+
     test_stim_buffers = file_writer_process.get_stim_data_buffers(board_idx)
+
+    test_stim_info = dict(copy.deepcopy(GENERIC_STIM_INFO))
+    test_stim_info["protocol_assignments"] = {
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(["A", "B"])
+        for well_idx in range(24)
+    }
+
+    expected_stim_info, expected_subprotocol_idx_mappings = chunk_protocols_in_stim_info(test_stim_info)
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": expected_subprotocol_idx_mappings,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
 
     # load stim data into buffer
     test_num_items = 4
@@ -1374,6 +1434,22 @@ def test_FileWriterProcess__records_all_relevant_stim_statuses_in_buffer_when_st
     populate_calibration_folder(file_writer_process)
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
+    test_stim_info = dict(copy.deepcopy(GENERIC_STIM_INFO))
+    test_stim_info["protocol_assignments"] = {
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(["A", "B"])
+        for well_idx in range(24)
+    }
+
+    expected_stim_info, expected_subprotocol_idx_mappings = chunk_protocols_in_stim_info(test_stim_info)
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": expected_subprotocol_idx_mappings,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
+
     # dummy packets that will be ignored
     for _ in range(2):
         file_writer_process.append_to_stim_data_buffers(
@@ -1410,7 +1486,9 @@ def test_FileWriterProcess__records_all_relevant_stim_statuses_in_buffer_when_st
     invoke_process_run_and_check_errors(file_writer_process)
 
     expected_stim_data = np.array(
-        [expected_time_indices, np.ones(expected_total_num_data_points, dtype=np.int64)], dtype=np.int64
+        # ones will get converted to zeros
+        [expected_time_indices, np.zeros(expected_total_num_data_points, dtype=np.int64)],
+        dtype=np.int64,
     )
 
     expected_plate_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
@@ -1778,13 +1856,31 @@ def test_FileWriterProcess__raises_error_if_stop_recording_command_received_with
 def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
     four_board_file_writer_process,
 ):
-    # pylint: disable=too-many-locals  # Tanner (10/21/21): many variables needed for this test
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
     populate_calibration_folder(file_writer_process)
+
     board_idx = 0
     instrument_board_queues = four_board_file_writer_process["board_queues"][board_idx]
     comm_from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    test_stim_info = dict(copy.deepcopy(GENERIC_STIM_INFO))
+    test_stim_info["protocol_assignments"] = {
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(["A", "B"])
+        for well_idx in range(24)
+    }
+
+    expected_stim_info, expected_subprotocol_idx_mappings = chunk_protocols_in_stim_info(test_stim_info)
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": expected_subprotocol_idx_mappings,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        set_protocols_command, comm_from_main_queue
+    )
+    invoke_process_run_and_check_errors(file_writer_process)
 
     start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["timepoint_to_begin_recording_at"] = 0
@@ -1828,12 +1924,10 @@ def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
         instrument_board_queues[0].put_nowait(test_packet)
     # process all packets
     confirm_queue_is_eventually_of_size(
-        instrument_board_queues[0],
-        expected_remaining_packets_recorded + num_dummy_packets,
+        instrument_board_queues[0], expected_remaining_packets_recorded + num_dummy_packets
     )
     invoke_process_run_and_check_errors(
-        file_writer_process,
-        num_iterations=(expected_remaining_packets_recorded + num_dummy_packets),
+        file_writer_process, num_iterations=(expected_remaining_packets_recorded + num_dummy_packets)
     )
     confirm_queue_is_eventually_empty(instrument_board_queues[0])
 
@@ -1854,13 +1948,14 @@ def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
     # ensure queue is empty before putting something else in
     confirm_queue_is_eventually_empty(comm_from_main_queue)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        stop_recording_command,
-        comm_from_main_queue,
+        stop_recording_command, comm_from_main_queue
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
     expected_stim_data = np.array(
-        [expected_time_indices, np.ones(expected_total_num_data_points, dtype=np.int64)], dtype=np.int64
+        # ones will get converted to zeros
+        [expected_time_indices, np.zeros(expected_total_num_data_points, dtype=np.int64)],
+        dtype=np.int64,
     )
 
     expected_plate_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
@@ -1868,31 +1963,29 @@ def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
     ]
     timestamp_str = "2020_02_09_190322"
     for well_idx in range(24):
-        this_file = h5py.File(
+        with h5py.File(
             os.path.join(
                 four_board_file_writer_process["file_dir"],
                 f"{expected_plate_barcode}__{timestamp_str}",
                 f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
             ),
             "r",
-        )
-        stimulation_dataset = get_stimulation_dataset_from_file(this_file)
-        assert stimulation_dataset.dtype == "int64", f"Incorrect time index dtype for well {well_idx}"
-        assert stimulation_dataset.shape == (
-            2,
-            expected_total_num_data_points,
-        ), f"Incorrect stim data shape for well {well_idx}"
-        np.testing.assert_array_equal(
-            stimulation_dataset,
-            expected_stim_data,
-            err_msg=f"Incorrect stimulation data for well {well_idx}",
-        )
-
-        this_file.close()
+        ) as this_file:
+            stimulation_dataset = get_stimulation_dataset_from_file(this_file)
+            assert stimulation_dataset.dtype == "int64", f"Incorrect time index dtype for well {well_idx}"
+            assert stimulation_dataset.shape == (
+                2,
+                expected_total_num_data_points,
+            ), f"Incorrect stim data shape for well {well_idx}"
+            np.testing.assert_array_equal(
+                stimulation_dataset,
+                expected_stim_data,
+                err_msg=f"Incorrect stimulation data for well {well_idx}",
+            )
 
 
 def test_FileWriterProcess__stop_recording__immediately_finalizes_any_beta_1_files_that_are_ready(
-    four_board_file_writer_process, mocker
+    four_board_file_writer_process,
 ):
     test_well_indices = [3, 7, 15]
 
@@ -1908,7 +2001,7 @@ def test_FileWriterProcess__stop_recording__immediately_finalizes_any_beta_1_fil
 
 
 def test_FileWriterProcess__stop_recording__immediately_finalizes_all_beta_2_files_if_ready(
-    four_board_file_writer_process, mocker
+    four_board_file_writer_process,
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
@@ -1959,7 +2052,7 @@ def test_FileWriterProcess__stop_recording__immediately_finalizes_all_beta_2_fil
 
 
 def test_FileWriterProcess__stop_managed_acquisition__finalizes_all_files_if_any_are_still_open(
-    four_board_file_writer_process, mocker
+    four_board_file_writer_process,
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()

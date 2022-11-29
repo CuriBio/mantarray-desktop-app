@@ -496,13 +496,21 @@ def create_simple_beta_2_data_packet(
     return data_packet
 
 
-def create_simple_stim_packet(time_index_start, num_data_points, is_first_packet_of_stream=False, step=1):
-    stim_packet = {
+def create_simple_stim_packet(
+    time_index_start, num_data_points, is_first_packet_of_stream=False, step=1, well_idxs=None
+):
+    if not well_idxs:
+        well_idxs = range(24)
+
+    data = np.array(
+        [
+            create_simple_1d_array(time_index_start, num_data_points, np.int64, step=step),
+            np.arange(num_data_points),
+        ]
+    )
+
+    return {
         "data_type": "stimulation",
-        "well_statuses": {
-            well_idx: create_simple_2d_array(time_index_start, num_data_points, np.int64, step=step)
-            for well_idx in range(24)
-        },
+        "well_statuses": {well_idx: data for well_idx in well_idxs},
         "is_first_packet_of_stream": is_first_packet_of_stream,
     }
-    return stim_packet
