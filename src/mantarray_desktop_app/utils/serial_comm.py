@@ -28,6 +28,7 @@ from pulse3D.constants import TAMPER_FLAG_UUID
 from pulse3D.constants import TOTAL_WORKING_HOURS_UUID
 
 from ..constants import GENERIC_24_WELL_DEFINITION
+from ..constants import MICROS_PER_MILLIS
 from ..constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from ..constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from ..constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
@@ -227,7 +228,9 @@ def convert_subprotocol_dict_to_bytes(
     subprotocol_components: Dict[str, int] = {k: v for k, v in subprotocol_dict.items() if isinstance(v, int)}
 
     if is_null:
-        subprotocol_bytes = bytes(24) + subprotocol_components["duration"].to_bytes(4, byteorder="little")
+        subprotocol_bytes = bytes(24) + (subprotocol_components["duration"] // MICROS_PER_MILLIS).to_bytes(
+            4, byteorder="little"
+        )
     else:
         subprotocol_bytes = subprotocol_components["phase_one_duration"].to_bytes(4, byteorder="little") + (
             subprotocol_components["phase_one_charge"] // conversion_factor
@@ -256,7 +259,7 @@ def convert_subprotocol_dict_to_bytes(
         )
         duration += subprotocol_components["postphase_interval"]
         duration *= subprotocol_components["num_cycles"]
-        duration //= int(1e3)  # convert from µs from ms
+        duration //= MICROS_PER_MILLIS  # convert from µs from ms
         subprotocol_bytes += duration.to_bytes(4, byteorder="little")
 
     subprotocol_bytes += bytes([is_null])
@@ -270,7 +273,7 @@ def convert_bytes_to_subprotocol_dict(
 
     if subprotocol_bytes[-1]:
         # the final byte is a flag indicating whether or not this subprotocol is a delay
-        return {"type": "delay", "duration": duration_ms}
+        return {"type": "delay", "duration": duration_ms * MICROS_PER_MILLIS}
 
     conversion_factor = 1 if is_voltage else 10
     subprotocol_dict: Dict[str, Union[int, str]] = {
@@ -305,6 +308,7 @@ def get_subprotocol_cycle_duration(subprotocol: Dict[str, Union[str, int]]) -> i
 
 
 def get_subprotocol_duration(subprotocol: Dict[str, Union[str, int]]) -> int:
+    """Duration is in microseconds."""
     duration = (
         subprotocol["duration"]
         if subprotocol["type"] == "delay"

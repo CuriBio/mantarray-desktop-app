@@ -41,8 +41,8 @@ from ..constants import GENERIC_24_WELL_DEFINITION
 from ..constants import GOING_DORMANT_HANDSHAKE_TIMEOUT_CODE
 from ..constants import MAX_MC_REBOOT_DURATION_SECONDS
 from ..constants import MICRO_TO_BASE_CONVERSION
+from ..constants import MICROS_PER_MILLIS
 from ..constants import MICROSECONDS_PER_CENTIMILLISECOND
-from ..constants import MICROSECONDS_PER_MILLISECOND
 from ..constants import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from ..constants import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
 from ..constants import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
@@ -177,12 +177,10 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     def __init__(
         self,
-        input_queue: Queue[
-            bytes
-        ],  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        output_queue: Queue[bytes],  # pylint: disable=unsubscriptable-object
-        fatal_error_reporter: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
-        testing_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
+        input_queue: Queue[bytes],
+        output_queue: Queue[bytes],
+        fatal_error_reporter: Queue[Dict[str, Any]],
+        testing_queue: Queue[Dict[str, Any]],
         logging_level: int = logging.INFO,
         read_timeout_seconds: Union[int, float] = 0,
         num_wells: int = 24,
@@ -262,6 +260,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         # do nothing if already set to given value
         if value is self._is_stimulating:
             return
+
         if value:
             start_timepoint = _perf_counter_us()
             self._timepoints_of_subprotocols_start = [start_timepoint] * len(self._stim_info["protocols"])
@@ -586,7 +585,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         sampling_period = int.from_bytes(
             comm_from_pc[SERIAL_COMM_PAYLOAD_INDEX : SERIAL_COMM_PAYLOAD_INDEX + 2], byteorder="little"
         )
-        if sampling_period % MICROSECONDS_PER_MILLISECOND != 0:
+        if sampling_period % MICROS_PER_MILLIS != 0:
             raise SerialCommInvalidSamplingPeriodError(sampling_period)
         self._sampling_period_us = sampling_period
         return update_status_byte
@@ -742,7 +741,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             else:
                 curr_subprotocol_duration_us = get_subprotocol_duration(
                     subprotocols[self._stim_subprotocol_indices[protocol_idx]]
-                ) * int(1e3)
+                )
             dur_since_subprotocol_start = _get_us_since_subprotocol_start(start_timepoint)
             while dur_since_subprotocol_start >= curr_subprotocol_duration_us:
                 # update time index for subprotocol
@@ -797,7 +796,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 dur_since_subprotocol_start -= curr_subprotocol_duration_us
                 curr_subprotocol_duration_us = get_subprotocol_duration(
                     subprotocols[self._stim_subprotocol_indices[protocol_idx]]
-                ) * int(1e3)
+                )
         if num_status_updates > 0:
             packet_bytes = bytes([num_status_updates]) + packet_bytes
             self._send_data_packet(SERIAL_COMM_STIM_STATUS_PACKET_TYPE, packet_bytes)

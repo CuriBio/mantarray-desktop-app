@@ -506,19 +506,22 @@ def set_protocols() -> Response:
         # validate stim type
         stim_type = protocol["stimulation_type"]
         if stim_type not in VALID_STIMULATION_TYPES:
-            return Response(status=f"400 Protocol A, Invalid stimulation type: {stim_type}")
+            # TODO randomize the procotol ID in all these tests
+            return Response(status=f"400 Protocol {protocol_id}, Invalid stimulation type: {stim_type}")
 
         # validate subprotocol dictionaries
         for idx, subprotocol in enumerate(protocol["subprotocols"]):
+            subprotocol["type"] = subprotocol["type"].lower()
             subprotocol_type = subprotocol["type"]
             # validate subprotocol type
             if subprotocol_type not in VALID_SUBPROTOCOL_TYPES:
                 return Response(
-                    status=f"400 Protocol A, Subprotocol {idx}, Invalid subprotocol type: {subprotocol_type}"
+                    status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Invalid subprotocol type: {subprotocol_type}"
                 )
 
             # validate subprotocol components
             if subprotocol_type == "delay":
+                # TODO this value is sent in µs, but make sure it is an integer number of milliseconds. Also prevent users from adding fractional milli values in the FE
                 total_subprotocol_duration = subprotocol["duration"]
             else:  # monophasic and biphasic
                 max_abs_charge = (
@@ -544,7 +547,7 @@ def set_protocols() -> Response:
                     if not validator(component_value := subprotocol[component_name]):  # type: ignore
                         component_name = component_name.replace("_", " ")
                         return Response(
-                            status=f"400 Protocol A, Subprotocol {idx}, Invalid {component_name}: {component_value}"
+                            status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Invalid {component_name}: {component_value}"
                         )
 
                 # make sure subprotocol duration (not including period after pulse) is not too large unless it is a delay
@@ -554,7 +557,9 @@ def set_protocols() -> Response:
                 )
 
                 if single_pulse_dur_us > STIM_MAX_PULSE_DURATION_MICROSECONDS:
-                    return Response(status=f"400 Protocol A, Subprotocol {idx}, Pulse duration too long")
+                    return Response(
+                        status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Pulse duration too long"
+                    )
 
                 total_subprotocol_duration = (
                     single_pulse_dur_us + subprotocol["postphase_interval"]
@@ -562,11 +567,13 @@ def set_protocols() -> Response:
 
             if total_subprotocol_duration < STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS:
                 return Response(
-                    status=f"400 Protocol A, Subprotocol {idx}, Subprotocol duration not long enough"
+                    status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Subprotocol duration not long enough"
                 )
             if total_subprotocol_duration > STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS:
-                return Response(status=f"400 Protocol A, Subprotocol {idx}, Subprotocol duration too long")
-            # TODO remove this and prevent using decimal values for a delay duration in the FE
+                return Response(
+                    status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Subprotocol duration too long"
+                )
+            # TODO - remove this and prevent using decimal values for a delay duration in the FE
             # make sure this value is not a float
             if subprotocol_type == "delay":
                 subprotocol["duration"] = int(subprotocol["duration"])

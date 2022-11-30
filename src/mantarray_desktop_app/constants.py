@@ -62,8 +62,8 @@ BARCODE_HEADERS: immutabledict[str, str] = immutabledict({"plate_barcode": "ML",
 ALL_VALID_BARCODE_HEADERS = frozenset(BARCODE_HEADERS.values())
 
 MICROSECONDS_PER_CENTIMILLISECOND = 10
-MICROSECONDS_PER_MILLISECOND = int(1e3)
 
+MICROS_PER_MILLIS = int(1e3)
 MICRO_TO_BASE_CONVERSION = int(1e6)
 
 
