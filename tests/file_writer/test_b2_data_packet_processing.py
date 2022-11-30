@@ -752,7 +752,7 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_timestam
 
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
     test_data_packet = create_simple_stim_packet(
-        start_timepoint - 3, num_data_points, step=2, well_idxs=(0, 1)
+        start_timepoint - first_recorded_idx, num_data_points, step=2, well_idxs=(0, 1)
     )
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0])

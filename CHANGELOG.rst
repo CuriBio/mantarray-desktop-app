@@ -1,12 +1,15 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.0.7 (unreleased)
+1.1.0 (unreleased)
 -------------------
 
 Changed:
 ^^^^^^^^
 - Twitch Frequency is now the default metric displayed in the Heat Map.
+- Beta 2 H5 file format version is now 1.3.0. The format itself hasn't actually changed,
+  but this version will mark the lowest file version that has accurate enough stim data
+  in order to be displayed in Pulse3D.
 
 Fixed:
 ^^^^^^
