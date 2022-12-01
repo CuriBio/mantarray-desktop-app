@@ -1049,7 +1049,10 @@ class FileWriterProcess(InfiniteProcess):
             for timepoint, chunked_subprotocol_idx in well_status_arr.T:
                 # only preserve statuses that aren't from intermediate chunks
                 if chunked_subprotocol_idx in self._subprotocol_indices_to_preserve[assigned_protocol_id]:
-                    timepoint_well_status_pairs.append((timepoint, chunked_subprotocol_idx))
+                    original_subprotocol_idx = self._subprotocol_idx_mappings[assigned_protocol_id][
+                        chunked_subprotocol_idx
+                    ]
+                    timepoint_well_status_pairs.append((timepoint, original_subprotocol_idx))
 
             if timepoint_well_status_pairs:
                 reduced_well_statuses[well_idx] = np.array(timepoint_well_status_pairs, dtype=int).T
