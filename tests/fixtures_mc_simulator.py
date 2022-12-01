@@ -13,6 +13,7 @@ from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_OKAY_CODE
 from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import MICROS_PER_MILLIS
 from mantarray_desktop_app.constants import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
@@ -62,11 +63,16 @@ def get_random_subprotocol():
 
 def get_random_stim_delay(duration=None):
     if duration is None:
-        duration = randint(
-            STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS, STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
-        ) // int(1e3)
+        # make sure this is a whole number of ms
+        duration_ms = randint(
+            STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS // MICROS_PER_MILLIS,
+            STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS // MICROS_PER_MILLIS,
+        )
+        # convert to µs
+        duration = duration_ms * MICROS_PER_MILLIS
     elif not (
         STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS < duration < STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
+        or duration % MICROS_PER_MILLIS != 0
     ):
         raise ValueError(f"Invalid delay duration: {duration}")
     return {"type": "delay", "duration": duration}

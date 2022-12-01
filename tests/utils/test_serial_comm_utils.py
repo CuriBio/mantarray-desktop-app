@@ -318,7 +318,7 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__for_current_
 
 
 def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_subprotocol_is_a_delay():
-    test_subprotocol_dict = {"type": "delay", "duration": 0x111}
+    test_subprotocol_dict = {"type": "delay", "duration": 123000}
     # fmt: off
     expected_bytes = bytes(
         [
@@ -330,13 +330,13 @@ def test_convert_subprotocol_dict_to_bytes__returns_expected_bytes__when_subprot
             0, 0,  # phase_two_charge
             0, 0, 0, 0,  # postphase_interval
             0, 0,  # postphase_interval amplitude (always 0)
-            0x11, 1, 0, 0,  # duration
+            0x7B, 0, 0, 0,  # duration
             1,  # is_null_subprotocol
         ]
     )
     # fmt: on
     actual = convert_subprotocol_dict_to_bytes(test_subprotocol_dict)
-    assert actual == expected_bytes
+    assert_subprotocol_bytes_are_expected(actual, expected_bytes)
 
 
 def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__for_voltage_controlled_monophasic_pulse():
@@ -473,12 +473,12 @@ def test_convert_bytes_to_subprotocol_dict__returns_expected_dict__when_subproto
             0, 0,  # phase_two_charge
             0, 0, 0, 0,  # postphase_interval
             0, 0,  # postphase_interval amplitude (always 0)
-            0x88, 8, 0, 0,  # duration
+            0x41, 1, 0, 0,  # duration
             1,  # is_null_subprotocol
         ]
     )
     # fmt: on
-    expected_subprotocol_dict = {"type": "delay", "duration": 0x888}
+    expected_subprotocol_dict = {"type": "delay", "duration": 321000}
 
     actual = convert_bytes_to_subprotocol_dict(test_bytes)
     assert actual == expected_subprotocol_dict
