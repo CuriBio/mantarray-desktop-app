@@ -545,10 +545,10 @@ def test_FileWriterProcess__passes_stim_data_packet_through_to_output_queue_corr
         {0: np.array([[10, 11], [0, 1]])},
         {1: np.array([[20], [0]])},
         {0: np.array([[10, 11, 12, 13, 14], [0, 1, 2, 3, 0]])},
-        {1: np.array([[20, 22, 24], [0, 2, 0]])},
+        {1: np.array([[20, 22, 24], [0, 1, 0]])},
         {
             0: np.array([[10, 11, 12, 13, 14], [0, 1, 2, 3, 0]]),
-            1: np.array([[20, 22, 24], [0, 2, 0]]),
+            1: np.array([[20, 22, 24], [0, 1, 0]]),
         },
     ]
 
