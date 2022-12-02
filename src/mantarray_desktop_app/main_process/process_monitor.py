@@ -70,7 +70,6 @@ from ..utils.generic import _trim_barcode
 from ..utils.generic import get_redacted_string
 from ..utils.generic import redact_sensitive_info_from_path
 from ..utils.generic import upload_log_files_to_s3
-from ..utils.serial_comm import chunk_protocols_in_stim_info
 
 logger = logging.getLogger(__name__)
 
@@ -273,16 +272,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     }
                 )
             elif command == "set_protocols":
-                stim_info = communication["stim_info"]
-                self._values_to_share_to_server["stimulation_info"] = stim_info
-
-                chunked_stim_info, subprotocol_idx_mappings = chunk_protocols_in_stim_info(stim_info)
-                self._put_communication_into_instrument_comm_queue(
-                    {**communication, "stim_info": chunked_stim_info}
-                )
-                self._process_manager.queue_container.to_file_writer.put_nowait(
-                    {**communication, "subprotocol_idx_mappings": subprotocol_idx_mappings}
-                )
+                self._values_to_share_to_server["stimulation_info"] = communication["stim_info"]
+                self._put_communication_into_instrument_comm_queue(communication)
+                self._process_manager.queue_container.to_file_writer.put_nowait(communication)
             elif command == "start_stim_checks":
                 self._values_to_share_to_server["stimulator_circuit_statuses"] = {
                     well_idx: StimulatorCircuitStatuses.CALCULATING.name.lower()

@@ -2,14 +2,12 @@
 """Utility functions for Serial Communication."""
 from __future__ import annotations
 
-import copy
 import datetime
 import math
 import struct
 from typing import Any
 from typing import Dict
 from typing import List
-from typing import Tuple
 from typing import Union
 from uuid import UUID
 from zlib import crc32
@@ -29,7 +27,7 @@ from pulse3D.constants import TOTAL_WORKING_HOURS_UUID
 
 from ..constants import GENERIC_24_WELL_DEFINITION
 from ..constants import MICROS_PER_MILLIS
-from ..constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES,STIM_COMPLETE_SUBPROTOCOL_IDX
+from ..constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from ..constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from ..constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from ..constants import SERIAL_COMM_OKAY_CODE
@@ -38,7 +36,6 @@ from ..constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from ..constants import SERIAL_COMM_TIMESTAMP_EPOCH
 from ..constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from ..constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
-from ..constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
 from ..constants import STIM_MODULE_ID_TO_WELL_IDX
 from ..constants import STIM_NO_PROTOCOL_ASSIGNED
 from ..constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
@@ -404,54 +401,3 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
         stim_info_dict["protocol_assignments"][well_name] = protocol_id_idx
         curr_byte_idx += 1
     return stim_info_dict
-
-
-def chunk_protocols_in_stim_info(
-    stim_info: Dict[str, Any]
-) -> Tuple[Dict[str, Any], Dict[str, Dict[int, int]]]:
-    # copying so the original dict passed in does not get modified
-    chunked_stim_info = copy.deepcopy(stim_info)
-
-    subprotocol_idx_mappings = {}
-
-    for protocol in chunked_stim_info["protocols"]:
-        chunked_idx_to_original_idx = {STIM_COMPLETE_SUBPROTOCOL_IDX: STIM_COMPLETE_SUBPROTOCOL_IDX}
-        curr_idx = 0
-
-        subprotocol_chunks = []
-        for original_idx, subprotocol in enumerate(protocol["subprotocols"]):
-            if subprotocol["type"] == "delay":
-                subprotocol_chunks.append(subprotocol)
-
-                chunked_idx_to_original_idx[curr_idx] = original_idx
-                curr_idx += 1
-            else:
-                subprotocol_cycle_dur = get_subprotocol_cycle_duration(subprotocol)
-                total_num_cycles = subprotocol["num_cycles"]
-
-                num_cycles_per_full_chunk = (
-                    STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // subprotocol_cycle_dur
-                )
-                num_full_chunks = total_num_cycles // num_cycles_per_full_chunk
-
-                # add full chunks
-                subprotocol_chunks.extend(
-                    [{**subprotocol, "num_cycles": num_cycles_per_full_chunk}] * num_full_chunks
-                )
-
-                # update mapping
-                chunked_idx_to_original_idx.update(
-                    {chunked_idx: original_idx for chunked_idx in range(curr_idx, curr_idx + num_full_chunks)}
-                )
-                curr_idx += num_full_chunks
-
-                # if necessary, add one more incomplete chunk to reach the total number of cycles
-                if num_remaining_cycles := total_num_cycles - (num_cycles_per_full_chunk * num_full_chunks):
-                    subprotocol_chunks.append({**subprotocol, "num_cycles": num_remaining_cycles})
-                    chunked_idx_to_original_idx[curr_idx] = original_idx
-                    curr_idx += 1
-
-        protocol["subprotocols"] = subprotocol_chunks
-        subprotocol_idx_mappings[protocol["protocol_id"]] = chunked_idx_to_original_idx
-
-    return chunked_stim_info, subprotocol_idx_mappings

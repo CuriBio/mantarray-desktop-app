@@ -796,13 +796,6 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
     main_to_ic_queue = test_process_manager.queue_container.to_instrument_comm(0)
     main_to_fw_queue = test_process_manager.queue_container.to_file_writer
 
-    mocked_chunk = mocker.patch.object(
-        process_monitor,
-        "chunk_protocols_in_stim_info",
-        autospec=True,
-        return_value=(mocker.Mock(), mocker.Mock()),
-    )
-
     shared_values_dict["stimulation_running"] = [False] * 24
 
     test_stim_info = {"protocols": [None] * 3, "protocol_assignments": {"dummy": "values"}}
@@ -819,16 +812,9 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
     assert shared_values_dict["stimulation_info"] == test_command["stim_info"]
 
     confirm_queue_is_eventually_of_size(main_to_ic_queue, 1)
-    assert main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == {
-        **test_command,
-        "stim_info": mocked_chunk.return_value[0],
-    }
-
+    assert main_to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == test_command
     confirm_queue_is_eventually_of_size(main_to_fw_queue, 1)
-    assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == {
-        **test_command,
-        "subprotocol_idx_mappings": mocked_chunk.return_value[1],
-    }
+    assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == test_command
 
 
 @pytest.mark.parametrize(

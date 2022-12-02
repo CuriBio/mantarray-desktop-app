@@ -2,19 +2,12 @@ Changelog for Mantarray Desktop App
 ===================================
 
 
-1.1.0 (unreleased)
+1.0.5 (unreleased)
 ------------------
 
 Added:
 ^^^^^^
 - Ability to choose from previously used usernames when logging in.
-- Improvement to accuracy of stim subprotocol timing.
-
-Changed:
-^^^^^^^^
-- Beta 2 H5 file format version is now 1.3.0. The format itself hasn't actually changed,
-  but this version will mark the lowest file version that has accurate enough stim data
-  in order to be displayed in Pulse3D.
 
 Fixed:
 ^^^^^^

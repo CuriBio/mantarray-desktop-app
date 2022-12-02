@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
-import copy
 import datetime
-import itertools
-from random import choice
 from random import randint
 from zlib import crc32
 
@@ -25,14 +22,11 @@ from mantarray_desktop_app import STIM_NO_PROTOCOL_ASSIGNED
 from mantarray_desktop_app import validate_checksum
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_PACKET_BASE_LENGTH_BYTES
-from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES,STIM_COMPLETE_SUBPROTOCOL_IDX
-from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
-from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
+from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from mantarray_desktop_app.constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
 from mantarray_desktop_app.constants import STIM_SHORT_CIRCUIT_THRESHOLD_OHMS
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.utils import serial_comm
-from mantarray_desktop_app.utils.serial_comm import chunk_protocols_in_stim_info
 from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_circuit_status
 from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_impedance
 import numpy as np
@@ -46,9 +40,7 @@ import pytest
 
 from ..fixtures import fixture_patch_print
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
-from ..fixtures_mc_simulator import random_stim_type
 from ..helpers import assert_subprotocol_bytes_are_expected
-from ..helpers import random_bool
 
 
 __fixtures__ = [fixture_patch_print, fixture_mantarray_mc_simulator_no_beacon]
@@ -562,104 +554,3 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
 
     actual = convert_stim_dict_to_bytes(stim_info_dict)
     assert actual == expected_bytes
-
-
-def test_chunk_protocols_in_stim_info__returns_correct_values():
-    test_stim_info = {
-        "protocols": [
-            {
-                "protocol_id": "A",
-                "stimulation_type": random_stim_type(),
-                "run_until_stopped": random_bool(),
-                "subprotocols": [
-                    # this will run for one cycle longer a full chunk, so will be split into two chunks
-                    {
-                        "type": "monophasic",
-                        "phase_one_duration": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 6,
-                        "phase_one_charge": randint(1, 10),
-                        "postphase_interval": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 6,
-                        "num_cycles": 4,
-                    },
-                    # this will run for exactly the max length of a chunk, so shouldn't be modified at all
-                    {
-                        "type": "biphasic",
-                        "phase_one_duration": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 8,
-                        "phase_one_charge": randint(1, 10),
-                        "interphase_interval": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 8,
-                        "phase_two_duration": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 8,
-                        "phase_two_charge": randint(1, 10),
-                        "postphase_interval": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 8,
-                        "num_cycles": 2,
-                    },
-                ],
-            },
-            {
-                "protocol_id": "B",
-                "stimulation_type": random_stim_type(),
-                "run_until_stopped": random_bool(),
-                "subprotocols": [
-                    # this will run for exactly the max length of a chunk, so shouldn't be modified at all
-                    {
-                        "type": "monophasic",
-                        "phase_one_duration": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 2,
-                        "phase_one_charge": randint(1, 10),
-                        "postphase_interval": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 2,
-                        "num_cycles": 1,
-                    },
-                    # delays don't need to be chunked, so this shouldn't be modified at all
-                    {"type": "delay", "duration": STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS},
-                    # this will run for two cycles longer than two full chunks, so will be split into three chunks
-                    {
-                        "type": "biphasic",
-                        "phase_one_duration": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 10,
-                        "phase_one_charge": randint(1, 10),
-                        "interphase_interval": 0,
-                        "phase_two_duration": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 10,
-                        "phase_two_charge": randint(1, 10),
-                        "postphase_interval": STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // 10,
-                        "num_cycles": 8,
-                    },
-                ],
-            },
-        ],
-        "protocol_assignments": {
-            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(["A", "B"])
-            for well_idx in range(24)
-        },
-    }
-
-    expected_chunked_stim_info = copy.deepcopy(test_stim_info)
-    expected_chunked_stim_info["protocols"][0]["subprotocols"] = [
-        {**test_stim_info["protocols"][0]["subprotocols"][0], "num_cycles": 3},
-        {**test_stim_info["protocols"][0]["subprotocols"][0], "num_cycles": 1},
-        test_stim_info["protocols"][0]["subprotocols"][1],
-    ]
-    expected_chunked_stim_info["protocols"][1]["subprotocols"] = [
-        test_stim_info["protocols"][1]["subprotocols"][0],
-        test_stim_info["protocols"][1]["subprotocols"][1],
-        {**test_stim_info["protocols"][1]["subprotocols"][2], "num_cycles": 3},
-        {**test_stim_info["protocols"][1]["subprotocols"][2], "num_cycles": 3},
-        {**test_stim_info["protocols"][1]["subprotocols"][2], "num_cycles": 2},
-    ]
-
-    actual_stim_info, subprotocol_idx_mappings = chunk_protocols_in_stim_info(test_stim_info)
-
-    # test chunked protocol
-    for protocol_idx, (actual_protocol, expected_protocol) in enumerate(
-        itertools.zip_longest(actual_stim_info.pop("protocols"), expected_chunked_stim_info.pop("protocols"))
-    ):
-        for subprotocol_idx, (actual_subprotocol, expected_subprotocol) in enumerate(
-            itertools.zip_longest(actual_protocol.pop("subprotocols"), expected_protocol.pop("subprotocols"))
-        ):
-            assert (
-                actual_subprotocol == expected_subprotocol
-            ), f"Protocol {protocol_idx}, Subprotocol {subprotocol_idx}"
-
-        # make sure the rest of the protocol wasn't changed
-        assert actual_protocol == expected_protocol, f"Protocol {protocol_idx}"
-
-    # make sure other stim info wasn't changed
-    assert actual_stim_info == expected_chunked_stim_info
-
-    # test mapping
-    assert subprotocol_idx_mappings == {"A": {0: 0, 1: 0, 2: 1, STIM_COMPLETE_SUBPROTOCOL_IDX: STIM_COMPLETE_SUBPROTOCOL_IDX}, "B": {0: 0, 1: 1, 2: 2, 3: 2, 4: 2, STIM_COMPLETE_SUBPROTOCOL_IDX: STIM_COMPLETE_SUBPROTOCOL_IDX}}
