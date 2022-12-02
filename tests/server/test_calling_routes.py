@@ -1427,7 +1427,9 @@ def test_set_protocols__returns_error_code_if_any_well_is_missing_from_protocol_
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
-    assert f"Protocol assignments missing wells: {test_missing_wells}" in response.status
+    assert f"Protocol assignments missing wells:" in response.status
+    for well in test_missing_wells:
+        assert f"'{well}'" in response.status
 
 
 @pytest.mark.parametrize(

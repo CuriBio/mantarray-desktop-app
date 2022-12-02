@@ -29,7 +29,7 @@ from pulse3D.constants import TOTAL_WORKING_HOURS_UUID
 
 from ..constants import GENERIC_24_WELL_DEFINITION
 from ..constants import MICROS_PER_MILLIS
-from ..constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
+from ..constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES,STIM_COMPLETE_SUBPROTOCOL_IDX
 from ..constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from ..constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from ..constants import SERIAL_COMM_OKAY_CODE
@@ -415,7 +415,7 @@ def chunk_protocols_in_stim_info(
     subprotocol_idx_mappings = {}
 
     for protocol in chunked_stim_info["protocols"]:
-        chunked_idx_to_original_idx = {}
+        chunked_idx_to_original_idx = {STIM_COMPLETE_SUBPROTOCOL_IDX: STIM_COMPLETE_SUBPROTOCOL_IDX}
         curr_idx = 0
 
         subprotocol_chunks = []

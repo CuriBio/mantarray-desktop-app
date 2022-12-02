@@ -25,7 +25,7 @@ from mantarray_desktop_app import STIM_NO_PROTOCOL_ASSIGNED
 from mantarray_desktop_app import validate_checksum
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_PACKET_BASE_LENGTH_BYTES
-from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES,STIM_COMPLETE_SUBPROTOCOL_IDX
 from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
@@ -662,4 +662,4 @@ def test_chunk_protocols_in_stim_info__returns_correct_values():
     assert actual_stim_info == expected_chunked_stim_info
 
     # test mapping
-    assert subprotocol_idx_mappings == {"A": {0: 0, 1: 0, 2: 1}, "B": {0: 0, 1: 1, 2: 2, 3: 2, 4: 2}}
+    assert subprotocol_idx_mappings == {"A": {0: 0, 1: 0, 2: 1, STIM_COMPLETE_SUBPROTOCOL_IDX: STIM_COMPLETE_SUBPROTOCOL_IDX}, "B": {0: 0, 1: 1, 2: 2, 3: 2, 4: 2, STIM_COMPLETE_SUBPROTOCOL_IDX: STIM_COMPLETE_SUBPROTOCOL_IDX}}
