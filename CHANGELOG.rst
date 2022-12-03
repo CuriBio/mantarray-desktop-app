@@ -8,6 +8,7 @@ Changelog for Mantarray Desktop App
 Added:
 ^^^^^^
 - Ability to choose from previously used usernames when logging in.
+- Better reporting of start up errors.
 
 Fixed:
 ^^^^^^
