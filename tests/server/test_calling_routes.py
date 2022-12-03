@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import itertools
 import json
 import os
 from random import randint
@@ -46,6 +47,10 @@ __fixtures__ = [
     fixture_test_client,
     fixture_generic_queue_container,
 ]
+
+
+def random_protocol_id():
+    return chr(randint(ord("A"), ord("Z")))
 
 
 @pytest.mark.parametrize(
@@ -673,10 +678,11 @@ def test_route_error_message_is_logged(mocker, test_client):
     mocked_logger = mocker.spy(server.logger, "info")
 
     bad_arg = "a"
-    expected_error_msg = f"400 Invalid argument given: {bad_arg}"
+    expected_error_msg = f"Invalid argument given: {bad_arg}"
 
     response = test_client.get(f"/update_settings?{bad_arg}=")
-    assert response.status == expected_error_msg
+    assert response.status_code == 400
+    assert expected_error_msg in response.status
 
     assert expected_error_msg in mocked_logger.call_args[0][0]
 
@@ -1149,7 +1155,7 @@ def test_set_protocols__returns_error_code_if_two_protocols_are_given_with_the_s
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
-    expected_id = "Z"
+    expected_id = random_protocol_id()
     test_stim_info_dict = {
         "protocols": [
             {
@@ -1175,7 +1181,9 @@ def test_set_protocols__returns_error_code_with_invalid_stimulation_type(
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
-    test_stim_info_dict = {"protocols": [{"protocol_id": "A", "stimulation_type": test_stimulation_type}]}
+    test_stim_info_dict = {
+        "protocols": [{"protocol_id": random_protocol_id(), "stimulation_type": test_stimulation_type}]
+    }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
     assert response.status.endswith(f"Invalid stimulation type: {test_stimulation_type}")
@@ -1190,11 +1198,12 @@ def test_set_protocols__returns_error_if_invalid_subprotocol_type_given(
     shared_values_dict["stimulation_running"] = [False] * 24
 
     test_subprotocol_type = "bad_type"
+    test_protocol_id = random_protocol_id()
 
     test_stim_info_dict = {
         "protocols": [
             {
-                "protocol_id": "A",
+                "protocol_id": test_protocol_id,
                 "stimulation_type": random_stim_type(),
                 "subprotocols": [{"type": test_subprotocol_type}],
             }
@@ -1202,7 +1211,9 @@ def test_set_protocols__returns_error_if_invalid_subprotocol_type_given(
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
-    assert response.status.endswith(f"Invalid subprotocol type: {test_subprotocol_type}")
+    assert response.status.endswith(
+        f"Protocol {test_protocol_id}, Subprotocol 0, Invalid subprotocol type: {test_subprotocol_type}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -1285,22 +1296,7 @@ def test_set_protocols__returns_error_if_invalid_subprotocol_type_given(
         ),
         ("biphasic", "phase_two_duration", -1, random_stim_type(), "Invalid phase two duration: -1"),
         ("monophasic", "postphase_interval", -1, random_stim_type(), "Invalid postphase interval: -1"),
-        # (
-        #     "monophasic",
-        #     "postphase_interval",
-        #     STIM_MAX_PULSE_DURATION_MICROSECONDS // int(1e3) - 1,
-        #     random_stim_type(),
-        #     "Total active duration less than the duration of the subprotocol",
-        # ),
         ("biphasic", "postphase_interval", -1, random_stim_type(), "Invalid postphase interval: -1"),
-        # (
-        #     "biphasic",
-        #     "postphase_interval",
-        #     STIM_MAX_PULSE_DURATION_MICROSECONDS // int(1e3) - 1,
-        #     random_stim_type(),
-        #     "Total active duration less than the duration of the subprotocol",
-        # ),
-        # TODO
     ],
 )
 def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value(
@@ -1350,11 +1346,12 @@ def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value
     test_subprotocol[test_subprotocol_component] = test_value
 
     # create stim info
+    test_protocol_id = random_protocol_id()
     test_stim_info_dict = {
         "protocols": [
             {
                 "stimulation_type": test_stim_type,
-                "protocol_id": "A",
+                "protocol_id": test_protocol_id,
                 "run_until_stopped": False,
                 "subprotocols": [test_subprotocol],
             }
@@ -1362,7 +1359,90 @@ def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value
     }
 
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
-    assert f"400 Protocol A, Subprotocol 0, {expected_error_message}" in response.status
+    assert response.status_code == 400
+    assert f"Protocol {test_protocol_id}, Subprotocol 0, {expected_error_message}" in response.status
+
+
+@pytest.mark.parametrize(
+    "test_subprotocol_type,test_subprotocol_component,is_too_long",
+    itertools.product(["monophasic", "biphasic"], ["postphase_interval", "num_cycles"], [True, False]),
+)
+def test_set_protocol__returns_error_code_with_invalid_subprotocol_duration_for_pulse(
+    client_and_server_manager_and_shared_values,
+    mocker,
+    test_subprotocol_type,
+    test_subprotocol_component,
+    is_too_long,
+):
+    mocker.patch.object(server, "queue_command_to_main", autospec=True)
+
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    shared_values_dict["stimulation_running"] = [False] * 24
+
+    test_stim_type = random_stim_type()
+
+    # create an arbitrary protocol to which an invalid value can easily be added
+    test_base_charge = (
+        STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS if test_stim_type == "V" else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
+    )
+
+    test_pulse_dur = STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS // 4
+    test_subprotocol = {
+        "type": test_subprotocol_type,
+        "phase_one_charge": test_base_charge,
+        "phase_one_duration": test_pulse_dur,
+        "postphase_interval": test_pulse_dur,
+        "num_cycles": 2,
+    }
+    if test_subprotocol_type == "biphasic":
+        test_pulse_dur = 3 * (STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS // 8)
+        test_subprotocol.update(
+            {
+                "phase_two_charge": -test_base_charge,
+                "phase_one_duration": test_pulse_dur // 3,
+                "interphase_interval": test_pulse_dur // 3,
+                "phase_two_duration": test_pulse_dur // 3,
+                "postphase_interval": test_pulse_dur // 3,
+            }
+        )
+
+    bad_values = {
+        "num_cycles": {
+            True: (
+                2 * STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS // STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
+                + 1
+            ),
+            False: 1,
+        },
+        "postphase_interval": {
+            True: (STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS // 2 - test_pulse_dur + 1),
+            False: 0,
+        },
+    }
+    test_subprotocol[test_subprotocol_component] = bad_values[test_subprotocol_component][is_too_long]
+
+    # create stim info
+    test_protocol_id = random_protocol_id()
+    test_stim_info_dict = {
+        "protocols": [
+            {
+                "stimulation_type": test_stim_type,
+                "protocol_id": test_protocol_id,
+                "run_until_stopped": False,
+                "subprotocols": [test_subprotocol],
+            }
+        ]
+    }
+
+    response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
+    assert response.status_code == 400
+
+    expected_error_message = (
+        "Subprotocol duration too long" if is_too_long else "Subprotocol duration not long enough"
+    )
+    assert f"Protocol {test_protocol_id}, Subprotocol 0, {expected_error_message}" in response.status
 
 
 def test_set_protocols__returns_error_code_when_pulse_duration_is_too_long(
@@ -1373,11 +1453,12 @@ def test_set_protocols__returns_error_code_when_pulse_duration_is_too_long(
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
+    test_protocol_id = random_protocol_id()
     test_stim_info_dict = {
         "protocols": [
             {
                 "stimulation_type": "V",
-                "protocol_id": "A",
+                "protocol_id": test_protocol_id,
                 "run_until_stopped": True,
                 "subprotocols": [
                     get_random_biphasic_pulse(
@@ -1394,7 +1475,7 @@ def test_set_protocols__returns_error_code_when_pulse_duration_is_too_long(
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
-    assert "Protocol A, Subprotocol 0, Pulse duration too long" in response.status
+    assert f"Protocol {test_protocol_id}, Subprotocol 0, Pulse duration too long" in response.status
 
 
 @pytest.mark.parametrize("test_missing_wells", [{"A1"}, {"C4", "D6"}])
@@ -1407,8 +1488,9 @@ def test_set_protocols__returns_error_code_if_any_well_is_missing_from_protocol_
     shared_values_dict["stimulation_running"] = [False] * 24
 
     test_num_wells = 24
+    test_protocol_id = random_protocol_id()
     protocol_assignments = {
-        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "A"
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): test_protocol_id
         for well_idx in range(test_num_wells)
     }
     for well_name in test_missing_wells:
@@ -1417,7 +1499,7 @@ def test_set_protocols__returns_error_code_if_any_well_is_missing_from_protocol_
     test_stim_info_dict = {
         "protocols": [
             {
-                "protocol_id": "A",
+                "protocol_id": test_protocol_id,
                 "stimulation_type": "C",
                 "run_until_stopped": True,
                 "subprotocols": [get_random_stim_pulse()],
@@ -1427,7 +1509,7 @@ def test_set_protocols__returns_error_code_if_any_well_is_missing_from_protocol_
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
-    assert f"Protocol assignments missing wells:" in response.status
+    assert "Protocol assignments missing wells:" in response.status
     for well in test_missing_wells:
         assert f"'{well}'" in response.status
 
@@ -1444,15 +1526,17 @@ def test_set_protocols__returns_error_code_with_invalid_well_name(
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
+    test_protocol_id = random_protocol_id()
     protocol_assignments = {
-        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "F" for well_idx in range(24)
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): test_protocol_id
+        for well_idx in range(24)
     }
-    protocol_assignments.update({well: "F" for well in test_well_names})
+    protocol_assignments.update({well: test_protocol_id for well in test_well_names})
 
     test_stim_info_dict = {
         "protocols": [
             {
-                "protocol_id": "F",
+                "protocol_id": test_protocol_id,
                 "run_until_stopped": False,
                 "stimulation_type": "V",
                 "subprotocols": [get_random_stim_pulse()],
@@ -1463,7 +1547,9 @@ def test_set_protocols__returns_error_code_with_invalid_well_name(
 
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
-    assert response.status.endswith(f"Protocol assignments contain invalid wells: {test_bad_names}")
+    assert "Protocol assignments contain invalid wells:" in response.status
+    for well in test_bad_names:
+        assert f"'{well}'" in response.status
 
 
 @pytest.mark.parametrize("test_invalid_ids", [{"B"}, {"B", "C"}])
@@ -1547,17 +1633,19 @@ def test_set_protocols__returns_success_code_if_protocols_would_not_be_updated(
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
+    test_protocol_id = random_protocol_id()
     test_stim_info_dict = {
         "protocols": [
             {
-                "protocol_id": "J",
+                "protocol_id": test_protocol_id,
                 "run_until_stopped": False,
                 "stimulation_type": "V",
                 "subprotocols": [get_random_stim_pulse()],
             }
         ],
         "protocol_assignments": {
-            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "J" for well_idx in range(24)
+            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): test_protocol_id
+            for well_idx in range(24)
         },
     }
     shared_values_dict["stimulation_info"] = test_stim_info_dict

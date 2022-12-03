@@ -506,7 +506,6 @@ def set_protocols() -> Response:
         # validate stim type
         stim_type = protocol["stimulation_type"]
         if stim_type not in VALID_STIMULATION_TYPES:
-            # TODO randomize the procotol ID in all these tests
             return Response(status=f"400 Protocol {protocol_id}, Invalid stimulation type: {stim_type}")
 
         # validate subprotocol dictionaries
@@ -521,8 +520,9 @@ def set_protocols() -> Response:
 
             # validate subprotocol components
             if subprotocol_type == "delay":
-                # TODO this value is sent in µs, but make sure it is an integer number of milliseconds. Also prevent users from adding fractional milli values in the FE
-                total_subprotocol_duration = subprotocol["duration"]
+                # make sure this value is not a float
+                subprotocol["duration"] = int(subprotocol["duration"])
+                total_subprotocol_duration_us = subprotocol["duration"]
             else:  # monophasic and biphasic
                 max_abs_charge = (
                     STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
@@ -561,22 +561,18 @@ def set_protocols() -> Response:
                         status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Pulse duration too long"
                     )
 
-                total_subprotocol_duration = (
+                total_subprotocol_duration_us = (
                     single_pulse_dur_us + subprotocol["postphase_interval"]
                 ) * subprotocol["num_cycles"]
 
-            if total_subprotocol_duration < STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS:
+            if total_subprotocol_duration_us < STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS:
                 return Response(
                     status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Subprotocol duration not long enough"
                 )
-            if total_subprotocol_duration > STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS:
+            if total_subprotocol_duration_us > STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS:
                 return Response(
                     status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Subprotocol duration too long"
                 )
-            # TODO - remove this and prevent using decimal values for a delay duration in the FE
-            # make sure this value is not a float
-            if subprotocol_type == "delay":
-                subprotocol["duration"] = int(subprotocol["duration"])
 
     protocol_assignments_dict = stim_info["protocol_assignments"]
     # make sure protocol assignments are not missing any wells and do not contain any invalid wells

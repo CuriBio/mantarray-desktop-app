@@ -291,7 +291,7 @@ def convert_bytes_to_subprotocol_dict(
             subprotocol_dict.pop(k)
 
     subprotocol_dict["num_cycles"] = math.ceil(
-        duration_ms * 1e3 / get_subprotocol_cycle_duration(subprotocol_dict)
+        duration_ms * MICROS_PER_MILLIS / get_subprotocol_cycle_duration(subprotocol_dict)
     )
 
     return subprotocol_dict

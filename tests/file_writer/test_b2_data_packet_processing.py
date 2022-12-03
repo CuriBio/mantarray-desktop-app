@@ -708,7 +708,7 @@ def test_FileWriterProcess_process_stim_data_packet__does_not_add_a_data_packet_
     start_recording_command["active_well_indices"] = [1]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
-    num_data_points = 5  # TODO
+    num_data_points = 5
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
     test_data_packet = create_simple_stim_packet(start_timepoint, num_data_points, well_idxs=(0, 1))
 
