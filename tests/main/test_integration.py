@@ -496,7 +496,9 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                 "protocol_id": "B",
                 "stimulation_type": "C",
                 "run_until_stopped": False,
-                "subprotocols": [get_random_stim_pulse(total_subprotocol_dur_us=MICRO_TO_BASE_CONVERSION) for _ in range(3)],
+                "subprotocols": [
+                    get_random_stim_pulse(total_subprotocol_dur_us=MICRO_TO_BASE_CONVERSION) for _ in range(3)
+                ],
             },
         ],
         "protocol_assignments": test_protocol_assignments,

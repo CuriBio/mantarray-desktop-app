@@ -550,6 +550,7 @@ def set_protocols() -> Response:
                             status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Invalid {component_name}: {component_value}"
                         )
 
+                # TODO make a function for this
                 # make sure subprotocol duration (not including period after pulse) is not too large unless it is a delay
                 single_pulse_dur_us = sum(
                     subprotocol.get(component_name, 0)

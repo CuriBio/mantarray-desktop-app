@@ -291,25 +291,25 @@ def convert_bytes_to_subprotocol_dict(
             subprotocol_dict.pop(k)
 
     subprotocol_dict["num_cycles"] = math.ceil(
-        duration_ms * MICROS_PER_MILLIS / get_subprotocol_cycle_duration(subprotocol_dict)
+        duration_ms * MICROS_PER_MILLIS / get_subprotocol_cycle_duration_us(subprotocol_dict)
     )
 
     return subprotocol_dict
 
 
-def get_subprotocol_cycle_duration(subprotocol: Dict[str, Union[str, int]]) -> int:
+# TODO move these to a stim utils file
+def get_subprotocol_cycle_duration_us(subprotocol: Dict[str, Union[str, int]]) -> int:
     dur_components = set(SUBPROTOCOL_DUR_COMPONENTS)
     if subprotocol["type"] == "monophasic":
         dur_components -= SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS
     return sum(subprotocol[comp] for comp in dur_components)  # type: ignore
 
 
-def get_subprotocol_duration(subprotocol: Dict[str, Union[str, int]]) -> int:
-    """Duration is in microseconds."""
+def get_subprotocol_duration_us(subprotocol: Dict[str, Union[str, int]]) -> int:
     duration = (
         subprotocol["duration"]
         if subprotocol["type"] == "delay"
-        else get_subprotocol_cycle_duration(subprotocol) * subprotocol["num_cycles"]
+        else get_subprotocol_cycle_duration_us(subprotocol) * subprotocol["num_cycles"]
     )
     return duration  # type: ignore
 
@@ -371,7 +371,7 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
         subprotocol_bytes_list = []
         for _ in range(num_subprotocols):
             subprotocol_bytes_list.append(stim_bytes[curr_byte_idx : curr_byte_idx + 29])
-            curr_byte_idx += 29  # is_null_subprotocol byte is unused here
+            curr_byte_idx += 29
 
         stimulation_type = "V" if stim_bytes[curr_byte_idx] else "C"
         run_until_stopped = bool(stim_bytes[curr_byte_idx + 1])

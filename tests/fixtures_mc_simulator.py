@@ -19,6 +19,7 @@ from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import VALID_STIMULATION_TYPES
+from mantarray_desktop_app.utils.serial_comm import SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS
 import pytest
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -81,29 +82,27 @@ def get_random_stim_delay(duration_us=None):
 def get_random_stim_pulse(
     *, allow_errors=False, pulse_type=None, total_subprotocol_dur_us=None, **provided_components
 ):
-    biphasic_components = {"interphase_interval", "phase_two_duration", "phase_two_charge"}
-
     if pulse_type is not None:
         if pulse_type not in ("monophasic", "biphasic"):
             raise ValueError(f"Invalid pulse type: {pulse_type}")
     else:
         # if a biphasic component is provided then the pulse must be biphasic, o/w choose randomly
-        contains_biphasic_component = bool(set(provided_components) & biphasic_components)
+        contains_biphasic_component = bool(set(provided_components) & SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS)
         is_biphasic = contains_biphasic_component or random_bool()
         pulse_type = "biphasic" if is_biphasic else "monophasic"
 
-    all_components = {"phase_one_duration", "phase_one_charge", "postphase_interval", "num_cycles"}
+    all_valid_components = {"phase_one_duration", "phase_one_charge", "postphase_interval", "num_cycles"}
     if is_biphasic:
-        all_components |= biphasic_components
+        all_valid_components |= SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS
 
-    charge_components = {comp for comp in all_components if "charge" in comp}
-    duration_components = all_components - charge_components - {"num_cycles"}
+    charge_components = {comp for comp in all_valid_components if "charge" in comp}
+    duration_components = all_valid_components - charge_components - {"num_cycles"}
     pulse_dur_components = duration_components - {"postphase_interval"}
 
     total_provided_dur_us = sum(provided_components.get(comp, 0) for comp in duration_components)
 
     if not allow_errors:
-        if invalid_components := set(provided_components) - all_components:
+        if invalid_components := set(provided_components) - all_valid_components:
             raise ValueError(f"Invalid {pulse_type} pulse component(s): {invalid_components}")
         if total_provided_dur_us > STIM_MAX_PULSE_DURATION_MICROSECONDS:
             raise ValueError(f"Given {pulse_type} pulse component(s) exceed max pulse duration")
@@ -117,7 +116,7 @@ def get_random_stim_pulse(
                     raise ValueError(
                         f"Cannot provide both total_subprotocol_dur_us and {providable_component}"
                     )
-        # TODO validate charge
+        # TODO validate charge, will need to take a charge type param to do this
 
     if total_subprotocol_dur_us is not None:
         max_dur = min(STIM_MAX_PULSE_DURATION_MICROSECONDS, total_subprotocol_dur_us)

@@ -313,7 +313,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_for_two
         assert actual_tissue_data[8, 0] == time_index_offset * 9
 
 
-def test_FileWriterProcess_process_magnetometer_data_packet__does_not_add_a_data_packet_completely_after_the_stop_recording_timepoint__and_sets_data_finalization_status_to_true(
+def test_FileWriterProcess_process_magnetometer_data_packet__does_not_add_a_data_packet_starting_on_the_stop_recording_timepoint__and_sets_data_finalization_status_to_true(
     four_board_file_writer_process,
 ):
     fw_process = four_board_file_writer_process["fw_process"]
@@ -684,7 +684,7 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_for_two_packets
         assert actual_stimulation_data[1, num_data_points * 2 - 3] == first_recorded_idx + 3 - 1
 
 
-def test_FileWriterProcess_process_stim_data_packet__does_not_add_a_data_packet_completely_after_the_stop_recording_timepoint(
+def test_FileWriterProcess_process_stim_data_packet__does_not_add_a_data_packet_starting_on_the_stop_recording_timepoint(
     four_board_file_writer_process,
 ):
     fw_process = four_board_file_writer_process["fw_process"]

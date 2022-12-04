@@ -174,8 +174,11 @@ def _find_last_valid_data_index(
 
 
 def _find_earliest_valid_stim_status_index(
-    time_index_buffer: Deque[int], earliest_magnetometer_time_idx: int
+    time_index_buffer: List[int], earliest_magnetometer_time_idx: int
 ) -> int:
+    if not time_index_buffer:
+        raise NotImplementedError("time_index_buffer should never be empty here")
+
     idx = len(time_index_buffer) - 1
     while idx > 0 and time_index_buffer[idx] > earliest_magnetometer_time_idx:
         idx -= 1
@@ -1031,12 +1034,11 @@ class FileWriterProcess(InfiniteProcess):
         if stop_recording_timestamp is not None and stim_data_arr[0, 0] >= stop_recording_timestamp:
             return
 
+        # remove unneeded status updates
         earliest_magnetometer_time_idx = this_start_recording_timestamps[1]
         earliest_valid_index = _find_earliest_valid_stim_status_index(
-            stim_data_arr[0], earliest_magnetometer_time_idx
+            stim_data_arr[0].tolist(), earliest_magnetometer_time_idx
         )
-        if earliest_valid_index == -1:
-            return
         stim_data_arr = stim_data_arr[:, earliest_valid_index:]
         # update dataset in h5 file
         this_well_file = self._open_files[board_idx][well_idx]
@@ -1072,11 +1074,14 @@ class FileWriterProcess(InfiniteProcess):
         earliest_magnetometer_time_idx = data_packet_buffer[0]["time_indices"][0]
         stim_data_buffers = self._stim_data_buffers[board_idx]
         for well_buffers in stim_data_buffers.values():
+            if not well_buffers[0]:
+                continue
             earliest_valid_index = _find_earliest_valid_stim_status_index(
-                well_buffers[0], earliest_magnetometer_time_idx
+                list(well_buffers[0]), earliest_magnetometer_time_idx
             )
             for well_buffer in well_buffers:
                 buffer_slice = list(well_buffer)[earliest_valid_index:]
+                # clearing and then extending instead of creating a new deque
                 well_buffer.clear()
                 well_buffer.extend(buffer_slice)
 

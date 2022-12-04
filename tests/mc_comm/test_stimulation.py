@@ -18,7 +18,7 @@ from mantarray_desktop_app.constants import STIM_MODULE_ID_TO_WELL_IDX
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.simulators import mc_simulator
 from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_circuit_status
-from mantarray_desktop_app.utils.serial_comm import get_subprotocol_duration
+from mantarray_desktop_app.utils.serial_comm import get_subprotocol_duration_us
 import numpy as np
 import pytest
 from stdlib_utils import drain_queue
@@ -334,7 +334,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     # remove message to main
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
-    test_duration_us = get_subprotocol_duration(test_subprotocol)
+    test_duration_us = get_subprotocol_duration_us(test_subprotocol)
     # mock so protocol will complete in first iteration
     mocker.patch.object(
         mc_simulator, "_get_us_since_subprotocol_start", autospec=True, return_value=test_duration_us
@@ -415,7 +415,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     # mock so no mag data is produced
     mocker.patch.object(mc_simulator, "_get_us_since_last_data_packet", autospec=True, return_value=0)
 
-    test_duration_us = get_subprotocol_duration(test_subprotocol)
+    test_duration_us = get_subprotocol_duration_us(test_subprotocol)
     # mock so one status update is produced
     mocked_get_us_subprotocol = mocker.patch.object(
         mc_simulator, "_get_us_since_subprotocol_start", autospec=True, return_value=test_duration_us
@@ -529,7 +529,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
 
     expected_global_time_data_start = spied_global_timer.spy_return
 
-    test_duration_us = get_subprotocol_duration(test_subprotocol)
+    test_duration_us = get_subprotocol_duration_us(test_subprotocol)
     # mock so protocol will complete in first iteration
     mocker.patch.object(
         mc_simulator, "_get_us_since_subprotocol_start", autospec=True, return_value=test_duration_us
@@ -609,7 +609,7 @@ def test_McCommunicationProcess__protocols_can_be_updated_and_stimulation_can_be
     }
     set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, test_stim_info)
 
-    test_duration_us = get_subprotocol_duration(test_first_subprotocol)
+    test_duration_us = get_subprotocol_duration_us(test_first_subprotocol)
     # mock so protocol will complete in first iteration
     mocked_get_us_sss = mocker.patch.object(mc_simulator, "_get_us_since_subprotocol_start", autospec=True)
     mocked_get_us_sss.return_value = test_duration_us
@@ -685,7 +685,7 @@ def test_McCommunicationProcess__stim_packets_sent_to_file_writer_after_restarti
     }
     set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, test_stim_info)
 
-    test_duration_us = get_subprotocol_duration(test_subprotocol)
+    test_duration_us = get_subprotocol_duration_us(test_subprotocol)
     # mock so status update will be sent each iteration
     mocked_us_since_subprotocol_start = mocker.patch.object(
         mc_simulator, "_get_us_since_subprotocol_start", autospec=True, return_value=test_duration_us

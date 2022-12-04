@@ -23,7 +23,7 @@ from mantarray_desktop_app.constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PAC
 from mantarray_desktop_app.constants import STIM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app.simulators import mc_simulator
 from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_circuit_status
-from mantarray_desktop_app.utils.serial_comm import get_subprotocol_duration
+from mantarray_desktop_app.utils.serial_comm import get_subprotocol_duration_us
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -509,7 +509,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_packet_when_a_new_subprotoc
     )
     set_stim_info_and_start_stimulating(mantarray_mc_simulator_no_beacon, test_stim_info)
 
-    test_duration_us = get_subprotocol_duration(test_first_subprotocol)
+    test_duration_us = get_subprotocol_duration_us(test_first_subprotocol)
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_subprotocol_start",
@@ -566,7 +566,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_packets_when_multiple_wells
     )
     set_stim_info_and_start_stimulating(mantarray_mc_simulator_no_beacon, test_stim_info)
 
-    test_duration_us = get_subprotocol_duration(test_first_subprotocol)
+    test_duration_us = get_subprotocol_duration_us(test_first_subprotocol)
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_subprotocol_start",
@@ -633,8 +633,8 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_multipl
     )
     set_stim_info_and_start_stimulating(mantarray_mc_simulator_no_beacon, test_stim_info)
 
-    test_duration_us_1 = get_subprotocol_duration(test_first_subprotocol)
-    test_duration_us_2 = get_subprotocol_duration(test_second_subprotocol)
+    test_duration_us_1 = get_subprotocol_duration_us(test_first_subprotocol)
+    test_duration_us_2 = get_subprotocol_duration_us(test_second_subprotocol)
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_subprotocol_start",
@@ -711,8 +711,8 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_subprot
     )
     set_stim_info_and_start_stimulating(mantarray_mc_simulator_no_beacon, test_stim_info)
 
-    test_duration_us_1 = get_subprotocol_duration(test_first_subprotocol)
-    test_duration_us_2 = get_subprotocol_duration(test_second_subprotocol)
+    test_duration_us_1 = get_subprotocol_duration_us(test_first_subprotocol)
+    test_duration_us_2 = get_subprotocol_duration_us(test_second_subprotocol)
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_subprotocol_start",
@@ -785,7 +785,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_null_status_correctly(
     )
     set_stim_info_and_start_stimulating(mantarray_mc_simulator_no_beacon, test_stim_info)
 
-    test_duration_us = get_subprotocol_duration(test_first_subprotocol)
+    test_duration_us = get_subprotocol_duration_us(test_first_subprotocol)
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_subprotocol_start",
@@ -842,7 +842,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_restarting_status_corr
     )
     set_stim_info_and_start_stimulating(mantarray_mc_simulator_no_beacon, test_stim_info)
 
-    test_duration_us = get_subprotocol_duration(test_first_subprotocol)
+    test_duration_us = get_subprotocol_duration_us(test_first_subprotocol)
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_subprotocol_start",
@@ -918,7 +918,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
     )
     set_stim_info_and_start_stimulating(mantarray_mc_simulator_no_beacon, test_stim_info)
 
-    test_duration_us = get_subprotocol_duration(test_first_subprotocol)
+    test_duration_us = get_subprotocol_duration_us(test_first_subprotocol)
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_subprotocol_start",
