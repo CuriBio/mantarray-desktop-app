@@ -33,7 +33,6 @@ from tests.fixtures_file_writer import GENERIC_STIM_INFO
 
 from ..fixtures import fixture_generic_queue_container
 from ..fixtures_mc_simulator import create_random_stim_info
-from ..fixtures_mc_simulator import get_random_biphasic_pulse
 from ..fixtures_mc_simulator import get_random_stim_pulse
 from ..fixtures_mc_simulator import random_stim_type
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
@@ -1461,7 +1460,7 @@ def test_set_protocols__returns_error_code_when_pulse_duration_is_too_long(
                 "protocol_id": test_protocol_id,
                 "run_until_stopped": True,
                 "subprotocols": [
-                    get_random_biphasic_pulse(
+                    get_random_stim_pulse(
                         allow_errors=True,
                         **{
                             "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
