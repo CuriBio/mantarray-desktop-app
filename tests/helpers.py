@@ -15,6 +15,7 @@ from typing import List
 from typing import Optional
 from typing import Union
 
+from mantarray_desktop_app import convert_bytes_to_subprotocol_dict
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
@@ -86,7 +87,10 @@ def handle_putting_multiple_objects_into_empty_queue(
     for next_obj in objs:
         the_queue.put_nowait(next_obj)
     confirm_queue_is_eventually_of_size(
-        the_queue, len(objs), sleep_after_confirm_seconds=sleep_after_confirm_seconds
+        the_queue,
+        len(objs),
+        timeout_seconds=timeout_seconds,
+        sleep_after_confirm_seconds=sleep_after_confirm_seconds,
     )
     start = perf_counter()
     while perf_counter() - start < QUEUE_EMPTY_CHECK_TIMEOUT_SECONDS:
@@ -187,3 +191,16 @@ def assert_serial_packet_is_expected(
 def get_full_packet_size_from_payload_len(payload_len: int) -> int:
     packet_size: int = SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES + payload_len
     return packet_size
+
+
+SUBPROTOCOL_BYTES_LEN = 29
+
+
+def assert_subprotocol_bytes_are_expected(actual, expected):
+    if len(expected) != SUBPROTOCOL_BYTES_LEN:
+        raise ValueError(f"'expected' has incorrect len: {len(expected)}, should be: {SUBPROTOCOL_BYTES_LEN}")
+
+    actual_dict = convert_bytes_to_subprotocol_dict(actual)
+    expected_dict = convert_bytes_to_subprotocol_dict(expected)
+
+    assert actual_dict == expected_dict

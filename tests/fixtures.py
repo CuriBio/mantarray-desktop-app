@@ -84,9 +84,8 @@ def fixture_patch_print(mocker):
 def fixture_fully_running_app_from_main_entrypoint(mocker):
     mocked_configure_logging = mocker.patch.object(main, "configure_logging", autospec=True)
 
-    dict_to_yield = (
-        {}
-    )  # Declare the dictionary up here so that the thread can be accessed after the yield even though it is declared inside the subfunction
+    # Declare the dictionary up here so that the thread can be accessed after the yield even though it is declared inside the subfunction
+    dict_to_yield = {}
 
     def _foo(command_line_args: Optional[List[str]] = None):
         if command_line_args is None:
@@ -129,7 +128,8 @@ def fixture_fully_running_app_from_main_entrypoint(mocker):
         except requests.exceptions.ConnectionError:
             # Tanner (6/21/21): sometimes the server takes a few seconds to shut down, so guard against case where it shuts down before processing this request
             pass
-    dict_to_yield["main_thread"].join()
+    if main_thread := dict_to_yield.get("main_thread"):
+        main_thread.join()
     confirm_port_available(get_server_port_number(), timeout=5)
     # clean up singletons
     clear_server_singletons()

@@ -3,6 +3,7 @@ import copy
 import glob
 import json
 import os
+from random import choice
 
 import h5py
 from mantarray_desktop_app import CalibrationFilesMissingError
@@ -31,6 +32,7 @@ from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 import numpy as np
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import ADC_REF_OFFSET_UUID
@@ -112,11 +114,9 @@ __fixtures__ = [
 
 
 @pytest.mark.timeout(6)
-@pytest.mark.parametrize("test_beta_version,test_description", [(1, "beta 1 mode"), (2, "beta 2 mode")])
+@pytest.mark.parametrize("test_beta_version", [1, 2])
 def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_index__and_supplied_metadata__set_to_swmr_mode__when_receiving_communication_to_start_recording(
-    test_beta_version,
-    test_description,
-    four_board_file_writer_process,
+    test_beta_version, four_board_file_writer_process
 ):
     # Creating 24 files takes a few seconds, so also test that all the metadata and other things are set during this single test
     file_writer_process = four_board_file_writer_process["fw_process"]
@@ -127,7 +127,7 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
     if test_beta_version == 2:
         file_writer_process.set_beta_2_mode()
         populate_calibration_folder(file_writer_process)
-    start_recording_command = copy.deepcopy(
+    start_recording_command = dict(
         GENERIC_BETA_1_START_RECORDING_COMMAND
         if test_beta_version == 1
         else GENERIC_BETA_2_START_RECORDING_COMMAND
@@ -325,7 +325,7 @@ def test_FileWriterProcess__creates_recording_dir_and_files_with_correct_name(
 
     populate_calibration_folder(fw_process)
 
-    this_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    this_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     if test_recording_name:
         this_command["recording_name"] = test_recording_name
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
@@ -358,7 +358,7 @@ def test_FileWriterProcess__beta_1_mode__only_creates_file_indices_specified__wh
     expected_plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
         "metadata_to_copy_onto_main_file_attributes"
     ][PLATE_BARCODE_UUID]
-    this_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    this_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [3, 18]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
@@ -403,7 +403,7 @@ def test_FileWriterProcess__beta_2_mode__creates_files_for_all_active_wells__whe
     expected_plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND[
         "metadata_to_copy_onto_main_file_attributes"
     ][PLATE_BARCODE_UUID]
-    this_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    this_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
@@ -450,7 +450,7 @@ def test_FileWriterProcess__beta_2_mode__creates_files_for_all_active_wells__whe
 
 @pytest.mark.timeout(4)
 def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_metadata__when_receiving_communication_to_start_recording__after_protocols_have_been_set(
-    four_board_file_writer_process, mocker
+    four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
@@ -458,20 +458,21 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    # send set_protocols command
-    expected_stim_info = copy.deepcopy(GENERIC_STIM_INFO)
+    expected_stim_info = dict(copy.deepcopy(GENERIC_STIM_INFO))
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
         "stim_info": expected_stim_info,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
+
     # send start_recording command after set_protocols command
     file_timestamp_str = "2020_02_09_190359"
     expected_plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND[
         "metadata_to_copy_onto_main_file_attributes"
     ][PLATE_BARCODE_UUID]
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     # process both commands
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=2)
@@ -513,7 +514,7 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
 
 @pytest.mark.timeout(4)
 def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_metadata__when_receiving_communication_to_start_recording__before_protocols_have_been_set(
-    four_board_file_writer_process, mocker
+    four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
@@ -526,10 +527,10 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
     expected_plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND[
         "metadata_to_copy_onto_main_file_attributes"
     ][PLATE_BARCODE_UUID]
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     # send set_protocols command
-    expected_stim_info = copy.deepcopy(GENERIC_STIM_INFO)
+    expected_stim_info = dict(copy.deepcopy(GENERIC_STIM_INFO))
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
@@ -576,7 +577,7 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
 
 @pytest.mark.timeout(4)
 def test_FileWriterProcess__beta_2_mode__creates_calibration_files_in_correct_folder__when_receiving_communication_to_start_recording(
-    four_board_file_writer_process, mocker
+    four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
@@ -587,7 +588,7 @@ def test_FileWriterProcess__beta_2_mode__creates_calibration_files_in_correct_fo
         (0, "2020_02_09_190322"),
         (int(10e6), "2020_02_09_190332"),
     ):
-        this_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+        this_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
         this_command["is_calibration_recording"] = True
         # Tanner (12/13/21): only using different start time indices so each recording will have a different timestamp string
         this_command["timepoint_to_begin_recording_at"] = start_time_index
@@ -620,14 +621,14 @@ def test_FileWriterProcess__beta_2_mode__creates_calibration_files_in_correct_fo
 
 
 def test_FileWriterProcess__beta_2_mode__copies_calibration_files_to_new_recording_folder__when_receiving_communication_to_start_recording(
-    four_board_file_writer_process, mocker
+    four_board_file_writer_process,
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     timestamp_str = "2020_02_09_190359"
     expected_plate_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
@@ -660,13 +661,13 @@ def test_FileWriterProcess__beta_2_mode__copies_calibration_files_to_new_recordi
 
 
 def test_FileWriterProcess__beta_2_mode__raises_error_if_calibration_files_are_missing__when_receiving_communication_to_start_recording(
-    four_board_file_writer_process, mocker, patch_print
+    four_board_file_writer_process, patch_print
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     timestamp_str = "2020_02_09_190359"
 
     # populate calibration folder with recording files for some wells
@@ -695,7 +696,7 @@ def test_FileWriterProcess__start_recording__sets_stop_recording_timestamp_to_no
     file_writer_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    this_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    this_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [1, 5]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     file_writer_process.get_stop_recording_timestamps()[0] = 2999283
@@ -734,7 +735,7 @@ def test_FileWriterProcess__stop_recording__sets_stop_recording_timestamp_to_tim
 
     expected_well_idx = 0
     start_timepoint_1 = 440000
-    this_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    this_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     this_command["timepoint_to_begin_recording_at"] = start_timepoint_1
     this_command["active_well_indices"] = [expected_well_idx]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
@@ -753,7 +754,7 @@ def test_FileWriterProcess__stop_recording__sets_stop_recording_timestamp_to_tim
     assert stop_timestamps[0] is None
 
     stop_timepoint = 2968000
-    this_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    this_command = dict(GENERIC_STOP_RECORDING_COMMAND)
     this_command["timepoint_to_stop_recording_at"] = stop_timepoint
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
@@ -788,7 +789,7 @@ def test_FileWriterProcess__stop_recording__sets_stop_recording_timestamp_to_tim
     put_object_into_queue_and_raise_error_if_eventually_still_empty(ref_data_packet, board_queues[0][0])
     invoke_process_run_and_check_errors(file_writer_process)
 
-    this_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    this_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     this_command[
         "timepoint_to_begin_recording_at"
     ] = 3760000  # Tanner (1/13/21): This can be any arbitrary timepoint after the timepoint of the last data packet sent
@@ -820,24 +821,24 @@ def test_FileWriterProcess__closes_the_files_and_sends_communication_to_main_whe
         active_well_indices=[0],
     )
 
-    actual_file = open_the_generic_h5_file(file_dir, well_name="A1", timestamp_str="2020_02_09_190322")
-    # confirm some data already recorded to file
-    actual_data = get_reference_dataset_from_file(actual_file)
-    assert actual_data.shape == (test_num_data_points,)
-    assert actual_data[4] == 8
-    assert actual_data[8] == 16
+    with open_the_generic_h5_file(file_dir, well_name="A1", timestamp_str="2020_02_09_190322") as actual_file:
+        # confirm some data already recorded to file
+        actual_data = get_reference_dataset_from_file(actual_file)
+        assert actual_data.shape == (test_num_data_points,)
+        assert actual_data[4] == 8
+        assert actual_data[8] == 16
 
-    actual_data = get_tissue_dataset_from_file(actual_file)
-    assert actual_data.shape == (test_num_data_points,)
-    assert actual_data[3] == 6
-    assert actual_data[9] == 18
+        actual_data = get_tissue_dataset_from_file(actual_file)
+        assert actual_data.shape == (test_num_data_points,)
+        assert actual_data[3] == 6
+        assert actual_data[9] == 18
 
-    # corruption check closes file for a second time
-    assert spied_h5_close.call_count == 2
+        # corruption check closes file for a second time
+        assert spied_h5_close.call_count == 2
 
-    finalization_msg = msgs_to_main[0]
-    assert finalization_msg["communication_type"] == "file_finalized"
-    assert "_A1" in finalization_msg["file_path"]
+        finalization_msg = msgs_to_main[0]
+        assert finalization_msg["communication_type"] == "file_finalized"
+        assert "_A1" in finalization_msg["file_path"]
 
 
 def test_FileWriterProcess__sends_message_to_main_if_a_corrupt_file_is_found(
@@ -1073,7 +1074,7 @@ def test_FileWriterProcess__records_all_requested_beta_1_magnetometer_data_in_bu
         }
         data_packet_buffer.append(data_packet)
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     start_recording_command["timepoint_to_begin_recording_at"] = expected_start_timepoint
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
@@ -1137,7 +1138,7 @@ def test_FileWriterProcess__records_all_requested_beta_2_magnetometer_data_in_bu
             data_packet[well_idx] = channel_dict
         data_packet_buffer.append(data_packet)
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["timepoint_to_begin_recording_at"] = expected_start_timepoint
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
@@ -1201,8 +1202,24 @@ def test_FileWriterProcess__adds_incoming_stim_data_to_internal_buffers(
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
-    board_queues = four_board_file_writer_process["board_queues"]
+
     board_idx = 0
+    board_queues = four_board_file_writer_process["board_queues"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    test_stim_info = dict(copy.deepcopy(GENERIC_STIM_INFO))
+    test_stim_info["protocol_assignments"] = {
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(["A", "B"])
+        for well_idx in range(24)
+    }
+
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": test_stim_info,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
 
     expected_num_packets = 3
     expected_num_items = (
@@ -1260,6 +1277,20 @@ def test_FileWriterProcess__does_not_add_incoming_stim_data_to_internal_buffer_i
     board_idx = 0
     test_stim_buffers = file_writer_process.get_stim_data_buffers(board_idx)
 
+    test_stim_info = dict(copy.deepcopy(GENERIC_STIM_INFO))
+    test_stim_info["protocol_assignments"] = {
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(["A", "B"])
+        for well_idx in range(24)
+    }
+
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": test_stim_info,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
+
     test_num_items = 3
     packet_len = SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS["well_statuses"][0].shape[1]
     for packet_num in range(test_num_items):
@@ -1270,6 +1301,7 @@ def test_FileWriterProcess__does_not_add_incoming_stim_data_to_internal_buffer_i
         board_queues[board_idx][0].put_nowait(test_packet)
     confirm_queue_is_eventually_of_size(board_queues[board_idx][0], test_num_items)
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=test_num_items - 1)
+
     for well_idx in range(24):
         well_buffers = test_stim_buffers[well_idx]
         assert len(well_buffers[0]) == (test_num_items - 1) * packet_len, well_idx
@@ -1296,9 +1328,26 @@ def test_FileWriterProcess__clears_leftover_stim_data_of_previous_stream_from_bu
 ):
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
+
     board_idx = 0
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
     board_queues = four_board_file_writer_process["board_queues"][board_idx]
+
     test_stim_buffers = file_writer_process.get_stim_data_buffers(board_idx)
+
+    test_stim_info = dict(copy.deepcopy(GENERIC_STIM_INFO))
+    test_stim_info["protocol_assignments"] = {
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(["A", "B"])
+        for well_idx in range(24)
+    }
+
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": test_stim_info,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
 
     # load stim data into buffer
     test_num_items = 4
@@ -1376,6 +1425,20 @@ def test_FileWriterProcess__records_all_relevant_stim_statuses_in_buffer_when_st
     populate_calibration_folder(file_writer_process)
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
+    test_stim_info = dict(copy.deepcopy(GENERIC_STIM_INFO))
+    test_stim_info["protocol_assignments"] = {
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(["A", "B"])
+        for well_idx in range(24)
+    }
+
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": test_stim_info,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
+    invoke_process_run_and_check_errors(file_writer_process)
+
     # dummy packets that will be ignored
     for _ in range(2):
         file_writer_process.append_to_stim_data_buffers(
@@ -1406,7 +1469,7 @@ def test_FileWriterProcess__records_all_relevant_stim_statuses_in_buffer_when_st
         test_packet["well_statuses"] = {well_idx: test_data for well_idx in range(24)}
         file_writer_process.append_to_stim_data_buffers(test_packet["well_statuses"])
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["timepoint_to_begin_recording_at"] = expected_start_timepoint
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
@@ -1452,7 +1515,7 @@ def test_FileWriterProcess__deletes_recorded_beta_1_well_data_after_stop_time(
     file_dir = four_board_file_writer_process["file_dir"]
 
     expected_well_indices = [0, 1, 23]
-    start_recording_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     start_recording_command["timepoint_to_begin_recording_at"] = 0
     start_recording_command["active_well_indices"] = expected_well_indices
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -1494,7 +1557,7 @@ def test_FileWriterProcess__deletes_recorded_beta_1_well_data_after_stop_time(
             * 2,  # Tanner (8/19/12): queues items are processed more reliably if running the process more iterations than needed
         )
 
-    stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_recording_command = dict(GENERIC_STOP_RECORDING_COMMAND)
     stop_recording_command["timepoint_to_stop_recording_at"] = expected_stop_timepoint
     # ensure queue is empty before putting something else in
     confirm_queue_is_eventually_empty(comm_from_main_queue)
@@ -1534,7 +1597,7 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     instrument_board_queues = four_board_file_writer_process["board_queues"]
     comm_from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["timepoint_to_begin_recording_at"] = 0
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         start_recording_command,
@@ -1594,7 +1657,7 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     confirm_queue_is_eventually_empty(instrument_board_queues[0][0])
 
     # send stop recording command
-    stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_recording_command = dict(GENERIC_STOP_RECORDING_COMMAND)
     stop_recording_command["timepoint_to_stop_recording_at"] = expected_stop_timepoint
     # ensure queue is empty before putting something else in
     confirm_queue_is_eventually_empty(comm_from_main_queue)
@@ -1663,7 +1726,7 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
     file_dir = four_board_file_writer_process["file_dir"]
 
     expected_well_idx = 0
-    start_recording_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     start_recording_command["timepoint_to_begin_recording_at"] = 0
     start_recording_command["active_well_indices"] = [expected_well_idx]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -1703,7 +1766,7 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
         num_iterations=(expected_remaining_packets_recorded + dummy_packets),
     )
 
-    stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_recording_command = dict(GENERIC_STOP_RECORDING_COMMAND)
     stop_recording_command["timepoint_to_stop_recording_at"] = expected_stop_timepoint
     # confirm the queue is empty before adding another command
     assert is_queue_eventually_empty(comm_from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -1741,7 +1804,7 @@ def test_FileWriterProcess__raises_error_if_stop_recording_command_received_with
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     test_well_index = 6
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["active_well_indices"] = [test_well_index]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         start_recording_command,
@@ -1764,7 +1827,7 @@ def test_FileWriterProcess__raises_error_if_stop_recording_command_received_with
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
-    stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_recording_command = dict(GENERIC_STOP_RECORDING_COMMAND)
     stop_recording_command["timepoint_to_stop_recording_at"] = start_timepoint - 1
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         stop_recording_command,
@@ -1780,15 +1843,31 @@ def test_FileWriterProcess__raises_error_if_stop_recording_command_received_with
 def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
     four_board_file_writer_process,
 ):
-    # pylint: disable=too-many-locals  # Tanner (10/21/21): many variables needed for this test
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
     populate_calibration_folder(file_writer_process)
+
     board_idx = 0
     instrument_board_queues = four_board_file_writer_process["board_queues"][board_idx]
     comm_from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    test_stim_info = dict(copy.deepcopy(GENERIC_STIM_INFO))
+    test_stim_info["protocol_assignments"] = {
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(["A", "B"])
+        for well_idx in range(24)
+    }
+
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": test_stim_info,
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        set_protocols_command, comm_from_main_queue
+    )
+    invoke_process_run_and_check_errors(file_writer_process)
+
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["timepoint_to_begin_recording_at"] = 0
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         start_recording_command,
@@ -1830,12 +1909,10 @@ def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
         instrument_board_queues[0].put_nowait(test_packet)
     # process all packets
     confirm_queue_is_eventually_of_size(
-        instrument_board_queues[0],
-        expected_remaining_packets_recorded + num_dummy_packets,
+        instrument_board_queues[0], expected_remaining_packets_recorded + num_dummy_packets
     )
     invoke_process_run_and_check_errors(
-        file_writer_process,
-        num_iterations=(expected_remaining_packets_recorded + num_dummy_packets),
+        file_writer_process, num_iterations=(expected_remaining_packets_recorded + num_dummy_packets)
     )
     confirm_queue_is_eventually_empty(instrument_board_queues[0])
 
@@ -1851,13 +1928,12 @@ def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
     invoke_process_run_and_check_errors(file_writer_process)
 
     # send stop recording command
-    stop_recording_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_recording_command = dict(GENERIC_STOP_RECORDING_COMMAND)
     stop_recording_command["timepoint_to_stop_recording_at"] = expected_stop_timepoint
     # ensure queue is empty before putting something else in
     confirm_queue_is_eventually_empty(comm_from_main_queue)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        stop_recording_command,
-        comm_from_main_queue,
+        stop_recording_command, comm_from_main_queue
     )
     invoke_process_run_and_check_errors(file_writer_process)
 
@@ -1870,31 +1946,29 @@ def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
     ]
     timestamp_str = "2020_02_09_190322"
     for well_idx in range(24):
-        this_file = h5py.File(
+        with h5py.File(
             os.path.join(
                 four_board_file_writer_process["file_dir"],
                 f"{expected_plate_barcode}__{timestamp_str}",
                 f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
             ),
             "r",
-        )
-        stimulation_dataset = get_stimulation_dataset_from_file(this_file)
-        assert stimulation_dataset.dtype == "int64", f"Incorrect time index dtype for well {well_idx}"
-        assert stimulation_dataset.shape == (
-            2,
-            expected_total_num_data_points,
-        ), f"Incorrect stim data shape for well {well_idx}"
-        np.testing.assert_array_equal(
-            stimulation_dataset,
-            expected_stim_data,
-            err_msg=f"Incorrect stimulation data for well {well_idx}",
-        )
-
-        this_file.close()
+        ) as this_file:
+            stimulation_dataset = get_stimulation_dataset_from_file(this_file)
+            assert stimulation_dataset.dtype == "int64", f"Incorrect time index dtype for well {well_idx}"
+            assert stimulation_dataset.shape == (
+                2,
+                expected_total_num_data_points,
+            ), f"Incorrect stim data shape for well {well_idx}"
+            np.testing.assert_array_equal(
+                stimulation_dataset,
+                expected_stim_data,
+                err_msg=f"Incorrect stimulation data for well {well_idx}",
+            )
 
 
 def test_FileWriterProcess__stop_recording__immediately_finalizes_any_beta_1_files_that_are_ready(
-    four_board_file_writer_process, mocker
+    four_board_file_writer_process,
 ):
     test_well_indices = [3, 7, 15]
 
@@ -1910,7 +1984,7 @@ def test_FileWriterProcess__stop_recording__immediately_finalizes_any_beta_1_fil
 
 
 def test_FileWriterProcess__stop_recording__immediately_finalizes_all_beta_2_files_if_ready(
-    four_board_file_writer_process, mocker
+    four_board_file_writer_process,
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
@@ -1933,7 +2007,7 @@ def test_FileWriterProcess__stop_recording__immediately_finalizes_all_beta_2_fil
 
     # start recording
     active_well_indices = list(range(24))
-    start_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_command["timepoint_to_begin_recording_at"] = 0
     start_command["active_well_indices"] = active_well_indices
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
@@ -1952,7 +2026,7 @@ def test_FileWriterProcess__stop_recording__immediately_finalizes_all_beta_2_fil
     invoke_process_run_and_check_errors(fw_process)
 
     # stop recording
-    stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
     stop_command["timepoint_to_stop_recording_at"] = data_packet["time_indices"][-1]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
@@ -1961,7 +2035,7 @@ def test_FileWriterProcess__stop_recording__immediately_finalizes_all_beta_2_fil
 
 
 def test_FileWriterProcess__stop_managed_acquisition__finalizes_all_files_if_any_are_still_open(
-    four_board_file_writer_process, mocker
+    four_board_file_writer_process,
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
@@ -1984,7 +2058,7 @@ def test_FileWriterProcess__stop_managed_acquisition__finalizes_all_files_if_any
 
     # start recording
     active_well_indices = list(range(24))
-    start_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_command["timepoint_to_begin_recording_at"] = 0
     start_command["active_well_indices"] = active_well_indices
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)

@@ -15,6 +15,7 @@ from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.main_process import server
 from mantarray_desktop_app.simulators.mc_simulator import MantarrayMcSimulator
@@ -51,8 +52,8 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
-from ..fixtures_mc_simulator import get_null_subprotocol
-from ..fixtures_mc_simulator import get_random_subprotocol
+from ..fixtures_mc_simulator import get_random_stim_delay
+from ..fixtures_mc_simulator import get_random_stim_pulse
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
 from ..fixtures_server import fixture_server_manager
@@ -1196,7 +1197,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     assert response_json["command"] == "start_recording"
 
 
-# TODO parametrize stim barcode to either be a barcode or None
+# TODO parametrize stim barcode to either be a barcode or None ?
 @pytest.mark.parametrize(
     "test_stim_start_timestamp,test_stim_info,expected_stim_info,test_description",
     [
@@ -1223,7 +1224,7 @@ def test_start_recording_command__beta_2_mode__populates_queue_with_stim_barcode
     test_process_manager_creator,
     test_client,
 ):
-    # TODO
+    # TODO ?
     test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
     shared_values_dict = test_process_manager.values_to_share_to_server
     put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
@@ -1324,11 +1325,7 @@ def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_statu
     test_description,
     client_and_server_manager_and_shared_values,
 ):
-    (
-        test_client,
-        (server_manager, _),
-        shared_values_dict,
-    ) = client_and_server_manager_and_shared_values
+    test_client, (server_manager, _), shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_info"] = {"protocols": [None] * 4, "protocol_assignments": {}}
@@ -1354,17 +1351,12 @@ def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_statu
 def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
     client_and_server_manager_and_shared_values, mocker
 ):
-    (
-        test_client,
-        (server_manager, _),
-        shared_values_dict,
-    ) = client_and_server_manager_and_shared_values
+    test_client, (server_manager, _), shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
-    test_delay_dur = 5000.4321
-    test_pulse_dur = 1000.1234
+    test_delay_dur = STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS + 0.4321
 
     test_protocol_dict = {
         "protocols": [
@@ -1372,10 +1364,7 @@ def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
                 "stimulation_type": "C",
                 "protocol_id": "X",
                 "run_until_stopped": True,
-                "subprotocols": [
-                    get_null_subprotocol(test_delay_dur),
-                    get_random_subprotocol(total_active_duration=test_pulse_dur),
-                ],
+                "subprotocols": [get_random_stim_delay(test_delay_dur), get_random_stim_pulse()],
             }
         ],
         "protocol_assignments": {
@@ -1384,9 +1373,8 @@ def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
     }
 
     expected_protocol_dict = copy.deepcopy(test_protocol_dict)
-    for subprotocol in expected_protocol_dict["protocols"][0]["subprotocols"]:
-        for component in ("phase_one_duration", "total_active_duration"):
-            subprotocol[component] = int(subprotocol[component])
+    expected_delay_subprotocol = expected_protocol_dict["protocols"][0]["subprotocols"][0]
+    expected_delay_subprotocol["duration"] = int(expected_delay_subprotocol["duration"])
 
     # Tanner (11/21/22): using side_effect here so that if this function gets called more than once and error will be raised and prevent the test from hanging
     mocker.patch.object(
@@ -1414,11 +1402,7 @@ def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
 def test_start_calibration__populates_queue_to_process_monitor_with_correct_comm(
     client_and_server_manager_and_shared_values, test_beta_2_mode, test_comm_dict
 ):
-    (
-        test_client,
-        (server_manager, _),
-        shared_values_dict,
-    ) = client_and_server_manager_and_shared_values
+    test_client, (server_manager, _), shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = CALIBRATION_NEEDED_STATE
     shared_values_dict["beta_2_mode"] = test_beta_2_mode
     if test_beta_2_mode:
@@ -1438,11 +1422,7 @@ def test_start_calibration__populates_queue_to_process_monitor_with_correct_comm
 def test_start_stim_checks__populates_queue_to_process_monitor_with_correct_comm(
     client_and_server_manager_and_shared_values,
 ):
-    (
-        test_client,
-        (server_manager, _),
-        shared_values_dict,
-    ) = client_and_server_manager_and_shared_values
+    test_client, (server_manager, _), shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["beta_2_mode"] = True
 
@@ -1475,11 +1455,7 @@ def test_start_stim_checks__populates_queue_to_process_monitor_with_correct_comm
 def test_latest_software_version__returns_ok_when_version_string_is_a_valid_semantic_version(
     client_and_server_manager_and_shared_values,
 ):
-    (
-        test_client,
-        (server_manager, _),
-        shared_values_dict,
-    ) = client_and_server_manager_and_shared_values
+    test_client, (server_manager, _), shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
 
     test_version = "10.10.10"
@@ -1500,11 +1476,7 @@ def test_firmware_update_confirmation__sends_correct_command_to_main(
     user_response,
     client_and_server_manager_and_shared_values,
 ):
-    (
-        test_client,
-        (server_manager, _),
-        shared_values_dict,
-    ) = client_and_server_manager_and_shared_values
+    test_client, (server_manager, _), shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
 
     update_accepted = user_response in ("true", "True")

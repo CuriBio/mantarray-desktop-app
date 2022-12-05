@@ -219,7 +219,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     confirm_queue_is_eventually_of_size(main_to_fw_queue, 2)
 
-    expected_start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    expected_start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     expected_start_recording_command.update(
         {
             "active_well_indices": list(range(24)),
@@ -227,8 +227,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
             "timepoint_to_begin_recording_at": 0,
         }
     )
-    expected_start_recording_command["metadata_to_copy_onto_main_file_attributes"].update(
-        {
+    # this is an immutable dict, so converting to a regular dict and updating all in one step
+    expected_start_recording_command["metadata_to_copy_onto_main_file_attributes"] = {
+        **expected_start_recording_command["metadata_to_copy_onto_main_file_attributes"],
+        **{
             START_RECORDING_TIME_INDEX_UUID: 0,
             PLATE_BARCODE_UUID: NOT_APPLICABLE_H5_METADATA,
             PLATE_BARCODE_IS_FROM_SCANNER_UUID: NOT_APPLICABLE_H5_METADATA,
@@ -242,8 +244,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
             INITIAL_MAGNET_FINDING_PARAMS_UUID: GENERIC_BETA_2_START_RECORDING_COMMAND[
                 "metadata_to_copy_onto_main_file_attributes"
             ][INITIAL_MAGNET_FINDING_PARAMS_UUID],
-        }
-    )
+        },
+    }
     assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_start_recording_command
 
     expected_stop_recording_command = {
@@ -786,7 +788,7 @@ def test_MantarrayProcessesMonitor__processes_set_stim_status_command(
 
 
 def test_MantarrayProcessesMonitor__processes_set_protocols_command(
-    test_process_manager_creator, test_monitor
+    test_process_manager_creator, test_monitor, mocker
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
@@ -796,10 +798,12 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
 
     shared_values_dict["stimulation_running"] = [False] * 24
 
+    test_stim_info = {"protocols": [None] * 3, "protocol_assignments": {"dummy": "values"}}
+
     test_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
-        "stim_info": {"protocols": [None] * 3, "protocol_assignments": {"dummy": "values"}},
+        "stim_info": test_stim_info,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)
 

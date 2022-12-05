@@ -74,11 +74,15 @@ from ..constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from ..constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from ..constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
 from ..constants import STIM_MAX_PULSE_DURATION_MICROSECONDS
+from ..constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
+from ..constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from ..constants import StimulatorCircuitStatuses
 from ..constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from ..constants import SUBPROCESS_POLL_DELAY_SECONDS
 from ..constants import SYSTEM_STATUS_UUIDS
 from ..constants import VALID_CONFIG_SETTINGS
+from ..constants import VALID_STIMULATION_TYPES
+from ..constants import VALID_SUBPROTOCOL_TYPES
 from ..exceptions import LocalServerPortAlreadyInUseError
 from ..exceptions import LoginFailedError
 from ..exceptions import RecordingFolderDoesNotExistError
@@ -211,7 +215,7 @@ def system_status() -> Response:
     status = shared_values_dict["system_status"]
     status_dict = {
         "ui_status_code": str(SYSTEM_STATUS_UUIDS[status]),
-        "is_stimulating": False if not shared_values_dict["beta_2_mode"] else _is_stimulating_on_any_well(),
+        "is_stimulating": shared_values_dict["beta_2_mode"] and _is_stimulating_on_any_well(),
         # Tanner (7/1/20): this route may be called before process_monitor adds the following values to shared_values_dict, so default values are needed
         "in_simulation_mode": shared_values_dict.get("in_simulation_mode", False),
         "mantarray_serial_number": shared_values_dict.get("mantarray_serial_number", ""),
@@ -489,85 +493,106 @@ def set_protocols() -> Response:
     # make sure at least one protocol is given
     if not protocol_list:
         return Response(status="400 Protocol list empty")
+
     # validate protocols
-    protocol_ids = set()
+    given_protocol_ids = set()
     for protocol in protocol_list:
         # make sure protocol ID is unique
-        if protocol["protocol_id"] in protocol_ids:
-            return Response(status=f"400 Multiple protocols given with ID: {protocol['protocol_id']}")
-        protocol_ids.add(protocol["protocol_id"])
+        protocol_id = protocol["protocol_id"]
+        if protocol_id in given_protocol_ids:
+            return Response(status=f"400 Multiple protocols given with ID: {protocol_id}")
+        given_protocol_ids.add(protocol_id)
+
         # validate stim type
-        if protocol["stimulation_type"] not in ("C", "V"):
-            return Response(status=f"400 Invalid stimulation type: {protocol['stimulation_type']}")
-        max_abs_charge = (
-            STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
-            if protocol["stimulation_type"] == "V"
-            else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
-        )
-        charge_unit = "mV" if protocol["stimulation_type"] == "V" else "µA"
+        stim_type = protocol["stimulation_type"]
+        if stim_type not in VALID_STIMULATION_TYPES:
+            return Response(status=f"400 Protocol {protocol_id}, Invalid stimulation type: {stim_type}")
+
         # validate subprotocol dictionaries
-        for subprotocol in protocol["subprotocols"]:
-            # subprotocol components
-            if subprotocol["phase_one_duration"] <= 0:
-                return Response(status=f"400 Invalid phase one duration: {subprotocol['phase_one_duration']}")
-            if subprotocol["interphase_interval"] < 0:
+        for idx, subprotocol in enumerate(protocol["subprotocols"]):
+            subprotocol["type"] = subprotocol["type"].lower()
+            subprotocol_type = subprotocol["type"]
+            # validate subprotocol type
+            if subprotocol_type not in VALID_SUBPROTOCOL_TYPES:
                 return Response(
-                    status=f"400 Invalid interphase interval: {subprotocol['interphase_interval']}"
+                    status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Invalid subprotocol type: {subprotocol_type}"
                 )
-            if subprotocol["phase_two_duration"] < 0:
-                return Response(status=f"400 Invalid phase two duration: {subprotocol['phase_two_duration']}")
-            if abs(int(subprotocol["phase_one_charge"])) > max_abs_charge:
+
+            # validate subprotocol components
+            if subprotocol_type == "delay":
+                # make sure this value is not a float
+                subprotocol["duration"] = int(subprotocol["duration"])
+                total_subprotocol_duration_us = subprotocol["duration"]
+            else:  # monophasic and biphasic
+                max_abs_charge = (
+                    STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+                    if stim_type == "V"
+                    else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
+                )
+
+                subprotocol_component_validators = {
+                    "phase_one_duration": lambda n: n > 0,
+                    "phase_one_charge": lambda n: abs(n) <= max_abs_charge,
+                    "postphase_interval": lambda n: n >= 0,
+                }
+                if subprotocol_type == "biphasic":
+                    subprotocol_component_validators.update(
+                        {
+                            "phase_two_duration": lambda n: n > 0,
+                            "phase_two_charge": lambda n: abs(n) <= max_abs_charge,
+                            "interphase_interval": lambda n: n >= 0,
+                        }
+                    )
+                for component_name, validator in subprotocol_component_validators.items():
+                    if not validator(component_value := subprotocol[component_name]):  # type: ignore
+                        component_name = component_name.replace("_", " ")
+                        return Response(
+                            status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Invalid {component_name}: {component_value}"
+                        )
+
+                # TODO make a function for this
+                # make sure subprotocol duration (not including period after pulse) is not too large unless it is a delay
+                single_pulse_dur_us = sum(
+                    subprotocol.get(component_name, 0)
+                    for component_name in ("phase_one_duration", "phase_two_duration", "interphase_interval")
+                )
+
+                if single_pulse_dur_us > STIM_MAX_PULSE_DURATION_MICROSECONDS:
+                    return Response(
+                        status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Pulse duration too long"
+                    )
+
+                total_subprotocol_duration_us = (
+                    single_pulse_dur_us + subprotocol["postphase_interval"]
+                ) * subprotocol["num_cycles"]
+
+            if total_subprotocol_duration_us < STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS:
                 return Response(
-                    status=f"400 Invalid phase one charge: {subprotocol['phase_one_charge']} {charge_unit}"
+                    status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Subprotocol duration not long enough"
                 )
-            if abs(int(subprotocol["phase_two_charge"])) > max_abs_charge:
+            if total_subprotocol_duration_us > STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS:
                 return Response(
-                    status=f"400 Invalid phase two charge: {subprotocol['phase_two_charge']} {charge_unit}"
+                    status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Subprotocol duration too long"
                 )
-            # delay before repeating subprotocol
-            if subprotocol["repeat_delay_interval"] < 0:
-                return Response(
-                    status=f"400 Invalid repeat delay interval: {subprotocol['repeat_delay_interval']}"
-                )
-            # make sure subprotocol duration (not including period after pulse) is not too large unless it is a delay
-            single_pulse_dur_microsecs = (
-                subprotocol["phase_one_duration"]
-                + subprotocol["phase_two_duration"]
-                + subprotocol["interphase_interval"]
-            )
-            if (
-                subprotocol["interphase_interval"] > 0 or subprotocol["phase_two_duration"] > 0
-            ) and single_pulse_dur_microsecs > STIM_MAX_PULSE_DURATION_MICROSECONDS:
-                return Response(status="400 Pulse duration too long")
-            # make sure subprotocol is set to run for at least one full pulse
-            if subprotocol["total_active_duration"] * int(1e3) < single_pulse_dur_microsecs:
-                return Response(status="400 Total active duration less than the duration of the subprotocol")
-            # make sure neither of these values or floats
-            for component in ("phase_one_duration", "total_active_duration"):
-                subprotocol[component] = int(subprotocol[component])
-    # make sure protocol assignments are not missing any wells and do not contain any invalid wells
+
     protocol_assignments_dict = stim_info["protocol_assignments"]
-    expected_well_names = set(
+    # make sure protocol assignments are not missing any wells and do not contain any invalid wells
+    all_well_names = set(
         GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx) for well_idx in range(24)
     )
-    actual_well_names = set(protocol_assignments_dict.keys())
-    for well_name in expected_well_names:
-        if well_name not in protocol_assignments_dict:
-            return Response(status=f"400 Protocol assignments missing well {well_name}")
-        actual_well_names.remove(well_name)
-    if len(actual_well_names) > 0:
-        return Response(status=f"400 Protocol assignments contain invalid well: {actual_well_names.pop()}")
+    given_well_names = set(protocol_assignments_dict.keys())
+    if missing_wells := all_well_names - given_well_names:
+        return Response(status=f"400 Protocol assignments missing wells: {missing_wells}")
+    if invalid_wells := given_well_names - all_well_names:
+        return Response(status=f"400 Protocol assignments contain invalid wells: {invalid_wells}")
     # make sure all protocol IDs are valid and that no protocols are unassigned
-    assigned_ids = set(protocol_assignments_dict.values())
-
-    if None in assigned_ids:
-        assigned_ids.remove(None)  # remove since checking for wells with not assignment is unnecessary
-    for protocol_id in protocol_ids:
-        if protocol_id not in assigned_ids:
-            return Response(status=f"400 Protocol assignments missing protocol ID: {protocol_id}")
-        assigned_ids.remove(protocol_id)
-    if len(assigned_ids) > 0:
-        return Response(status=f"400 Protocol assignments contain invalid protocol ID: {assigned_ids.pop()}")
+    assigned_ids = set(pid for pid in protocol_assignments_dict.values() if pid)
+    if missing_protocol_ids := given_protocol_ids - assigned_ids:
+        return Response(status=f"400 Protocol assignments missing protocol IDs: {missing_protocol_ids}")
+    if invalid_protocol_ids := assigned_ids - given_protocol_ids:
+        return Response(
+            status=f"400 Protocol assignments contain invalid protocol IDs: {invalid_protocol_ids}"
+        )
 
     queue_command_to_main(
         {"communication_type": "stimulation", "command": "set_protocols", "stim_info": stim_info}

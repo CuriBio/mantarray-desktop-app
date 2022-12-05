@@ -24,6 +24,7 @@ from ..fixtures_file_writer import fixture_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_runnable_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_STIM_INFO
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import open_the_generic_h5_file
 from ..fixtures_file_writer import populate_calibration_folder
@@ -109,7 +110,7 @@ def test_FileWriterProcess__does_not_pass_magnetometer_data_packet_through_to_ou
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     # start calibration
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["is_calibration_recording"] = True
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
@@ -132,46 +133,42 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
     populate_calibration_folder(fw_process)
+
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["active_well_indices"] = [3]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
     num_data_points = 50
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
     test_data_packet = create_simple_beta_2_data_packet(
-        start_timepoint,
-        0,
-        start_recording_command["active_well_indices"],
-        num_data_points,
+        start_timepoint, 0, start_recording_command["active_well_indices"], num_data_points
     )
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0][0])
     invoke_process_run_and_check_errors(fw_process)
-    this_file = open_the_generic_h5_file(file_dir, well_name="D1", beta_version=2)
 
-    expected_timestamp = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
-        UTC_BEGINNING_DATA_ACQUISTION_UUID
-    ] + datetime.timedelta(seconds=start_timepoint / MICRO_TO_BASE_CONVERSION)
-    assert this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
-        "%Y-%m-%d %H:%M:%S.%f"
-    )
-    actual_time_index_data = get_time_index_dataset_from_file(this_file)
-    assert actual_time_index_data.shape == (num_data_points,)
-    assert actual_time_index_data[0] == start_timepoint
-    actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
-    assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, num_data_points)
-    assert actual_time_offset_data[0, 8] == 8 * 2
-    assert actual_time_offset_data[1, 5] == 5 * 2
-    actual_tissue_data = get_tissue_dataset_from_file(this_file)
-    assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, num_data_points)
-    assert actual_tissue_data[0, 8] == 8 * 1
-    assert actual_tissue_data[1, 5] == 5 * 2
-    # close file to avoid issues on Windows
-    this_file.close()
+    with open_the_generic_h5_file(file_dir, well_name="D1", beta_version=2) as this_file:
+        expected_timestamp = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+            UTC_BEGINNING_DATA_ACQUISTION_UUID
+        ] + datetime.timedelta(seconds=start_timepoint / MICRO_TO_BASE_CONVERSION)
+        assert this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
+            "%Y-%m-%d %H:%M:%S.%f"
+        )
+        actual_time_index_data = get_time_index_dataset_from_file(this_file)
+        assert actual_time_index_data.shape == (num_data_points,)
+        assert actual_time_index_data[0] == start_timepoint
+        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
+        assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, num_data_points)
+        assert actual_time_offset_data[0, 8] == 8 * 2
+        assert actual_time_offset_data[1, 5] == 5 * 2
+        actual_tissue_data = get_tissue_dataset_from_file(this_file)
+        assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, num_data_points)
+        assert actual_tissue_data[0, 8] == 8 * 1
+        assert actual_tissue_data[1, 5] == 5 * 2
 
 
 def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_timestamp_idx_starts_part_way_through_the_chunk__and_sets_timestamp_metadata_for_tissue_since_this_is_first_piece_of_data(
@@ -180,11 +177,12 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
     populate_calibration_folder(fw_process)
+
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     total_num_data_points = 75
@@ -192,10 +190,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
     time_index_offset = total_num_data_points - num_recorded_data_points
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"] - time_index_offset
     test_data_packet = create_simple_beta_2_data_packet(
-        start_timepoint,
-        0,
-        start_recording_command["active_well_indices"],
-        total_num_data_points,
+        start_timepoint, 0, start_recording_command["active_well_indices"], total_num_data_points
     )
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0][0])
@@ -207,23 +202,21 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
         seconds=(start_recording_command["timepoint_to_begin_recording_at"]) / MICRO_TO_BASE_CONVERSION
     )
 
-    this_file = open_the_generic_h5_file(file_dir, beta_version=2)
-    assert this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
-        "%Y-%m-%d %H:%M:%S.%f"
-    )
-    actual_time_index_data = get_time_index_dataset_from_file(this_file)
-    assert actual_time_index_data.shape == (num_recorded_data_points,)
-    assert actual_time_index_data[0] == start_timepoint + time_index_offset
-    actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
-    assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, num_recorded_data_points)
-    assert actual_time_offset_data[0, 9] == (9 + time_index_offset) * 2
-    assert actual_time_offset_data[1, 6] == (6 + time_index_offset) * 2
-    actual_tissue_data = get_tissue_dataset_from_file(this_file)
-    assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, num_recorded_data_points)
-    assert actual_tissue_data[0, 9] == (9 + time_index_offset) * 1
-    assert actual_tissue_data[1, 6] == (6 + time_index_offset) * 2
-    # close file to avoid issues on Windows
-    this_file.close()
+    with open_the_generic_h5_file(file_dir, beta_version=2) as this_file:
+        assert this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
+            "%Y-%m-%d %H:%M:%S.%f"
+        )
+        actual_time_index_data = get_time_index_dataset_from_file(this_file)
+        assert actual_time_index_data.shape == (num_recorded_data_points,)
+        assert actual_time_index_data[0] == start_timepoint + time_index_offset
+        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
+        assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, num_recorded_data_points)
+        assert actual_time_offset_data[0, 9] == (9 + time_index_offset) * 2
+        assert actual_time_offset_data[1, 6] == (6 + time_index_offset) * 2
+        actual_tissue_data = get_tissue_dataset_from_file(this_file)
+        assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, num_recorded_data_points)
+        assert actual_tissue_data[0, 9] == (9 + time_index_offset) * 1
+        assert actual_tissue_data[1, 6] == (6 + time_index_offset) * 2
 
 
 def test_FileWriterProcess_process_magnetometer_data_packet__does_not_write_data_if_data_chunk_is_all_before_the_timestamp_idx(
@@ -232,35 +225,31 @@ def test_FileWriterProcess_process_magnetometer_data_packet__does_not_write_data
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
     populate_calibration_folder(fw_process)
+
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     num_data_points = 30
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"] - num_data_points
     test_data_packet = create_simple_beta_2_data_packet(
-        start_timepoint,
-        0,
-        start_recording_command["active_well_indices"],
-        num_data_points,
+        start_timepoint, 0, start_recording_command["active_well_indices"], num_data_points
     )
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0][0])
     invoke_process_run_and_check_errors(fw_process)
 
-    this_file = open_the_generic_h5_file(file_dir, beta_version=2)
-    assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) not in this_file.attrs
-    actual_time_index_data = get_time_index_dataset_from_file(this_file)
-    assert actual_time_index_data.shape == (0,)
-    actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
-    assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, 0)
-    actual_tissue_data = get_tissue_dataset_from_file(this_file)
-    assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, 0)
-    # close file to avoid issues on Windows
-    this_file.close()
+    with open_the_generic_h5_file(file_dir, beta_version=2) as this_file:
+        assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) not in this_file.attrs
+        actual_time_index_data = get_time_index_dataset_from_file(this_file)
+        assert actual_time_index_data.shape == (0,)
+        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
+        assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, 0)
+        actual_tissue_data = get_tissue_dataset_from_file(this_file)
+        assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, 0)
 
 
 def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_for_two_packets_when_the_timestamp_idx_starts_part_way_through_the_first_packet__and_sets_timestamp_metadata_for_tissue_since_this_is_first_piece_of_data(
@@ -269,11 +258,12 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_for_two
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
     populate_calibration_folder(fw_process)
+
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
@@ -282,10 +272,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_for_two
     time_index_offset = total_num_data_points_1 - num_recorded_data_points_1
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"] - time_index_offset
     first_data_packet = create_simple_beta_2_data_packet(
-        start_timepoint,
-        0,
-        start_recording_command["active_well_indices"],
-        total_num_data_points_1,
+        start_timepoint, 0, start_recording_command["active_well_indices"], total_num_data_points_1
     )
     num_data_points_2 = 15
     second_data_packet = create_simple_beta_2_data_packet(
@@ -301,95 +288,93 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_for_two
 
     num_recorded_data_points = num_recorded_data_points_1 + num_data_points_2
 
-    this_file = open_the_generic_h5_file(file_dir, beta_version=2)
-    expected_timestamp = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
-        UTC_BEGINNING_DATA_ACQUISTION_UUID
-    ] + datetime.timedelta(
-        seconds=(start_recording_command["timepoint_to_begin_recording_at"]) / MICRO_TO_BASE_CONVERSION
-    )
-    assert this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
-        "%Y-%m-%d %H:%M:%S.%f"
-    )
-    actual_time_index_data = get_time_index_dataset_from_file(this_file)
-    assert actual_time_index_data.shape == (num_recorded_data_points,)
-    assert actual_time_index_data[0] == start_timepoint + time_index_offset
-    assert actual_time_index_data[-1] == start_timepoint + time_index_offset + num_recorded_data_points - 1
-    actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
-    assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, num_recorded_data_points)
-    assert actual_time_offset_data[0, -1] == (num_recorded_data_points - 1 + time_index_offset) * 2
-    assert actual_time_offset_data[1, 0] == time_index_offset * 2
-    actual_tissue_data = get_tissue_dataset_from_file(this_file)
-    assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, num_recorded_data_points)
-    assert actual_tissue_data[0, -1] == (num_recorded_data_points - 1 + time_index_offset) * 1
-    assert actual_tissue_data[8, 0] == time_index_offset * 9
-    # close file to avoid issues on Windows
-    this_file.close()
+    with open_the_generic_h5_file(file_dir, beta_version=2) as this_file:
+        expected_timestamp = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+            UTC_BEGINNING_DATA_ACQUISTION_UUID
+        ] + datetime.timedelta(
+            seconds=(start_recording_command["timepoint_to_begin_recording_at"]) / MICRO_TO_BASE_CONVERSION
+        )
+        assert this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
+            "%Y-%m-%d %H:%M:%S.%f"
+        )
+        actual_time_index_data = get_time_index_dataset_from_file(this_file)
+        assert actual_time_index_data.shape == (num_recorded_data_points,)
+        assert actual_time_index_data[0] == start_timepoint + time_index_offset
+        assert (
+            actual_time_index_data[-1] == start_timepoint + time_index_offset + num_recorded_data_points - 1
+        )
+        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
+        assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, num_recorded_data_points)
+        assert actual_time_offset_data[0, -1] == (num_recorded_data_points - 1 + time_index_offset) * 2
+        assert actual_time_offset_data[1, 0] == time_index_offset * 2
+        actual_tissue_data = get_tissue_dataset_from_file(this_file)
+        assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, num_recorded_data_points)
+        assert actual_tissue_data[0, -1] == (num_recorded_data_points - 1 + time_index_offset) * 1
+        assert actual_tissue_data[8, 0] == time_index_offset * 9
 
 
-def test_FileWriterProcess_process_magnetometer_data_packet__does_not_add_a_data_packet_completely_after_the_stop_recording_timepoint__and_sets_data_finalization_status_to_true(
+def test_FileWriterProcess_process_magnetometer_data_packet__does_not_add_a_data_packet_starting_on_the_stop_recording_timepoint__and_sets_data_finalization_status_to_true(
     four_board_file_writer_process,
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
     populate_calibration_folder(fw_process)
+
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     num_recorded_data_points = 10
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
     recorded_data_packet = create_simple_beta_2_data_packet(
-        start_timepoint,
-        0,
-        start_recording_command["active_well_indices"],
-        num_recorded_data_points,
+        start_timepoint, 0, start_recording_command["active_well_indices"], num_recorded_data_points
     )
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(recorded_data_packet, board_queues[0][0])
     invoke_process_run_and_check_errors(fw_process)
 
-    this_file = open_the_generic_h5_file(file_dir, beta_version=2)
-    # confirm some data already recorded to file
-    actual_time_index_data = get_time_index_dataset_from_file(this_file)
-    assert actual_time_index_data.shape == (num_recorded_data_points,)
-    assert actual_time_index_data[-1] == start_timepoint + num_recorded_data_points - 1
-    actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
-    assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, num_recorded_data_points)
-    assert actual_time_offset_data[0, 0] == 0
-    assert actual_time_offset_data[1, -1] == (num_recorded_data_points - 1) * 2
-    actual_tissue_data = get_tissue_dataset_from_file(this_file)
-    assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, num_recorded_data_points)
-    assert actual_tissue_data[0, 0] == 0
-    assert actual_tissue_data[1, -1] == (num_recorded_data_points - 1) * 2
+    with open_the_generic_h5_file(file_dir, beta_version=2) as this_file:
+        # confirm some data already recorded to file
+        actual_time_index_data = get_time_index_dataset_from_file(this_file)
+        assert actual_time_index_data.shape == (num_recorded_data_points,)
+        assert actual_time_index_data[-1] == start_timepoint + num_recorded_data_points - 1
+        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
+        assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, num_recorded_data_points)
+        assert actual_time_offset_data[0, 0] == 0
+        assert actual_time_offset_data[1, -1] == (num_recorded_data_points - 1) * 2
+        actual_tissue_data = get_tissue_dataset_from_file(this_file)
+        assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, num_recorded_data_points)
+        assert actual_tissue_data[0, 0] == 0
+        assert actual_tissue_data[1, -1] == (num_recorded_data_points - 1) * 2
 
-    stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
+        stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
 
-    ignored_data_packet = create_simple_beta_2_data_packet(
-        stop_command["timepoint_to_stop_recording_at"],
-        num_recorded_data_points,
-        start_recording_command["active_well_indices"],
-        15,
-    )
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(ignored_data_packet, board_queues[0][0])
-    invoke_process_run_and_check_errors(fw_process)
+        ignored_data_packet = create_simple_beta_2_data_packet(
+            stop_command["timepoint_to_stop_recording_at"],
+            num_recorded_data_points,
+            start_recording_command["active_well_indices"],
+            15,
+        )
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(
+            ignored_data_packet, board_queues[0][0]
+        )
+        invoke_process_run_and_check_errors(fw_process)
 
-    # confirm no additional data added to file
-    actual_time_index_data = get_time_index_dataset_from_file(this_file)
-    assert actual_time_index_data.shape == (num_recorded_data_points,)
-    actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
-    assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, num_recorded_data_points)
-    actual_tissue_data = get_tissue_dataset_from_file(this_file)
-    assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, num_recorded_data_points)
-    # TODO Tanner (5/19/21): add assertion about reference data once it is added to Beta 2 files
+        # confirm no additional data added to file
+        actual_time_index_data = get_time_index_dataset_from_file(this_file)
+        assert actual_time_index_data.shape == (num_recorded_data_points,)
+        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
+        assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, num_recorded_data_points)
+        actual_tissue_data = get_tissue_dataset_from_file(this_file)
+        assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, num_recorded_data_points)
+        # TODO Tanner (5/19/21): add assertion about reference data once it is added to Beta 2 files
 
-    tissue_status, _ = fw_process.get_recording_finalization_statuses()
-    assert tissue_status[0][4] is True
-    # close file to avoid issues on Windows
-    this_file.close()
+        tissue_status, _ = fw_process.get_recording_finalization_statuses()
+        assert tissue_status[0][4] is True
 
 
 def test_FileWriterProcess_process_magnetometer_data_packet__adds_a_data_packet_completely_before_the_stop_recording_timepoint__and_does_not_set_data_finalization_status_to_true(
@@ -398,74 +383,72 @@ def test_FileWriterProcess_process_magnetometer_data_packet__adds_a_data_packet_
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
     populate_calibration_folder(fw_process)
+
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["active_well_indices"] = [4]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
-    stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
 
     num_data_points_1 = 26
     start_timepoint_1 = start_recording_command["timepoint_to_begin_recording_at"]
     test_data_packet_1 = create_simple_beta_2_data_packet(
-        start_timepoint_1,
-        0,
-        start_recording_command["active_well_indices"],
-        num_data_points_1,
+        start_timepoint_1, 0, start_recording_command["active_well_indices"], num_data_points_1
     )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet_1, board_queues[0][0])
     invoke_process_run_and_check_errors(fw_process)
 
-    this_file = open_the_generic_h5_file(file_dir, beta_version=2)
-    # confirm some data already recorded to file
-    actual_time_index_data = get_time_index_dataset_from_file(this_file)
-    assert actual_time_index_data.shape == (num_data_points_1,)
-    assert actual_time_index_data[7] == start_timepoint_1 + 7
-    actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
-    assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, num_data_points_1)
-    assert actual_time_offset_data[0, 15] == 15 * 2
-    assert actual_time_offset_data[1, 5] == 5 * 2
-    actual_tissue_data = get_tissue_dataset_from_file(this_file)
-    assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, num_data_points_1)
-    assert actual_tissue_data[0, 15] == 15 * 1
-    assert actual_tissue_data[1, 5] == 5 * 2
+    with open_the_generic_h5_file(file_dir, beta_version=2) as this_file:
+        # confirm some data already recorded to file
+        actual_time_index_data = get_time_index_dataset_from_file(this_file)
+        assert actual_time_index_data.shape == (num_data_points_1,)
+        assert actual_time_index_data[7] == start_timepoint_1 + 7
+        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
+        assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, num_data_points_1)
+        assert actual_time_offset_data[0, 15] == 15 * 2
+        assert actual_time_offset_data[1, 5] == 5 * 2
+        actual_tissue_data = get_tissue_dataset_from_file(this_file)
+        assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, num_data_points_1)
+        assert actual_tissue_data[0, 15] == 15 * 1
+        assert actual_tissue_data[1, 5] == 5 * 2
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
 
-    num_data_points_2 = 24
-    start_timepoint_2 = stop_command["timepoint_to_stop_recording_at"] - num_data_points_2
-    test_data_packet_2 = create_simple_beta_2_data_packet(
-        start_timepoint_2,
-        num_data_points_1,
-        start_recording_command["active_well_indices"],
-        num_data_points_2,
-    )
-    assert test_data_packet_2["time_indices"][-1] == stop_command["timepoint_to_stop_recording_at"] - 1
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet_2, board_queues[0][0])
-    invoke_process_run_and_check_errors(fw_process)
+        num_data_points_2 = 24
+        start_timepoint_2 = stop_command["timepoint_to_stop_recording_at"] - num_data_points_2
+        test_data_packet_2 = create_simple_beta_2_data_packet(
+            start_timepoint_2,
+            num_data_points_1,
+            start_recording_command["active_well_indices"],
+            num_data_points_2,
+        )
+        assert test_data_packet_2["time_indices"][-1] == stop_command["timepoint_to_stop_recording_at"] - 1
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(
+            test_data_packet_2, board_queues[0][0]
+        )
+        invoke_process_run_and_check_errors(fw_process)
 
-    total_num_data_points = num_data_points_1 + num_data_points_2
-    # confirm additional data added to file
-    actual_time_index_data = get_time_index_dataset_from_file(this_file)
-    assert actual_time_index_data.shape == (total_num_data_points,)
-    assert actual_time_index_data[-1] == stop_command["timepoint_to_stop_recording_at"] - 1
-    actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
-    assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, total_num_data_points)
-    assert actual_time_offset_data[0, 11] == 11 * 2
-    assert actual_time_offset_data[1, 14] == 14 * 2
-    actual_tissue_data = get_tissue_dataset_from_file(this_file)
-    assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, total_num_data_points)
-    assert actual_tissue_data[3, 11] == 11 * 4
-    assert actual_tissue_data[5, 14] == 14 * 6
-    # TODO Tanner (5/19/21): add assertion about reference data once it is added to Beta 2 files
+        total_num_data_points = num_data_points_1 + num_data_points_2
+        # confirm additional data added to file
+        actual_time_index_data = get_time_index_dataset_from_file(this_file)
+        assert actual_time_index_data.shape == (total_num_data_points,)
+        assert actual_time_index_data[-1] == stop_command["timepoint_to_stop_recording_at"] - 1
+        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
+        assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, total_num_data_points)
+        assert actual_time_offset_data[0, 11] == 11 * 2
+        assert actual_time_offset_data[1, 14] == 14 * 2
+        actual_tissue_data = get_tissue_dataset_from_file(this_file)
+        assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, total_num_data_points)
+        assert actual_tissue_data[3, 11] == 11 * 4
+        assert actual_tissue_data[5, 14] == 14 * 6
+        # TODO Tanner (5/19/21): add assertion about reference data once it is added to Beta 2 files
 
-    tissue_status, _ = fw_process.get_recording_finalization_statuses()
-    assert tissue_status[0][4] is False
-    # close file to avoid issues on Windows
-    this_file.close()
+        tissue_status, _ = fw_process.get_recording_finalization_statuses()
+        assert tissue_status[0][4] is False
 
 
 def test_FileWriterProcess_process_magnetometer_data_packet__updates_dict_of_time_index_of_latest_recorded_data__when_new_data_is_added(
@@ -474,20 +457,18 @@ def test_FileWriterProcess_process_magnetometer_data_packet__updates_dict_of_tim
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
     populate_calibration_folder(fw_process)
+
     board_queues = four_board_file_writer_process["board_queues"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["timepoint_to_begin_recording_at"] = 0
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
 
     expected_latest_timepoint = 100
     test_data_packet = create_simple_beta_2_data_packet(
-        expected_latest_timepoint,
-        0,
-        start_recording_command["active_well_indices"],
-        1,
+        expected_latest_timepoint, 0, start_recording_command["active_well_indices"], 1
     )
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0][0])
     invoke_process_run_and_check_errors(fw_process)
@@ -535,31 +516,38 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_whole_da
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
     populate_calibration_folder(fw_process)
+
     board_idx = 0
     board_queues = four_board_file_writer_process["board_queues"][board_idx]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    start_recording_command["active_well_indices"] = [14]
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": dict(copy.deepcopy(GENERIC_STIM_INFO)),
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command["active_well_indices"] = [1]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
     num_data_points = 5
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
-    test_data_packet = create_simple_stim_packet(start_timepoint, num_data_points)
+    test_data_packet = create_simple_stim_packet(start_timepoint, num_data_points, well_idxs=(0, 1))
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0])
     invoke_process_run_and_check_errors(fw_process)
-    this_file = open_the_generic_h5_file(file_dir, well_name="C4", beta_version=2)
 
-    actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
-    assert actual_stimulation_data.shape == (2, num_data_points)
-    assert actual_stimulation_data[0, 0] == start_timepoint
-    assert actual_stimulation_data[1, 0] == start_timepoint
-    assert actual_stimulation_data[0, num_data_points - 1] == start_timepoint + num_data_points - 1
-    assert actual_stimulation_data[1, num_data_points - 1] == start_timepoint + num_data_points - 1
-    # close file to avoid issues on Windows
-    this_file.close()
+    with open_the_generic_h5_file(file_dir, well_name="B1", beta_version=2) as this_file:
+        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
+        assert actual_stimulation_data.shape == (2, num_data_points)
+        assert actual_stimulation_data[0, 0] == start_timepoint
+        assert actual_stimulation_data[1, 0] == 0
+        assert actual_stimulation_data[0, num_data_points - 1] == start_timepoint + num_data_points - 1
+        assert actual_stimulation_data[1, num_data_points - 1] == num_data_points - 1
 
 
 def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_timestamp_idx_starts_part_way_through_the_chunk(
@@ -568,31 +556,42 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_timestam
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
     populate_calibration_folder(fw_process)
+
     board_idx = 0
     board_queues = four_board_file_writer_process["board_queues"][board_idx]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    start_recording_command["active_well_indices"] = [14]
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": dict(copy.deepcopy(GENERIC_STIM_INFO)),
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command["active_well_indices"] = [0]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
     num_data_points = 5
+    first_recorded_idx = 1
+
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
-    test_data_packet = create_simple_stim_packet(start_timepoint - 3, num_data_points, step=2)
+    test_data_packet = create_simple_stim_packet(
+        start_timepoint - 3, num_data_points, step=2, well_idxs=(0, 1)
+    )
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0])
     invoke_process_run_and_check_errors(fw_process)
-    this_file = open_the_generic_h5_file(file_dir, well_name="C4", beta_version=2)
 
-    actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
-    assert actual_stimulation_data.shape == (2, num_data_points - 1)
-    assert actual_stimulation_data[0, 0] == start_timepoint - 1
-    assert actual_stimulation_data[1, 0] == start_timepoint - 1
-    assert actual_stimulation_data[0, 1] == start_timepoint + 1
-    assert actual_stimulation_data[1, 1] == start_timepoint + 1
-    # close file to avoid issues on Windows
-    this_file.close()
+    with open_the_generic_h5_file(file_dir, well_name="A1", beta_version=2) as this_file:
+        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
+        assert actual_stimulation_data.shape == (2, num_data_points - 1)
+        assert actual_stimulation_data[0, 0] == start_timepoint - 1
+        assert actual_stimulation_data[1, 0] == first_recorded_idx
+        assert actual_stimulation_data[0, 1] == start_timepoint + 1
+        assert actual_stimulation_data[1, 1] == first_recorded_idx + 1
 
 
 def test_FileWriterProcess_process_stim_data_packet__writes_only_final_data_point_if_chunk_is_all_before_the_timestamp_idx(
@@ -601,29 +600,39 @@ def test_FileWriterProcess_process_stim_data_packet__writes_only_final_data_poin
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
     populate_calibration_folder(fw_process)
+
     board_idx = 0
     board_queues = four_board_file_writer_process["board_queues"][board_idx]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    start_recording_command["active_well_indices"] = [14]
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": dict(copy.deepcopy(GENERIC_STIM_INFO)),
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command["active_well_indices"] = [0]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
     num_data_points = 5
+
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
-    test_data_packet = create_simple_stim_packet(start_timepoint - 5, num_data_points)
+    test_data_packet = create_simple_stim_packet(
+        start_timepoint - num_data_points, num_data_points, well_idxs=(0, 1)
+    )
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0])
     invoke_process_run_and_check_errors(fw_process)
-    this_file = open_the_generic_h5_file(file_dir, well_name="C4", beta_version=2)
 
-    actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
-    assert actual_stimulation_data.shape == (2, 1)
-    assert actual_stimulation_data[0, 0] == start_timepoint - 1
-    assert actual_stimulation_data[1, 0] == start_timepoint - 1
-    # close file to avoid issues on Windows
-    this_file.close()
+    with open_the_generic_h5_file(file_dir, well_name="A1", beta_version=2) as this_file:
+        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
+        assert actual_stimulation_data.shape == (2, 1)
+        assert actual_stimulation_data[0, 0] == start_timepoint - 1
+        assert actual_stimulation_data[1, 0] == num_data_points - 1
 
 
 def test_FileWriterProcess_process_stim_data_packet__writes_data_for_two_packets_when_the_timestamp_idx_starts_part_way_through_the_first_packet(
@@ -632,88 +641,104 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_for_two_packets
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
     populate_calibration_folder(fw_process)
+
     board_idx = 0
     board_queues = four_board_file_writer_process["board_queues"][board_idx]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    start_recording_command["active_well_indices"] = [14]
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": dict(copy.deepcopy(GENERIC_STIM_INFO)),
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command["active_well_indices"] = [0]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
     num_data_points = 5
+    first_recorded_idx = 2
+
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
-    test_data_packet_1 = create_simple_stim_packet(start_timepoint - 2, num_data_points)
-    test_data_packet_2 = create_simple_stim_packet(start_timepoint + 3, num_data_points)
+    test_data_packet_1 = create_simple_stim_packet(
+        start_timepoint - first_recorded_idx, num_data_points, well_idxs=(0, 1)
+    )
+    test_data_packet_2 = create_simple_stim_packet(start_timepoint + 3, num_data_points, well_idxs=(0, 1))
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet_1, board_queues[0])
     invoke_process_run_and_check_errors(fw_process)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet_2, board_queues[0])
     invoke_process_run_and_check_errors(fw_process)
-    this_file = open_the_generic_h5_file(file_dir, well_name="C4", beta_version=2)
 
-    actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
-    assert actual_stimulation_data.shape == (2, num_data_points * 2 - 2)
-    assert actual_stimulation_data[0, 0] == start_timepoint
-    assert actual_stimulation_data[1, 0] == start_timepoint
-    assert actual_stimulation_data[0, num_data_points * 2 - 3] == start_timepoint + 3 + (num_data_points - 1)
-    assert actual_stimulation_data[1, num_data_points * 2 - 3] == start_timepoint + 3 + (num_data_points - 1)
-    # close file to avoid issues on Windows
-    this_file.close()
+    with open_the_generic_h5_file(file_dir, well_name="A1", beta_version=2) as this_file:
+        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
+        assert actual_stimulation_data.shape == (2, num_data_points * 2 - first_recorded_idx)
+        assert actual_stimulation_data[0, 0] == start_timepoint
+        assert actual_stimulation_data[1, 0] == first_recorded_idx
+        assert actual_stimulation_data[0, num_data_points * 2 - 3] == start_timepoint + 3 + (
+            num_data_points - 1
+        )
+        assert actual_stimulation_data[1, num_data_points * 2 - 3] == first_recorded_idx + 3 - 1
 
 
-def test_FileWriterProcess_process_stim_data_packet__does_not_add_a_data_packet_completely_after_the_stop_recording_timepoint(
+def test_FileWriterProcess_process_stim_data_packet__does_not_add_a_data_packet_starting_on_the_stop_recording_timepoint(
     four_board_file_writer_process,
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
     populate_calibration_folder(fw_process)
+
     board_idx = 0
     board_queues = four_board_file_writer_process["board_queues"][board_idx]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    start_recording_command["active_well_indices"] = [14]
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": dict(copy.deepcopy(GENERIC_STIM_INFO)),
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command["active_well_indices"] = [1]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
     num_data_points = 5
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
-    test_data_packet = create_simple_stim_packet(start_timepoint, num_data_points)
+    test_data_packet = create_simple_stim_packet(start_timepoint, num_data_points, well_idxs=(0, 1))
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0])
     invoke_process_run_and_check_errors(fw_process)
-    this_file = open_the_generic_h5_file(file_dir, well_name="C4", beta_version=2)
 
-    actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
-    assert actual_stimulation_data.shape == (2, num_data_points)
-    assert actual_stimulation_data[0, 0] == start_timepoint
-    assert actual_stimulation_data[1, 0] == start_timepoint
+    with open_the_generic_h5_file(file_dir, well_name="B1", beta_version=2) as this_file:
+        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
+        assert actual_stimulation_data.shape == (2, num_data_points)
+        assert actual_stimulation_data[0, 0] == start_timepoint
+        assert actual_stimulation_data[1, 0] == 0
 
-    # add some magnetometer data to avoid errors when stopping the recording
-    data_packet = create_simple_beta_2_data_packet(
-        start_timepoint,
-        0,
-        start_recording_command["active_well_indices"],
-        3,
-    )
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(data_packet, board_queues[0])
-    invoke_process_run_and_check_errors(fw_process)
+        # add some magnetometer data to avoid errors when stopping the recording
+        data_packet = create_simple_beta_2_data_packet(
+            start_timepoint, 0, start_recording_command["active_well_indices"], 3
+        )
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(data_packet, board_queues[0])
+        invoke_process_run_and_check_errors(fw_process)
 
-    stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
+        stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
 
-    stop_timepoint = stop_command["timepoint_to_stop_recording_at"]
-    ignored_data_packet = create_simple_stim_packet(stop_timepoint, num_data_points)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(ignored_data_packet, board_queues[0])
-    invoke_process_run_and_check_errors(fw_process)
+        stop_timepoint = stop_command["timepoint_to_stop_recording_at"]
+        ignored_data_packet = create_simple_stim_packet(stop_timepoint, num_data_points, well_idxs=(0, 1))
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(ignored_data_packet, board_queues[0])
+        invoke_process_run_and_check_errors(fw_process)
 
-    # confirm no additional data added to file
-    actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
-    assert actual_stimulation_data.shape == (2, num_data_points)
-
-    # close file to avoid issues on Windows
-    this_file.close()
+        # confirm no additional data added to file
+        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
+        assert actual_stimulation_data.shape == (2, num_data_points)
 
 
 def test_FileWriterProcess_process_stim_data_packet__adds_a_data_packet_ending_on_the_stop_recording_timepoint(
@@ -722,53 +747,74 @@ def test_FileWriterProcess_process_stim_data_packet__adds_a_data_packet_ending_o
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
     populate_calibration_folder(fw_process)
+
     board_idx = 0
     board_queues = four_board_file_writer_process["board_queues"][board_idx]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    start_recording_command = copy.deepcopy(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    start_recording_command["active_well_indices"] = [14]
+    set_protocols_command = {
+        "communication_type": "stimulation",
+        "command": "set_protocols",
+        "stim_info": dict(copy.deepcopy(GENERIC_STIM_INFO)),
+    }
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
+    invoke_process_run_and_check_errors(fw_process)
+
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command["active_well_indices"] = [0]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
-    num_data_points = 5
+    num_data_points_packet_1 = 5
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
-    test_data_packet = create_simple_stim_packet(start_timepoint, num_data_points)
+    test_data_packet = create_simple_stim_packet(start_timepoint, num_data_points_packet_1, well_idxs=(0, 1))
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0])
     invoke_process_run_and_check_errors(fw_process)
-    this_file = open_the_generic_h5_file(file_dir, well_name="C4", beta_version=2)
 
-    actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
-    assert actual_stimulation_data.shape == (2, num_data_points)
-    assert actual_stimulation_data[0, 0] == start_timepoint
-    assert actual_stimulation_data[1, 0] == start_timepoint
+    with open_the_generic_h5_file(file_dir, well_name="A1", beta_version=2) as this_file:
+        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
+        assert actual_stimulation_data.shape == (2, num_data_points_packet_1)
+        assert actual_stimulation_data[0, 0] == start_timepoint
+        assert actual_stimulation_data[1, 0] == 0
+        assert actual_stimulation_data[0, -1] == start_timepoint + num_data_points_packet_1 - 1
+        assert actual_stimulation_data[1, -1] == num_data_points_packet_1 - 1
 
-    # add some magnetometer data to avoid errors when stopping the recording
-    data_packet = create_simple_beta_2_data_packet(
-        start_timepoint,
-        0,
-        start_recording_command["active_well_indices"],
-        3,
-    )
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(data_packet, board_queues[0])
-    invoke_process_run_and_check_errors(fw_process)
+        # add some magnetometer data to avoid errors when stopping the recording
+        data_packet = create_simple_beta_2_data_packet(
+            start_timepoint, 0, start_recording_command["active_well_indices"], 3
+        )
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(data_packet, board_queues[0])
+        invoke_process_run_and_check_errors(fw_process)
 
-    stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
+        stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
 
-    stop_timepoint = stop_command["timepoint_to_stop_recording_at"]
-    test_data_packet = create_simple_stim_packet(stop_timepoint - (num_data_points - 1), num_data_points)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0])
-    invoke_process_run_and_check_errors(fw_process)
+        num_data_points_packet_2 = 4
+        stop_timepoint = stop_command["timepoint_to_stop_recording_at"]
+        test_data_packet = create_simple_stim_packet(
+            stop_timepoint - (num_data_points_packet_2 - 1), num_data_points_packet_2, well_idxs=(0, 1)
+        )
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0])
+        invoke_process_run_and_check_errors(fw_process)
 
-    # confirm no additional data added to file
-    actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
-    assert actual_stimulation_data.shape == (2, num_data_points * 2)
-    assert actual_stimulation_data[0, 0] == start_timepoint
-    assert actual_stimulation_data[1, 0] == start_timepoint
-    assert actual_stimulation_data[0, -1] == stop_timepoint
-    assert actual_stimulation_data[1, -1] == stop_timepoint
+        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
 
-    # close file to avoid issues on Windows
-    this_file.close()
+        # confirm data from first packet unchanged
+        assert actual_stimulation_data.shape == (2, num_data_points_packet_1 + num_data_points_packet_2)
+        assert actual_stimulation_data[0, 0] == start_timepoint
+        assert actual_stimulation_data[1, 0] == 0
+        assert (
+            actual_stimulation_data[0, num_data_points_packet_1 - 1]
+            == start_timepoint + num_data_points_packet_1 - 1
+        )
+        assert actual_stimulation_data[1, num_data_points_packet_1 - 1] == num_data_points_packet_1 - 1
+
+        # confirm data from new packet added to file correctly
+        assert actual_stimulation_data[0, num_data_points_packet_1] == stop_timepoint - (
+            num_data_points_packet_2 - 1
+        )
+        assert actual_stimulation_data[1, num_data_points_packet_1] == 0
+        assert actual_stimulation_data[0, -1] == stop_timepoint
+        assert actual_stimulation_data[1, -2] == num_data_points_packet_2 - 2
+        assert actual_stimulation_data[1, -1] == num_data_points_packet_2 - 1

@@ -215,7 +215,7 @@ def test_FileWriterProcess__checks_for_and_removes_existing_recording_path_corre
     update_user_settings_command["config_settings"]["auto_delete_local_files"] = False
     create_and_close_beta_1_h5_files(four_board_file_writer_process, update_user_settings_command)
 
-    update_recording_name_command = copy.deepcopy(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
+    update_recording_name_command = dict(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
     update_recording_name_command["default_name"] = file_writer_process._current_recording_dir
 
     mocked_exists = mocker.patch.object(
@@ -247,7 +247,7 @@ def test_FileWriterProcess__upload_thread_gets_added_to_container_after_all_file
     mocker.patch.object(file_writer.ErrorCatchingThread, "start", autospec=True)
     mocker.patch.object(file_writer.ErrorCatchingThread, "is_alive", autospec=True, return_value=True)
 
-    update_recording_name_command = copy.deepcopy(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
+    update_recording_name_command = dict(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
     update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
     update_user_settings_command["config_settings"]["auto_delete_local_files"] = False
     update_user_settings_command["config_settings"]["auto_upload_on_completion"] = True
@@ -284,7 +284,7 @@ def test_FileWriterProcess__upload_thread_errors_sent_to_main_correctly(
     assert file_writer_process.get_stop_recording_timestamps()[board_idx] is not None
     assert file_writer_process._is_finalizing_files_after_recording() is False
 
-    update_recording_name_command = copy.deepcopy(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
+    update_recording_name_command = dict(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         update_recording_name_command, from_main_queue
     )
@@ -349,7 +349,7 @@ def test_FileWriterProcess__status_successfully_gets_added_to_main_queue_when_au
         active_well_indices=test_well_indices,
     )
     # send update recording name command to kick off upload thread after all files are finalized
-    update_recording_name_command = copy.deepcopy(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
+    update_recording_name_command = dict(GENERIC_UPDATE_RECORDING_NAME_COMMAND)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         update_recording_name_command, from_main_queue
     )

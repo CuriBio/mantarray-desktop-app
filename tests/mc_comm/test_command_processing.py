@@ -16,7 +16,6 @@ from mantarray_desktop_app.sub_processes import mc_comm
 from mantarray_desktop_app.utils.data_parsing_cy import sort_serial_packets
 from mantarray_desktop_app.utils.serial_comm import convert_status_code_bytes_to_dict
 from mantarray_desktop_app.utils.serial_comm import create_data_packet
-from mantarray_desktop_app.utils.serial_comm import is_null_subprotocol
 from mantarray_desktop_app.workers.firmware_downloader import check_versions
 from mantarray_desktop_app.workers.firmware_downloader import download_firmware_updates
 from mantarray_desktop_app.workers.worker_thread import ErrorCatchingThread
@@ -33,8 +32,8 @@ from ..fixtures_mc_comm import set_connection_and_register_simulator
 from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODES
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
-from ..fixtures_mc_simulator import get_null_subprotocol
-from ..fixtures_mc_simulator import get_random_subprotocol
+from ..fixtures_mc_simulator import get_random_stim_delay
+from ..fixtures_mc_simulator import get_random_stim_pulse
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -371,7 +370,7 @@ def test_McCommunicationProcess__processes_set_sampling_period_command(
     assert message_to_main == expected_response
 
 
-def test_McCommunicationProcess__processes_set_protocols_command(
+def test_McCommunicationProcess__processes_set_protocols_command__and_breaks_up_long_subprotocol_into_appropriately_sized_chunks(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
 ):
@@ -389,6 +388,7 @@ def test_McCommunicationProcess__processes_set_protocols_command(
 
     expected_protocol_ids = (None, "A", "B", "C")
     test_num_wells = 24
+
     expected_stim_info = {
         "protocols": [
             {
@@ -396,7 +396,7 @@ def test_McCommunicationProcess__processes_set_protocols_command(
                 "stimulation_type": choice(["V", "C"]),
                 "run_until_stopped": choice([False, True]),
                 "subprotocols": [
-                    choice([get_random_subprotocol(), get_null_subprotocol(500)]) for _ in range(2)
+                    choice([get_random_stim_pulse(), get_random_stim_delay()]) for _ in range(2)
                 ],
             }
             for protocol_id in expected_protocol_ids[1:]
@@ -422,10 +422,6 @@ def test_McCommunicationProcess__processes_set_protocols_command(
         expected_protocol_copy = copy.deepcopy(expected_stim_info["protocols"][protocol_idx])
         # the actual protocol ID letter is not included
         del expected_protocol_copy["protocol_id"]
-        # adjust phase_one_duration for delays
-        for subprotocol in expected_protocol_copy["subprotocols"]:
-            if is_null_subprotocol(subprotocol):
-                subprotocol["phase_one_duration"] = 0
 
         assert actual["protocols"][protocol_idx] == expected_protocol_copy, protocol_idx
     assert actual["protocol_assignments"] == {  # indices of the protocol are used instead

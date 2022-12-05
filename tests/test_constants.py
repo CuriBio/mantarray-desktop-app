@@ -55,12 +55,11 @@ from mantarray_desktop_app import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
 from mantarray_desktop_app import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from mantarray_desktop_app import MAX_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import MAX_POSSIBLE_CONNECTED_BOARDS
+from mantarray_desktop_app import MICROS_PER_MILLIS
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
-from mantarray_desktop_app import MICROSECONDS_PER_MILLISECOND
 from mantarray_desktop_app import MIDSCALE_CODE
 from mantarray_desktop_app import MILLIVOLTS_PER_VOLT
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
-from mantarray_desktop_app import NANOSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import NO_PLATE_DETECTED_BARCODE_VALUE
 from mantarray_desktop_app import NO_PLATE_DETECTED_UUID
 from mantarray_desktop_app import NUM_INITIAL_PACKETS_TO_DROP
@@ -162,6 +161,7 @@ from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 from mantarray_desktop_app.constants import ALL_VALID_BARCODE_HEADERS
 from mantarray_desktop_app.constants import BARCODE_HEADERS
 from mantarray_desktop_app.constants import BARCODE_LEN
+from mantarray_desktop_app.constants import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app.constants import MM_PER_MT_Z_AXIS_SENSOR_0
 from mantarray_desktop_app.constants import PERFOMANCE_LOGGING_PERIOD_SECS
 from mantarray_desktop_app.constants import RECORDING_SNAPSHOT_DUR_SECS
@@ -169,9 +169,13 @@ from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
 from mantarray_desktop_app.constants import SOFTWARE_RELEASE_CHANNEL
+from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
+from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
 from mantarray_desktop_app.constants import STIM_SHORT_CIRCUIT_THRESHOLD_OHMS
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
+from mantarray_desktop_app.constants import VALID_STIMULATION_TYPES
+from mantarray_desktop_app.constants import VALID_SUBPROTOCOL_TYPES
 import numpy as np
 from xem_wrapper import DATA_FRAMES_PER_ROUND_ROBIN
 
@@ -231,9 +235,15 @@ def test_hardware_time_constants():
     assert REFERENCE_SENSOR_SAMPLING_PERIOD == ROUND_ROBIN_PERIOD // 4
     assert CONSTRUCT_SENSOR_SAMPLING_PERIOD == ROUND_ROBIN_PERIOD
     assert TIMESTEP_CONVERSION_FACTOR == 5
+
+
+def test_time_conversions():
     assert MICROSECONDS_PER_CENTIMILLISECOND == 10
-    assert NANOSECONDS_PER_CENTIMILLISECOND == 10**4
-    assert MICROSECONDS_PER_MILLISECOND == 10**3
+
+
+def test_generic_conversions():
+    assert MICRO_TO_BASE_CONVERSION == int(1e6)
+    assert MICROS_PER_MILLIS == int(1e3)
 
 
 def test_adc_reading_constants():
@@ -513,6 +523,9 @@ def test_serial_comm():
     assert SERIAL_COMM_DEFAULT_DATA_CHANNEL == SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE["A"]["Z"]
     assert DEFAULT_SAMPLING_PERIOD == 10000
 
+    assert STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS == int(100e3)
+    assert STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS == 24 * 60 * 60 * int(1e3) * int(1e3)
+
     assert STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS == int(100e3)
     assert STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS == int(1.2e3)
     assert STIM_MAX_PULSE_DURATION_MICROSECONDS == int(50e3)
@@ -523,6 +536,9 @@ def test_serial_comm():
 
     assert STIM_OPEN_CIRCUIT_THRESHOLD_OHMS == 20000
     assert STIM_SHORT_CIRCUIT_THRESHOLD_OHMS == 10
+
+    assert VALID_STIMULATION_TYPES == frozenset(["C", "V"])
+    assert VALID_SUBPROTOCOL_TYPES == frozenset(["delay", "monophasic", "biphasic"])
 
     assert issubclass(StimulatorCircuitStatuses, IntEnum) is True
     assert StimulatorCircuitStatuses.CALCULATING == -1

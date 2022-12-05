@@ -144,9 +144,7 @@ def test_main_configures_logging(mocker):
     assert isinstance(formatter, SensitiveFormatter)
 
 
-def test_main__logs_system_info__and_software_version_at_very_start(
-    mocker,
-):
+def test_main__logs_system_info__and_software_version_at_very_start(mocker):
     with tempfile.TemporaryDirectory() as tmp:
         spied_info_logger = mocker.spy(main.logger, "info")
         expected_uuid = "c7d3e956-cfc3-42df-94d9-b3a19cf1529c"
@@ -179,23 +177,32 @@ def test_main__logs_system_info__and_software_version_at_very_start(
         spied_info_logger.assert_any_call(f"Machine: {getattr(uname, 'machine')}")
         spied_info_logger.assert_any_call(f"Processor: {getattr(uname, 'processor')}")
         spied_info_logger.assert_any_call(f"Win 32 Ver: {platform.win32_ver()}")
+        spied_info_logger.assert_any_call(f"Platform: {platform.platform()}")
+        spied_info_logger.assert_any_call(f"Architecture: {platform.architecture()}")
+        spied_info_logger.assert_any_call(f"Interpreter is 64-bits: {sys.maxsize > 2**32}")
         spied_info_logger.assert_any_call(
-            f"Platform: {platform.platform()}, Architecture: {platform.architecture()}, Interpreter is 64-bits: {sys.maxsize > 2**32}, System Alias: {platform.system_alias(uname_sys, uname_release, uname_version)}"
+            f"System Alias: {platform.system_alias(uname_sys, uname_release, uname_version)}"
         )
 
 
-def test_main__raises_error_if_multiprocessing_start_method_not_spawn(mocker):
+def test_main__logs_error_if_multiprocessing_start_method_not_spawn(mocker):
     mocked_get_start_method = mocker.patch.object(
         multiprocessing, "get_start_method", autospec=True, return_value="fork"
     )
     mocker.patch.object(main, "configure_logging", autospec=True)
-    with pytest.raises(MultiprocessingNotSetToSpawnError, match=r"'fork'"):
-        main.main(["--debug-test-post-build"])
+
+    spied_error_logger = mocker.spy(main.logger, "error")
+
+    main.main(["--debug-test-post-build"])
+
     mocked_get_start_method.assert_called_once_with(allow_none=True)
+    spied_error_logger.assert_called_once_with(
+        f"ERROR IN MAIN: {repr(MultiprocessingNotSetToSpawnError('fork'))}"
+    )
 
 
 def test_main_configures_process_manager_logging_level_and_standard_logging_level_to_debug_when_command_line_arg_passed(
-    mocker, fully_running_app_from_main_entrypoint
+    fully_running_app_from_main_entrypoint,
 ):
     app_info = fully_running_app_from_main_entrypoint(
         ["--log-level-debug", "--startup-test-options", "no_subprocesses", "no_flask"]
@@ -210,7 +217,7 @@ def test_main_configures_process_manager_logging_level_and_standard_logging_leve
 
 
 def test_main_configures_process_manager_logging_level_and_standard_logging_level_to_info_by_default(
-    mocker, fully_running_app_from_main_entrypoint, patched_xem_scripts_folder
+    fully_running_app_from_main_entrypoint, patched_xem_scripts_folder
 ):
     app_info = fully_running_app_from_main_entrypoint(
         ["--startup-test-options", "no_subprocesses", "no_flask"]
@@ -277,7 +284,7 @@ def test_main_can_launch_server_and_processes__and_initial_boot_up_of_ok_comm_pr
 
 
 def test_main_entrypoint__correctly_assigns_shared_values_dictionary_to_process_monitor_and_process_manager(
-    fully_running_app_from_main_entrypoint, mocker
+    fully_running_app_from_main_entrypoint,
 ):
     app_info = fully_running_app_from_main_entrypoint(
         ["--startup-test-options", "no_subprocesses", "no_flask"]
@@ -295,17 +302,9 @@ def test_main_entrypoint__correctly_assigns_shared_values_dictionary_to_process_
     assert test_process_manager.values_to_share_to_server is shared_values_dict
 
 
-@pytest.mark.parametrize(
-    "send_command_line_arg,test_description",
-    [
-        (True, "creates MantarrayProcessesMonitor correctly when skipping boot up"),
-        (False, "creates MantarrayProcessesMonitor correctly when not skipping boot up"),
-    ],
-)
+@pytest.mark.parametrize("send_command_line_arg", [True, False])
 def test_main__correctly_indicates_to_process_monitor_if_subprocesses_should_automatically_be_booted_up_from_cmd_line_arg_to_skip(
-    send_command_line_arg,
-    test_description,
-    mocker,
+    send_command_line_arg, mocker
 ):
     spied_init = mocker.spy(MantarrayProcessesMonitor, "__init__")
 
@@ -316,15 +315,9 @@ def test_main__correctly_indicates_to_process_monitor_if_subprocesses_should_aut
     assert spied_init.call_args[1]["boot_up_after_processes_start"] is not send_command_line_arg
 
 
-@pytest.mark.parametrize(
-    "send_command_line_arg,test_description",
-    [
-        (True, "creates MantarrayProcessesMonitor correctly when loading file"),
-        (False, "creates MantarrayProcessesMonitor correctly when not loading file"),
-    ],
-)
+@pytest.mark.parametrize("send_command_line_arg", [True, False])
 def test_main__correctly_indicates_to_process_monitor_that_ok_comm_automatically_load_firmware_file_to_board_from_cmd_line_arg(
-    send_command_line_arg, test_description, mocker
+    send_command_line_arg, mocker
 ):
     spied_init = mocker.spy(MantarrayProcessesMonitor, "__init__")
 
@@ -505,18 +498,26 @@ def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_e
     )
 
 
-def test_main__raises_error_if_port_in_use_before_starting_socketio(mocker):
+def test_main__logs_error_if_port_in_use_before_starting_socketio(mocker):
     mocked_socketio_run = mocker.patch.object(main.socketio, "run", autospec=True)
     mocker.patch.object(main, "is_port_in_use", autospec=True, return_value=True)
 
+    spied_error_logger = mocker.spy(main.logger, "error")
+
     port = get_server_port_number()
-    with pytest.raises(LocalServerPortAlreadyInUseError, match=str(port)):
-        main.main(["--startup-test-options", "no_subprocesses", "--beta-2-mode", get_generic_base64_args()])
+
+    main.main(["--startup-test-options", "no_subprocesses", "--beta-2-mode", get_generic_base64_args()])
+
+    spied_error_logger.assert_called_once_with(
+        f"ERROR IN MAIN: {repr(LocalServerPortAlreadyInUseError(port))}"
+    )
     mocked_socketio_run.assert_not_called()
 
 
-def test_main__disallows_cmd_line_args_that_do_not_apply_to_beta_2__when_in_beta_2_mode():
-    with pytest.raises(InvalidBeta2FlagOptionError, match="--skip-mantarray-boot-up"):
-        main.main(["--skip-mantarray-boot-up", "--beta-2-mode", "--debug-test-post-build"])
-    with pytest.raises(InvalidBeta2FlagOptionError, match="--no-load-firmware"):
-        main.main(["--no-load-firmware", "--beta-2-mode", "--debug-test-post-build"])
+@pytest.mark.parametrize("invalid_arg", ["--skip-mantarray-boot-up", "--no-load-firmware"])
+def test_main__disallows_cmd_line_args_that_do_not_apply_to_beta_2__when_in_beta_2_mode(invalid_arg, mocker):
+    spied_error_logger = mocker.spy(main.logger, "error")
+    main.main([invalid_arg, "--beta-2-mode", "--debug-test-post-build"])
+    spied_error_logger.assert_called_once_with(
+        f"ERROR IN MAIN: {repr(InvalidBeta2FlagOptionError(invalid_arg))}"
+    )

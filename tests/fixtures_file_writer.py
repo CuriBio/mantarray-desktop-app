@@ -14,6 +14,7 @@ from typing import Optional
 import uuid
 
 import h5py
+from immutabledict import immutabledict
 from labware_domain_models import LabwareDefinition
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
@@ -61,8 +62,8 @@ from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import TestingQueue
 
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
-from .fixtures_mc_simulator import get_null_subprotocol
-from .fixtures_mc_simulator import get_random_subprotocol
+from .fixtures_mc_simulator import get_random_stim_delay
+from .fixtures_mc_simulator import get_random_stim_pulse
 from .helpers import confirm_queue_is_eventually_empty
 from .helpers import confirm_queue_is_eventually_of_size
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -74,38 +75,41 @@ TEST_CUSTOMER_ID = uuid.UUID("73f52be0-368c-42d8-a1fd-660d49ba5604")
 TEST_USER_NAME = "test_user"
 
 
-# TODO make everything in here immutabledicts
-
-
 GENERIC_ADC_OFFSET_VALUES: Dict[int, Dict[str, int]] = dict()
 for this_well_idx in range(24):
     GENERIC_ADC_OFFSET_VALUES[this_well_idx] = {
         "construct": this_well_idx * 2,
         "ref": this_well_idx * 2 + 1,
     }
+GENERIC_ADC_OFFSET_VALUES = immutabledict(GENERIC_ADC_OFFSET_VALUES)
 
 GENERIC_STIM_PROTOCOL_ASSIGNMENTS: Dict[str, Optional[str]] = {
     GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): None for well_idx in range(24)
 }
 GENERIC_STIM_PROTOCOL_ASSIGNMENTS["A1"] = "A"
 GENERIC_STIM_PROTOCOL_ASSIGNMENTS["B1"] = "B"
+
 GENERIC_STIM_INFO = {
     "protocols": [
         {
             "protocol_id": "A",
             "stimulation_type": "C",
             "run_until_stopped": True,
-            "subprotocols": [get_random_subprotocol(), get_null_subprotocol(50000)],  # type: ignore
+            "subprotocols": [get_random_stim_pulse(), get_random_stim_delay(50 * MICRO_TO_BASE_CONVERSION)],  # type: ignore
         },
         {
             "protocol_id": "B",
             "stimulation_type": "V",
             "run_until_stopped": False,
-            "subprotocols": [get_random_subprotocol(), get_random_subprotocol()],  # type: ignore
+            "subprotocols": [get_random_stim_pulse(), get_random_stim_pulse()],  # type: ignore
         },
     ],
     "protocol_assignments": GENERIC_STIM_PROTOCOL_ASSIGNMENTS,
 }
+GENERIC_STIM_INFO = immutabledict(GENERIC_STIM_INFO)
+
+# make this immutable after storing it in GENERIC_STIM_INFO
+GENERIC_STIM_PROTOCOL_ASSIGNMENTS = immutabledict(GENERIC_STIM_PROTOCOL_ASSIGNMENTS)
 
 GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
     "communication_type": "recording",
@@ -113,23 +117,32 @@ GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
     "timepoint_to_begin_recording_at": 298518 * 125,
     "is_calibration_recording": False,
     "is_hardware_test_recording": False,
-    "metadata_to_copy_onto_main_file_attributes": {
-        HARDWARE_TEST_RECORDING_UUID: False,
-        UTC_BEGINNING_DATA_ACQUISTION_UUID: datetime.datetime(
-            year=2020, month=2, day=9, hour=19, minute=3, second=22, microsecond=332597
-        ),
-        START_RECORDING_TIME_INDEX_UUID: 298518 * 125,
-        CUSTOMER_ACCOUNT_ID_UUID: TEST_CUSTOMER_ID,
-        USER_ACCOUNT_ID_UUID: TEST_USER_NAME,
-        SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
-        SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
-        BACKEND_LOG_UUID: uuid.UUID("9a3d03f2-1f5a-4ecd-b843-0dc9ecde5f67"),
-        COMPUTER_NAME_HASH_UUID: hashlib.sha512(socket.gethostname().encode(encoding="UTF-8")).hexdigest(),
-        PLATE_BARCODE_IS_FROM_SCANNER_UUID: True,
-    },
-    "active_well_indices": set(range(24)),
+    "metadata_to_copy_onto_main_file_attributes": immutabledict(
+        {
+            HARDWARE_TEST_RECORDING_UUID: False,
+            UTC_BEGINNING_DATA_ACQUISTION_UUID: datetime.datetime(
+                year=2020, month=2, day=9, hour=19, minute=3, second=22, microsecond=332597
+            ),
+            START_RECORDING_TIME_INDEX_UUID: 298518 * 125,
+            CUSTOMER_ACCOUNT_ID_UUID: TEST_CUSTOMER_ID,
+            USER_ACCOUNT_ID_UUID: TEST_USER_NAME,
+            SOFTWARE_BUILD_NUMBER_UUID: COMPILED_EXE_BUILD_TIMESTAMP,
+            SOFTWARE_RELEASE_VERSION_UUID: CURRENT_SOFTWARE_VERSION,
+            BACKEND_LOG_UUID: uuid.UUID("9a3d03f2-1f5a-4ecd-b843-0dc9ecde5f67"),
+            COMPUTER_NAME_HASH_UUID: hashlib.sha512(
+                socket.gethostname().encode(encoding="UTF-8")
+            ).hexdigest(),
+            PLATE_BARCODE_IS_FROM_SCANNER_UUID: True,
+        }
+    ),
+    "active_well_indices": frozenset(range(24)),
 }
-GENERIC_BETA_1_START_RECORDING_COMMAND = copy.deepcopy(GENERIC_BASE_START_RECORDING_COMMAND)
+GENERIC_BASE_START_RECORDING_COMMAND = immutabledict(GENERIC_BASE_START_RECORDING_COMMAND)
+
+GENERIC_BETA_1_START_RECORDING_COMMAND = dict(copy.deepcopy(GENERIC_BASE_START_RECORDING_COMMAND))
+GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"] = dict(
+    GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"]
+)
 GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"].update(
     {
         UTC_BEGINNING_RECORDING_UUID: GENERIC_BASE_START_RECORDING_COMMAND[
@@ -147,7 +160,15 @@ GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
         "adc_offsets": GENERIC_ADC_OFFSET_VALUES,
     }
 )
-GENERIC_BETA_2_START_RECORDING_COMMAND = copy.deepcopy(GENERIC_BASE_START_RECORDING_COMMAND)
+GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"] = immutabledict(
+    GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"]
+)
+GENERIC_BETA_1_START_RECORDING_COMMAND = immutabledict(GENERIC_BETA_1_START_RECORDING_COMMAND)
+
+GENERIC_BETA_2_START_RECORDING_COMMAND = dict(copy.deepcopy(GENERIC_BASE_START_RECORDING_COMMAND))
+GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"] = dict(
+    GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"]
+)
 GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"].update(
     {
         UTC_BEGINNING_RECORDING_UUID: GENERIC_BASE_START_RECORDING_COMMAND[
@@ -168,52 +189,66 @@ GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
         ),
     }
 )
+GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"] = immutabledict(
+    GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"]
+)
+GENERIC_BETA_2_START_RECORDING_COMMAND = immutabledict(GENERIC_BETA_2_START_RECORDING_COMMAND)
 
-GENERIC_UPDATE_RECORDING_NAME_COMMAND: Dict[str, Any] = {
-    "communication_type": "recording",
-    "command": "update_recording_name",
-    "new_name": "new_recording_name",
-    "default_name": "existing_recording_name",
-    "snapshot_enabled": False,
-}
+GENERIC_UPDATE_RECORDING_NAME_COMMAND: Dict[str, Any] = immutabledict(
+    {
+        "communication_type": "recording",
+        "command": "update_recording_name",
+        "new_name": "new_recording_name",
+        "default_name": "existing_recording_name",
+        "snapshot_enabled": False,
+    }
+)
 
-GENERIC_STOP_RECORDING_COMMAND: Dict[str, Any] = {
-    "communication_type": "recording",
-    "command": "stop_recording",
-    "timepoint_to_stop_recording_at": 302412 * 125,
-}
+GENERIC_STOP_RECORDING_COMMAND: Dict[str, Any] = immutabledict(
+    {
+        "communication_type": "recording",
+        "command": "stop_recording",
+        "timepoint_to_stop_recording_at": 302412 * 125,
+    }
+)
 
-GENERIC_UPDATE_USER_SETTINGS: Dict[str, Any] = {
-    "command": "update_user_settings",
-    "config_settings": {
-        "customer_id": "test_customer_id",
-        "user_password": "test_password",
-        "user_name": "test_user",
-        "auto_upload_on_completion": True,
-        "auto_delete_local_files": False,
-        "pulse3d_version": "1.2.3",
-    },
-}
+GENERIC_UPDATE_USER_SETTINGS: Dict[str, Any] = immutabledict(
+    {
+        "command": "update_user_settings",
+        "config_settings": {
+            "customer_id": "test_customer_id",
+            "user_password": "test_password",
+            "user_name": "test_user",
+            "auto_upload_on_completion": True,
+            "auto_delete_local_files": False,
+            "pulse3d_version": "1.2.3",
+        },
+    }
+)
 
 GENERIC_NUMPY_ARRAY_FOR_TISSUE_DATA_PACKET = np.zeros((2, 50), dtype=np.int32)
 for i in range(50):
     GENERIC_NUMPY_ARRAY_FOR_TISSUE_DATA_PACKET[0, i] = i * CONSTRUCT_SENSOR_SAMPLING_PERIOD
     GENERIC_NUMPY_ARRAY_FOR_TISSUE_DATA_PACKET[1, i] = i * 10
-GENERIC_TISSUE_DATA_PACKET = {
-    "well_index": 4,
-    "is_reference_sensor": False,
-    "data": GENERIC_NUMPY_ARRAY_FOR_TISSUE_DATA_PACKET,
-}
+GENERIC_TISSUE_DATA_PACKET = immutabledict(
+    {
+        "well_index": 4,
+        "is_reference_sensor": False,
+        "data": GENERIC_NUMPY_ARRAY_FOR_TISSUE_DATA_PACKET,
+    }
+)
 
 GENERIC_NUMPY_ARRAY_FOR_REFERENCE_DATA_PACKET = np.zeros((2, 50), dtype=np.int32)
 for i in range(50):
     GENERIC_NUMPY_ARRAY_FOR_REFERENCE_DATA_PACKET[0, i] = i * REFERENCE_SENSOR_SAMPLING_PERIOD
     GENERIC_NUMPY_ARRAY_FOR_REFERENCE_DATA_PACKET[1, i] = i * 10
-GENERIC_REFERENCE_SENSOR_DATA_PACKET = {
-    "reference_for_wells": set([0, 1, 4, 5]),
-    "is_reference_sensor": True,
-    "data": GENERIC_NUMPY_ARRAY_FOR_REFERENCE_DATA_PACKET,
-}
+GENERIC_REFERENCE_SENSOR_DATA_PACKET = immutabledict(
+    {
+        "reference_for_wells": frozenset([0, 1, 4, 5]),
+        "is_reference_sensor": True,
+        "data": GENERIC_NUMPY_ARRAY_FOR_REFERENCE_DATA_PACKET,
+    }
+)
 
 
 def open_the_generic_h5_file(
@@ -221,14 +256,13 @@ def open_the_generic_h5_file(
 ) -> h5py._hl.files.File:  # pylint: disable=protected-access # this is the only type definition Eli (2/24/20) could find for a File
     if timestamp_str is None:
         timestamp_str = "2020_02_09_190935" if beta_version == 1 else "2020_02_09_190359"
-    if beta_version == 1:
-        plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-            PLATE_BARCODE_UUID
-        ]
-    else:
-        plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-            PLATE_BARCODE_UUID
-        ]
+
+    start_recording_command = (
+        GENERIC_BETA_1_START_RECORDING_COMMAND
+        if beta_version == 1
+        else GENERIC_BETA_2_START_RECORDING_COMMAND
+    )
+    plate_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_UUID]
 
     actual_file = h5py.File(
         os.path.join(
@@ -365,7 +399,7 @@ def create_and_close_beta_1_h5_files(
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # remove update settings command receipt
 
     # start recording
-    start_command = copy.deepcopy(GENERIC_BETA_1_START_RECORDING_COMMAND)
+    start_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     start_command["timepoint_to_begin_recording_at"] = 0
     start_command["active_well_indices"] = active_well_indices
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_command, from_main_queue)
@@ -377,7 +411,7 @@ def create_and_close_beta_1_h5_files(
     ref_data = np.array([np.arange(num_data_points), np.arange(num_data_points) * 2], dtype=np.int32)
     # load tissue data
     for well_idx in active_well_indices:
-        this_tissue_data_packet = copy.deepcopy(GENERIC_TISSUE_DATA_PACKET)
+        this_tissue_data_packet = dict(GENERIC_TISSUE_DATA_PACKET)
         this_tissue_data_packet["data"] = tissue_data
         this_tissue_data_packet["well_index"] = well_idx
         board_queues[0][0].put_nowait(this_tissue_data_packet)
@@ -385,7 +419,7 @@ def create_and_close_beta_1_h5_files(
     invoke_process_run_and_check_errors(fw_process, num_iterations=len(active_well_indices))
     confirm_queue_is_eventually_empty(board_queues[0][0])
     # load ref data
-    this_ref_data_packet = copy.deepcopy(GENERIC_REFERENCE_SENSOR_DATA_PACKET)
+    this_ref_data_packet = dict(GENERIC_REFERENCE_SENSOR_DATA_PACKET)
     this_ref_data_packet["data"] = ref_data
     this_ref_data_packet[
         "reference_for_wells"
@@ -396,7 +430,7 @@ def create_and_close_beta_1_h5_files(
     invoke_process_run_and_check_errors(fw_process)
 
     # stop recording
-    stop_command = copy.deepcopy(GENERIC_STOP_RECORDING_COMMAND)
+    stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
     stop_command["timepoint_to_stop_recording_at"] = tissue_data[0, -1]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
@@ -461,13 +495,21 @@ def create_simple_beta_2_data_packet(
     return data_packet
 
 
-def create_simple_stim_packet(time_index_start, num_data_points, is_first_packet_of_stream=False, step=1):
-    stim_packet = {
+def create_simple_stim_packet(
+    time_index_start, num_data_points, is_first_packet_of_stream=False, step=1, well_idxs=None
+):
+    if not well_idxs:
+        well_idxs = range(24)
+
+    data = np.array(
+        [
+            create_simple_1d_array(time_index_start, num_data_points, np.int64, step=step),
+            np.arange(num_data_points),
+        ]
+    )
+
+    return {
         "data_type": "stimulation",
-        "well_statuses": {
-            well_idx: create_simple_2d_array(time_index_start, num_data_points, np.int64, step=step)
-            for well_idx in range(24)
-        },
+        "well_statuses": {well_idx: data for well_idx in well_idxs},
         "is_first_packet_of_stream": is_first_packet_of_stream,
     }
-    return stim_packet
