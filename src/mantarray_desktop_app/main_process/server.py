@@ -353,6 +353,7 @@ def boot_up() -> Response:
     return response
 
 
+# TODO redact the username in the log message for the data returned by this route, or redact all the recordings completely from getting logged
 @flask_app.route("/get_recordings", methods=["GET"])
 def get_recordings() -> Response:
     """Get list of recordings from root recordings directory.

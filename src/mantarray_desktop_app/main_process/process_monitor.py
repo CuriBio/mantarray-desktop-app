@@ -164,7 +164,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
             )
 
         # Tanner (12/13/21): redact file/folder path after handling comm in case the actual file path is needed
-        for sensitive_field in ("file_path", "file_folder"):
+        # TODO unit test "recording_path"
+        for sensitive_field in ("file_path", "file_folder", "recording_path"):
             if sensitive_field in communication:
                 communication[sensitive_field] = redact_sensitive_info_from_path(
                     communication[sensitive_field]
@@ -183,18 +184,19 @@ class MantarrayProcessesMonitor(InfiniteThread):
         except queue.Empty:
             return
 
-        msg: str
         if "mantarray_nickname" in communication:
             # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
             comm_copy = copy.deepcopy(communication)
             comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
-            msg = f"Communication from the Server: {comm_copy}"
+            comm_str = str(comm_copy)
         elif "update_user_settings" == communication["communication_type"]:
             comm_copy = copy.deepcopy(communication)
             comm_copy["content"]["user_password"] = get_redacted_string(4)
-            msg = f"Communication from the Server: {comm_copy}"
+            comm_str = str(comm_copy)
         else:
-            msg = f"Communication from the Server: {communication}"
+            comm_str = str(communication)
+        # TODO redact username from list under "recordings" key in "start_mag_analysis" command
+        msg = f"Communication from the Server: {comm_str}"
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.info(msg)
@@ -444,18 +446,18 @@ class MantarrayProcessesMonitor(InfiniteThread):
             # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
             comm_copy = copy.deepcopy(communication)
             comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
-            msg = f"Communication from the Instrument Controller: {comm_copy}"
+            comm_str = str(comm_copy)
         elif communication_type == "metadata_comm":
             # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
             comm_copy = copy.deepcopy(communication)
             comm_copy["metadata"][MANTARRAY_NICKNAME_UUID] = get_redacted_string(
                 len(comm_copy["metadata"][MANTARRAY_NICKNAME_UUID])
             )
-            msg = f"Communication from the Instrument Controller: {comm_copy}"
+            comm_str = str(comm_copy)
         else:
-            # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
-            msg = f"Communication from the Instrument Controller: {communication}"
-        msg = msg.replace(r"\\", "\\")
+            comm_str = str(communication)
+        # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
+        msg = f"Communication from the Instrument Controller: {comm_str}".replace(r"\\", "\\")
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.info(msg)

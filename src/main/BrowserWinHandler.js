@@ -72,23 +72,28 @@ export default class BrowserWinHandler {
     });
 
     let close = false;
+    ipcMain.on("confirmation_response", (e, user_response) => {
+      try {
+        e.reply("confirmation_response", 200);
+
+        let action;
+        if (user_response === 1) {
+          close = true;
+          this.browserWindow.close();
+          action = "confirmed";
+        } else {
+          action = "cancelled";
+        }
+        console.log(`user ${action} window closure`);
+      } catch (e) {
+        console.log("error in BrowserWinHandler trying to close");
+      }
+    });
+
     this.browserWindow.on("close", async (e) => {
       if (!close) {
         e.preventDefault();
         this.browserWindow.webContents.send("confirmation_request");
-
-        try {
-          ipcMain.on("confirmation_response", (e, user_response) => {
-            e.reply("confirmation_response", 200);
-            if (user_response === 1) {
-              close = true;
-              this.browserWindow.close();
-              console.log("user confirmed window closure");
-            } else console.log("user cancelled window closure");
-          });
-        } catch (e) {
-          console.log("error in BrowserWinHandler trying to close");
-        }
       }
     });
 

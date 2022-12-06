@@ -254,7 +254,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._beta_2_buffer_size: Optional[int] = None  # set in set_sampling_period if in beta 2 mode
         # Magnet finding alg items
         self._mag_finder_output_dir: str = mag_analysis_output_dir
-        self._mag_finder_worker_thread: Optional[Any] = None
+        self._mag_finder_worker_thread: Optional[ErrorCatchingThread] = None
         self._mag_finder_thread_dict: Optional[Dict[str, Any]] = None
         # performance tracking values
         self._outgoing_data_creation_durations: List[float]
@@ -638,9 +638,6 @@ class DataAnalyzerProcess(InfiniteProcess):
         if not self._mag_finder_worker_thread or self._mag_finder_worker_thread.is_alive():
             return
 
-        if self._mag_finder_worker_thread is None:
-            raise NotImplementedError("_fw_update_thread_dict should never be None here")
-
         self._mag_finder_worker_thread.join()
 
         outgoing_msg = {"data_type": "local_analysis", "data_json": json.dumps(self._mag_finder_thread_dict)}
@@ -660,7 +657,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         snapshot_list = [list(snapshot_dict[key].values()) for key in snapshot_dict.keys()]
 
         mag_analysis_msg = {"time": snapshot_list[0], "force": snapshot_list[1:]}
-        outgoing_msg = {"data_type": "recording_snapshot", "data_json": json.dumps(mag_analysis_msg)}
+        outgoing_msg = {"data_type": "recording_snapshot_data", "data_json": json.dumps(mag_analysis_msg)}
 
         self._comm_to_main_queue.put_nowait(
             {"communication_type": "mag_analysis_complete", "content": outgoing_msg}
