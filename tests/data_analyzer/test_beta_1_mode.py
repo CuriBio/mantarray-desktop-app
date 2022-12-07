@@ -3,7 +3,6 @@ import copy
 import datetime
 import json
 import math
-import time
 
 from freezegun import freeze_time
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
@@ -13,10 +12,8 @@ from mantarray_desktop_app import FIFO_READ_PRODUCER_SAWTOOTH_PERIOD
 from mantarray_desktop_app import FIFO_READ_PRODUCER_WELL_AMPLITUDE
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
-from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
 from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
-from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import TIMESTEP_CONVERSION_FACTOR
@@ -25,11 +22,9 @@ from mantarray_desktop_app.sub_processes import data_analyzer
 from mantarray_desktop_app.sub_processes.data_analyzer import get_force_signal
 import numpy as np
 from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
-from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.transforms import create_filter
 import pytest
 from scipy import signal
-from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
@@ -44,142 +39,6 @@ from ..helpers import confirm_queue_is_eventually_of_size
 __fixtures__ = [fixture_four_board_analyzer_process, fixture_runnable_four_board_analyzer_process]
 
 
-def fill_da_input_data_queue(input_queue, num_seconds):
-    for seconds in range(num_seconds):
-        for well in range(24):
-            time_indices = np.arange(
-                seconds * CENTIMILLISECONDS_PER_SECOND,
-                (seconds + 1) * CENTIMILLISECONDS_PER_SECOND,
-                CONSTRUCT_SENSOR_SAMPLING_PERIOD,
-            )
-            tissue_data = 1000 * signal.sawtooth(time_indices / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5)
-            tissue_packet = {
-                "well_index": well,
-                "is_reference_sensor": False,
-                "data": np.array([time_indices, tissue_data], dtype=np.int32),
-            }
-            input_queue.put_nowait(tissue_packet)
-        for ref in range(6):
-            time_indices = np.arange(
-                seconds * CENTIMILLISECONDS_PER_SECOND,
-                (seconds + 1) * CENTIMILLISECONDS_PER_SECOND,
-                REFERENCE_SENSOR_SAMPLING_PERIOD,
-            )
-            ref_data = 1000 * signal.sawtooth(time_indices / FIFO_READ_PRODUCER_SAWTOOTH_PERIOD, width=0.5)
-            ref_packet = {
-                "reference_for_wells": REF_INDEX_TO_24_WELL_INDEX[ref],
-                "is_reference_sensor": True,
-                "data": np.array([time_indices, ref_data], dtype=np.int32),
-            }
-            input_queue.put_nowait(ref_packet)
-
-
-@pytest.mark.slow
-def test_DataAnalyzerProcess_beta_1_performance__fill_data_analysis_buffer(
-    runnable_four_board_analyzer_process,
-):
-    # 11 seconds of data (625 Hz) coming in from File Writer to going through to Main
-    #
-    # mantarray-waveform-analysis v0.3:     4.148136512
-    # mantarray-waveform-analysis v0.3.1:   3.829136133
-    # mantarray-waveform-analysis v0.4.0:   3.323093677
-    # remove concatenate:                   2.966678695
-    # 30 Hz Bessel filter:                  2.930061808  # Tanner (9/3/20): not intended to speed anything up, just adding this to show it had it didn't have much affect on performance
-    # 30 Hz Butterworth filter:             2.935009033  # Tanner (9/10/20): not intended to speed anything up, just adding this to show it had it didn't have much affect on performance
-    #
-    # added twitch metric analysis:         3.013469479
-    # initial pulse3D import:               3.855403546
-    # pulse3D 0.23.3:                       3.890723909
-
-    p, board_queues, comm_from_main_queue, comm_to_main_queue, _, _ = runnable_four_board_analyzer_process
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION),
-        comm_from_main_queue,
-    )
-    invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
-
-    num_seconds = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS + 1
-    fill_da_input_data_queue(board_queues[0][0], num_seconds)
-    start = time.perf_counter_ns()
-    invoke_process_run_and_check_errors(p, num_iterations=num_seconds * (24 + 6))
-    dur_seconds = (time.perf_counter_ns() - start) / 10**9
-
-    # prevent BrokenPipeErrors
-    drain_queue(board_queues[0][1])
-    drain_queue(comm_to_main_queue)
-
-    # print(f"Duration (seconds): {dur_seconds}")  # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
-    assert dur_seconds < 10
-
-
-@pytest.mark.slow
-def test_DataAnalyzerProcess_beta_1_performance__first_second_of_data_with_analysis(
-    runnable_four_board_analyzer_process,
-):
-    # Fill data analysis buffer with 10 seconds of data to start metric analysis,
-    # Then record duration of sending 1 additional second of data
-    #
-    # start:                                0.547285524
-    # initial pulse3D import:               0.535316489
-    # pulse3D 0.23.3:                       0.535428579
-
-    p, board_queues, comm_from_main_queue, comm_to_main_queue, _, _ = runnable_four_board_analyzer_process
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION),
-        comm_from_main_queue,
-    )
-    invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
-
-    # load data
-    num_seconds = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS + 1
-    fill_da_input_data_queue(board_queues[0][0], num_seconds)
-    invoke_process_run_and_check_errors(p, num_iterations=MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * (24 + 6))
-
-    # send additional data and time analysis
-    start = time.perf_counter_ns()
-    invoke_process_run_and_check_errors(p, num_iterations=(24 + 6))
-    dur_seconds = (time.perf_counter_ns() - start) / 10**9
-
-    # prevent BrokenPipeErrors
-    drain_queue(board_queues[0][1])
-    drain_queue(comm_to_main_queue)
-
-    # print(f"Duration (seconds): {dur_seconds}")  # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
-    assert dur_seconds < 2
-
-
-@pytest.mark.slow
-def test_DataAnalyzerProcess_beta_1_performance__single_data_packet_per_well_without_analysis(
-    runnable_four_board_analyzer_process,
-):
-    # 1 second of data (625 Hz) coming in from File Writer to going through to Main
-    #
-    # start:                                0.530731389
-    # added twitch metric analysis:         0.578328276
-    # initial pulse3D import:               0.533860423
-    # pulse3D 0.23.3:                       0.539447351
-
-    p, board_queues, comm_from_main_queue, comm_to_main_queue, _, _ = runnable_four_board_analyzer_process
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION),
-        comm_from_main_queue,
-    )
-    invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
-
-    num_seconds = 1
-    fill_da_input_data_queue(board_queues[0][0], num_seconds)
-    start = time.perf_counter_ns()
-    invoke_process_run_and_check_errors(p, num_iterations=num_seconds * (24 + 6))
-    dur_seconds = (time.perf_counter_ns() - start) / 10**9
-
-    # prevent BrokenPipeErrors
-    drain_queue(board_queues[0][1])
-    drain_queue(comm_to_main_queue)
-
-    # print(f"Duration (seconds): {dur_seconds}")  # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
-    assert dur_seconds < 2
-
-
 def test_DataAnalyzerProcess_commands_for_each_run_iteration__checks_for_calibration_update_from_main(
     four_board_analyzer_process,
 ):
@@ -188,7 +47,7 @@ def test_DataAnalyzerProcess_commands_for_each_run_iteration__checks_for_calibra
         "calibration_settings": 1,
     }
 
-    p, _, comm_from_main_queue, _, _, _ = four_board_analyzer_process
+    p, _, comm_from_main_queue, *_ = four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         calibration_comm,
         comm_from_main_queue,
@@ -223,7 +82,7 @@ def test_DataAnalyzerProcess_commands_for_each_run_iteration__checks_for_calibra
 def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_when_empty(
     test_well_index, test_construct_data, test_description, four_board_analyzer_process
 ):
-    p, board_queues, comm_from_main_queue, _, _, _ = four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, *_ = four_board_analyzer_process
     p.init_streams()
     incoming_data = board_queues[0][0]
 
@@ -269,7 +128,7 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
 def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_when_not_empty(
     test_well_index, test_construct_data, test_description, four_board_analyzer_process
 ):
-    p, board_queues, comm_from_main_queue, _, _, _ = four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, *_ = four_board_analyzer_process
     p.init_streams()
     incoming_data = board_queues[0][0]
 
@@ -300,7 +159,7 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
 def test_DataAnalyzerProcess__correctly_pairs_ascending_order_ref_sensor_data_in_buffer(
     four_board_analyzer_process,
 ):
-    p, board_queues, comm_from_main_queue, _, _, _ = four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, *_ = four_board_analyzer_process
     incoming_data = board_queues[0][0]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -339,7 +198,7 @@ def test_DataAnalyzerProcess__correctly_pairs_ascending_order_ref_sensor_data_in
 def test_DataAnalyzerProcess__correctly_pairs_descending_order_ref_sensor_data_in_buffer(
     four_board_analyzer_process,
 ):
-    p, board_queues, comm_from_main_queue, _, _, _ = four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, *_ = four_board_analyzer_process
     incoming_data = board_queues[0][0]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -401,7 +260,7 @@ def test_DataAnalyzerProcess__correctly_pairs_descending_order_ref_sensor_data_i
 def test_DataAnalyzerProcess__is_buffer_full_returns_correct_value(
     test_sample_indices, expected_status, test_description, four_board_analyzer_process
 ):
-    p, _, _, _, _, _ = four_board_analyzer_process
+    p, *_ = four_board_analyzer_process
 
     test_data = None
     if test_sample_indices is not None:
@@ -431,7 +290,7 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
         side_effect=mocked_force_vals,
     )
 
-    p, board_queues, _, _, _, _ = four_board_analyzer_process
+    p, board_queues, *_ = four_board_analyzer_process
     outgoing_data = board_queues[0][1]
 
     p._barcode = RunningFIFOSimulator.default_barcode
@@ -478,7 +337,7 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
 def test_DataAnalyzerProcess__dump_data_into_queue__sends_message_to_main_indicating_data_is_available__with_info_about_data(
     four_board_analyzer_process,
 ):
-    p, _, _, comm_to_main_queue, _, _ = four_board_analyzer_process
+    p, _, _, comm_to_main_queue, *_ = four_board_analyzer_process
 
     dummy_well_data = [
         [CONSTRUCT_SENSOR_SAMPLING_PERIOD * i for i in range(3)],
@@ -507,7 +366,7 @@ def test_DataAnalyzerProcess__dump_data_into_queue__sends_message_to_main_indica
 def test_DataAnalyzerProcess__create_outgoing_data__normalizes_and_flips_raw_data_then_compresses_force_data(
     four_board_analyzer_process,
 ):
-    p, _, _, _, _, _ = four_board_analyzer_process
+    p, *_ = four_board_analyzer_process
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
 
     test_barcode = RunningFIFOSimulator.default_barcode
@@ -558,7 +417,7 @@ def test_DataAnalyzerProcess__create_outgoing_data__normalizes_and_flips_raw_dat
 def test_DataAnalyzerProcess__does_not_load_data_to_buffer_if_managed_acquisition_not_running(
     four_board_analyzer_process,
 ):
-    p, board_queues, _, _, _, _ = four_board_analyzer_process
+    p, board_queues, *_ = four_board_analyzer_process
     incoming_data = board_queues[0][0]
 
     p._end_of_data_stream_reached[0]["mag"] = True
@@ -588,7 +447,7 @@ def test_DataAnalyzerProcess__does_not_load_data_to_buffer_if_managed_acquisitio
 def test_DataAnalyzerProcess__processes_stop_managed_acquisition_command(
     four_board_analyzer_process,
 ):
-    p, _, comm_from_main_queue, _, _, _ = four_board_analyzer_process
+    p, _, comm_from_main_queue, *_ = four_board_analyzer_process
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION),

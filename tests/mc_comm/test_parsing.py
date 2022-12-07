@@ -360,6 +360,7 @@ def test_performance__magnetometer_data_sorting_and_parsing():
     parsed_mag_data_dict = parse_magnetometer_data(
         *sorted_packet_dict["magnetometer_stream_info"].values(), 0
     )
+    # want to include the time it takes to unpack the values of this dict
     actual_time_indices, actual_time_offsets, actual_data = parsed_mag_data_dict.values()
     dur = time.perf_counter_ns() - start
     # print(f"Dur (ns): {dur}, (seconds): {dur / 1e9}")  # Tanner (5/11/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization

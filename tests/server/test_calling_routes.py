@@ -590,7 +590,7 @@ def test_start_managed_acquisition__returns_error_code_and_message_called_while_
 def test_get_recordings__returns_error_code_and_message_when_recording_directory_is_not_found(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, _, _ = client_and_server_manager_and_shared_values
+    test_client, *_ = client_and_server_manager_and_shared_values
 
     response = test_client.get("/get_recordings")
     assert response.status_code == 400
@@ -612,7 +612,7 @@ def test_get_recordings__returns_200_with_list_of_directories(
 def test_start_data_analysis__returns_error_code_and_message_when_recording_directory_is_not_found(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, _, _ = client_and_server_manager_and_shared_values
+    test_client, *_ = client_and_server_manager_and_shared_values
 
     response = test_client.post(
         "/start_data_analysis", json={"selected_recordings": ["recording_1", "recording_2"]}

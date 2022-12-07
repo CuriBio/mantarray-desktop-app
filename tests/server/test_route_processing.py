@@ -1248,7 +1248,7 @@ def test_send_single_get_status_command__gets_processed(test_process_manager_cre
 def test_set_protocols__waits_for_stim_info_in_shared_values_dict_to_be_updated_before_returning(
     client_and_server_manager_and_shared_values, test_client, mocker
 ):
-    _, _, shared_values_dict = client_and_server_manager_and_shared_values
+    *_, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
@@ -1285,7 +1285,7 @@ def test_after_request__redacts_mantarray_nicknames_from_system_status_log_messa
     test_client,
     mocker,
 ):
-    _, _, shared_values_dict = client_and_server_manager_and_shared_values
+    *_, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = CALIBRATED_STATE
 
     expected_nickname_1 = "Test Nickname 1"
@@ -1311,7 +1311,7 @@ def test_after_request__redacts_mantarray_nickname_from_set_mantarray_nickname_l
     client_and_server_manager_and_shared_values,
     mocker,
 ):
-    test_client, _, _ = client_and_server_manager_and_shared_values
+    test_client, *_ = client_and_server_manager_and_shared_values
     spied_server_logger = mocker.spy(server.logger, "info")
 
     expected_nickname = "A New Nickname"
