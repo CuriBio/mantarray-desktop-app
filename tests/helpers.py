@@ -73,6 +73,10 @@ def confirm_queue_is_eventually_of_size(
     timeout_seconds: Union[float, int] = QUEUE_CHECK_TIMEOUT_SECONDS,
     sleep_after_confirm_seconds: Optional[Union[float, int]] = None,
 ) -> None:
+    if size == 0:
+        raise ValueError(
+            "If trying to confirm that a queue is empty, use confirm_queue_is_eventually_empty instead"
+        )
     stdlib_c_q_is_e_of_s(the_queue, size, timeout_seconds=timeout_seconds)
     if sleep_after_confirm_seconds is not None:
         time.sleep(sleep_after_confirm_seconds)

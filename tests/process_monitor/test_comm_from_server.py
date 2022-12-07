@@ -23,6 +23,7 @@ from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.constants import UPDATES_NEEDED_STATE
 from mantarray_desktop_app.main_process import process_manager
 from mantarray_desktop_app.main_process import process_monitor
+from mantarray_desktop_app.utils.generic import redact_sensitive_info_from_path
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
@@ -56,6 +57,26 @@ __fixtures__ = [
     fixture_patch_subprocess_joins,
     fixture_patch_print,
 ]
+
+
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raises_error_if_invalid_communication_type_received(
+    test_process_manager_creator, test_monitor
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
+
+    server_to_main_queue = test_process_manager.queue_container.from_server
+
+    bad_comm_type = "bad_comm_type"
+    expected_comm = {"communication_type": bad_comm_type}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
+
+    with pytest.raises(
+        UnrecognizedCommandFromServerToMainError, match=f"Invalid communication_type: {bad_comm_type}"
+    ):
+        invoke_process_run_and_check_errors(monitor_thread)
+
+    confirm_queue_is_eventually_empty(server_to_main_queue)
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_nickname_setting_by_setting_shared_values_dictionary_and_passing_command_to_instrument_comm(
@@ -738,24 +759,69 @@ def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_manta
         "command": "set_mantarray_nickname",
         "mantarray_nickname": test_nickname,
     }
+    expected_comm = copy.deepcopy(test_comm)
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_comm, to_main_queue)
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_empty(to_main_queue)
+
+    expected_comm["mantarray_nickname"] = get_redacted_string(len(test_nickname))
+    mocked_logger.assert_called_once_with(f"Communication from the Server: {expected_comm}")
+
+
+def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_user_password(
+    mocker, test_process_manager_creator, test_monitor
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
+
+    mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
+
+    to_main_queue = test_process_manager.queue_container.from_server
+
+    test_comm = {"communication_type": "update_user_settings", "content": {"user_password": "test_password"}}
+    expected_comm = copy.deepcopy(test_comm)
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_comm, to_main_queue)
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_empty(to_main_queue)
+
+    expected_comm["content"]["user_password"] = get_redacted_string(4)
+    mocked_logger.assert_called_once_with(f"Communication from the Server: {expected_comm}")
+
+
+def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_recording_paths(
+    mocker, test_process_manager_creator, test_monitor
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
+
+    mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
+
+    to_main_queue = test_process_manager.queue_container.from_server
+
+    test_comm = {
+        "communication_type": "mag_finding_analysis",
+        "command": "start_mag_analysis",
+        "recordings": [
+            f"C:\\Users\\TestUser\\AppData\\Roaming\\MantarrayController\\recordings\\file{i}"
+            for i in range(3)
+        ],
+    }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_comm, to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(to_main_queue)
 
     expected_comm = copy.deepcopy(test_comm)
-    expected_comm["mantarray_nickname"] = get_redacted_string(len(test_nickname))
+    expected_comm["recordings"] = [
+        redact_sensitive_info_from_path(recording_path) for recording_path in expected_comm["recordings"]
+    ]
     mocked_logger.assert_called_once_with(f"Communication from the Server: {expected_comm}")
 
 
-@pytest.mark.parametrize(
-    "test_status,test_description",
-    [
-        (True, "processes command when status is True"),
-        (False, "processes command when status is False"),
-    ],
-)
+@pytest.mark.parametrize("test_status", [True, False])
 def test_MantarrayProcessesMonitor__processes_set_stim_status_command(
-    test_status, test_description, test_process_manager_creator, test_monitor
+    test_status, test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
@@ -817,16 +883,8 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
     assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == test_command
 
 
-@pytest.mark.parametrize(
-    "comm_type, command, queue_size",
-    [
-        ("mag_finding_analysis", "start_mag_analysis", 1),
-        ("mag_finding_analysis", "other_command", 0),
-        ("mag_analysis", "start_mag_analysis", 0),
-    ],
-)
 def test_MantarrayProcessesMonitor__processes_start_mag_analysis_command(
-    test_process_manager_creator, test_monitor, comm_type, command, queue_size
+    test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
@@ -834,13 +892,15 @@ def test_MantarrayProcessesMonitor__processes_start_mag_analysis_command(
     main_to_da_queue = test_process_manager.queue_container.to_data_analyzer
 
     test_command = {
-        "communication_type": comm_type,
-        "command": command,
-        "content": {},
+        "communication_type": "mag_finding_analysis",
+        "command": "start_mag_analysis",
+        "recordings": ["some_recording"],
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
-    confirm_queue_is_eventually_of_size(main_to_da_queue, queue_size)
+
+    confirm_queue_is_eventually_of_size(main_to_da_queue, 1)
+    assert main_to_da_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == test_command
 
 
 @pytest.mark.parametrize(

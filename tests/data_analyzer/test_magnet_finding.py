@@ -131,7 +131,7 @@ def test_DataAnalyzerProcess__correctly_handles_recording_snapshot_command(
 
     msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert msg["communication_type"] == "mag_analysis_complete"
-    assert msg["content"]["data_type"] == "recording_snapshot"
+    assert msg["content"]["data_type"] == "recording_snapshot_data"
     parsed_data = json.loads(msg["content"]["data_json"])
     for force_data in parsed_data["force"]:
         assert len(parsed_data["time"]) == len(force_data)

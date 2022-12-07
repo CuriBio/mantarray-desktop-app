@@ -1349,3 +1349,34 @@ def test_after_request__redacts_mantarray_nicknames_from_start_recording_log_mes
         logged_json["metadata_to_copy_onto_main_file_attributes"][str(MANTARRAY_NICKNAME_UUID)]
         == expected_redaction
     )
+
+
+def test_after_request__redacts_recording_folder_path_from_get_recordings_log_message(
+    client_and_server_manager_and_shared_values, mocker
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+
+    test_recording_dir = r"C:\Users\Test User\AppData\Local\Programs\MantarrayController"
+    shared_values_dict["config_settings"] = {"recording_directory": test_recording_dir}
+
+    spied_server_logger = mocker.spy(server.logger, "info")
+
+    test_recording_info_list = [{"recording": "info"}]
+    mocker.patch.object(
+        server, "get_info_of_recordings", autospec=True, return_value=test_recording_info_list
+    )
+
+    response = test_client.get("/get_recordings")
+    assert response.status_code == 200
+
+    response_json = response.get_json()
+    assert response_json == {
+        "recordings_list": test_recording_info_list,
+        "root_recording_path": test_recording_dir,
+    }
+
+    logged_json = convert_after_request_log_msg_to_json(spied_server_logger.call_args_list[0][0][0])
+    assert logged_json == {
+        "recordings_list": test_recording_info_list,
+        "root_recording_path": redact_sensitive_info_from_path(test_recording_dir),
+    }

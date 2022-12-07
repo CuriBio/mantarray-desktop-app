@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections import deque
 import datetime
+import glob
 import json
 import logging
 import os
@@ -420,3 +421,16 @@ def upload_log_files_to_s3(config_settings: Dict[str, str]) -> None:
 def _compare_semver(version_a: str, version_b: str) -> bool:
     """Determine if Version A is greater than Version B."""
     return VersionInfo.parse(version_a) > VersionInfo.parse(version_b)  # type: ignore
+
+
+def get_info_of_recordings(recording_dir: str) -> List[Dict[str, str]]:
+    return [
+        {
+            "name": dir,
+            "creation_time": datetime.datetime.fromtimestamp(
+                os.stat(os.path.join(recording_dir, dir)).st_mtime
+            ).strftime("%m-%d-%Y %H:%M.%S"),
+        }
+        for dir in os.listdir(recording_dir)
+        if glob.glob(os.path.join(recording_dir, dir, "*.h5"), recursive=True)
+    ]

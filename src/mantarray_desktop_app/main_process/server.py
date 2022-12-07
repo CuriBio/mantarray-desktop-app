@@ -30,7 +30,6 @@ from __future__ import annotations
 import copy
 from copy import deepcopy
 from datetime import datetime
-import glob
 import json
 import logging
 import os
@@ -94,7 +93,9 @@ from ..utils.generic import _get_timestamp_of_acquisition_sample_index_zero
 from ..utils.generic import check_barcode_for_errors
 from ..utils.generic import convert_request_args_to_config_dict
 from ..utils.generic import get_current_software_version
+from ..utils.generic import get_info_of_recordings
 from ..utils.generic import get_redacted_string
+from ..utils.generic import redact_sensitive_info_from_path
 from ..utils.generic import validate_settings
 from ..utils.generic import validate_user_credentials
 
@@ -364,17 +365,8 @@ def get_recordings() -> Response:
     except KeyError:
         return Response(status="400 No root recording directory was found")
 
-    recordings_list = [
-        {
-            "name": dir,
-            "creation_time": datetime.fromtimestamp(
-                os.stat(os.path.join(recording_dir, dir)).st_mtime
-            ).strftime("%m-%d-%Y %H:%M.%S"),
-        }
-        for dir in os.listdir(recording_dir)
-        if glob.glob(os.path.join(recording_dir, dir, "*.h5"), recursive=True)
-    ]
-    response_dict = {"recordings_list": recordings_list, "root_recording_path": recording_dir}
+    recording_info_list = get_info_of_recordings(recording_dir)
+    response_dict = {"recordings_list": recording_info_list, "root_recording_path": recording_dir}
 
     return Response(json.dumps(response_dict), mimetype="application/json")
 
@@ -1211,19 +1203,23 @@ def after_request(response: Response) -> Response:
             mantarray_nicknames = response_json.get("mantarray_nickname", {})
             for board in mantarray_nicknames:
                 mantarray_nicknames[board] = get_redacted_string(len(mantarray_nicknames[board]))
-        if "set_mantarray_nickname" in rule.rule:
+        elif "set_mantarray_nickname" in rule.rule:
             response_json["mantarray_nickname"] = get_redacted_string(
                 len(response_json["mantarray_nickname"])
             )
-        if "start_recording" in rule.rule:
+        elif "start_recording" in rule.rule:
             mantarray_nickname = response_json["metadata_to_copy_onto_main_file_attributes"][
                 str(MANTARRAY_NICKNAME_UUID)
             ]
             response_json["metadata_to_copy_onto_main_file_attributes"][
                 str(MANTARRAY_NICKNAME_UUID)
             ] = get_redacted_string(len(mantarray_nickname))
-        if "update_settings" in rule.rule:
+        elif "update_settings" in rule.rule:
             response_json["user_password"] = get_redacted_string(4)
+        elif "get_recordings" in rule.rule:
+            response_json["root_recording_path"] = redact_sensitive_info_from_path(
+                response_json["root_recording_path"]
+            )
     msg = "Response to HTTP Request in next log entry: "
     if response.status_code == 200:
         # Tanner (1/19/21): using json.dumps instead of an f-string here allows us to perform better testing of our log messages by loading the json string to a python dict
