@@ -69,7 +69,7 @@ def test_DataAnalyzerProcess_beta_2_performance__fill_data_analysis_buffer(
     # initial pulse3D import:                             1.662150824
     # pulse3D 0.23.3:                                     1.680566285
 
-    p, board_queues, comm_from_main_queue, comm_to_main_queue, _, _ = runnable_four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, *_ = runnable_four_board_analyzer_process
     p._beta_2_mode = True
     p.set_sampling_period(DEFAULT_SAMPLING_PERIOD)
 
@@ -102,7 +102,7 @@ def test_DataAnalyzerProcess_beta_2_performance__first_second_of_data_with_analy
     # initial pulse3D import:                             0.334087008
     # pulse3D 0.23.3:                                     0.337370183
 
-    p, board_queues, comm_from_main_queue, comm_to_main_queue, _, _ = runnable_four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, *_ = runnable_four_board_analyzer_process
     p._beta_2_mode = True
     p.set_sampling_period(DEFAULT_SAMPLING_PERIOD)
 
@@ -138,7 +138,7 @@ def test_DataAnalyzerProcess_beta_2_performance__single_data_packet_per_well_wit
     # initial pulse3D import:                             0.224968242
     # pulse3D 0.23.3:                                     0.225489661
 
-    p, board_queues, comm_from_main_queue, comm_to_main_queue, _, _ = runnable_four_board_analyzer_process
+    p, board_queues, comm_from_main_queue, comm_to_main_queue, *_ = runnable_four_board_analyzer_process
     p._beta_2_mode = True
     p.set_sampling_period(DEFAULT_SAMPLING_PERIOD)
 

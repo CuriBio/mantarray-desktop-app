@@ -107,7 +107,7 @@ def test_McCommunicationProcess_create_connections_to_all_available_boards__popu
 def test_McCommunicationProcess_create_connections_to_all_available_boards__populates_connections_list_with_a_simulator_when_com_port_is_unavailable__and_sends_correct_message_to_main(
     four_board_mc_comm_process, mocker, patch_comports, patch_serial_connection
 ):
-    _, _, mocked_comports = patch_comports
+    *_, mocked_comports = patch_comports
     mocked_comports.return_value = [ListPortInfo("")]
     _, mocked_serial = patch_serial_connection
     mc_process = four_board_mc_comm_process["mc_process"]

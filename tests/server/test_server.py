@@ -158,7 +158,7 @@ def test_get_server_address_components__returns_default_port_number_if_server_ma
 ):
     clear_server_singletons()
     mocker.patch.object(server, "get_the_server_manager", autospec=True, side_effect=NameError)
-    _, _, actual_port = server.get_server_address_components()
+    *_, actual_port = server.get_server_address_components()
     assert actual_port == DEFAULT_SERVER_PORT_NUMBER
 
 
@@ -166,7 +166,7 @@ def test_get_server_address_components__returns_default_port_number_if_server_ma
     mocker,
 ):
     clear_server_singletons()
-    _, _, actual_port = server.get_server_address_components()
+    *_, actual_port = server.get_server_address_components()
     assert actual_port == DEFAULT_SERVER_PORT_NUMBER
 
 

@@ -138,7 +138,6 @@ def test_McCommunicationProcess__processes_set_mantarray_nickname_command(
     assert actual == expected_nickname
     # run mc_process one iteration to read response from simulator and send command completed response back to main
     invoke_process_run_and_check_errors(mc_process)
-    # print(drain_queue(output_queue))
     confirm_queue_is_eventually_of_size(output_queue, 1)
     command_response = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert command_response == set_nickname_command
