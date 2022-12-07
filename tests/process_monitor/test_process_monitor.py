@@ -231,19 +231,20 @@ def test_MantarrayProcessesMonitor__logs_messages_from_file_writer__and_redacts_
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
 
+    sensitive_keys = ("file_path", "file_folder", "recording_path")
+
     file_writer_to_main = test_process_manager.queue_container.from_file_writer
     expected_comm = {
         "communication_type": "test",
-        "file_path": r"Users\Mantarray\AppData\file_path",
-        "file_folder": r"Users\Mantarray\AppData\file_folder",
+        **{sensitive_key: rf"Users\Mantarray\AppData\{sensitive_key}" for sensitive_key in sensitive_keys},
     }
     file_writer_to_main.put_nowait(copy.deepcopy(expected_comm))
     assert is_queue_eventually_not_empty(file_writer_to_main) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(file_writer_to_main) is True
 
-    expected_comm["file_path"] = redact_sensitive_info_from_path(expected_comm["file_path"])
-    expected_comm["file_folder"] = redact_sensitive_info_from_path(expected_comm["file_folder"])
+    for sensitive_key in sensitive_keys:
+        expected_comm[sensitive_key] = redact_sensitive_info_from_path(expected_comm[sensitive_key])
     mocked_logger.assert_called_once_with(
         f"Communication from the File Writer: {expected_comm}".replace(r"\\", "\\")
     )

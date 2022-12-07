@@ -164,12 +164,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
             )
 
         # Tanner (12/13/21): redact file/folder path after handling comm in case the actual file path is needed
-        # TODO unit test "recording_path"
-        for sensitive_field in ("file_path", "file_folder", "recording_path"):
-            if sensitive_field in communication:
-                communication[sensitive_field] = redact_sensitive_info_from_path(
-                    communication[sensitive_field]
-                )
+        for sensitive_key in ("file_path", "file_folder", "recording_path"):
+            if sensitive_value := communication.get(sensitive_key):
+                communication[sensitive_key] = redact_sensitive_info_from_path(sensitive_value)
         # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
         msg = f"Communication from the File Writer: {communication}".replace(r"\\", "\\")
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
@@ -184,24 +181,30 @@ class MantarrayProcessesMonitor(InfiniteThread):
         except queue.Empty:
             return
 
+        communication_type = communication["communication_type"]
+
         if "mantarray_nickname" in communication:
             # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
             comm_copy = copy.deepcopy(communication)
             comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
             comm_str = str(comm_copy)
-        elif "update_user_settings" == communication["communication_type"]:
+        elif communication_type == "update_user_settings":
             comm_copy = copy.deepcopy(communication)
             comm_copy["content"]["user_password"] = get_redacted_string(4)
             comm_str = str(comm_copy)
+        elif communication_type == "mag_finding_analysis":
+            comm_copy = copy.deepcopy(communication)
+            comm_copy["recordings"] = [
+                redact_sensitive_info_from_path(recording_path) for recording_path in comm_copy["recordings"]
+            ]
+            comm_str = str(comm_copy)
         else:
             comm_str = str(communication)
-        # TODO redact username from list under "recordings" key in "start_mag_analysis" command
         msg = f"Communication from the Server: {comm_str}"
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.info(msg)
 
-        communication_type = communication["communication_type"]
         shared_values_dict = self._values_to_share_to_server
         if communication_type == "mantarray_naming":
             command = communication["command"]
@@ -368,9 +371,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     f"Invalid command: {command} for communication_type: {communication_type}"
                 )
         elif communication_type == "mag_finding_analysis":
-            if communication["command"] == "start_mag_analysis":
-                main_to_da_queue = self._process_manager.queue_container.to_data_analyzer
-                main_to_da_queue.put_nowait(communication)
+            # this comm type when coming from the server currently only has one possible command: "start_mag_analysis"
+            main_to_da_queue = self._process_manager.queue_container.to_data_analyzer
+            main_to_da_queue.put_nowait(communication)
 
     def _put_communication_into_instrument_comm_queue(self, communication: Dict[str, Any]) -> None:
         main_to_instrument_comm_queue = self._process_manager.queue_container.to_instrument_comm(0)
