@@ -59,6 +59,26 @@ __fixtures__ = [
 ]
 
 
+def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raises_error_if_invalid_communication_type_received(
+    test_process_manager_creator, test_monitor
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
+
+    server_to_main_queue = test_process_manager.queue_container.from_server
+
+    bad_comm_type = "bad_comm_type"
+    expected_comm = {"communication_type": bad_comm_type}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
+
+    with pytest.raises(
+        UnrecognizedCommandFromServerToMainError, match=f"Invalid communication_type: {bad_comm_type}"
+    ):
+        invoke_process_run_and_check_errors(monitor_thread)
+
+    confirm_queue_is_eventually_empty(server_to_main_queue)
+
+
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_nickname_setting_by_setting_shared_values_dictionary_and_passing_command_to_instrument_comm(
     test_process_manager_creator, test_monitor
 ):

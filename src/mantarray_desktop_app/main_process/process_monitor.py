@@ -374,6 +374,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
             # this comm type when coming from the server currently only has one possible command: "start_mag_analysis"
             main_to_da_queue = self._process_manager.queue_container.to_data_analyzer
             main_to_da_queue.put_nowait(communication)
+        else:
+            raise UnrecognizedCommandFromServerToMainError(
+                f"Invalid communication_type: {communication_type}"
+            )
 
     def _put_communication_into_instrument_comm_queue(self, communication: Dict[str, Any]) -> None:
         main_to_instrument_comm_queue = self._process_manager.queue_container.to_instrument_comm(0)
