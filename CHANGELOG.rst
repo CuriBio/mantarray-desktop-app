@@ -13,6 +13,7 @@ Added:
 Fixed:
 ^^^^^^
 - Error from renaming a recording file with leading or trailing spaces.
+- Entire path to recording folder no longer included in the zipped files created during recording auto upload.
 
 
 1.0.4 (2022-11-21)

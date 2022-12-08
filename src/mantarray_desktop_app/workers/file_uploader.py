@@ -40,8 +40,8 @@ def create_zip_file(file_directory: str, file_name: str, zipped_recordings_dir: 
     # writing files to a zip file
     with zipfile.ZipFile(zipped_file_path, "w") as zip_file:
         # writing each file one by one
-        for file in file_paths:
-            zip_file.write(file)
+        for file_path in file_paths:
+            zip_file.write(file_path, os.path.basename(file_path))
 
     return zipped_file_path
 
@@ -178,6 +178,7 @@ class FileUploader(WebWorker):
 
         file_path = os.path.join(os.path.abspath(self.file_directory), self.file_name)
         # Failed uploads will call function with zip file, not directory of well data
+
         if os.path.isdir(file_path):
             if self.upload_type == "recording":
                 # store zipped files under user specific sub dir of static zipped dir

@@ -147,15 +147,24 @@ def test_start_analysis__starts_analysis_job_correctly__and_returns_job_id(mocke
 
 
 def test_create_zip_file__correctly_writes_h5_files_to_zipfile_at_designated_path(mocker):
-    mocked_zip_function = mocker.patch.object(zipfile, "ZipFile", autospec=True)
+    mocked_zipfile = mocker.patch.object(zipfile, "ZipFile", autospec=True)
+    mocked_zipfile_write = mocked_zipfile.return_value.__enter__.return_value.write
+
+    test_folder_path = os.path.join("some", "path", "to", "test_h5_files")
+    test_file_names = ("test_1.h5", "test_2.h5")
+
     mocked_os_walk = mocker.patch.object(os, "walk", autospec=True)
-    mocked_os_walk.return_value = [("/tmp/test_h5_files", ("",), ("test_1.h5", "test_2.h5"))]
+    mocked_os_walk.return_value = [(test_folder_path, ("",), test_file_names)]
 
     test_zipped_path = f"{TEST_FILEPATH}/zipped_recordings/cid"
 
     zipped_file_path = create_zip_file(TEST_FILEPATH, TEST_FILENAME, test_zipped_path)
-    mocked_zip_function.assert_called_once_with(f"{os.path.join(test_zipped_path, TEST_FILENAME)}.zip", "w")
     assert zipped_file_path == f"{os.path.join(test_zipped_path, TEST_FILENAME)}.zip"
+
+    mocked_zipfile.assert_called_once_with(f"{os.path.join(test_zipped_path, TEST_FILENAME)}.zip", "w")
+    assert mocked_zipfile_write.call_args_list == [
+        mocker.call(os.path.join(test_folder_path, file_name), file_name) for file_name in test_file_names
+    ]
 
 
 def test_download_analysis_from_s3__downloads_content_and_writes_to_file_in_downloads_dir(mocker):
@@ -176,7 +185,7 @@ def test_download_analysis_from_s3__downloads_content_and_writes_to_file_in_down
 
 
 def test_FileUploader_init__raises_error_if_uploading_a_recording_and_pulse3d_version_not_given(
-    create_file_uploader, mocker
+    create_file_uploader,
 ):
     with pytest.raises(RecordingUploadMissingPulse3dVersionError, match=TEST_FILENAME):
         # this will do a recording upload by default
