@@ -7,13 +7,24 @@ Changelog for Mantarray Desktop App
 
 Added:
 ^^^^^^
-- Ability to choose from previously used usernames when logging in.
+- Usernames will now be stored when logging in.
+- Option to also begin recording when starting stimulation.
+- Closure warning when recording snapshot is running.
 - Better reporting of start up errors.
+
+Changed:
+^^^^^^^^
+- Heatmap will now use only the last 5 contractions of each well to used to calculate metrics.
+- Live view will always be stopped when a recording is stopped.
+- Barcode entry boxes will now allow copying and pasting.
+- Error message includes additional instruction unplug the instrument from the PC.
+- Stimulation delay subprotocols must now be an integer number of milliseconds.
 
 Fixed:
 ^^^^^^
 - Error from renaming a recording file with leading or trailing spaces.
 - Entire path to recording folder no longer included in the zipped files created during recording auto upload.
+- Plate Barcodes will no longer be valid in Stim Lid Barcode entry box and vice-versa.
 
 
 1.0.4 (2022-11-21)
