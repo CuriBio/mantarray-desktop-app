@@ -1021,6 +1021,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             try:
                 self._process_comm_from_instrument(packet_type, packet_payload)
             except (
+                InstrumentFirmwareError,
                 FirmwareGoingDormantError,
                 SerialCommUntrackedCommandResponseError,
                 SerialCommIncorrectChecksumFromPCError,
