@@ -2,7 +2,7 @@ Changelog for Mantarray Desktop App
 ===================================
 
 
-1.0.5 (unreleased)
+1.0.5 (2022-12-11)
 ------------------
 
 Added:
@@ -14,10 +14,10 @@ Added:
 
 Changed:
 ^^^^^^^^
-- Heatmap will now use only the last 5 contractions of each well to used to calculate metrics.
-- Live view will always be stopped when a recording is stopped.
+- Heatmap will now use only the last 5 contractions of each well to calculate metrics.
+- Live View will now automatically be stopped when a recording is stopped.
 - Barcode entry boxes will now allow copying and pasting.
-- Error message includes additional instruction unplug the instrument from the PC.
+- Error message popup now includes additional instruction to unplug the instrument from the PC.
 - Stimulation delay subprotocols must now be an integer number of milliseconds.
 
 Fixed:
@@ -25,7 +25,7 @@ Fixed:
 - Error from renaming a recording file with leading or trailing spaces.
 - Entire path to recording folder no longer included in the zipped files created during recording auto upload.
 - Plate Barcodes will no longer be valid in Stim Lid Barcode entry box and vice-versa.
-- Error message when an error occurs in the instrument's firmware.
+- Error message details for when an error occurs in the instrument's firmware.
 
 
 1.0.4 (2022-11-21)
