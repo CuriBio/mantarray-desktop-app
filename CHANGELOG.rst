@@ -9,7 +9,7 @@ Added:
 ^^^^^^
 - Usernames will now be stored when logging in.
 - Option to also begin recording when starting stimulation.
-- Closure warning when recording snapshot is running.
+- Closure warning when Recording Snapshot is running.
 - Better reporting of start up errors.
 
 Changed:
@@ -25,6 +25,7 @@ Fixed:
 - Error from renaming a recording file with leading or trailing spaces.
 - Entire path to recording folder no longer included in the zipped files created during recording auto upload.
 - Plate Barcodes will no longer be valid in Stim Lid Barcode entry box and vice-versa.
+- Error message when an error occurs in the instrument's firmware.
 
 
 1.0.4 (2022-11-21)

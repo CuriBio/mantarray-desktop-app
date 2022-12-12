@@ -15,7 +15,6 @@ from mantarray_desktop_app.constants import SERIAL_COMM_ERROR_ACK_PACKET_TYPE
 from mantarray_desktop_app.constants import SERIAL_COMM_HANDSHAKE_PERIOD_SECONDS
 from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
 from mantarray_desktop_app.exceptions import InstrumentFirmwareError
-from mantarray_desktop_app.exceptions import SerialCommCommandProcessingError
 from mantarray_desktop_app.sub_processes import mc_comm
 from mantarray_desktop_app.utils.serial_comm import convert_status_code_bytes_to_dict
 import pytest
@@ -439,12 +438,11 @@ def test_McCommunicationProcess__handles_error_status_code_found_in_status_beaco
     invoke_process_run_and_check_errors(simulator)
 
     # read beacon with error code and then teardown
-    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
+    with pytest.raises(InstrumentFirmwareError) as exc_info:
         invoke_process_run_and_check_errors(mc_process, perform_teardown_after_loop=True)
-    assert type(exc_info.value.__cause__) == InstrumentFirmwareError
     # make sure relevant info is in error message
-    assert "status beacon" in str(exc_info.value.__cause__).lower()
-    assert str(expected_status_code_dict) in str(exc_info.value.__cause__)
+    assert "status beacon" in str(exc_info.value).lower()
+    assert str(expected_status_code_dict) in str(exc_info.value)
 
     # make sure only error ack packet was sent to simulator
     spied_write.assert_called_once()
@@ -487,12 +485,11 @@ def test_McCommunicationProcess__handles_error_status_code_found_in_handshake_re
     spied_write = mocker.spy(simulator, "write")
 
     # read handshake response with error code and then teardown
-    with pytest.raises(SerialCommCommandProcessingError) as exc_info:
+    with pytest.raises(InstrumentFirmwareError) as exc_info:
         invoke_process_run_and_check_errors(mc_process, perform_teardown_after_loop=True)
-    assert type(exc_info.value.__cause__) == InstrumentFirmwareError
     # make sure relevant info is in error message
-    assert "handshake" in str(exc_info.value.__cause__).lower()
-    assert str(expected_status_code_dict) in str(exc_info.value.__cause__)
+    assert "handshake" in str(exc_info.value).lower()
+    assert str(expected_status_code_dict) in str(exc_info.value)
 
     # make sure only error ack packet was sent to simulator
     spied_write.assert_called_once()
