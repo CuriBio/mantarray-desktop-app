@@ -1,6 +1,13 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+1.0.6 (2022-12-14)
+------------------
+
+Fixed:
+^^^^^^
+- Biphasic pulses being displayed as monophasic when interphase interval is set to 0ms
+
 
 1.0.5 (2022-12-11)
 ------------------
