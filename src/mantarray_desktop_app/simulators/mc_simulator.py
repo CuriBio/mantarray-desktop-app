@@ -764,9 +764,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 protocol_complete = (
                     self._stim_subprotocol_indices[protocol_idx] == 0 and curr_subprotocol_duration_us > 0
                 )
-                protocol_stopping = (
-                    not protocol["run_until_stopped"] if protocol_complete else False
-                )  # TODO try to make simpler
+                protocol_stopping = not protocol["run_until_stopped"] and protocol_complete
                 if protocol_complete:
                     protocol_complete_status = (
                         StimProtocolStatuses.FINISHED
