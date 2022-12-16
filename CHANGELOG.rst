@@ -1,6 +1,13 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+1.0.7 (2022-12-16)
+
+Changed:
+^^^^^^^^
+- Order of metrics sent for heat map
+
+
 1.0.6 (2022-12-14)
 ------------------
 
