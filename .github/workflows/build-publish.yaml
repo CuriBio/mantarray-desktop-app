@@ -34,7 +34,7 @@ jobs:
     runs-on: "ubuntu-22.04"
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Confirming tag not already present on remote
         run: if [$(git ls-remote --tags origin | grep ${{ steps.extract_version.outputs.package-version }}) = '']; then echo Tag does not exist on remote; else echo Tag already exists on remote && exit 1; fi
@@ -91,7 +91,7 @@ jobs:
           Get-DisplayResolution
 
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Convert Workflow Inputs to Env Vars
         run: |
@@ -106,14 +106,14 @@ jobs:
 
       - name: Get Version
         id: software-version
-        uses: notiz-dev/github-action-json-property@v0.1.0
+        uses: notiz-dev/github-action-json-property@v0.2.0
         with:
           path: "package.json"
           prop_path: "version"
 
       - name: Get Product Name
         id: product-name
-        uses: notiz-dev/github-action-json-property@v0.1.0
+        uses: notiz-dev/github-action-json-property@v0.2.0
         with:
           path: "package.json"
           prop_path: "name"
@@ -148,7 +148,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v2.4.1
+        uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node-version }}
 
@@ -160,7 +160,7 @@ jobs:
           npm --version
 
       - name: Cache node modules # https://docs.github.com/en/free-pro-team@latest/actions/guides/caching-dependencies-to-speed-up-workflows
-        uses: actions/cache@v2.1.7
+        uses: actions/cache@v3
         env:
           cache-name: cache-node-modules
         with:
@@ -170,7 +170,7 @@ jobs:
             ${{ matrix.os }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-
 
       - name: Cache Python modules
-        uses: actions/cache@v2.1.7
+        uses: actions/cache@v3
         env:
           cache-name: cache-python-modules
         with:
