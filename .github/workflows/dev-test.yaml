@@ -63,7 +63,7 @@ jobs:
           fetch-depth: 1
 
       - name: Set up Python
-        uses: actions/setup-python@v3.1.1
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -264,14 +264,14 @@ jobs:
 
       - name: Archive Installer File
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: installer--${{ matrix.os }}--${{ matrix.node-version }}--${{ matrix.python-version }}
           path: "dist/Mantarray*.exe"
 
       - name: Archive Dist Folder
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v2.2.4
+        uses: actions/upload-artifact@v3.2.4
         with:
           name: dist--${{ matrix.os }}--${{ matrix.node-version }}--${{ matrix.python-version }}
           path: "dist/**/*"
