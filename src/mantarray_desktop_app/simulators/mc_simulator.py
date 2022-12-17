@@ -267,8 +267,8 @@ class MantarrayMcSimulator(InfiniteProcess):
             start_time_index = self._get_global_timer()
             self._stim_time_indices = [start_time_index] * len(self._stim_info["protocols"])
             self._stim_subprotocol_indices = [-1] * len(self._stim_info["protocols"])
-            for well_name, protocol_id in self._stim_info["protocol_assignments"].items():
-                self._stim_running_statuses[well_name] = protocol_id is not None
+            for well_name, protocol_idx in self._stim_info["protocol_assignments"].items():
+                self._stim_running_statuses[well_name] = protocol_idx is not None
         else:
             self._reset_stim_running_statuses()
             self._timepoints_of_subprotocols_start = list()
@@ -356,6 +356,11 @@ class MantarrayMcSimulator(InfiniteProcess):
             convert_module_id_to_well_name(module_id, use_stim_mapping=True): False
             for module_id in range(1, self._num_wells + 1)
         }
+
+    def _update_stim_statuses_for_completed_protocol(self, completed_protocol_idx: int) -> None:
+        for well_name, protocol_idx in self._stim_info["protocol_assignments"].items():
+            if protocol_idx == completed_protocol_idx:
+                self._stim_running_statuses[well_name] = False
 
     def get_interpolated_data(self, sampling_period_us: int) -> NDArray[np.uint16]:
         """Return one second (one twitch) of interpolated data."""
@@ -759,7 +764,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 protocol_complete = (
                     self._stim_subprotocol_indices[protocol_idx] == 0 and curr_subprotocol_duration_us > 0
                 )
-                protocol_stopping = not protocol["run_until_stopped"] if protocol_complete else False
+                protocol_stopping = not protocol["run_until_stopped"] and protocol_complete
                 if protocol_complete:
                     protocol_complete_status = (
                         StimProtocolStatuses.FINISHED
@@ -772,6 +777,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                         protocol_complete_bytes = protocol_complete_bytes[:-1] + bytes(
                             [STIM_COMPLETE_SUBPROTOCOL_IDX]
                         )
+                        self._update_stim_statuses_for_completed_protocol(protocol_idx)
 
                 for well_name, protocol_assigment in self._stim_info["protocol_assignments"].items():
                     if protocol_assigment != protocol_idx:
