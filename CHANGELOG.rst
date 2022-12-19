@@ -1,11 +1,12 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.0.7 (2022-12-16)
+1.0.7 (unreleased)
+-------------------
 
 Changed:
 ^^^^^^^^
-- Order of metrics sent for heat map
+- Order of metrics sent for heat map. Twitch frequency is now default and sent as 0th index.
 
 
 1.0.6 (2022-12-14)
