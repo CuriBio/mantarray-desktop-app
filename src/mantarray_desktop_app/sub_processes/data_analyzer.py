@@ -652,7 +652,9 @@ class DataAnalyzerProcess(InfiniteProcess):
     def _start_recording_snapshot_analysis(self, recording_path: str) -> None:
         # TODO (9/16/22): this should be run in a thread so that this process is still responsive to main
         # TODO (11/16/22): add error handling. If the analysis fails here, then snapshot_dfs[0] will raise a KeyError
-        snapshot_dfs = run_magnet_finding_alg({}, [recording_path], end_time=RECORDING_SNAPSHOT_DUR_SECS)
+        snapshot_dfs = run_magnet_finding_alg(
+            {}, [recording_path], None, end_time=RECORDING_SNAPSHOT_DUR_SECS
+        )
         snapshot_dict = snapshot_dfs[0].to_dict()
         snapshot_list = [list(snapshot_dict[key].values()) for key in snapshot_dict.keys()]
 

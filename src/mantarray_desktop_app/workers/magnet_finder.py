@@ -17,7 +17,7 @@ def run_magnet_finding_alg(
     result_dict: Dict[str, Any],
     recordings: List[str],
     output_dir: Optional[str] = None,
-    end_time: Union[float, int] = None,
+    end_time: Optional[Union[float, int]] = None,
 ) -> List[Any]:
     """Run magnet finding analysis on the given recordings.
 
