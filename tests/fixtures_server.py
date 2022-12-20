@@ -37,7 +37,7 @@ def fixture_server_manager(generic_queue_container):
     to_main_queue = generic_queue_container.from_server
 
     sm = ServerManager(to_main_queue, generic_queue_container)
-    shared_values_dict = sm._values_from_process_monitor  # pylint:disable=protected-access
+    shared_values_dict = sm._values_from_process_monitor
     # Tanner (4/23/21): Many routes require these values to be in the shared values dictionary. They are normally set during app start up, so manually setting here
     shared_values_dict["system_status"] = SERVER_READY_STATE
     shared_values_dict["beta_2_mode"] = False
@@ -67,7 +67,7 @@ def fixture_test_client():
 @pytest.fixture(scope="function", name="client_and_server_manager_and_shared_values")
 def fixture_client_and_server_manager_and_shared_values(server_manager, test_client):
     sm, _ = server_manager
-    shared_values_dict = sm._values_from_process_monitor  # pylint:disable=protected-access
+    shared_values_dict = sm._values_from_process_monitor
     yield test_client, server_manager, shared_values_dict
 
 

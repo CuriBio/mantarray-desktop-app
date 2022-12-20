@@ -101,7 +101,7 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
 
     invoke_process_run_and_check_errors(p)
 
-    data_buffer = p._data_buffer  # pylint:disable=protected-access
+    data_buffer = p._data_buffer
     np.testing.assert_equal(data_buffer[test_well_index]["construct_data"], test_construct_data)
 
 
@@ -144,7 +144,7 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
         "data": test_construct_data,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_construct_dict, incoming_data)
-    data_buffer = p._data_buffer  # pylint:disable=protected-access
+    data_buffer = p._data_buffer
 
     expected_construct_data = [[0, 0], [0, 0]]
     data_buffer[test_well_index]["construct_data"] = copy.deepcopy(expected_construct_data)
@@ -184,7 +184,7 @@ def test_DataAnalyzerProcess__correctly_pairs_ascending_order_ref_sensor_data_in
 
     invoke_process_run_and_check_errors(p)
 
-    data_buffer = p._data_buffer  # pylint:disable=protected-access
+    data_buffer = p._data_buffer
     expected_ref_data_0 = np.array([[1250, 11250, 21250], [6, 54, 102]], dtype=np.int32)
     np.testing.assert_equal(data_buffer[0]["ref_data"], expected_ref_data_0)
     expected_ref_data_1 = np.array([[3750, 13750, 23750], [18, 66, 114]], dtype=np.int32)
@@ -223,7 +223,7 @@ def test_DataAnalyzerProcess__correctly_pairs_descending_order_ref_sensor_data_i
 
     invoke_process_run_and_check_errors(p)
 
-    data_buffer = p._data_buffer  # pylint:disable=protected-access
+    data_buffer = p._data_buffer
     expected_ref_data_23 = np.array([[1250, 11250, 21250], [11, 59, 107]], dtype=np.int32)
     np.testing.assert_equal(data_buffer[23]["ref_data"], expected_ref_data_23)
     expected_ref_data_22 = np.array([[3750, 13750, 23750], [23, 71, 119]], dtype=np.int32)
@@ -267,7 +267,7 @@ def test_DataAnalyzerProcess__is_buffer_full_returns_correct_value(
         test_data = np.zeros((2, test_sample_indices.shape[0]))
         test_data[0] = test_sample_indices
 
-    data_buffer = p._data_buffer  # pylint:disable=protected-access
+    data_buffer = p._data_buffer
     for well_idx in range(24):
         data_buffer[well_idx]["construct_data"] = test_data
         data_buffer[well_idx]["ref_data"] = test_data
@@ -296,7 +296,7 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
     p._barcode = RunningFIFOSimulator.default_barcode
 
     invoke_process_run_and_check_errors(p, perform_setup_before_loop=True)
-    data_buffer = p._data_buffer  # pylint:disable=protected-access
+    data_buffer = p._data_buffer
     for well_index in range(24):
         data_buffer[well_index]["construct_data"] = np.array(
             [expected_x_vals, expected_y_vals[well_index]], dtype=np.int32
@@ -348,7 +348,7 @@ def test_DataAnalyzerProcess__dump_data_into_queue__sends_message_to_main_indica
         "earliest_timepoint": dummy_well_data[0][0],
         "latest_timepoint": dummy_well_data[0][-1],
     }
-    p._dump_data_into_queue(dummy_data_dict)  # pylint:disable=protected-access
+    p._dump_data_into_queue(dummy_data_dict)
     confirm_queue_is_eventually_of_size(comm_to_main_queue, 1)
 
     expected_time = datetime.datetime(2020, 6, 1, 13, 45, 30, 123456).strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -386,12 +386,12 @@ def test_DataAnalyzerProcess__create_outgoing_data__normalizes_and_flips_raw_dat
         dtype=np.int32,
     )
 
-    data_buffer = p._data_buffer  # pylint:disable=protected-access
+    data_buffer = p._data_buffer
     for well_idx in range(24):
         data_buffer[well_idx]["construct_data"] = copy.deepcopy(test_data)
         data_buffer[well_idx]["ref_data"] = np.zeros(test_data.shape)
 
-    outgoing_data = p._create_outgoing_beta_1_data()  # pylint:disable=protected-access
+    outgoing_data = p._create_outgoing_beta_1_data()
     actual = outgoing_data["waveform_data"]["basic_data"]["waveform_data_points"]
 
     normalized_data = np.array([test_data[0], (test_data[1] - max(test_data[1])) * -1], dtype=np.int32)
@@ -439,7 +439,7 @@ def test_DataAnalyzerProcess__does_not_load_data_to_buffer_if_managed_acquisitio
 
     invoke_process_run_and_check_errors(p, num_iterations=2)
 
-    data_buffer = p._data_buffer  # pylint:disable=protected-access
+    data_buffer = p._data_buffer
     assert data_buffer[test_well_index]["construct_data"] is None
     assert data_buffer[test_well_index]["ref_data"] is None
 
@@ -455,7 +455,7 @@ def test_DataAnalyzerProcess__processes_stop_managed_acquisition_command(
     )
     invoke_process_run_and_check_errors(p)
 
-    data_buffer = p._data_buffer  # pylint:disable=protected-access
+    data_buffer = p._data_buffer
     for well_idx in range(24):
         data_buffer[well_idx]["construct_data"] = [[0, 0, 0], [1, 2, 3]]
         data_buffer[well_idx]["ref_data"] = [[0, 0, 0], [4, 5, 6]]

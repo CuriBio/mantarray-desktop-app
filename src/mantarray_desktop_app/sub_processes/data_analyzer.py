@@ -192,7 +192,7 @@ def _get_secs_since_data_analysis_start(start: float) -> float:
 
 
 def _drain_board_queues(
-    board_queues: Tuple[Queue[Any], Queue[Any]],  # pylint: disable=unsubscriptable-object
+    board_queues: Tuple[Queue[Any], Queue[Any]],
 ) -> Dict[str, List[Any]]:
     board_dict = {
         "file_writer_to_data_analyzer": drain_queue(board_queues[0]),
@@ -201,7 +201,6 @@ def _drain_board_queues(
     return board_dict
 
 
-# pylint: disable=too-many-instance-attributes
 class DataAnalyzerProcess(InfiniteProcess):
     """Process that analyzes data.
 
@@ -216,12 +215,12 @@ class DataAnalyzerProcess(InfiniteProcess):
     def __init__(
         self,
         the_board_queues: Tuple[
-            Tuple[Queue[Any], Queue[Any]],  # pylint: disable=unsubscriptable-object
+            Tuple[Queue[Any], Queue[Any]],
             ...,  # noqa: E231 # flake8 doesn't understand the 3 dots for type definition
         ],
-        comm_from_main_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
-        comm_to_main_queue: Queue[Dict[str, Any]],  # pylint: disable=unsubscriptable-object
-        fatal_error_reporter: Queue[Tuple[Exception, str]],  # pylint: disable=unsubscriptable-object
+        comm_from_main_queue: Queue[Dict[str, Any]],
+        comm_to_main_queue: Queue[Dict[str, Any]],
+        fatal_error_reporter: Queue[Tuple[Exception, str]],
         *,
         mag_analysis_output_dir: str,
         logging_level: int = logging.INFO,

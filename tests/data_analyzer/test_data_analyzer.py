@@ -105,7 +105,7 @@ def test_DataAnalyzerProcess__drain_all_queues__drains_all_queues_except_error_q
     confirm_queue_is_eventually_of_size(from_main_queue, 1)
     confirm_queue_is_eventually_of_size(to_main_queue, 1)
 
-    actual = data_analyzer_process._drain_all_queues()  # pylint:disable=protected-access
+    actual = data_analyzer_process._drain_all_queues()
 
     confirm_queue_is_eventually_of_size(error_queue, 1)
     actual_error = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -204,18 +204,12 @@ def test_DataAnalyzerProcess__logs_performance_metrics_after_creating_beta_1_dat
     expected_data_creation_durs = [3.6, 11.0, 9.5]
     expected_longest_iterations = [expected_iteration_dur for _ in range(da_process.num_longest_iterations)]
 
-    da_process._idle_iteration_time_ns = expected_iteration_dur  # pylint: disable=protected-access
-    da_process._minimum_iteration_duration_seconds = (  # pylint: disable=protected-access
-        2 * expected_iteration_dur / (10**9)
-    )
-    da_process._start_timepoint_of_last_performance_measurement = (  # pylint: disable=protected-access
-        expected_start_timepoint
-    )
-    da_process._percent_use_values = expected_percent_use_vals[:-1]  # pylint: disable=protected-access
-    da_process._outgoing_data_creation_durations = (  # pylint: disable=protected-access
-        expected_data_creation_durs[:-1]
-    )
-    data_buffer = da_process._data_buffer  # pylint: disable=protected-access
+    da_process._idle_iteration_time_ns = expected_iteration_dur
+    da_process._minimum_iteration_duration_seconds = 2 * expected_iteration_dur / (10**9)
+    da_process._start_timepoint_of_last_performance_measurement = expected_start_timepoint
+    da_process._percent_use_values = expected_percent_use_vals[:-1]
+    da_process._outgoing_data_creation_durations = expected_data_creation_durs[:-1]
+    data_buffer = da_process._data_buffer
     for i in range(24):
         data_buffer[i]["construct_data"] = np.zeros((2, 2))
         data_buffer[i]["ref_data"] = np.zeros((2, 2))
@@ -349,8 +343,8 @@ def test_DataAnalyzerProcess__does_not_include_performance_metrics_in_first_logg
     # set log level to debug performance metrics are created and sent to main
     da_process._logging_level = logging.DEBUG
 
-    da_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
-    data_buffer = da_process._data_buffer  # pylint: disable=protected-access
+    da_process._minimum_iteration_duration_seconds = 0
+    data_buffer = da_process._data_buffer
     for i in range(24):
         data_buffer[i]["construct_data"] = np.zeros((2, 2))
         data_buffer[i]["ref_data"] = np.zeros((2, 2))

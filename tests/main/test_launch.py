@@ -293,10 +293,7 @@ def test_main_entrypoint__correctly_assigns_shared_values_dictionary_to_process_
     object_access_dict = app_info["object_access_inside_main"]
     shared_values_dict = object_access_dict["values_to_share_to_server"]
     test_process_monitor = object_access_dict["process_monitor"]
-    assert (
-        test_process_monitor._values_to_share_to_server  # pylint: disable=protected-access
-        is shared_values_dict
-    )
+    assert test_process_monitor._values_to_share_to_server is shared_values_dict
     assert isinstance(shared_values_dict, SharedValues)
     test_process_manager = object_access_dict["process_manager"]
     assert test_process_manager.values_to_share_to_server is shared_values_dict

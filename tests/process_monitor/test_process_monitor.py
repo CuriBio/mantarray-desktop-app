@@ -607,18 +607,18 @@ def test_MantarrayProcessesMonitor__correctly_sets_system_status_to_live_view_ac
     }
 
     shared_values_dict["system_status"] = BUFFERING_STATE
-    data_analyzer_process._dump_data_into_queue(dummy_data)  # pylint:disable=protected-access
+    data_analyzer_process._dump_data_into_queue(dummy_data)
     assert is_queue_eventually_not_empty(da_to_main_queue) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == BUFFERING_STATE
 
-    data_analyzer_process._dump_data_into_queue(dummy_data)  # pylint:disable=protected-access
+    data_analyzer_process._dump_data_into_queue(dummy_data)
     assert is_queue_eventually_not_empty(da_to_main_queue) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == LIVE_VIEW_ACTIVE_STATE
 
     shared_values_dict["system_status"] = RECORDING_STATE
-    data_analyzer_process._dump_data_into_queue(dummy_data)  # pylint:disable=protected-access
+    data_analyzer_process._dump_data_into_queue(dummy_data)
     assert is_queue_eventually_not_empty(da_to_main_queue) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == RECORDING_STATE
@@ -798,7 +798,7 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_manag
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    monitor_thread._data_dump_buffer_size = OUTGOING_DATA_BUFFER_SIZE  # pylint:disable=protected-access
+    monitor_thread._data_dump_buffer_size = OUTGOING_DATA_BUFFER_SIZE
 
     ok_comm_process = test_process_manager.instrument_comm_process
     from_instrument_comm_queue = test_process_manager.queue_container.from_instrument_comm(0)
@@ -816,7 +816,7 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_manag
     assert is_queue_eventually_not_empty(from_instrument_comm_queue) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == CALIBRATED_STATE
-    assert monitor_thread._data_dump_buffer_size == 0  # pylint:disable=protected-access
+    assert monitor_thread._data_dump_buffer_size == 0
 
 
 def test_MantarrayProcessesMonitor__stores_device_information_after_connection__in_beta_1_mode(

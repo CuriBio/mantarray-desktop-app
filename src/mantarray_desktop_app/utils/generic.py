@@ -367,7 +367,7 @@ def _check_scanned_barcode_vs_user_value(
     return result
 
 
-def _get_timestamp_of_acquisition_sample_index_zero(  # pylint:disable=invalid-name # yeah, it's kind of long, but Eli (2/27/20) doesn't know a good way to shorten it
+def _get_timestamp_of_acquisition_sample_index_zero(  # yeah, it's kind of long, but Eli (2/27/20) doesn't know a good way to shorten it
     shared_values_dict: Dict[str, Any],
 ) -> datetime.datetime:
     board_idx = 0  # board index 0 hardcoded for now

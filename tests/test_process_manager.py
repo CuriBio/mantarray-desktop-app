@@ -240,9 +240,9 @@ def test_MantarrayProcessesManager__spawn_processes__stop_and_join_processes__st
     generic_manager.spawn_processes()
 
     # drain all queues of start-up messages before attempting to join
-    generic_manager.instrument_comm_process._drain_all_queues()  # pylint:disable=protected-access
-    generic_manager.file_writer_process._drain_all_queues()  # pylint:disable=protected-access
-    generic_manager.data_analyzer_process._drain_all_queues()  # pylint:disable=protected-access
+    generic_manager.instrument_comm_process._drain_all_queues()
+    generic_manager.file_writer_process._drain_all_queues()
+    generic_manager.data_analyzer_process._drain_all_queues()
 
     generic_manager.stop_and_join_processes()
 

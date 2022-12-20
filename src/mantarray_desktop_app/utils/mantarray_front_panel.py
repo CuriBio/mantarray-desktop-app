@@ -29,7 +29,7 @@ class MantarrayFrontPanelMixIn:
         return version_string
 
     def read_wire_out(self, ep_addr: int) -> int:
-        # pylint: disable=no-self-use,unused-argument # Tanner (7/14/20): this method should never actually be used by child classes. They should use this method provided by the other parent class due to MRO.
+        # Tanner (7/14/20): this method should never actually be used by child classes. They should use this method provided by the other parent class due to MRO.
         if isinstance(self, FrontPanelBase):
             raise NotImplementedError(
                 "This implementation of read_wire_out should never be called by a FrontPanelBase object. Use a FrontPanelBase implementation instead"
@@ -37,7 +37,7 @@ class MantarrayFrontPanelMixIn:
         return 0
 
     def activate_trigger_in(self, ep_addr: int, bit: int) -> None:
-        # pylint: disable=no-self-use,unused-argument # Tanner (7/14/20): this method should never actually be used by child classes. They should use this method provided by the other parent class due to MRO.
+        # Tanner (7/14/20): this method should never actually be used by child classes. They should use this method provided by the other parent class due to MRO.
         if isinstance(self, FrontPanelBase):
             raise NotImplementedError(
                 "This implementation of activate_trigger_in should never be called by a FrontPanelBase object. Use a FrontPanelBase implementation instead"

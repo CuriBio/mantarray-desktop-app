@@ -104,21 +104,17 @@ logger = logging.getLogger(__name__)
 os.environ[
     "FLASK_ENV"
 ] = "DEVELOPMENT"  # this removes warnings about running the Werkzeug server (which is not meant for high volume requests, but should be fine for intra-PC communication from a single client)
-flask_app = (
-    Flask(  # pylint: disable=invalid-name # yes, this is intentionally a global variable, not a constant
-        __name__
-    )
-)
+flask_app = Flask(__name__)
 CORS(flask_app)
 socketio = SocketIO(flask_app)
 
-_the_server_manager: Optional[  # pylint: disable=invalid-name # Eli (11/3/20) yes, this is intentionally a global variable, not a constant. This is the current best guess at how to allow Flask routes to access some info they need
+_the_server_manager: Optional[  # Eli (11/3/20) yes, this is intentionally a global variable, not a constant. This is the current best guess at how to allow Flask routes to access some info they need
     "ServerManager"
 ] = None
 
 
 def clear_the_server_manager() -> None:
-    global _the_server_manager  # pylint:disable=global-statement,invalid-name # Eli (12/8/20) this is deliberately setting a global
+    global _the_server_manager  # Eli (12/8/20) this is deliberately setting a global
     _the_server_manager = None
 
 
@@ -131,9 +127,7 @@ def get_the_server_manager() -> "ServerManager":
     return _the_server_manager
 
 
-def get_server_to_main_queue() -> Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-    Dict[str, Any]
-]:
+def get_server_to_main_queue() -> Queue[Dict[str, Any]]:
     return get_the_server_manager().get_queue_to_main()
 
 
@@ -164,11 +158,7 @@ def _get_values_from_process_monitor() -> Dict[str, Any]:
 
 
 def queue_command_to_instrument_comm(comm_dict: Dict[str, Any]) -> Response:
-    """Queue command to send to InstrumentCommProcess and return response.
-
-    This is used by the test suite, so is not designated as private in
-    order to make pylint happier.
-    """
+    """Queue command to send to InstrumentCommProcess and return response."""
     to_instrument_comm_queue = get_the_server_manager().queue_container.to_instrument_comm(0)
     comm_dict = dict(comm_dict)  # make a mutable version to pass into ok_comm
     to_instrument_comm_queue.put_nowait(comm_dict)
@@ -178,11 +168,7 @@ def queue_command_to_instrument_comm(comm_dict: Dict[str, Any]) -> Response:
 
 
 def queue_command_to_main(comm_dict: Dict[str, Any]) -> Response:
-    """Queue command to send to the main thread and return response.
-
-    This is used by the test suite, so is not designated as private in
-    order to make pylint happier.
-    """
+    """Queue command to send to the main thread and return response."""
     to_main_queue = get_server_to_main_queue()
 
     comm_dict = dict(

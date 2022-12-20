@@ -93,7 +93,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self,
         values_to_share_to_server: SharedValues,
         process_manager: MantarrayProcessesManager,
-        fatal_error_reporter: queue.Queue[str],  # pylint: disable=unsubscriptable-object
+        fatal_error_reporter: queue.Queue[str],
         the_lock: threading.Lock,
         boot_up_after_processes_start: bool = False,
         load_firmware_file: bool = True,
@@ -430,7 +430,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self._queue_websocket_message(outgoing_data_json)
 
     def _check_and_handle_instrument_comm_to_main_queue(self) -> None:
-        # pylint: disable=too-many-branches,too-many-statements  # TODO Tanner (10/25/21): refactor this into smaller methods
+        # TODO Tanner (10/25/21): refactor this into smaller methods
         process_manager = self._process_manager
         board_idx = 0
         instrument_comm_to_main = process_manager.queue_container.from_instrument_comm(board_idx)
