@@ -51,8 +51,9 @@ def test_set_up_socketio_handlers__sets_up_socketio_events_correctly(mocker, fsi
     mocked_start_bg_task = mocker.patch.object(main.socketio, "start_background_task", autospec=True)
 
     test_queue = TestingQueue()
+    test_queue_two = TestingQueue()
 
-    data_sender = main._set_up_socketio_handlers(test_queue)
+    data_sender = main._set_up_socketio_handlers(test_queue, test_queue_two)
 
     test_clients = []
     try:

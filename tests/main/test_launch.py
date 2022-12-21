@@ -484,7 +484,8 @@ def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_e
 
     # assert socketio was set up correctly
     ws_queue = app_info["object_access_inside_main"]["process_manager"].queue_container.to_server
-    mocked_set_up.assert_called_once_with(ws_queue)
+    to_pm_queue = app_info["object_access_inside_main"]["process_manager"].queue_container.from_websocket
+    mocked_set_up.assert_called_once_with(ws_queue, to_pm_queue)
     # assert Flask was started correctly
     _, host, port = get_server_address_components()
     mocked_socketio_run = app_info["mocked_socketio_run"]
