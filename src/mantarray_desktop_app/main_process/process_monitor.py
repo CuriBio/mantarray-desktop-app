@@ -759,6 +759,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self._check_and_handle_file_writer_to_main_queue()
         self._check_and_handle_data_analyzer_to_main_queue()
         self._check_and_handle_server_to_main_queue()
+        self._check_and_handle_websocket_to_main_queue()
 
         # if managed acquisition is running, check for available data
         if self._values_to_share_to_server["system_status"] in (
@@ -786,7 +787,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
     def _check_subprocess_start_up_statuses(self) -> None:
         process_manager = self._process_manager
         shared_values_dict = self._values_to_share_to_server
-        if process_manager.are_subprocess_start_ups_complete():
+        if (
+            process_manager.are_subprocess_start_ups_complete()
+            and shared_values_dict["fe_be_connection_success"]
+        ):
             shared_values_dict["system_status"] = SERVER_READY_STATE
 
     def _add_offset_to_shared_dict(self, adc_index: int, ch_index: int, offset_val: int) -> None:
@@ -868,3 +872,13 @@ class MantarrayProcessesMonitor(InfiniteThread):
     def soft_stop(self) -> None:
         self._process_manager.soft_stop_and_join_processes()
         super().soft_stop()
+
+    def _check_and_handle_websocket_to_main_queue(self) -> None:
+        process_manager = self._process_manager
+        to_main_queue = process_manager.queue_container.from_websocket
+        try:
+            communication = to_main_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+        except queue.Empty:
+            return
+        if communication["communication_type"] == "connection_success":
+            self._values_to_share_to_server["fe_be_connection_success"] = True

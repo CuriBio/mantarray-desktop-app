@@ -68,7 +68,9 @@ def get_server_port_number() -> int:
     return server_manager.get_port_number()
 
 
-def _set_up_socketio_handlers(ws_queue: LightQueue) -> Callable[[], None]:
+def _set_up_socketio_handlers(
+    ws_queue: LightQueue, to_pm_queue: queue.Queue[Dict[str, any]]
+) -> Callable[[], None]:
     def data_sender() -> None:  # pragma: no cover  # Tanner (6/21/21): code coverage can't follow into start_background_task where this function is run
         while True:
             try:
@@ -91,6 +93,7 @@ def _set_up_socketio_handlers(ws_queue: LightQueue) -> Callable[[], None]:
         if not _socketio_background_task_status["data_sender"]:
             socketio.start_background_task(data_sender)
         _socketio_background_task_status["data_sender"] = True
+        to_pm_queue.put_nowait({"communication_type": "connection_success"})
 
     @socketio.on("disconnect")
     def stop_data_sender():  # type: ignore
@@ -243,6 +246,7 @@ def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[
 
         shared_values_dict = SharedValues()
 
+        shared_values_dict["fe_be_connection_success"] = False
         if parsed_args.initial_base64_settings:
             # Eli (7/15/20): Moved this ahead of the exit for debug_test_post_build so that it could be easily unit tested. The equals signs are adding padding..apparently a quirk in python https://stackoverflow.com/questions/2941995/python-ignore-incorrect-padding-error-when-base64-decoding
             decoded_settings: bytes = base64.urlsafe_b64decode(
@@ -344,8 +348,11 @@ def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[
             _, host, _ = get_server_address_components()
 
             data_queue_to_server = process_manager.queue_container.to_server
+            data_queue_to_process_monitor = process_manager.queue_container.from_websocket
 
-            object_access_for_testing["data_sender"] = _set_up_socketio_handlers(data_queue_to_server)
+            object_access_for_testing["data_sender"] = _set_up_socketio_handlers(
+                data_queue_to_server, data_queue_to_process_monitor
+            )
 
             # Tanner (5/20/22): This is currently having issues with exiting on Windows.
             # It likely has something to do with keeping the HTTP connections alive and/or the sockets open.
