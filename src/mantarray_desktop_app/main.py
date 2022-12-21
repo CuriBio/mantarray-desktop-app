@@ -69,7 +69,7 @@ def get_server_port_number() -> int:
 
 
 def _set_up_socketio_handlers(
-    ws_queue: LightQueue, to_pm_queue: queue.Queue[Dict[str, any]]
+    ws_queue: LightQueue, to_pm_queue: queue.Queue[Dict[str, Any]]
 ) -> Callable[[], None]:
     def data_sender() -> None:  # pragma: no cover  # Tanner (6/21/21): code coverage can't follow into start_background_task where this function is run
         while True:

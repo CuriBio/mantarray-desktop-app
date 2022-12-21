@@ -41,7 +41,7 @@ class MantarrayQueueContainer:
         self.from_server: queue.Queue[Dict[str, Any]] = queue.Queue()
         self.to_server: LightQueue = LightQueue()
 
-        self.from_websocket: queue.Queue[Dict[str, any]] = queue.Queue()
+        self.from_websocket: queue.Queue[Dict[str, Any]] = queue.Queue()
         self.to_websocket: LightQueue = LightQueue()
 
     # TODO (7/27/22): remove these methods once the refactor in the to do note above is complete
