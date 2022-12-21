@@ -272,8 +272,9 @@ def test_MantarrayProcessesMonitor__logs_messages_from_data_analyzer(
     mocked_logger.assert_called_once_with(f"Communication from the Data Analyzer: {expected_comm}")
 
 
+@pytest.mark.parametrize("test_data_type", ["recording_snapshot_data", "local_analysis"])
 def test_MantarrayProcessesMonitor__handled_completed_mag_analysis_command_correctly_from_data_analyzer__and_logs_correctly(
-    mocker, test_process_manager_creator, test_monitor
+    test_data_type, mocker, test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
@@ -283,25 +284,26 @@ def test_MantarrayProcessesMonitor__handled_completed_mag_analysis_command_corre
     queue_to_server_ws = test_process_manager.queue_container.to_server
     data_analyzer_to_main = test_process_manager.queue_container.from_data_analyzer
 
-    expected_data_json = json.dumps([])
-    expected_data_type = choice(["mag_analysis_complete", "local_analysis"])
+    expected_data_json = json.dumps(list(range(100)))
 
     expected_comm = {
         "communication_type": "mag_analysis_complete",
-        "content": {"data_type": expected_data_type, "data_json": expected_data_json},
+        "content": {"data_type": test_data_type, "data_json": expected_data_json},
     }
-    data_analyzer_to_main.put_nowait(expected_comm)
+    data_analyzer_to_main.put_nowait(copy.deepcopy(expected_comm))
     assert is_queue_eventually_not_empty(data_analyzer_to_main) is True
 
     invoke_process_run_and_check_errors(monitor_thread)
     assert is_queue_eventually_empty(data_analyzer_to_main) is True
 
     ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert ws_message == {"data_type": expected_data_type, "data_json": expected_data_json}
+    assert ws_message == {"data_type": test_data_type, "data_json": expected_data_json}
 
-    mocked_logger.assert_called_once_with(
-        f"Communication from the Data Analyzer: Magnet Finding Analysis complete for {expected_data_type}"
-    )
+    mocked_logger.assert_called_once()
+
+    if test_data_type == "recording_snapshot_data":
+        expected_comm["content"].pop("data_json")
+    assert str(expected_comm) in mocked_logger.call_args[0][0]
 
 
 def test_MantarrayProcessesMonitor__pulls_outgoing_data_from_data_analyzer_and_makes_it_available_to_server(
@@ -1978,7 +1980,7 @@ def test_MantarrayProcessesMonitor__passes_stim_status_check_results_from_mc_com
             well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
             logged_dict[well_name] = comm_dict[well_idx]
 
-        assert str(logged_dict) in spied_info.call_args_list[0][0][0]
+        assert str(logged_dict) in spied_info.call_args[0][0]
 
 
 def test_MantarrayProcessesMonitor__passes_corrupt_file_message_from_file_writer_to_websocket_queue(

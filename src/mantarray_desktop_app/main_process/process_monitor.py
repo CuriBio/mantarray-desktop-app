@@ -396,7 +396,14 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         if communication_type == "mag_analysis_complete":
             data_type = communication["content"]["data_type"]
-            comm_str = f"Magnet Finding Analysis complete for {data_type}"
+            comm_copy = {
+                "communication_type": "mag_analysis_complete",
+                # make a shallow copy so all the data isn't copied
+                "content": copy.copy(communication["content"]),
+            }
+            if data_type == "recording_snapshot_data":
+                comm_copy["content"].pop("data_json")
+            comm_str = str(comm_copy)
         else:
             comm_str = str(communication)
         msg = f"Communication from the Data Analyzer: {comm_str}"

@@ -8,6 +8,10 @@ Changed:
 ^^^^^^^^
 - Twitch Frequency is now the default metric displayed in the Heat Map.
 
+Fixed:
+^^^^^^
+- Errors in Local Analysis not being reported, leading to it running indefinitely.
+
 
 1.0.6 (2022-12-14)
 ------------------

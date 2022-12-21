@@ -52,7 +52,7 @@ def run_magnet_finding_alg(
                 columns_to_drop = [c for c in df.columns if "__raw" in c]
                 df.drop(columns_to_drop, inplace=True, axis=1)
 
-                # to_dataframe sends us, convert to seconds
+                # to_dataframe sends µs, convert to seconds
                 df["Time (s)"] /= MICRO_TO_BASE_CONVERSION
 
                 if is_recording_snapshot:
