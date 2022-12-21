@@ -1,5 +1,11 @@
 Changelog for Mantarray Desktop App
 ===================================
+1.0.7 (unreleased)
+------------------
+
+Added:
+- Additional check for frontend backend connection before setting softwar status to `SERVER_READY_STATE`
+
 
 1.0.6 (2022-12-14)
 ------------------
