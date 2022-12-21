@@ -5,6 +5,7 @@ import json
 import os
 import queue
 from random import choice
+from random import randint
 import threading
 import time
 
@@ -1932,26 +1933,33 @@ def test_MantarrayProcessesMonitor__updates_stimulation_running_list_when_status
     assert shared_values_dict["stimulation_running"] == [False] * 24
 
 
-def test_MantarrayProcessesMonitor__passes_stim_status_check_results_from_mc_comm_to_websocket_queue__and_stores_them_in_shared_values_dictionary(
-    test_monitor, test_process_manager_creator
+def test_MantarrayProcessesMonitor__passes_stim_status_check_results_from_mc_comm_to_websocket_queue__and_stores_them_in_shared_values_dictionary__and_logs_correctly(
+    test_monitor, test_process_manager_creator, mocker
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
+    spied_info = mocker.spy(process_monitor.logger, "info")
+
     instrument_comm_to_main = test_process_manager.queue_container.from_instrument_comm(0)
     queue_to_server_ws = test_process_manager.queue_container.to_server
 
-    test_num_wells = 24
+    test_wells = range(randint(0, 3), randint(20, 24))
     possible_stim_statuses = [member.name.lower() for member in StimulatorCircuitStatuses]
-    stim_check_results = {well_idx: choice(possible_stim_statuses) for well_idx in range(test_num_wells)}
+    stim_check_results = {well_idx: choice(possible_stim_statuses) for well_idx in test_wells}
+
+    # values in this dict don't matter, just the keys
+    adc_readings = {well_idx: None for well_idx in test_wells}
+
+    test_comm = {
+        "communication_type": "stimulation",
+        "command": "start_stim_checks",
+        "stimulator_circuit_statuses": stim_check_results,
+        "adc_readings": adc_readings,
+    }
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {
-            "communication_type": "stimulation",
-            "command": "start_stim_checks",
-            "stimulator_circuit_statuses": stim_check_results,
-        },
-        instrument_comm_to_main,
+        copy.deepcopy(test_comm), instrument_comm_to_main
     )
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["stimulator_circuit_statuses"] == stim_check_results
@@ -1962,6 +1970,15 @@ def test_MantarrayProcessesMonitor__passes_stim_status_check_results_from_mc_com
         "data_type": "stimulator_circuit_statuses",
         "data_json": json.dumps(stim_check_results),
     }
+
+    # convert all well idxs to well names
+    for comm_dict in (stim_check_results, adc_readings):
+        logged_dict = {}
+        for well_idx in test_wells:
+            well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
+            logged_dict[well_name] = comm_dict[well_idx]
+
+        assert str(logged_dict) in spied_info.call_args_list[0][0][0]
 
 
 def test_MantarrayProcessesMonitor__passes_corrupt_file_message_from_file_writer_to_websocket_queue(
