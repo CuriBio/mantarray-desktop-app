@@ -257,17 +257,17 @@ def test_parse_sensor_bytes_performance():
     #
     # started at:                           30867322
     # 1. converting to cython:               4758391
-    # 2. cpdef functions:                    2846122  # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): I don't want to add cpdef to the overall dictionary of words to ignore
+    # 2. cpdef functions:                    2846122
     # 3. line_trace=False:                   2672362
     # 4. better typing of function args:     1477277
-    # 5. more cdef variables:                 808056  # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): I don't want to add cdef to the overall dictionary of words to ignore
+    # 5. more cdef variables:                 808056
 
     test_bytearray = bytearray([0x02, 0xF6, 0x85, 0x77])
     start = time.perf_counter_ns()
     for _ in range(5000):
         parse_sensor_bytes(test_bytearray)
     dur = time.perf_counter_ns() - start
-    # print(f"Duration (ns): {dur}") # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+    # print(f"Duration (ns): {dur}")
     assert dur < 10000000
 
 
@@ -295,7 +295,7 @@ def test_build_file_writer_objects_performance():
     dur = time.perf_counter_ns() - start
 
     ns_per_iter = dur / num_iterations
-    # print(f"ns per iterations: {ns_per_iter}") # pylint:disable=wrong-spelling-in-comment # Eli (4/8/21): this is commented code that is deliberately kept in the codebase since it is often toggled on/off during optimization
+    # print(f"ns per iterations: {ns_per_iter}")
     assert (
         ns_per_iter < 450000000
     )  # Eli (10/20/20): bumped up from 300000000 to 450000000 because it was running a bit slow on windows in Github CI

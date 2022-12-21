@@ -910,7 +910,7 @@ def test_FileWriterProcess__adds_incoming_magnetometer_data_to_internal_buffer(
     )
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=expected_num_items)
-    actual_num_items = len(file_writer_process._data_packet_buffers[0])  # pylint: disable=protected-access
+    actual_num_items = len(file_writer_process._data_packet_buffers[0])
     assert actual_num_items == expected_num_items
 
 
@@ -922,7 +922,7 @@ def test_FileWriterProcess__does_not_add_incoming_beta_2_magnetometer_data_to_in
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     board_queues = four_board_file_writer_process["board_queues"]
 
-    test_data_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
+    test_data_buffer = file_writer_process._data_packet_buffers[0]
 
     test_num_items = 4
     packet_len = len(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS["time_indices"])
@@ -964,7 +964,7 @@ def test_FileWriterProcess__clears_leftover_beta_2_magnetometer_data_of_previous
         expected_num_items,
     )
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=expected_num_items)
-    actual_num_items = len(file_writer_process._data_packet_buffers[0])  # pylint: disable=protected-access
+    actual_num_items = len(file_writer_process._data_packet_buffers[0])
     assert actual_num_items == expected_num_items
 
     # send packet from new stream to clear old data from buffer
@@ -976,7 +976,7 @@ def test_FileWriterProcess__clears_leftover_beta_2_magnetometer_data_of_previous
         1,
     )
     invoke_process_run_and_check_errors(file_writer_process)
-    actual_num_items = len(file_writer_process._data_packet_buffers[0])  # pylint: disable=protected-access
+    actual_num_items = len(file_writer_process._data_packet_buffers[0])
     assert actual_num_items == 1
 
     # clean up
@@ -1005,7 +1005,7 @@ def test_FileWriterProcess__removes_beta_1_packets_from_magnetometer_data_buffer
     confirm_queue_is_eventually_of_size(board_queues[0][0], 2)
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=2)
-    data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
+    data_packet_buffer = file_writer_process._data_packet_buffers[0]
     assert len(data_packet_buffer) == 1
     assert data_packet_buffer[0]["is_reference_sensor"] is new_packet["is_reference_sensor"]
     assert data_packet_buffer[0]["well_index"] == new_packet["well_index"]
@@ -1029,7 +1029,7 @@ def test_FileWriterProcess__removes_beta_2_packets_from_magnetometer_data_buffer
     confirm_queue_is_eventually_of_size(board_queues[0][0], 2)
 
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=2)
-    data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
+    data_packet_buffer = file_writer_process._data_packet_buffers[0]
     assert len(data_packet_buffer) == 1
     np.testing.assert_equal(data_packet_buffer[0]["time_indices"], new_packet["time_indices"])
 
@@ -1040,7 +1040,7 @@ def test_FileWriterProcess__clears_magnetometer_data_buffer_when_stop_managed_ac
     file_writer_process = four_board_file_writer_process["fw_process"]
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
+    data_packet_buffer = file_writer_process._data_packet_buffers[0]
     for _ in range(3):
         data_packet_buffer.append(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
 
@@ -1059,7 +1059,7 @@ def test_FileWriterProcess__records_all_requested_beta_1_magnetometer_data_in_bu
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
+    data_packet_buffer = file_writer_process._data_packet_buffers[0]
     for _ in range(2):
         data_packet_buffer.append(SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0)
 
@@ -1103,13 +1103,12 @@ def test_FileWriterProcess__records_all_requested_beta_1_magnetometer_data_in_bu
 def test_FileWriterProcess__records_all_requested_beta_2_magnetometer_data_in_buffer__and_creates_dict_of_latest_data_timepoints_for_open_files__when_start_recording_command_is_received(
     four_board_file_writer_process,
 ):
-    # pylint: disable=too-many-locals  # Tanner (5/30/21): many variables needed for this test
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
     populate_calibration_folder(file_writer_process)
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
-    data_packet_buffer = file_writer_process._data_packet_buffers[0]  # pylint: disable=protected-access
+    data_packet_buffer = file_writer_process._data_packet_buffers[0]
     # dummy packets that will be ignored
     for _ in range(2):
         data_packet_buffer.append(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
@@ -1590,7 +1589,6 @@ def test_FileWriterProcess__deletes_recorded_beta_1_well_data_after_stop_time(
 def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     four_board_file_writer_process,
 ):
-    # pylint: disable=too-many-locals  # Tanner (5/19/21): many variables needed for this test
     file_writer_process = four_board_file_writer_process["fw_process"]
     file_writer_process.set_beta_2_mode()
     populate_calibration_folder(file_writer_process)

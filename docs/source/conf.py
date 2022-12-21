@@ -21,7 +21,7 @@ from typing import List
 # -- Project information -----------------------------------------------------
 
 project = "labware_domain_models"
-copyright = "2019, NanoSurface Biomedical"  # pylint: disable=redefined-builtin
+copyright = "2019, NanoSurface Biomedical"
 author = "NanoSurface Biomedical"
 
 # The full version, including alpha/beta/rc tags

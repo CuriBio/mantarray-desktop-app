@@ -39,7 +39,7 @@ def test_FIFOReadProducer__increments_sample_idx_by_correct_number_of_round_robi
     data_out_queue = queue.Queue()
     error_queue = queue.Queue()
     producer_thread = FIFOReadProducer(data_out_queue, error_queue, threading.Lock())
-    assert producer_thread._sample_index == 0  # pylint: disable=protected-access
+    assert producer_thread._sample_index == 0
 
     expected_num_cycles = 21
     expected_cms_of_data = expected_num_cycles * ROUND_ROBIN_PERIOD
@@ -48,10 +48,7 @@ def test_FIFOReadProducer__increments_sample_idx_by_correct_number_of_round_robi
     )
 
     invoke_process_run_and_check_errors(producer_thread)
-    assert (
-        producer_thread._sample_index * TIMESTEP_CONVERSION_FACTOR  # pylint: disable=protected-access
-        == expected_cms_of_data
-    )
+    assert producer_thread._sample_index * TIMESTEP_CONVERSION_FACTOR == expected_cms_of_data
 
     # clean up the queues to avoid BrokenPipe errors
     producer_thread.hard_stop()

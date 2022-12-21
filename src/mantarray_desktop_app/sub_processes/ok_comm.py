@@ -62,14 +62,10 @@ from ..exceptions import UnrecognizedDataFrameFormatNameError
 from ..exceptions import UnrecognizedDebugConsoleCommandError
 from ..exceptions import UnrecognizedMantarrayNamingCommandError
 from ..simulators.fifo_simulator import RunningFIFOSimulator
+from ..utils.data_parsing_cy import parse_sensor_bytes
 from ..utils.generic import _trim_barcode
 from ..utils.generic import check_barcode_is_valid
 from ..utils.mantarray_front_panel import MantarrayFrontPanel
-
-if 6 < 9:  # pragma: no cover # protect this from zimports deleting the pylint disable statement
-    from ..utils.data_parsing_cy import (  # pylint: disable=import-error # Tanner (8/25/20): unsure why pylint is unable to recognize cython import...
-        parse_sensor_bytes,
-    )
 
 
 def _get_formatted_utc_now() -> str:
@@ -123,7 +119,7 @@ def execute_debug_console_command(
         status_dict[
             "is_spi_running"
         ] = (
-            front_panel._is_spi_running  # pylint: disable=protected-access # adding method to access this instance attribute specifically rather than the value from the XEM.
+            front_panel._is_spi_running  # adding method to access this instance attribute specifically rather than the value from the XEM.
         )
         status_dict["is_board_initialized"] = front_panel.is_board_initialized()
         status_dict["bit_file_name"] = front_panel.get_bit_file_name()
@@ -140,7 +136,7 @@ def execute_debug_console_command(
         raise UnrecognizedDebugConsoleCommandError(communication)
     try:
         response: Union[None, int, str, Dict[str, Any], List[str]] = callable_to_execute()
-    except Exception as e:  # pylint: disable=broad-except # The deliberate goal of this is to catch everything and return the error
+    except Exception as e:  # The deliberate goal of this is to catch everything and return the error
         suppress_error = communication.get("suppress_error", False)
         if suppress_error:
             stack_trace = get_formatted_stack_trace(e)
@@ -232,9 +228,7 @@ def parse_data_frame(data_bytes: bytearray, data_format_name: str) -> Dict[int, 
 def build_file_writer_objects(
     data_bytes: bytearray,
     data_format_name: str,
-    logging_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ],
+    logging_queue: Queue[Dict[str, Any]],
     logging_threshold: int,
 ) -> Dict[Any, Dict[str, Any]]:
     """Take raw data from the XEM and format into dicts for the FileWriter.
@@ -316,9 +310,7 @@ def build_file_writer_objects(
 def _check_data_frame_period(
     first_frame_sample_idx: int,
     second_frame_sample_idx: int,
-    logging_queue: Queue[  # pylint: disable=unsubscriptable-object # https://github.com/PyCQA/pylint/issues/1498
-        Dict[str, Any]
-    ],
+    logging_queue: Queue[Dict[str, Any]],
     logging_threshold: int,
 ) -> None:
     period = second_frame_sample_idx - first_frame_sample_idx
@@ -418,7 +410,6 @@ def check_mantarray_serial_number(serial_number: str) -> str:
     return ""
 
 
-# pylint: disable=too-many-instance-attributes
 class OkCommunicationProcess(InstrumentCommProcess):
     """Process that controls communication with the OpalKelly Board(s).
 
@@ -882,7 +873,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
                 )
             except UnrecognizedDataFrameFormatNameError as e:
                 raise e
-            except Exception as e:  # pylint: disable=broad-except # The deliberate goal of this is to catch everything and log the error
+            except Exception as e:  # The deliberate goal of this is to catch everything and log the error
                 self._log_fifo_read_and_error(logging.DEBUG, first_round_robin_data, e)
 
         try:
@@ -897,7 +888,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
             self._data_parsing_durations.append(data_parse_dur)
         except UnrecognizedDataFrameFormatNameError as e:
             raise e
-        except Exception as e:  # pylint: disable=broad-except # The deliberate goal of this is to catch everything and log the error
+        except Exception as e:  # The deliberate goal of this is to catch everything and log the error
             self._log_fifo_read_and_error(logging.ERROR, raw_data, e)
 
             rounded_num_words = math.ceil(len(raw_data) / 4)

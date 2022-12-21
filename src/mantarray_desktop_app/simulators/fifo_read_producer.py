@@ -120,8 +120,8 @@ class FIFOReadProducer(InfiniteThread):
 
     def __init__(
         self,
-        data_out_queue: Queue[bytearray],  # pylint: disable=unsubscriptable-object
-        fatal_error_reporter: Queue[str],  # pylint: disable=unsubscriptable-object
+        data_out_queue: Queue[bytearray],
+        fatal_error_reporter: Queue[str],
         the_lock: threading.Lock,
     ):
         super().__init__(fatal_error_reporter, the_lock)

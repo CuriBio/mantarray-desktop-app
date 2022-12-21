@@ -461,7 +461,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             )
 
     def _process_main_module_command(self, comm_from_pc: bytes) -> None:
-        # pylint: disable=too-many-branches  # Tanner (11/15/21): many branches needed here to handle all types of communication. Could try refactoring int smaller methods for similar packet types
+        # Tanner (11/15/21): many branches needed here to handle all types of communication. Could try refactoring int smaller methods for similar packet types
         send_response = True
 
         response_body = bytes(0)

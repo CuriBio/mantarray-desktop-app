@@ -74,10 +74,10 @@ def test_OkCommunicationProcess_run__processes_start_managed_acquisition_command
     actual = ok_comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_returned_communication
 
-    assert ok_process._is_managed_acquisition_running[0] is True  # pylint:disable=protected-access
+    assert ok_process._is_managed_acquisition_running[0] is True
     board_connections = ok_process.get_board_connections_list()
     assert board_connections[0].is_spi_running() is True
-    assert ok_process._is_first_managed_read[0] is True  # pylint:disable=protected-access
+    assert ok_process._is_first_managed_read[0] is True
 
 
 def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
@@ -90,7 +90,7 @@ def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
     simulator.initialize_board()
     simulator.start_acquisition()
     ok_process.set_board_connection(0, simulator)
-    ok_process._is_managed_acquisition_running[0] = True  # pylint:disable=protected-access
+    ok_process._is_managed_acquisition_running[0] = True
 
     input_queue = board_queues[0][0]
     ok_comm_to_main = board_queues[0][1]
@@ -102,7 +102,7 @@ def test_OkCommunicationProcess_run__processes_stop_managed_acquisition_command(
     actual = ok_comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == expected_returned_communication
 
-    assert ok_process._is_managed_acquisition_running[0] is False  # pylint:disable=protected-access
+    assert ok_process._is_managed_acquisition_running[0] is False
     board_connections = ok_process.get_board_connections_list()
     assert board_connections[0].is_spi_running() is False
 
@@ -144,11 +144,11 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__sets_default_ti
     simulator.initialize_board()
     simulator.start_acquisition()
     p.set_board_connection(0, simulator)
-    p._is_managed_acquisition_running[0] = True  # pylint:disable=protected-access
+    p._is_managed_acquisition_running[0] = True
     invoke_process_run_and_check_errors(p)
 
-    assert p._time_of_last_fifo_read[0] == datetime.datetime.utcnow()  # pylint:disable=protected-access
-    assert p._timepoint_of_last_fifo_read[0] == expected_timepoint  # pylint:disable=protected-access
+    assert p._time_of_last_fifo_read[0] == datetime.datetime.utcnow()
+    assert p._timepoint_of_last_fifo_read[0] == expected_timepoint
 
 
 @freeze_time("2020-02-13 11:43:11.123456")
@@ -159,12 +159,12 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__removes_default
     simulator = FrontPanelSimulator({})
     simulator.initialize_board()
     p.set_board_connection(0, simulator)
-    p._time_of_last_fifo_read[0] = datetime.datetime.utcnow()  # pylint:disable=protected-access
-    p._timepoint_of_last_fifo_read[0] = time.perf_counter()  # pylint: disable=protected-access
+    p._time_of_last_fifo_read[0] = datetime.datetime.utcnow()
+    p._timepoint_of_last_fifo_read[0] = time.perf_counter()
     invoke_process_run_and_check_errors(p)
 
-    assert p._time_of_last_fifo_read[0] is None  # pylint:disable=protected-access
-    assert p._timepoint_of_last_fifo_read[0] is None  # pylint: disable=protected-access
+    assert p._time_of_last_fifo_read[0] is None
+    assert p._timepoint_of_last_fifo_read[0] is None
 
 
 @freeze_time("2020-02-13 11:43:11.123456")
@@ -180,11 +180,9 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__sends_fifo_read
     simulator.initialize_board()
     simulator.start_acquisition()
     p.set_board_connection(0, simulator)
-    p._is_managed_acquisition_running[0] = True  # pylint:disable=protected-access
-    p._time_of_last_fifo_read[0] = datetime.datetime(  # pylint:disable=protected-access
-        2020, 2, 13, 11, 43, 10, 123455
-    )
-    p._timepoint_of_last_fifo_read[0] = time.perf_counter()  # pylint: disable=protected-access
+    p._is_managed_acquisition_running[0] = True
+    p._time_of_last_fifo_read[0] = datetime.datetime(2020, 2, 13, 11, 43, 10, 123455)
+    p._timepoint_of_last_fifo_read[0] = time.perf_counter()
     invoke_process_run_and_check_errors(p)
 
     expected_well_idx = 0
@@ -220,11 +218,9 @@ def test_OkCommunicationProcess_commands_for_each_run_iteration__does_not_send_f
     simulator.start_acquisition()
     p = OkCommunicationProcess(board_queues, error_queue)
     p.set_board_connection(0, simulator)
-    p._is_managed_acquisition_running[0] = True  # pylint:disable=protected-access
-    p._time_of_last_fifo_read[0] = datetime.datetime(  # pylint:disable=protected-access
-        2020, 2, 13, 11, 43, 10, 123456
-    )
-    p._timepoint_of_last_fifo_read[0] = time.perf_counter()  # pylint: disable=protected-access
+    p._is_managed_acquisition_running[0] = True
+    p._time_of_last_fifo_read[0] = datetime.datetime(2020, 2, 13, 11, 43, 10, 123456)
+    p._timepoint_of_last_fifo_read[0] = time.perf_counter()
     invoke_process_run_and_check_errors(p)
 
     assert (
@@ -239,7 +235,7 @@ def test_OkCommunicationProcess_managed_acquisition__reads_at_least_one_prepopul
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
 
-    ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
+    ok_process._logging_level = logging.DEBUG
 
     board_queues[0][0].put_nowait(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     fifo = TestingQueue()
@@ -256,10 +252,8 @@ def test_OkCommunicationProcess_managed_acquisition__reads_at_least_one_prepopul
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out the receipt of the command
     assert to_main_queue.empty()
 
-    ok_process._time_of_last_fifo_read[0] = datetime.datetime(  # pylint: disable=protected-access
-        year=2000, month=12, day=2
-    )
-    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()  # pylint: disable=protected-access
+    ok_process._time_of_last_fifo_read[0] = datetime.datetime(year=2000, month=12, day=2)
+    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()
     invoke_process_run_and_check_errors(ok_process)
 
     words_msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -278,7 +272,7 @@ def test_OkCommunicationProcess_managed_acquisition__handles_ignoring_first_data
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
 
-    ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
+    ok_process._logging_level = logging.DEBUG
 
     board_queues[0][0].put_nowait(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     fifo = TestingQueue()
@@ -292,12 +286,10 @@ def test_OkCommunicationProcess_managed_acquisition__handles_ignoring_first_data
     to_file_writer_queue = board_queues[0][2]
     invoke_process_run_and_check_errors(ok_process)
 
-    ok_process._time_of_last_fifo_read[0] = datetime.datetime(  # pylint: disable=protected-access
-        year=2000, month=12, day=2
-    )
-    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()  # pylint: disable=protected-access
+    ok_process._time_of_last_fifo_read[0] = datetime.datetime(year=2000, month=12, day=2)
+    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()
     invoke_process_run_and_check_errors(ok_process)
-    assert ok_process._is_first_managed_read[0] is False  # pylint: disable=protected-access
+    assert ok_process._is_first_managed_read[0] is False
 
     expected_well_idx = 0
     test_value_1 = (
@@ -362,7 +354,7 @@ def test_OkCommunicationProcess_managed_acquisition__logs_fifo_parsing_errors_an
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
 
-    ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
+    ok_process._logging_level = logging.DEBUG
 
     board_queues[0][0].put_nowait(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     assert (
@@ -383,10 +375,8 @@ def test_OkCommunicationProcess_managed_acquisition__logs_fifo_parsing_errors_an
     comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out init message
     assert is_queue_eventually_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
-    ok_process._time_of_last_fifo_read[0] = datetime.datetime(  # pylint: disable=protected-access
-        year=2000, month=12, day=2
-    )
-    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()  # pylint: disable=protected-access
+    ok_process._time_of_last_fifo_read[0] = datetime.datetime(year=2000, month=12, day=2)
+    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()
     with pytest.raises(expected_error):
         invoke_process_run_and_check_errors(ok_process)
     assert is_queue_eventually_not_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
@@ -424,8 +414,8 @@ def test_OkCommunicationProcess_managed_acquisition__does_not_log_when_non_parsi
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
 
-    ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
-    ok_process._data_frame_format = "fake_format"  # pylint:disable=protected-access
+    ok_process._logging_level = logging.DEBUG
+    ok_process._data_frame_format = "fake_format"
 
     board_queues[0][0].put_nowait(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     fifo = TestingQueue()
@@ -442,11 +432,9 @@ def test_OkCommunicationProcess_managed_acquisition__does_not_log_when_non_parsi
     comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out init message
     assert is_queue_eventually_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
-    ok_process._time_of_last_fifo_read[0] = datetime.datetime(  # pylint: disable=protected-access
-        year=2000, month=12, day=2
-    )
-    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()  # pylint: disable=protected-access
-    ok_process._is_first_managed_read[0] = False  # pylint:disable=protected-access
+    ok_process._time_of_last_fifo_read[0] = datetime.datetime(year=2000, month=12, day=2)
+    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()
+    ok_process._is_first_managed_read[0] = False
     with pytest.raises(UnrecognizedDataFrameFormatNameError):
         invoke_process_run_and_check_errors(ok_process)
 
@@ -467,7 +455,7 @@ def test_OkCommunicationProcess__raises_and_logs_error_if_first_managed_read_doe
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
 
-    ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
+    ok_process._logging_level = logging.DEBUG
 
     board_queues[0][0].put_nowait(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     fifo = TestingQueue()
@@ -484,10 +472,8 @@ def test_OkCommunicationProcess__raises_and_logs_error_if_first_managed_read_doe
     comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out init log message
     assert is_queue_eventually_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
-    ok_process._time_of_last_fifo_read[0] = datetime.datetime(  # pylint: disable=protected-access
-        year=2000, month=12, day=2
-    )
-    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()  # pylint: disable=protected-access
+    ok_process._time_of_last_fifo_read[0] = datetime.datetime(year=2000, month=12, day=2)
+    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()
     with pytest.raises(FirstManagedReadLessThanOneRoundRobinError):
         invoke_process_run_and_check_errors(ok_process)
     assert is_queue_eventually_not_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
@@ -517,7 +503,7 @@ def test_OkCommunicationProcess_managed_acquisition__logs_fifo_parsing_errors_an
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
 
-    ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
+    ok_process._logging_level = logging.DEBUG
 
     board_queues[0][0].put_nowait(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     fifo = TestingQueue()
@@ -535,10 +521,8 @@ def test_OkCommunicationProcess_managed_acquisition__logs_fifo_parsing_errors_an
     comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out init message
     assert is_queue_eventually_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
-    ok_process._time_of_last_fifo_read[0] = datetime.datetime(  # pylint: disable=protected-access
-        year=2000, month=12, day=2
-    )
-    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()  # pylint: disable=protected-access
+    ok_process._time_of_last_fifo_read[0] = datetime.datetime(year=2000, month=12, day=2)
+    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()
     invoke_process_run_and_check_errors(ok_process)
     assert is_queue_eventually_not_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
@@ -573,8 +557,8 @@ def test_OkCommunicationProcess_managed_acquisition__does_not_log_when_non_parsi
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
 
-    ok_process._logging_level = logging.DEBUG  # pylint:disable=protected-access
-    ok_process._data_frame_format = "fake_format"  # pylint:disable=protected-access
+    ok_process._logging_level = logging.DEBUG
+    ok_process._data_frame_format = "fake_format"
 
     board_queues[0][0].put_nowait(dict(START_MANAGED_ACQUISITION_COMMUNICATION))
     assert (
@@ -595,10 +579,8 @@ def test_OkCommunicationProcess_managed_acquisition__does_not_log_when_non_parsi
     comm_to_main.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)  # pop out init message
     assert is_queue_eventually_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
-    ok_process._time_of_last_fifo_read[0] = datetime.datetime(  # pylint: disable=protected-access
-        year=2000, month=12, day=2
-    )
-    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()  # pylint: disable=protected-access
+    ok_process._time_of_last_fifo_read[0] = datetime.datetime(year=2000, month=12, day=2)
+    ok_process._timepoint_of_last_fifo_read[0] = time.perf_counter()
     with pytest.raises(UnrecognizedDataFrameFormatNameError):
         invoke_process_run_and_check_errors(ok_process)
 
@@ -611,7 +593,6 @@ def test_OkCommunicationProcess_managed_acquisition__does_not_log_when_non_parsi
     assert is_queue_eventually_empty(comm_to_main, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
 
 
-# pylint: disable=too-many-locals
 @pytest.mark.slow
 def test_OkCommunicationProcess_managed_acquisition__logs_performance_metrics_after_appropriate_number_of_read_cycles(
     four_board_comm_process, mocker
@@ -653,16 +634,12 @@ def test_OkCommunicationProcess_managed_acquisition__logs_performance_metrics_af
 
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
-    ok_process._time_of_last_fifo_read[0] = datetime.datetime(  # pylint: disable=protected-access
-        2020, 5, 28, 12, 58, 0, 0
-    )
-    ok_process._timepoint_of_last_fifo_read[0] = 10  # pylint: disable=protected-access
-    ok_process._idle_iteration_time_ns = expected_idle_time  # pylint: disable=protected-access
-    ok_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
-    ok_process._start_timepoint_of_last_performance_measurement = (  # pylint: disable=protected-access
-        expected_start_timepoint
-    )
-    ok_process._percent_use_values = expected_percent_use_values[:-1]  # pylint: disable=protected-access
+    ok_process._time_of_last_fifo_read[0] = datetime.datetime(2020, 5, 28, 12, 58, 0, 0)
+    ok_process._timepoint_of_last_fifo_read[0] = 10
+    ok_process._idle_iteration_time_ns = expected_idle_time
+    ok_process._minimum_iteration_duration_seconds = 0
+    ok_process._start_timepoint_of_last_performance_measurement = expected_start_timepoint
+    ok_process._percent_use_values = expected_percent_use_values[:-1]
 
     test_fifo_reads = [produce_data(i + 2, 0) for i in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES)]
     fifo = TestingQueue()
@@ -717,11 +694,9 @@ def test_OkCommunicationProcess_managed_acquisition__does_not_log_percent_use_me
 
     ok_process = four_board_comm_process["ok_process"]
     board_queues = four_board_comm_process["board_queues"]
-    ok_process._time_of_last_fifo_read[0] = datetime.datetime(  # pylint: disable=protected-access
-        2020, 7, 3, 9, 25, 0, 0
-    )
-    ok_process._timepoint_of_last_fifo_read[0] = 10  # pylint: disable=protected-access
-    ok_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
+    ok_process._time_of_last_fifo_read[0] = datetime.datetime(2020, 7, 3, 9, 25, 0, 0)
+    ok_process._timepoint_of_last_fifo_read[0] = 10
+    ok_process._minimum_iteration_duration_seconds = 0
 
     fifo = TestingQueue()
     for _ in range(OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES):

@@ -60,16 +60,7 @@ def fixture_four_board_analyzer_process():
     comm_from_main_queue = TestingQueue()
     comm_to_main_queue = TestingQueue()
     error_queue = TestingQueue()
-    board_queues = tuple(
-        (
-            (
-                TestingQueue(),
-                TestingQueue(),
-            )
-            # pylint: disable=duplicate-code
-            for _ in range(num_boards)
-        )
-    )
+    board_queues = tuple(((TestingQueue(), TestingQueue()) for _ in range(num_boards)))
     with tempfile.TemporaryDirectory() as tmp_dir:
         p = DataAnalyzerProcess(
             board_queues,
@@ -115,16 +106,7 @@ def fixture_runnable_four_board_analyzer_process():
     comm_from_main_queue = MPQueue()
     comm_to_main_queue = MPQueue()
     error_queue = MPQueue()
-    board_queues = tuple(
-        (
-            (
-                MPQueue(),
-                MPQueue(),
-            )
-            # pylint: disable=duplicate-code
-            for _ in range(num_boards)
-        )
-    )
+    board_queues = tuple(((MPQueue(), MPQueue()) for _ in range(num_boards)))
     with tempfile.TemporaryDirectory() as tmp_dir:
 
         p = DataAnalyzerProcess(
