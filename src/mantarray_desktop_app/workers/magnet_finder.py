@@ -8,7 +8,6 @@ from typing import List
 from typing import Optional
 from typing import Union
 
-import numpy as np
 from pulse3D.plate_recording import PlateRecording
 
 from ..constants import MICRO_TO_BASE_CONVERSION
@@ -18,7 +17,7 @@ def run_magnet_finding_alg(
     result_dict: Dict[str, Any],
     recordings: List[str],
     output_dir: Optional[str] = None,
-    end_time: Union[float, int] = np.inf,
+    end_time: Optional[Union[float, int]] = None,
 ) -> List[Any]:
     """Run magnet finding analysis on the given recordings.
 
