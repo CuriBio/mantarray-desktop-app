@@ -297,7 +297,7 @@ def test_MantarrayProcessesMonitor__handled_completed_mag_analysis_command_corre
     assert is_queue_eventually_empty(data_analyzer_to_main) is True
 
     ws_message = queue_to_websocket_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert ws_message == {"data_type": expected_data_type, "data_json": expected_data_json}
+    assert ws_message == {"data_type": test_data_type, "data_json": expected_data_json}
 
     mocked_logger.assert_called_once()
 
