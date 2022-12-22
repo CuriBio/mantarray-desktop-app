@@ -3,7 +3,6 @@ import os
 
 from mantarray_desktop_app.workers import magnet_finder
 from mantarray_desktop_app.workers.magnet_finder import run_magnet_finding_alg
-import numpy as np
 import pytest
 
 
@@ -42,10 +41,8 @@ def test_run_magnet_finding_alg__creates_force_output_correctly(output_dir, end_
     run_magnet_finding_alg(*args)
 
     tmpdir = spied_temp_dir.spy_return.name
-    expected_end_time = end_time if end_time else np.inf
     assert mocked_pr.call_args_list == [
-        mocker.call(os.path.join(tmpdir, rec_name), end_time=expected_end_time)
-        for rec_name in test_recordings
+        mocker.call(os.path.join(tmpdir, rec_name), end_time=end_time) for rec_name in test_recordings
     ]
 
 

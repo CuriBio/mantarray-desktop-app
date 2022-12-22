@@ -1086,9 +1086,7 @@ def test_start_recording_command__gets_processed_with_given_time_index_parameter
         ]
         + datetime.timedelta(seconds=(expected_time_index / CENTIMILLISECONDS_PER_SECOND))
     ).strftime("%Y_%m_%d_%H%M%S")
-    shared_values_dict[  # pylint: disable=duplicate-code
-        "utc_timestamps_of_beginning_of_data_acquisition"
-    ] = [
+    shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [
         GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
             UTC_BEGINNING_DATA_ACQUISTION_UUID
         ]
@@ -1119,9 +1117,7 @@ def test_start_recording_command__gets_processed_with_given_time_index_parameter
         UTC_BEGINNING_DATA_ACQUISTION_UUID
     ]
     + datetime.timedelta(
-        seconds=GENERIC_BETA_1_START_RECORDING_COMMAND[  # pylint: disable=duplicate-code
-            "timepoint_to_begin_recording_at"
-        ]
+        seconds=GENERIC_BETA_1_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
         / CENTIMILLISECONDS_PER_SECOND
     )
 )
@@ -1144,9 +1140,7 @@ def test_start_recording_command__gets_processed_in_beta_1_mode__and_creates_a_f
             UTC_BEGINNING_DATA_ACQUISTION_UUID
         ]
         + datetime.timedelta(
-            seconds=GENERIC_BETA_1_START_RECORDING_COMMAND[  # pylint: disable=duplicate-code
-                "timepoint_to_begin_recording_at"
-            ]
+            seconds=GENERIC_BETA_1_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
             / CENTIMILLISECONDS_PER_SECOND
         )
     ).strftime("%Y_%m_%d_%H%M%S")

@@ -429,8 +429,8 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
         if key in ("data_type", "is_first_packet_of_stream", "time_indices"):
             continue
         actual_item = actual_fw_item[key]
-        assert actual_item.keys() == expected_item.keys()  # pylint: disable=no-member
-        for sub_key, expected_data in expected_item.items():  # pylint: disable=no-member
+        assert actual_item.keys() == expected_item.keys()
+        for sub_key, expected_data in expected_item.items():
             actual_data = actual_item[sub_key]
             expected_dtype = np.uint16
             assert actual_data.dtype == expected_dtype

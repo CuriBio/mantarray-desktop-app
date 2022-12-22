@@ -39,7 +39,7 @@ def _process_failed_to_join(process: InfiniteProcess) -> bool:
     return process.exitcode is None
 
 
-class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
+class MantarrayProcessesManager:
     """Controls access to all the subprocesses."""
 
     def __init__(

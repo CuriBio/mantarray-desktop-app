@@ -93,7 +93,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self,
         values_to_share_to_websocket: SharedValues,
         process_manager: MantarrayProcessesManager,
-        fatal_error_reporter: queue.Queue[str],  # pylint: disable=unsubscriptable-object
+        fatal_error_reporter: queue.Queue[str],
         the_lock: threading.Lock,
         boot_up_after_processes_start: bool = False,
         load_firmware_file: bool = True,
@@ -396,7 +396,14 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         if communication_type == "mag_analysis_complete":
             data_type = communication["content"]["data_type"]
-            comm_str = f"Magnet Finding Analysis complete for {data_type}"
+            comm_copy = {
+                "communication_type": "mag_analysis_complete",
+                # make a shallow copy so all the data isn't copied
+                "content": copy.copy(communication["content"]),
+            }
+            if data_type == "recording_snapshot_data":
+                comm_copy["content"].pop("data_json")
+            comm_str = str(comm_copy)
         else:
             comm_str = str(communication)
         msg = f"Communication from the Data Analyzer: {comm_str}"
@@ -430,7 +437,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self._queue_websocket_message(outgoing_data_json)
 
     def _check_and_handle_instrument_comm_to_main_queue(self) -> None:
-        # pylint: disable=too-many-branches,too-many-statements  # TODO Tanner (10/25/21): refactor this into smaller methods
+        # TODO Tanner (10/25/21): refactor this into smaller methods
         process_manager = self._process_manager
         board_idx = 0
         instrument_comm_to_main = process_manager.queue_container.from_instrument_comm(board_idx)
@@ -449,17 +456,26 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         communication_type = communication["communication_type"]
 
+        command = communication.get("command")
+
+        # Tanner (1/20/21): items in communication dict are used after these log messages are generated, so need to create a copy of the dict when redacting info
         if "mantarray_nickname" in communication:
-            # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
             comm_copy = copy.deepcopy(communication)
             comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
             comm_str = str(comm_copy)
         elif communication_type == "metadata_comm":
-            # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
             comm_copy = copy.deepcopy(communication)
             comm_copy["metadata"][MANTARRAY_NICKNAME_UUID] = get_redacted_string(
                 len(comm_copy["metadata"][MANTARRAY_NICKNAME_UUID])
             )
+            comm_str = str(comm_copy)
+        elif communication_type == "stimulation" and command == "start_stim_checks":
+            comm_copy = copy.deepcopy(communication)
+            for sub_dict_name in ("stimulator_circuit_statuses", "adc_readings"):
+                sub_dict = comm_copy[sub_dict_name]
+                for well_idx in sorted(sub_dict):
+                    well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
+                    sub_dict[well_name] = sub_dict.pop(well_idx)
             comm_str = str(comm_copy)
         else:
             comm_str = str(communication)
@@ -468,8 +484,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.info(msg)
-
-        command = communication.get("command")
 
         if communication_type == "acquisition_manager":
             if command == "start_managed_acquisition":

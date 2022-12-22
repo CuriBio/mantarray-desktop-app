@@ -104,7 +104,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_previously_fail
     }
 
     file_writer_process.get_upload_threads_container().append(thread_dict)
-    file_writer_process._check_upload_statuses()  # pylint: disable=protected-access
+    file_writer_process._check_upload_statuses()
 
     assert mocked_shutil.call_count == int(move_called)
     assert len(file_writer_process.get_upload_threads_container()) == 0
@@ -140,7 +140,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_fi
     }
 
     file_writer_process.get_upload_threads_container().append(thread_dict)
-    file_writer_process._check_upload_statuses()  # pylint: disable=protected-access
+    file_writer_process._check_upload_statuses()
 
     assert mocked_shutil.call_count == int(paths_exist)
     assert (mocked_makedirs.call_count == mocked_test.call_count - 1) is not paths_exist
@@ -176,7 +176,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_fi
     }
 
     file_writer_process.get_upload_threads_container().append(thread_dict)
-    file_writer_process._check_upload_statuses()  # pylint: disable=protected-access
+    file_writer_process._check_upload_statuses()
 
     assert mocked_rmdir.call_count == int(auto_delete)
     assert len(file_writer_process.get_upload_threads_container()) == 0
@@ -259,10 +259,7 @@ def test_FileWriterProcess__upload_thread_gets_added_to_container_after_all_file
 
     board_idx = 0
     assert file_writer_process.get_stop_recording_timestamps()[board_idx] is not None
-    assert (
-        file_writer_process._is_finalizing_files_after_recording()  # pylint: disable=protected-access
-        is False
-    )
+    assert file_writer_process._is_finalizing_files_after_recording() is False
     assert len(file_writer_process.get_upload_threads_container()) == 1
 
 

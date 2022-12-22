@@ -956,7 +956,7 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
     shared_values_dict = test_process_manager.values_to_share_to_websocket
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
 
-    expected_acquisition_timestamp = datetime.datetime(  # pylint: disable=duplicate-code
+    expected_acquisition_timestamp = datetime.datetime(
         year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598
     )
     expected_recording_timepoint = GENERIC_BETA_1_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
@@ -1055,7 +1055,7 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
         communication["metadata_to_copy_onto_main_file_attributes"][PLATE_BARCODE_IS_FROM_SCANNER_UUID]
         is True
     )
-    assert (  # pylint: disable=duplicate-code
+    assert (
         communication["metadata_to_copy_onto_main_file_attributes"][COMPUTER_NAME_HASH_UUID]
         == GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
             COMPUTER_NAME_HASH_UUID
@@ -1084,7 +1084,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     shared_values_dict = test_process_manager.values_to_share_to_websocket
     put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
 
-    expected_acquisition_timestamp = datetime.datetime(  # pylint: disable=duplicate-code
+    expected_acquisition_timestamp = datetime.datetime(
         year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598
     )
     expected_recording_timepoint = GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]

@@ -5,6 +5,7 @@ import json
 import os
 import queue
 from random import choice
+from random import randint
 import threading
 import time
 
@@ -271,8 +272,9 @@ def test_MantarrayProcessesMonitor__logs_messages_from_data_analyzer(
     mocked_logger.assert_called_once_with(f"Communication from the Data Analyzer: {expected_comm}")
 
 
+@pytest.mark.parametrize("test_data_type", ["recording_snapshot_data", "local_analysis"])
 def test_MantarrayProcessesMonitor__handled_completed_mag_analysis_command_correctly_from_data_analyzer__and_logs_correctly(
-    mocker, test_process_manager_creator, test_monitor
+    test_data_type, mocker, test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
@@ -282,14 +284,13 @@ def test_MantarrayProcessesMonitor__handled_completed_mag_analysis_command_corre
     queue_to_websocket_ws = test_process_manager.queue_container.to_websocket
     data_analyzer_to_main = test_process_manager.queue_container.from_data_analyzer
 
-    expected_data_json = json.dumps([])
-    expected_data_type = choice(["mag_analysis_complete", "local_analysis"])
+    expected_data_json = json.dumps(list(range(100)))
 
     expected_comm = {
         "communication_type": "mag_analysis_complete",
-        "content": {"data_type": expected_data_type, "data_json": expected_data_json},
+        "content": {"data_type": test_data_type, "data_json": expected_data_json},
     }
-    data_analyzer_to_main.put_nowait(expected_comm)
+    data_analyzer_to_main.put_nowait(copy.deepcopy(expected_comm))
     assert is_queue_eventually_not_empty(data_analyzer_to_main) is True
 
     invoke_process_run_and_check_errors(monitor_thread)
@@ -298,9 +299,11 @@ def test_MantarrayProcessesMonitor__handled_completed_mag_analysis_command_corre
     ws_message = queue_to_websocket_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert ws_message == {"data_type": expected_data_type, "data_json": expected_data_json}
 
-    mocked_logger.assert_called_once_with(
-        f"Communication from the Data Analyzer: Magnet Finding Analysis complete for {expected_data_type}"
-    )
+    mocked_logger.assert_called_once()
+
+    if test_data_type == "recording_snapshot_data":
+        expected_comm["content"].pop("data_json")
+    assert str(expected_comm) in mocked_logger.call_args[0][0]
 
 
 def test_MantarrayProcessesMonitor__pulls_outgoing_data_from_data_analyzer_and_makes_it_available_to_websocket(
@@ -607,18 +610,18 @@ def test_MantarrayProcessesMonitor__correctly_sets_system_status_to_live_view_ac
     }
 
     shared_values_dict["system_status"] = BUFFERING_STATE
-    data_analyzer_process._dump_data_into_queue(dummy_data)  # pylint:disable=protected-access
+    data_analyzer_process._dump_data_into_queue(dummy_data)
     assert is_queue_eventually_not_empty(da_to_main_queue) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == BUFFERING_STATE
 
-    data_analyzer_process._dump_data_into_queue(dummy_data)  # pylint:disable=protected-access
+    data_analyzer_process._dump_data_into_queue(dummy_data)
     assert is_queue_eventually_not_empty(da_to_main_queue) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == LIVE_VIEW_ACTIVE_STATE
 
     shared_values_dict["system_status"] = RECORDING_STATE
-    data_analyzer_process._dump_data_into_queue(dummy_data)  # pylint:disable=protected-access
+    data_analyzer_process._dump_data_into_queue(dummy_data)
     assert is_queue_eventually_not_empty(da_to_main_queue) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == RECORDING_STATE
@@ -798,7 +801,7 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_manag
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    monitor_thread._data_dump_buffer_size = OUTGOING_DATA_BUFFER_SIZE  # pylint:disable=protected-access
+    monitor_thread._data_dump_buffer_size = OUTGOING_DATA_BUFFER_SIZE
 
     ok_comm_process = test_process_manager.instrument_comm_process
     from_instrument_comm_queue = test_process_manager.queue_container.from_instrument_comm(0)
@@ -816,7 +819,7 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_manag
     assert is_queue_eventually_not_empty(from_instrument_comm_queue) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == CALIBRATED_STATE
-    assert monitor_thread._data_dump_buffer_size == 0  # pylint:disable=protected-access
+    assert monitor_thread._data_dump_buffer_size == 0
 
 
 def test_MantarrayProcessesMonitor__stores_device_information_after_connection__in_beta_1_mode(
@@ -1932,26 +1935,33 @@ def test_MantarrayProcessesMonitor__updates_stimulation_running_list_when_status
     assert shared_values_dict["stimulation_running"] == [False] * 24
 
 
-def test_MantarrayProcessesMonitor__passes_stim_status_check_results_from_mc_comm_to_websocket_queue__and_stores_them_in_shared_values_dictionary(
-    test_monitor, test_process_manager_creator
+def test_MantarrayProcessesMonitor__passes_stim_status_check_results_from_mc_comm_to_websocket_queue__and_stores_them_in_shared_values_dictionary__and_logs_correctly(
+    test_monitor, test_process_manager_creator, mocker
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
+    spied_info = mocker.spy(process_monitor.logger, "info")
+
     instrument_comm_to_main = test_process_manager.queue_container.from_instrument_comm(0)
     queue_to_websocket_ws = test_process_manager.queue_container.to_websocket
 
-    test_num_wells = 24
+    test_wells = range(randint(0, 3), randint(20, 24))
     possible_stim_statuses = [member.name.lower() for member in StimulatorCircuitStatuses]
-    stim_check_results = {well_idx: choice(possible_stim_statuses) for well_idx in range(test_num_wells)}
+    stim_check_results = {well_idx: choice(possible_stim_statuses) for well_idx in test_wells}
+
+    # values in this dict don't matter, just the keys
+    adc_readings = {well_idx: None for well_idx in test_wells}
+
+    test_comm = {
+        "communication_type": "stimulation",
+        "command": "start_stim_checks",
+        "stimulator_circuit_statuses": stim_check_results,
+        "adc_readings": adc_readings,
+    }
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {
-            "communication_type": "stimulation",
-            "command": "start_stim_checks",
-            "stimulator_circuit_statuses": stim_check_results,
-        },
-        instrument_comm_to_main,
+        copy.deepcopy(test_comm), instrument_comm_to_main
     )
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["stimulator_circuit_statuses"] == stim_check_results
@@ -1962,6 +1972,15 @@ def test_MantarrayProcessesMonitor__passes_stim_status_check_results_from_mc_com
         "data_type": "stimulator_circuit_statuses",
         "data_json": json.dumps(stim_check_results),
     }
+
+    # convert all well idxs to well names
+    for comm_dict in (stim_check_results, adc_readings):
+        logged_dict = {}
+        for well_idx in test_wells:
+            well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
+            logged_dict[well_name] = comm_dict[well_idx]
+
+        assert str(logged_dict) in spied_info.call_args[0][0]
 
 
 def test_MantarrayProcessesMonitor__passes_corrupt_file_message_from_file_writer_to_websocket_queue(

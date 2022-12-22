@@ -253,7 +253,7 @@ GENERIC_REFERENCE_SENSOR_DATA_PACKET = immutabledict(
 
 def open_the_generic_h5_file(
     file_dir: str, well_name: str = "A2", beta_version: int = 1, timestamp_str: Optional[str] = None
-) -> h5py._hl.files.File:  # pylint: disable=protected-access # this is the only type definition Eli (2/24/20) could find for a File
+) -> h5py.File:
     if timestamp_str is None:
         timestamp_str = "2020_02_09_190935" if beta_version == 1 else "2020_02_09_190359"
 

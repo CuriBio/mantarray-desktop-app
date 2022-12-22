@@ -8,12 +8,24 @@ Added:
 - Additional check for backend frontend connection
 
 
+1.0.7 (unreleased)
+-------------------
+
+Changed:
+^^^^^^^^
+- Twitch Frequency is now the default metric displayed in the Heat Map.
+
+Fixed:
+^^^^^^
+- Errors in Local Analysis not being reported, leading to it running indefinitely.
+
+
 1.0.6 (2022-12-14)
 ------------------
 
 Fixed:
 ^^^^^^
-- Biphasic pulses being displayed as monophasic when interphase interval is set to 0ms
+- Biphasic pulses being displayed as monophasic when interphase interval is set to 0ms.
 
 
 1.0.5 (2022-12-11)
@@ -28,7 +40,7 @@ Added:
 
 Changed:
 ^^^^^^^^
-- Heatmap will now use only the last 5 contractions of each well to calculate metrics.
+- Heat Map will now use only the last 5 contractions of each well to calculate metrics.
 - Live View will now automatically be stopped when a recording is stopped.
 - Barcode entry boxes will now allow copying and pasting.
 - Error message popup now includes additional instruction to unplug the instrument from the PC.
@@ -248,7 +260,7 @@ Fixed:
 - Fixed issue that allowed calibration and stimulation to run simultaneously.
 - Fixed performance tracking of process responsible for communications with the instrument.
 - Fixed issue with markers for long subprotocols not being displayed correctly in Live View.
-- Updated HeatMap:
+- Updated Heat Map:
 
   - Changed settings to only update when the apply button is pressed and reset when Live View stops.
   - Changed apply button to only be enabled when Live View is active **AND**

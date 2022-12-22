@@ -268,7 +268,7 @@ def test_FileWriterProcess__close_all_files(
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
-    open_files = file_writer_process._open_files  # pylint: disable=protected-access
+    open_files = file_writer_process._open_files
     spied_file_3 = mocker.spy(open_files[0][3], "close")
     spied_file_18 = mocker.spy(open_files[0][18], "close")
     file_writer_process.close_all_files()
@@ -297,7 +297,7 @@ def test_FileWriterProcess__drain_all_queues__drains_all_queues_except_error_que
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_to_main, to_main_queue)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_error, error_queue)
 
-    actual = file_writer_process._drain_all_queues()  # pylint:disable=protected-access
+    actual = file_writer_process._drain_all_queues()
 
     confirm_queue_is_eventually_of_size(error_queue, 1)
     actual_error = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -522,7 +522,7 @@ def test_FileWriterProcess_teardown_after_loop__beta_2_mode__destroys_temp_dir_f
 ):
     fw_process = four_board_file_writer_process["fw_process"]
     fw_process.set_beta_2_mode()
-    spied_cleanup = mocker.spy(fw_process._calibration_folder, "cleanup")  # pylint: disable=protected-access
+    spied_cleanup = mocker.spy(fw_process._calibration_folder, "cleanup")
 
     fw_process.soft_stop()
     fw_process.run(perform_setup_before_loop=False, num_iterations=1)
@@ -707,7 +707,7 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_1_files_after_stop_recordi
     confirm_queue_is_eventually_of_size(board_queues[0][0], 30)
 
     # set to 0 to speed up test
-    fw_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
+    fw_process._minimum_iteration_duration_seconds = 0
     invoke_process_run_and_check_errors(fw_process, num_iterations=30)
     confirm_queue_is_eventually_empty(board_queues[0][0])
 
@@ -857,7 +857,7 @@ def test_FileWriterProcess__ignores_commands_from_main_while_finalizing_beta_1_f
     confirm_queue_is_eventually_of_size(board_queues[0][0], 30)
 
     # set to 0 to speed up test
-    fw_process._minimum_iteration_duration_seconds = 0  # pylint: disable=protected-access
+    fw_process._minimum_iteration_duration_seconds = 0
     invoke_process_run_and_check_errors(fw_process, num_iterations=30)
     confirm_queue_is_eventually_empty(board_queues[0][0])
 

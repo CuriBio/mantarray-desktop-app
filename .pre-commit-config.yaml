@@ -120,7 +120,7 @@ repos:
     hooks:
       - id: pydocstyle
         args:
-          # ignore warnings about missing docstrings. pylint takes care of that
+          # ignore warnings about missing docstrings
           # ignore D203 because it's a bug https://github.com/PyCQA/pydocstyle/issues/141
           # ignore D407,D408,D409 because they appear to be in conflict with Google style (they relate to underlining?) https://rsmith.home.xs4all.nl/programming/improving-my-python-coding.html
           # ignore D406 because it appears to be in conflict with Google style (complains about 'Raises:')
@@ -131,28 +131,6 @@ repos:
   - repo: https://github.com/NanoSurface-Biomedical/pre-commit-pylint
     rev: "d805cc60bb5290c2f1ca869d5f1d5e2be720f3fa" # pick a git hash / tag to point to
     hooks:
-      # - id: pylint-pass-with-displayed-warnings
-      #   name: pylint-src
-      #   args:
-      #     - --codes-to-allow=W0511
-      #     - src
-      #     - --rcfile=src/pylintrc
-      #     - --ignore-patterns=.*~.*
-      #     - --jobs 0
-      #   files: 'src/.*\.py$'
-      #   exclude: '.*\~.*'
-      #   verbose: true
-      # - id: pylint-pass-with-displayed-warnings
-      #   name: pylint-tests
-      #   args:
-      #     - --codes-to-allow=W0511
-      #     - tests
-      #     - --rcfile=tests/pylintrc
-      #     - --ignore-patterns=.*~.*
-      #     - --jobs 0
-      #   files: 'tests/.*\.py$'
-      #   exclude: '.*\~.*'
-      #   verbose: true
       - id: python-check-no-print-statments
         exclude: tools/
       - id: vuejs-check-no-console-log-statments

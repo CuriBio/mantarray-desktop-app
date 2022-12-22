@@ -373,7 +373,7 @@ def test_MantarrayMcSimulator__processes_stop_stimulation_command(mantarray_mc_s
         SERIAL_COMM_COMMAND_SUCCESS_BYTE,
         SERIAL_COMM_COMMAND_FAILURE_BYTE,
     ):
-        # send start stim command
+        # send stop stim command
         expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
         stop_stimulation_command = create_data_packet(
             expected_pc_timestamp, SERIAL_COMM_STOP_STIM_PACKET_TYPE
@@ -946,3 +946,101 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
 
     invoke_process_run_and_check_errors(simulator)
     assert simulator.in_waiting == 0
+
+
+def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correctly__when_receiving_command_to_stop_stimulation(
+    mantarray_mc_simulator_no_beacon, mocker
+):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    spied_global_timer = mocker.spy(simulator, "_get_global_timer")
+
+    test_subprotocol = get_random_stim_pulse(num_cycles=10)
+
+    test_well_idx_to_stop_automatically = randint(0, 11)
+    test_well_name_to_stop_automatically = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(
+        test_well_idx_to_stop_automatically
+    )
+    test_well_idx_to_stop_manually = randint(12, 23)
+    test_well_name_to_stop_manually = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(
+        test_well_idx_to_stop_manually
+    )
+
+    test_protocol_assignments = {
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): None for well_idx in range(24)
+    }
+    test_protocol_assignments[test_well_name_to_stop_automatically] = "A"
+    test_protocol_assignments[test_well_name_to_stop_manually] = "B"
+
+    test_stim_info = create_converted_stim_info(
+        {
+            "protocols": [
+                {
+                    "protocol_id": "A",
+                    "stimulation_type": "C",
+                    "run_until_stopped": False,
+                    "subprotocols": [test_subprotocol],
+                },
+                {
+                    "protocol_id": "B",
+                    "stimulation_type": "C",
+                    "run_until_stopped": True,
+                    "subprotocols": [test_subprotocol],
+                },
+            ],
+            "protocol_assignments": test_protocol_assignments,
+        }
+    )
+    set_stim_info_and_start_stimulating(mantarray_mc_simulator_no_beacon, test_stim_info)
+
+    test_duration_us = get_subprotocol_duration_us(test_subprotocol)
+    mocker.patch.object(
+        mc_simulator,
+        "_get_us_since_subprotocol_start",
+        autospec=True,
+        side_effect=[test_duration_us] * 2,
+    )
+
+    invoke_process_run_and_check_errors(simulator)
+    assert simulator.in_waiting > 0
+
+    additional_bytes = (
+        bytes([3])  # number of status updates in this packet
+        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx_to_stop_automatically]])
+        + bytes([StimProtocolStatuses.FINISHED])
+        + (spied_global_timer.spy_return + test_duration_us).to_bytes(8, byteorder="little")
+        + bytes([STIM_COMPLETE_SUBPROTOCOL_IDX])
+        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx_to_stop_manually]])
+        + bytes([StimProtocolStatuses.RESTARTING])
+        + (spied_global_timer.spy_return + test_duration_us).to_bytes(8, byteorder="little")
+        + bytes([0])
+        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx_to_stop_manually]])
+        + bytes([StimProtocolStatuses.ACTIVE])
+        + (spied_global_timer.spy_return + test_duration_us).to_bytes(8, byteorder="little")
+        + bytes([0])  # subprotocol idx
+    )
+    expected_size = get_full_packet_size_from_payload_len(len(additional_bytes))
+    stim_status_packet = simulator.read(size=expected_size)
+    assert_serial_packet_is_expected(
+        stim_status_packet, SERIAL_COMM_STIM_STATUS_PACKET_TYPE, additional_bytes=additional_bytes
+    )
+
+    # send stop stim command
+    expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
+    stop_stimulation_command = create_data_packet(expected_pc_timestamp, SERIAL_COMM_STOP_STIM_PACKET_TYPE)
+    simulator.write(stop_stimulation_command)
+    invoke_process_run_and_check_errors(simulator)
+    assert simulator.in_waiting > 0
+
+    additional_bytes = (
+        bytes([1])  # number of status updates in this packet
+        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx_to_stop_manually]])
+        + bytes([StimProtocolStatuses.FINISHED])
+        + spied_global_timer.spy_return.to_bytes(8, byteorder="little")
+        + bytes([STIM_COMPLETE_SUBPROTOCOL_IDX])
+    )
+    expected_size = get_full_packet_size_from_payload_len(len(additional_bytes))
+    stim_status_packet = simulator.read(size=expected_size)
+    assert_serial_packet_is_expected(
+        stim_status_packet, SERIAL_COMM_STIM_STATUS_PACKET_TYPE, additional_bytes=additional_bytes
+    )
