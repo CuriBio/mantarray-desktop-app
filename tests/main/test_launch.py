@@ -291,15 +291,15 @@ def test_main_entrypoint__correctly_assigns_shared_values_dictionary_to_process_
     )
 
     object_access_dict = app_info["object_access_inside_main"]
-    shared_values_dict = object_access_dict["values_to_share_to_server"]
+    shared_values_dict = object_access_dict["values_to_share_to_websocket"]
     test_process_monitor = object_access_dict["process_monitor"]
     assert (
-        test_process_monitor._values_to_share_to_server  # pylint: disable=protected-access
+        test_process_monitor._values_to_share_to_websocket  # pylint: disable=protected-access
         is shared_values_dict
     )
     assert isinstance(shared_values_dict, SharedValues)
     test_process_manager = object_access_dict["process_manager"]
-    assert test_process_manager.values_to_share_to_server is shared_values_dict
+    assert test_process_manager.values_to_share_to_websocket is shared_values_dict
 
 
 @pytest.mark.parametrize("send_command_line_arg", [True, False])
@@ -397,7 +397,7 @@ def test_main__stores_values_from_command_line_arguments(mocker, fully_running_a
         ]
         app_info = fully_running_app_from_main_entrypoint(command_line_args)
 
-        shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
+        shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_websocket"]
         assert shared_values_dict["beta_2_mode"] is False
         actual_config_settings = shared_values_dict["config_settings"]
 
@@ -421,7 +421,7 @@ def test_main__puts_server_into_error_mode_if_expected_software_version_is_incor
         ],
         object_access_for_testing=access_dict,
     )
-    shared_values_dict = access_dict["values_to_share_to_server"]
+    shared_values_dict = access_dict["values_to_share_to_websocket"]
     assert shared_values_dict["expected_software_version"] == "0.0.0"
 
 
@@ -438,7 +438,7 @@ def test_main__when_launched_with_an_expected_software_version_but_also_the_flag
         ],
         object_access_for_testing=access_dict,
     )
-    shared_values_dict = access_dict["values_to_share_to_server"]
+    shared_values_dict = access_dict["values_to_share_to_websocket"]
     assert "expected_software_version" not in shared_values_dict
 
 
@@ -453,7 +453,7 @@ def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_e
 
     expected_num_wells = 24
 
-    shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
+    shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_websocket"]
     assert shared_values_dict["latest_software_version"] is None
     assert shared_values_dict["stimulation_running"] == [False] * expected_num_wells
     assert shared_values_dict["stimulation_info"] is None
@@ -483,9 +483,13 @@ def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_e
     assert next_call_args is None, f"Message: '{next_call_args}' not found"
 
     # assert socketio was set up correctly
-    ws_queue = app_info["object_access_inside_main"]["process_manager"].queue_container.to_server
-    to_pm_queue = app_info["object_access_inside_main"]["process_manager"].queue_container.from_websocket
-    mocked_set_up.assert_called_once_with(ws_queue, to_pm_queue)
+    data_queue_to_websocket = app_info["object_access_inside_main"][
+        "process_manager"
+    ].queue_container.to_websocket
+    data_queue_from_websocket = app_info["object_access_inside_main"][
+        "process_manager"
+    ].queue_container.from_websocket
+    mocked_set_up.assert_called_once_with(data_queue_to_websocket, data_queue_from_websocket)
     # assert Flask was started correctly
     _, host, port = get_server_address_components()
     mocked_socketio_run = app_info["mocked_socketio_run"]

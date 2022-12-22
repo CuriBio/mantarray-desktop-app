@@ -44,14 +44,14 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
 
     def __init__(
         self,
-        values_to_share_to_server: SharedValues,
+        values_to_share_to_websocket: SharedValues,
         logging_level: int = logging.INFO,
     ) -> None:
         self._logging_level = logging_level
         self._all_processes: Optional[Dict[str, InfiniteProcess]] = None
         self._subprocesses_started: bool = False
 
-        self.values_to_share_to_server = values_to_share_to_server
+        self.values_to_share_to_websocket = values_to_share_to_websocket
 
         self.queue_container: MantarrayQueueContainer
         self.server_manager: ServerManager
@@ -65,14 +65,14 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
     def create_processes(self) -> None:
         """Create/init the processes."""
         self.queue_container = MantarrayQueueContainer()
-        beta_2_mode = self.values_to_share_to_server["beta_2_mode"]
+        beta_2_mode = self.values_to_share_to_websocket["beta_2_mode"]
 
         self.server_manager = ServerManager(
-            self.queue_container.from_server,
+            self.queue_container.from_flask,
             self.queue_container,
             logging_level=self._logging_level,
-            values_from_process_monitor=self.values_to_share_to_server,
-            port=self.values_to_share_to_server.get("server_port_number", DEFAULT_SERVER_PORT_NUMBER),
+            values_from_process_monitor=self.values_to_share_to_websocket,
+            port=self.values_to_share_to_websocket.get("server_port_number", DEFAULT_SERVER_PORT_NUMBER),
         )
 
         instrument_comm_process = OkCommunicationProcess if not beta_2_mode else McCommunicationProcess
@@ -87,7 +87,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             self.queue_container.to_file_writer,
             self.queue_container.from_file_writer,
             self.queue_container.file_writer_error,
-            file_directory=self.values_to_share_to_server["config_settings"]["recording_directory"],
+            file_directory=self.values_to_share_to_websocket["config_settings"]["recording_directory"],
             logging_level=self._logging_level,
             beta_2_mode=beta_2_mode,
         )
@@ -97,7 +97,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             self.queue_container.to_data_analyzer,
             self.queue_container.from_data_analyzer,
             self.queue_container.data_analyzer_error,
-            mag_analysis_output_dir=self.values_to_share_to_server["config_settings"][
+            mag_analysis_output_dir=self.values_to_share_to_websocket["config_settings"][
                 "mag_analysis_output_dir"
             ],
             logging_level=self._logging_level,
@@ -139,7 +139,7 @@ class MantarrayProcessesManager:  # pylint: disable=too-many-public-methods
             bit_file_name = get_latest_firmware()
         to_instrument_comm_queue = self.queue_container.to_instrument_comm(0)
 
-        self.values_to_share_to_server["system_status"] = INSTRUMENT_INITIALIZING_STATE
+        self.values_to_share_to_websocket["system_status"] = INSTRUMENT_INITIALIZING_STATE
         boot_up_dict = {
             "communication_type": "boot_up_instrument",
             "command": "initialize_board",

@@ -38,10 +38,9 @@ class MantarrayQueueContainer:
         self.from_data_analyzer: Queue[Dict[str, Any]] = Queue()
         self.data_analyzer_error: Queue[Tuple[Exception, str]] = Queue()
 
-        self.from_server: queue.Queue[Dict[str, Any]] = queue.Queue()
-        self.to_server: LightQueue = LightQueue()
-
-        self.from_websocket: queue.Queue[Dict[str, Any]] = queue.Queue()
+        self.from_flask: queue.Queue[Dict[str, Any]] = queue.Queue()
+        self.to_websocket: LightQueue = LightQueue()
+        self.from_websocket: LightQueue = LightQueue()
 
     # TODO (7/27/22): remove these methods once the refactor in the to do note above is complete
     def to_instrument_comm(self, board_idx: int) -> Queue[Dict[str, Any]]:

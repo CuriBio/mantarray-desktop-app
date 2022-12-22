@@ -147,7 +147,7 @@ def fixture_test_process_manager_creator(mocker):
             recording_dir = os.path.join(tmp_dir, "recordings")
             mag_analysis_output_dir = os.path.join(tmp_dir, "time_force_data")
             manager = MantarrayProcessesManager(
-                values_to_share_to_server={
+                values_to_share_to_websocket={
                     "beta_2_mode": beta_2_mode,
                     "config_settings": {
                         "recording_directory": recording_dir,

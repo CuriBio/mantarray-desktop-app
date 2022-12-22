@@ -34,7 +34,7 @@ __fixtures__ = [
 @pytest.fixture(scope="function", name="server_manager")
 def fixture_server_manager(generic_queue_container):
     # Tanner (8/10/21): it is the responsibility of tests using this fixture to drain the queues used
-    to_main_queue = generic_queue_container.from_server
+    to_main_queue = generic_queue_container.from_flask
 
     sm = ServerManager(to_main_queue, generic_queue_container)
     shared_values_dict = sm._values_from_process_monitor  # pylint:disable=protected-access
@@ -170,12 +170,12 @@ def fixture_test_socketio_client():
     def stimulation_handler(data):
         msg_list_container["stimulation_data"].append(data)
 
-    def _connect_client_to_server():
+    def _connect_client_to_websocket():
         confirm_port_in_use(get_server_port_number(), timeout=4)  # wait for server to boot up
         sio.connect(get_api_endpoint(), wait_timeout=10)
         return sio, msg_list_container
 
-    yield _connect_client_to_server
+    yield _connect_client_to_websocket
 
     if sio.connected:
         sio.disconnect()

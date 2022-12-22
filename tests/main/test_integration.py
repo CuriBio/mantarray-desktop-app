@@ -173,7 +173,7 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
         wait_for_subprocesses_to_start()
 
         test_process_manager = app_info["object_access_inside_main"]["process_manager"]
-        svd = app_info["object_access_inside_main"]["values_to_share_to_server"]
+        svd = app_info["object_access_inside_main"]["values_to_share_to_websocket"]
 
         sio, msg_list_container = test_socketio_client()
 
@@ -524,7 +524,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         app_info = fully_running_app_from_main_entrypoint(command_line_args)
         wait_for_subprocesses_to_start()
         test_process_manager = app_info["object_access_inside_main"]["process_manager"]
-        shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
+        shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_websocket"]
 
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 10) is True
 

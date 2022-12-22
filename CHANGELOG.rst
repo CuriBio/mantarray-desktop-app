@@ -4,6 +4,7 @@ Changelog for Mantarray Desktop App
 ------------------
 
 Added:
+^^^^^^
 - Additional check for backend frontend connection
 
 

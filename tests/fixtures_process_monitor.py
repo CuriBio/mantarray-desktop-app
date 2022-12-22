@@ -10,9 +10,8 @@ import pytest
 @pytest.fixture(scope="function", name="test_monitor")
 def fixture_test_monitor():
     def _foo(process_manager):
-        svd = process_manager.values_to_share_to_server
+        svd = process_manager.values_to_share_to_websocket
         svd["system_status"] = SERVER_INITIALIZING_STATE
-        svd["fe_be_connection_success"] = True
         error_queue = error_queue = queue.Queue()
         the_lock = threading.Lock()
         monitor = MantarrayProcessesMonitor(svd, process_manager, error_queue, the_lock)
