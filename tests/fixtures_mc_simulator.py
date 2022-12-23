@@ -85,6 +85,7 @@ def get_random_stim_pulse(
     if pulse_type is not None:
         if pulse_type not in ("monophasic", "biphasic"):
             raise ValueError(f"Invalid pulse type: {pulse_type}")
+        is_biphasic = pulse_type == "biphasic"
     else:
         # if a biphasic component is provided then the pulse must be biphasic, o/w choose randomly
         contains_biphasic_component = bool(set(provided_components) & SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS)

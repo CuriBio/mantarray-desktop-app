@@ -15,7 +15,7 @@ from typing import List
 from typing import Optional
 from typing import Union
 
-from mantarray_desktop_app import convert_bytes_to_subprotocol_dict
+from mantarray_desktop_app import convert_bytes_to_subprotocol_pulse_dict
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
@@ -200,11 +200,44 @@ def get_full_packet_size_from_payload_len(payload_len: int) -> int:
 SUBPROTOCOL_BYTES_LEN = 29
 
 
-def assert_subprotocol_bytes_are_expected(actual, expected):
+def assert_subprotocol_bytes_are_expected(actual, expected, err_msg=None):
     if len(expected) != SUBPROTOCOL_BYTES_LEN:
         raise ValueError(f"'expected' has incorrect len: {len(expected)}, should be: {SUBPROTOCOL_BYTES_LEN}")
 
-    actual_dict = convert_bytes_to_subprotocol_dict(actual)
-    expected_dict = convert_bytes_to_subprotocol_dict(expected)
+    assert len(actual) == SUBPROTOCOL_BYTES_LEN, "Incorrect number of bytes"
 
-    assert actual_dict == expected_dict
+    actual_dict = convert_bytes_to_subprotocol_pulse_dict(actual)
+    expected_dict = convert_bytes_to_subprotocol_pulse_dict(expected)
+
+    if err_msg:
+        assert actual_dict == expected_dict, err_msg
+    else:
+        assert actual_dict == expected_dict
+
+
+def assert_subprotocol_node_bytes_are_expected(actual, expected):
+    assert len(actual) == len(expected), "Incorrect number of bytes"
+
+    assert actual[0] == expected[0], "Incorrect stim node type"
+
+    is_loop = bool(expected[0])
+
+    if is_loop:
+        assert actual[1] == expected[1], "Incorrect num stim nodes"
+
+        actual_num_repeats = int.from_bytes(actual[2:6], byteorder="little")
+        expected_num_repeats = int.from_bytes(expected[2:6], byteorder="little")
+        assert actual_num_repeats == expected_num_repeats, "Incorrect number of repeats"
+
+        # TODO this will only work with single level loops right now
+        num_subprotocols = len(expected[6:]) // SUBPROTOCOL_BYTES_LEN
+        for subprotocol_idx in range(num_subprotocols):
+            start_idx = 5 + (subprotocol_idx * SUBPROTOCOL_BYTES_LEN)
+            stop_idx = start_idx + SUBPROTOCOL_BYTES_LEN
+            assert_subprotocol_bytes_are_expected(
+                actual[start_idx:stop_idx],
+                expected[start_idx:stop_idx],
+                err_msg=f"subprotocol_idx: {subprotocol_idx}",
+            )
+    else:
+        assert_subprotocol_bytes_are_expected(actual[1:], expected[1:])
