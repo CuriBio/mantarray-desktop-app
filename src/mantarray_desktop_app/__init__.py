@@ -282,10 +282,10 @@ from .utils.generic import upload_log_files_to_s3
 from .utils.log_formatter import SensitiveFormatter
 from .utils.mantarray_front_panel import MantarrayFrontPanel
 from .utils.mantarray_front_panel import MantarrayFrontPanelMixIn
-from .utils.serial_comm import convert_bytes_to_subprotocol_pulse_dict
 from .utils.serial_comm import convert_module_id_to_well_name
 from .utils.serial_comm import convert_status_code_bytes_to_dict
 from .utils.serial_comm import convert_stim_dict_to_bytes
+from .utils.serial_comm import convert_subprotocol_pulse_bytes_to_dict
 from .utils.serial_comm import convert_subprotocol_pulse_dict_to_bytes
 from .utils.serial_comm import convert_to_timestamp_bytes
 from .utils.serial_comm import convert_well_name_to_module_id
@@ -548,7 +548,7 @@ __all__ = [
     "UnrecognizedCommandFromServerToMainError",
     "file_uploader",
     "ErrorCatchingThread",
-    "convert_bytes_to_subprotocol_pulse_dict",
+    "convert_subprotocol_pulse_bytes_to_dict",
     "convert_subprotocol_pulse_dict_to_bytes",
     "convert_stim_dict_to_bytes",
     "SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE",

@@ -15,7 +15,7 @@ from typing import List
 from typing import Optional
 from typing import Union
 
-from mantarray_desktop_app import convert_bytes_to_subprotocol_pulse_dict
+from mantarray_desktop_app import convert_subprotocol_pulse_bytes_to_dict
 from mantarray_desktop_app import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
@@ -197,6 +197,7 @@ def get_full_packet_size_from_payload_len(payload_len: int) -> int:
     return packet_size
 
 
+# TODO import this from constants
 SUBPROTOCOL_BYTES_LEN = 29
 
 
@@ -206,8 +207,8 @@ def assert_subprotocol_bytes_are_expected(actual, expected, err_msg=None):
 
     assert len(actual) == SUBPROTOCOL_BYTES_LEN, "Incorrect number of bytes"
 
-    actual_dict = convert_bytes_to_subprotocol_pulse_dict(actual)
-    expected_dict = convert_bytes_to_subprotocol_pulse_dict(expected)
+    actual_dict = convert_subprotocol_pulse_bytes_to_dict(actual)
+    expected_dict = convert_subprotocol_pulse_bytes_to_dict(expected)
 
     if err_msg:
         assert actual_dict == expected_dict, err_msg
@@ -232,7 +233,7 @@ def assert_subprotocol_node_bytes_are_expected(actual, expected):
         # TODO this will only work with single level loops right now
         num_subprotocols = len(expected[6:]) // SUBPROTOCOL_BYTES_LEN
         for subprotocol_idx in range(num_subprotocols):
-            start_idx = 5 + (subprotocol_idx * SUBPROTOCOL_BYTES_LEN)
+            start_idx = 6 + (subprotocol_idx * SUBPROTOCOL_BYTES_LEN)
             stop_idx = start_idx + SUBPROTOCOL_BYTES_LEN
             assert_subprotocol_bytes_are_expected(
                 actual[start_idx:stop_idx],
