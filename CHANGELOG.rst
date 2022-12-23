@@ -5,7 +5,7 @@ Changelog for Mantarray Desktop App
 
 Added:
 ^^^^^^
-- Additional check for backend frontend connection
+- Additional check for websocket connection
 
 
 1.0.7 (unreleased)
