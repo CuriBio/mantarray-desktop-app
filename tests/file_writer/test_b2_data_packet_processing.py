@@ -749,10 +749,11 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_timestam
 
     num_data_points = 5
     first_recorded_idx = 1
+    step = 2
 
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
     test_data_packet = create_simple_stim_packet(
-        start_timepoint - first_recorded_idx, num_data_points, step=2, well_idxs=(0, 1)
+        start_timepoint - first_recorded_idx - step, num_data_points, step=2, well_idxs=(0, 1)
     )
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0])
@@ -959,7 +960,7 @@ def test_FileWriterProcess_process_stim_data_packet__adds_a_data_packet_ending_o
         assert actual_stimulation_data[0, 0] == start_timepoint
         assert actual_stimulation_data[1, 0] == 0
         assert actual_stimulation_data[0, -1] == start_timepoint + num_data_points_packet_1 - 1
-        assert actual_stimulation_data[1, -1] == "TODO"
+        assert actual_stimulation_data[1, -1] == 1
 
         # add some magnetometer data to avoid errors when stopping the recording
         data_packet = create_simple_beta_2_data_packet(
@@ -971,7 +972,7 @@ def test_FileWriterProcess_process_stim_data_packet__adds_a_data_packet_ending_o
         stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
         put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
 
-        num_data_points_packet_2 = 4
+        num_data_points_packet_2 = num_data_points_packet_1 - 1
         stop_timepoint = stop_command["timepoint_to_stop_recording_at"]
         test_data_packet = create_simple_stim_packet(
             stop_timepoint - (num_data_points_packet_2 - 1), num_data_points_packet_2, well_idxs=(0, 1)
@@ -981,8 +982,6 @@ def test_FileWriterProcess_process_stim_data_packet__adds_a_data_packet_ending_o
 
         actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
 
-        # TODO fix below if necessary
-
         # confirm data from first packet unchanged
         assert actual_stimulation_data.shape == (2, num_data_points_packet_1 + num_data_points_packet_2)
         assert actual_stimulation_data[0, 0] == start_timepoint
@@ -991,7 +990,7 @@ def test_FileWriterProcess_process_stim_data_packet__adds_a_data_packet_ending_o
             actual_stimulation_data[0, num_data_points_packet_1 - 1]
             == start_timepoint + num_data_points_packet_1 - 1
         )
-        assert actual_stimulation_data[1, num_data_points_packet_1 - 1] == num_data_points_packet_1 - 1
+        assert actual_stimulation_data[1, num_data_points_packet_1 - 1] == 1
 
         # confirm data from new packet added to file correctly
         assert actual_stimulation_data[0, num_data_points_packet_1] == stop_timepoint - (
@@ -999,5 +998,5 @@ def test_FileWriterProcess_process_stim_data_packet__adds_a_data_packet_ending_o
         )
         assert actual_stimulation_data[1, num_data_points_packet_1] == 0
         assert actual_stimulation_data[0, -1] == stop_timepoint
-        assert actual_stimulation_data[1, -2] == num_data_points_packet_2 - 2
-        assert actual_stimulation_data[1, -1] == num_data_points_packet_2 - 1
+        assert actual_stimulation_data[1, -2] == 0
+        assert actual_stimulation_data[1, -1] == 0
