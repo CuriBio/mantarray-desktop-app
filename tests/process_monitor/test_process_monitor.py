@@ -641,12 +641,16 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_websocket_ready_after_
     mocked_fw_started = mocker.patch.object(fw_process, "is_start_up_complete", side_effect=[True, True])
     mocked_da_started = mocker.patch.object(da_process, "is_start_up_complete", side_effect=[False, True])
 
+    # Websocket connection fail
+    shared_values_dict["websocket_connection_made"] = False
     invoke_process_run_and_check_errors(monitor_thread)
     assert mocked_okc_started.call_count == 1
     assert mocked_fw_started.call_count == 1
     assert mocked_da_started.call_count == 1
     assert shared_values_dict["system_status"] == SERVER_INITIALIZING_STATE
 
+    # Websocket connection success
+    shared_values_dict["websocket_connection_made"] = True
     invoke_process_run_and_check_errors(monitor_thread)
     assert mocked_okc_started.call_count == 2
     assert mocked_fw_started.call_count == 2

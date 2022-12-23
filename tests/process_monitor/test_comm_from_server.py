@@ -957,3 +957,27 @@ def test_MantarrayProcessesMonitor__processes_firmware_update_confirmation_comma
     assert shared_values_dict["firmware_update_accepted"] is update_accepted
     # make sure system status was not updated
     assert shared_values_dict["system_status"] == UPDATES_NEEDED_STATE
+
+
+def test_MantarrayProcessesMonitor___check_and_handle_websocket_to_main_queue_sets_flag_when_websocket_connection_success(
+    test_process_manager_creator, test_monitor, patch_subprocess_joins, mocker
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    to_main_queue = test_process_manager.queue_container.from_websocket
+
+    shared_values_dict["websocket_connection_made"] = False
+
+    communication = {"communication_type": "connection_success"}
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, to_main_queue)
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    mocked_successful_connection = mocker.patch.object(
+        monitor_thread, "_check_and_handle_websocket_to_main_queue", autospec=True
+    )
+
+    def se(*args):
+        mocked_successful_connection.assert_called_once()
+
+    assert shared_values_dict["websocket_connection_made"] is True
