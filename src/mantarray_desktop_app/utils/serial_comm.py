@@ -42,6 +42,7 @@ from ..constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
 from ..constants import STIM_MODULE_ID_TO_WELL_IDX
 from ..constants import STIM_NO_PROTOCOL_ASSIGNED
 from ..constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
+from ..constants import STIM_PULSE_BYTES_LEN
 from ..constants import STIM_SHORT_CIRCUIT_THRESHOLD_OHMS
 from ..constants import STIM_WELL_IDX_TO_MODULE_ID
 from ..constants import StimulatorCircuitStatuses
@@ -282,8 +283,6 @@ def convert_subprotocol_pulse_bytes_to_dict(
         duration_us = num_cycles_or_duration_ms * MICROS_PER_MILLIS
         return {"type": "delay", "duration": duration_us}
 
-    # print("@@@", list(subprotocol_bytes[:4]))
-
     conversion_factor = 1 if is_voltage else 10
     subprotocol_dict: Dict[str, Union[int, str]] = {
         "type": "biphasic",  # assume biphasic to start
@@ -328,11 +327,6 @@ def convert_subprotocol_node_dict_to_bytes(
     return subprotocol_node_bytes
 
 
-# TODO import this from constants
-SUBPROTOCOL_BYTES_LEN = 29
-# STIM_NODE_BYTES_LEN = SUBPROTOCOL_BYTES_LEN + 1
-
-
 def convert_subprotocol_node_bytes_to_dict(
     subprotocol_node_bytes: bytes,
     is_voltage: bool = False,
@@ -347,7 +341,7 @@ def _convert_subprotocol_node_bytes_to_dict(
     is_loop = bool(subprotocol_node_bytes[0])
 
     if not is_loop:
-        stop_idx = SUBPROTOCOL_BYTES_LEN + 1
+        stop_idx = STIM_PULSE_BYTES_LEN + 1
         pulse_dict = convert_subprotocol_pulse_bytes_to_dict(subprotocol_node_bytes[1:stop_idx], is_voltage)
         return pulse_dict, stop_idx
 
@@ -371,6 +365,7 @@ def _convert_subprotocol_node_bytes_to_dict(
     return loop_dict, start_idx
 
 
+# TODO add loop support to this and unit test
 def convert_stim_dict_to_bytes(stim_dict: Dict[str, Any]) -> bytes:
     """Convert a stimulation info dictionary to bytes.
 

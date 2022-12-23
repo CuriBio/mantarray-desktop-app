@@ -380,6 +380,8 @@ STIM_SHORT_CIRCUIT_THRESHOLD_OHMS = 10
 VALID_STIMULATION_TYPES = frozenset(["C", "V"])
 VALID_SUBPROTOCOL_TYPES = frozenset(["delay", "monophasic", "biphasic"])
 
+STIM_PULSE_BYTES_LEN = 29
+
 
 # Stim Checks
 class StimulatorCircuitStatuses(IntEnum):

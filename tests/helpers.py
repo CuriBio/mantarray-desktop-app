@@ -22,6 +22,7 @@ from mantarray_desktop_app import SERIAL_COMM_PACKET_TYPE_INDEX
 from mantarray_desktop_app import SERIAL_COMM_PAYLOAD_INDEX
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_BYTES_INDEX
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
+from mantarray_desktop_app.constants import STIM_PULSE_BYTES_LEN
 import stdlib_utils
 from stdlib_utils import confirm_queue_is_eventually_empty as stdlib_c_q_is_e_e
 from stdlib_utils import confirm_queue_is_eventually_of_size as stdlib_c_q_is_e_of_s
@@ -197,15 +198,11 @@ def get_full_packet_size_from_payload_len(payload_len: int) -> int:
     return packet_size
 
 
-# TODO import this from constants
-SUBPROTOCOL_BYTES_LEN = 29
-
-
 def assert_subprotocol_bytes_are_expected(actual, expected, err_msg=None):
-    if len(expected) != SUBPROTOCOL_BYTES_LEN:
-        raise ValueError(f"'expected' has incorrect len: {len(expected)}, should be: {SUBPROTOCOL_BYTES_LEN}")
+    if len(expected) != STIM_PULSE_BYTES_LEN:
+        raise ValueError(f"'expected' has incorrect len: {len(expected)}, should be: {STIM_PULSE_BYTES_LEN}")
 
-    assert len(actual) == SUBPROTOCOL_BYTES_LEN, "Incorrect number of bytes"
+    assert len(actual) == STIM_PULSE_BYTES_LEN, "Incorrect number of bytes"
 
     actual_dict = convert_subprotocol_pulse_bytes_to_dict(actual)
     expected_dict = convert_subprotocol_pulse_bytes_to_dict(expected)
@@ -231,10 +228,10 @@ def assert_subprotocol_node_bytes_are_expected(actual, expected):
         assert actual_num_repeats == expected_num_repeats, "Incorrect number of repeats"
 
         # TODO this will only work with single level loops right now
-        num_subprotocols = len(expected[6:]) // SUBPROTOCOL_BYTES_LEN
+        num_subprotocols = len(expected[6:]) // STIM_PULSE_BYTES_LEN
         for subprotocol_idx in range(num_subprotocols):
-            start_idx = 6 + (subprotocol_idx * SUBPROTOCOL_BYTES_LEN)
-            stop_idx = start_idx + SUBPROTOCOL_BYTES_LEN
+            start_idx = 6 + (subprotocol_idx * STIM_PULSE_BYTES_LEN)
+            stop_idx = start_idx + STIM_PULSE_BYTES_LEN
             assert_subprotocol_bytes_are_expected(
                 actual[start_idx:stop_idx],
                 expected[start_idx:stop_idx],
