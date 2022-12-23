@@ -426,7 +426,7 @@ def chunk_protocols_in_stim_info(
                 chunked_idx_to_original_idx[curr_idx] = original_idx
                 curr_idx += 1
             else:
-                subprotocol_cycle_dur = get_subprotocol_cycle_duration(subprotocol)
+                subprotocol_cycle_dur = get_subprotocol_cycle_duration_us(subprotocol)
                 total_num_cycles = subprotocol["num_cycles"]
 
                 num_cycles_per_full_chunk = (
