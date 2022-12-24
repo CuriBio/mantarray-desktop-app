@@ -35,6 +35,7 @@ from mantarray_desktop_app.utils import serial_comm
 from mantarray_desktop_app.utils.serial_comm import chunk_protocols_in_stim_info
 from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_circuit_status
 from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_impedance
+from mantarray_desktop_app.utils.serial_comm import convert_stim_bytes_to_dict
 from mantarray_desktop_app.utils.serial_comm import convert_subprotocol_node_bytes_to_dict
 from mantarray_desktop_app.utils.serial_comm import convert_subprotocol_node_dict_to_bytes
 import numpy as np
@@ -52,6 +53,7 @@ from ..fixtures_mc_simulator import get_random_biphasic_pulse
 from ..fixtures_mc_simulator import get_random_monophasic_pulse
 from ..fixtures_mc_simulator import get_random_stim_delay
 from ..fixtures_mc_simulator import get_random_stim_pulse
+from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_mc_simulator import random_stim_type
 from ..helpers import assert_subprotocol_bytes_are_expected
 from ..helpers import assert_subprotocol_node_bytes_are_expected
@@ -740,40 +742,34 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
             not in protocol_assignments_dict
         }
     )
-    expected_module_protocol_pairs = [0, 1]
-    expected_module_protocol_pairs.extend([STIM_NO_PROTOCOL_ASSIGNED] * 22)
+    expected_module_id_protocol_pairs = [0, 1]
+    expected_module_id_protocol_pairs.extend([STIM_NO_PROTOCOL_ASSIGNED] * 22)
 
     stim_info_dict = {
         "protocols": [
             {
-                "run_until_stopped": True,
                 "protocol_id": "A",
                 "stimulation_type": "C",
-                "subprotocols": [
-                    {
-                        "type": "monophasic",
-                        "phase_one_duration": randint(1, 50),
-                        "phase_one_charge": randint(1, 100),
-                        "postphase_interval": randint(0, 50),
-                        "num_cycles": randint(1, 100),
-                    },
-                    {"type": "delay", "duration": 250},
-                ],
+                "run_until_stopped": True,
+                "subprotocols": [get_random_monophasic_pulse(), get_random_stim_delay()],
             },
             {
                 "protocol_id": "D",
                 "stimulation_type": "V",
                 "run_until_stopped": False,
                 "subprotocols": [
+                    get_random_biphasic_pulse(),
                     {
-                        "type": "biphasic",
-                        "phase_one_duration": randint(1, 50),
-                        "phase_one_charge": randint(1, 100),
-                        "interphase_interval": randint(1, 50),
-                        "phase_two_duration": randint(1, 100),
-                        "phase_two_charge": randint(1, 50),
-                        "postphase_interval": randint(0, 50),
-                        "num_cycles": randint(1, 100),
+                        "type": "loop",
+                        "num_repeats": randint(1, 10),
+                        "subprotocols": [
+                            {
+                                "type": "loop",
+                                "num_repeats": randint(1, 10),
+                                "subprotocols": [get_random_subprotocol()],
+                            },
+                            get_random_subprotocol(),
+                        ],
                     },
                 ],
             },
@@ -781,33 +777,92 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
         "protocol_assignments": protocol_assignments_dict,
     }
 
+    # Tanner (12/23/22): this test is also dependent on convert_subprotocol_node_dict_to_bytes working properly. If this test fails, make sure the tests for this func are passing first
+
     expected_bytes = (
         bytes([2])  # num unique protocols
-        # bytes for protocol A
-        + bytes([2])  # num subprotocols in protocol A
-        + convert_subprotocol_pulse_dict_to_bytes(
-            stim_info_dict["protocols"][0]["subprotocols"][0], is_voltage=False
-        )
-        + convert_subprotocol_pulse_dict_to_bytes(
-            stim_info_dict["protocols"][0]["subprotocols"][1], is_voltage=False
-        )
+        + bytes([2])  # num subprotocols in at top level in protocol A
         + bytes([0])  # control method
         + bytes([1])  # schedule mode
-        + bytes(1)  # data type
-        # bytes for protocol D
-        + bytes([1])  # num subprotocols in protocol B
-        + convert_subprotocol_pulse_dict_to_bytes(
-            stim_info_dict["protocols"][1]["subprotocols"][0], is_voltage=True
+        + bytes([0])  # data type
+        # bytes for protocol A
+        + convert_subprotocol_node_dict_to_bytes(
+            stim_info_dict["protocols"][0]["subprotocols"][0], is_voltage=False
         )
+        + convert_subprotocol_node_dict_to_bytes(
+            stim_info_dict["protocols"][0]["subprotocols"][1], is_voltage=False
+        )
+        # bytes for protocol D
+        + bytes([2])  # num subprotocols in at top level in protocol D
         + bytes([1])  # control method
         + bytes([0])  # schedule mode
-        + bytes(1)  # data type
+        + bytes([0])  # data type
+        + convert_subprotocol_node_dict_to_bytes(
+            stim_info_dict["protocols"][1]["subprotocols"][0], is_voltage=True
+        )
+        + convert_subprotocol_node_dict_to_bytes(
+            stim_info_dict["protocols"][1]["subprotocols"][1], is_voltage=True
+        )
         # module/protocol pairs
-        + bytes(expected_module_protocol_pairs)
+        + bytes(expected_module_id_protocol_pairs)
     )
 
     actual = convert_stim_dict_to_bytes(stim_info_dict)
     assert actual == expected_bytes
+
+
+def test_convert_stim_bytes_to_dict__can_correctly_recreate_stim_dict__except_for_protocol_ids():
+    protocol_assignments_dict = {
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): randint(0, 1)
+        for well_idx in range(24)
+    }
+    # make sure at least one well is unassigned
+    well_to_unassign = choice(["A", "B", "C", "D"]) + str(randint(1, 6))
+    protocol_assignments_dict[well_to_unassign] = None
+
+    # using numbers instead of letters here since the actual letter ID is lost and converted to a number when recreated
+    original_stim_info_dict = {
+        "protocols": [
+            {
+                "protocol_id": 0,
+                "stimulation_type": "V",
+                "run_until_stopped": False,
+                "subprotocols": [
+                    {
+                        "type": "loop",
+                        "num_repeats": randint(1, 10),
+                        "subprotocols": [
+                            *[get_random_subprotocol() for _ in range(randint(1, 3))],
+                            {
+                                "type": "loop",
+                                "num_repeats": randint(1, 10),
+                                "subprotocols": [get_random_subprotocol() for _ in range(randint(1, 3))],
+                            },
+                        ],
+                    },
+                    get_random_biphasic_pulse(),
+                ],
+            },
+            {
+                "protocol_id": 1,
+                "stimulation_type": "C",
+                "run_until_stopped": True,
+                "subprotocols": [get_random_subprotocol() for _ in range(randint(1, 3))],
+            },
+        ],
+        "protocol_assignments": protocol_assignments_dict,
+    }
+
+    recreated_stim_info_dict = convert_stim_bytes_to_dict(
+        convert_stim_dict_to_bytes(copy.deepcopy(original_stim_info_dict))
+    )
+
+    for protocol_idx, (recreated_protocol, original_protocol) in enumerate(
+        zip(recreated_stim_info_dict["protocols"], original_stim_info_dict["protocols"])
+    ):
+        original_protocol.pop("protocol_id")  # this is not needed in the recreated dict
+        assert recreated_protocol == original_protocol, f"Protocol {protocol_idx}"
+    assert recreated_stim_info_dict["protocol_assignments"] == original_stim_info_dict["protocol_assignments"]
 
 
 def test_chunk_protocols_in_stim_info__returns_correct_values():

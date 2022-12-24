@@ -307,6 +307,7 @@ def convert_subprotocol_pulse_bytes_to_dict(
     return subprotocol_dict
 
 
+# TODO Tanner (12/23/22): might be nicer eventually to have this take in a list of all the subprotocols
 def convert_subprotocol_node_dict_to_bytes(
     subprotocol_node_dict: Dict[str, Any], is_voltage: bool = False
 ) -> bytes:
@@ -327,6 +328,7 @@ def convert_subprotocol_node_dict_to_bytes(
     return subprotocol_node_bytes
 
 
+# TODO Tanner (12/23/22): might be nicer eventually to have this take in all the bytes at once and create the full list
 def convert_subprotocol_node_bytes_to_dict(
     subprotocol_node_bytes: bytes,
     is_voltage: bool = False,
@@ -365,7 +367,6 @@ def _convert_subprotocol_node_bytes_to_dict(
     return loop_dict, start_idx
 
 
-# TODO add loop support to this and unit test
 def convert_stim_dict_to_bytes(stim_dict: Dict[str, Any]) -> bytes:
     """Convert a stimulation info dictionary to bytes.
 
@@ -375,17 +376,19 @@ def convert_stim_dict_to_bytes(stim_dict: Dict[str, Any]) -> bytes:
     stim_bytes = bytes([len(stim_dict["protocols"])])  # number of unique protocols
     protocol_ids = list()
     for protocol_dict in stim_dict["protocols"]:
-        is_voltage_controlled = protocol_dict["stimulation_type"] == "V"
         protocol_ids.append(protocol_dict["protocol_id"])
-        stim_bytes += bytes([len(protocol_dict["subprotocols"])])  # num subprotocols
+
+        is_voltage_controlled = protocol_dict["stimulation_type"] == "V"
+
+        # data type is always 0 as of 12/23/22
+        stim_bytes += bytes(
+            [len(protocol_dict["subprotocols"]), is_voltage_controlled, protocol_dict["run_until_stopped"], 0]
+        )
+
         for subprotocol_dict in protocol_dict["subprotocols"]:
-            stim_bytes += convert_subprotocol_pulse_dict_to_bytes(
+            stim_bytes += convert_subprotocol_node_dict_to_bytes(
                 subprotocol_dict, is_voltage=is_voltage_controlled
             )
-        stim_bytes += bytes(
-            # control method, schedule mode, data type (always 0 as of 9/29/21)
-            [is_voltage_controlled, protocol_dict["run_until_stopped"], 0]
-        )
     # add bytes for module ID / protocol ID pairs
     protocol_assignment_list = [-1] * 24
     for well_name, protocol_id in stim_dict["protocol_assignments"].items():
@@ -401,45 +404,40 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
     """Convert a stimulation info bytes to dictionary."""
     stim_info_dict: Dict[str, Any] = {"protocols": [], "protocol_assignments": {}}
 
-    # convert protocol definition bytes
+    # convert protocol bytes
     num_protocols = stim_bytes[0]
+
     curr_byte_idx = 1
     for _ in range(num_protocols):
-        num_subprotocols = stim_bytes[curr_byte_idx]
-        curr_byte_idx += 1
-
-        subprotocol_bytes_list = []
-        for _ in range(num_subprotocols):
-            subprotocol_bytes_list.append(stim_bytes[curr_byte_idx : curr_byte_idx + 29])
-            curr_byte_idx += 29
-
-        stimulation_type = "V" if stim_bytes[curr_byte_idx] else "C"
-        run_until_stopped = bool(stim_bytes[curr_byte_idx + 1])
-
-        subprotocol_list = [
-            convert_subprotocol_pulse_bytes_to_dict(subprotocol_bytes, is_voltage=stimulation_type == "V")
-            for subprotocol_bytes in subprotocol_bytes_list
+        num_subprotocol_nodes, is_voltage_controlled, run_until_stopped = stim_bytes[
+            curr_byte_idx : curr_byte_idx + 3
         ]
+        # Tanner (data_type is not used at the moment, so skipping one extra byte):
+        curr_byte_idx += 3 + 1
+
+        subprotocol_nodes = []
+        for _ in range(num_subprotocol_nodes):
+            subprotocol_node_dict, num_bytes_processed = _convert_subprotocol_node_bytes_to_dict(
+                stim_bytes[curr_byte_idx:], bool(is_voltage_controlled)
+            )
+            subprotocol_nodes.append(subprotocol_node_dict)
+            curr_byte_idx += num_bytes_processed
+
         stim_info_dict["protocols"].append(
             {
-                "stimulation_type": stimulation_type,
-                "run_until_stopped": run_until_stopped,
-                "subprotocols": subprotocol_list,
+                "stimulation_type": "V" if is_voltage_controlled else "C",
+                "run_until_stopped": bool(run_until_stopped),
+                "subprotocols": subprotocol_nodes,
             }
         )
-        curr_byte_idx += 3
 
     # convert module ID / protocol idx pair bytes
-    num_assignments = len(stim_bytes[curr_byte_idx:])
-    for module_id in range(1, num_assignments + 1):
-        well_name = (
-            convert_module_id_to_well_name(module_id, use_stim_mapping=True) if module_id <= 24 else ""
-        )
-        protocol_id_idx = (
-            None if stim_bytes[curr_byte_idx] == STIM_NO_PROTOCOL_ASSIGNED else stim_bytes[curr_byte_idx]
-        )
-        stim_info_dict["protocol_assignments"][well_name] = protocol_id_idx
-        curr_byte_idx += 1
+    for module_id, protocol_id in enumerate(stim_bytes[curr_byte_idx:], 1):
+        well_name = convert_module_id_to_well_name(module_id, use_stim_mapping=True)
+        # Tanner (12/23/22): this will not be the original protocol ID since that is lost when converting the original stim info dict to bytes
+        if protocol_id == STIM_NO_PROTOCOL_ASSIGNED:
+            protocol_id = None  # type: ignore
+        stim_info_dict["protocol_assignments"][well_name] = protocol_id
     return stim_info_dict
 
 

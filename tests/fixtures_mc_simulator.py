@@ -58,8 +58,11 @@ def random_timestamp():
     return randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
 
 
-def get_random_subprotocol():
-    return choice([get_random_stim_delay, get_random_stim_pulse])()
+def get_random_subprotocol(allow_loop=False):
+    subprotocol_fns = [get_random_stim_delay, get_random_stim_pulse]
+    if allow_loop:
+        subprotocol_fns.append(get_random_stim_loop)
+    return choice(subprotocol_fns)()
 
 
 def get_random_stim_delay(duration_us=None):
@@ -171,6 +174,10 @@ def get_random_monophasic_pulse(**kwargs):
 
 def get_random_biphasic_pulse(**kwargs):
     return get_random_stim_pulse(pulse_type="biphasic", **kwargs)
+
+
+def get_random_stim_loop():
+    raise NotImplementedError("TODO")
 
 
 def create_random_stim_info():
