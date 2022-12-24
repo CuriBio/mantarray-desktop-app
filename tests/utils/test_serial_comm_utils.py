@@ -734,9 +734,9 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
     protocol_assignments_dict = {"D1": "A", "D2": "D"}
     protocol_assignments_dict.update(
         {
-            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): None
+            well_name: None
             for well_idx in range(24)
-            if GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
+            if (well_name := GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx))
             not in protocol_assignments_dict
         }
     )

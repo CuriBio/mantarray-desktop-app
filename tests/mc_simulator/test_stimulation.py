@@ -311,9 +311,9 @@ def test_MantarrayMcSimulator__processes_start_stimulation_command__after_protoc
         }
     ]
     stim_info["protocol_assignments"] = {
-        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(["A", None])
-        if well_idx
-        else "A"
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): (
+            choice(["A", None]) if well_idx else "A"
+        )
         for well_idx in range(24)
     }
     expected_stim_running_statuses = {
@@ -359,9 +359,9 @@ def test_MantarrayMcSimulator__processes_stop_stimulation_command(mantarray_mc_s
         }
     ]
     stim_info["protocol_assignments"] = {
-        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): choice(["B", None])
-        if well_idx
-        else "B"
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): (
+            choice(["B", None]) if well_idx else "B"
+        )
         for well_idx in range(24)
     }
     initial_stim_running_statuses = {
@@ -557,9 +557,9 @@ def test_MantarrayMcSimulator__sends_protocol_status_packets_when_multiple_wells
                 }
             ],
             "protocol_assignments": {
-                GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "A"
-                if well_idx in test_well_idxs
-                else None
+                GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): (
+                    "A" if well_idx in test_well_idxs else None
+                )
                 for well_idx in range(24)
             },
         }
@@ -624,9 +624,9 @@ def test_MantarrayMcSimulator__sends_multiple_protocol_status_packets_if_multipl
                 }
             ],
             "protocol_assignments": {
-                GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "A"
-                if well_idx == test_well_idx
-                else None
+                GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): (
+                    "A" if well_idx == test_well_idx else None
+                )
                 for well_idx in range(24)
             },
         }
@@ -776,9 +776,9 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_null_status_correctly(
                 }
             ],
             "protocol_assignments": {
-                GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "A"
-                if well_idx == test_well_idx
-                else None
+                GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): (
+                    "A" if well_idx == test_well_idx else None
+                )
                 for well_idx in range(24)
             },
         }
@@ -833,9 +833,9 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_restarting_status_corr
                 }
             ],
             "protocol_assignments": {
-                GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "A"
-                if well_idx == test_well_idx
-                else None
+                GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): (
+                    "A" if well_idx == test_well_idx else None
+                )
                 for well_idx in range(24)
             },
         }
