@@ -13,12 +13,13 @@ from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_OKAY_CODE
 from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
-from mantarray_desktop_app.constants import MICROS_PER_MILLIS
+from mantarray_desktop_app.constants import MICROS_PER_MILLI
 from mantarray_desktop_app.constants import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import VALID_STIMULATION_TYPES
+from mantarray_desktop_app.utils.serial_comm import get_pulse_duty_cycle_dur_us
 from mantarray_desktop_app.utils.serial_comm import SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS
 import pytest
 from stdlib_utils import drain_queue
@@ -69,103 +70,214 @@ def get_random_stim_delay(duration_us=None):
     if duration_us is None:
         # make sure this is a whole number of ms
         duration_ms = randint(
-            STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS // MICROS_PER_MILLIS,
-            STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS // MICROS_PER_MILLIS,
+            STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS // MICROS_PER_MILLI,
+            STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS // MICROS_PER_MILLI,
         )
         # convert to µs
-        duration_us = duration_ms * MICROS_PER_MILLIS
+        duration_us = duration_ms * MICROS_PER_MILLI
     elif not (
         STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS < duration_us < STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
-        or duration_us % MICROS_PER_MILLIS != 0
+        or duration_us % MICROS_PER_MILLI != 0
     ):
         raise ValueError(f"Invalid delay duration: {duration_us}")
     return {"type": "delay", "duration": duration_us}
 
 
-def get_random_stim_pulse(
-    *, allow_errors=False, pulse_type=None, total_subprotocol_dur_us=None, **provided_components
-):
+def get_random_stim_pulse(*, pulse_type=None, total_subprotocol_dur_us=None, freq=None, num_cycles=None):
+    # validate or randomize pulse type
     if pulse_type is not None:
         if pulse_type not in ("monophasic", "biphasic"):
             raise ValueError(f"Invalid pulse type: {pulse_type}")
         is_biphasic = pulse_type == "biphasic"
     else:
-        # if a biphasic component is provided then the pulse must be biphasic, o/w choose randomly
-        contains_biphasic_component = bool(set(provided_components) & SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS)
-        is_biphasic = contains_biphasic_component or random_bool()
+        is_biphasic = random_bool()
         pulse_type = "biphasic" if is_biphasic else "monophasic"
 
-    all_valid_components = {"phase_one_duration", "phase_one_charge", "postphase_interval", "num_cycles"}
-    if is_biphasic:
-        all_valid_components |= SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS
+    # validate any params with provided values individually
+    if total_subprotocol_dur_us is not None:
+        if total_subprotocol_dur_us < STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS:
+            raise ValueError(
+                f"total_subprotocol_dur_us: {total_subprotocol_dur_us} must be >= {STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS}"
+            )
+    if num_cycles is not None:
+        if num_cycles <= 0:
+            raise ValueError("num_cycles must be > 0")
+        if not isinstance(num_cycles, int):
+            raise ValueError("num_cycles must be an integer")
+    if freq is not None and not (0 < freq < 100):
+        raise ValueError("freq must be > 0 and < 100")
 
-    charge_components = {comp for comp in all_valid_components if "charge" in comp}
-    duration_components = all_valid_components - charge_components - {"num_cycles"}
-    pulse_dur_components = duration_components - {"postphase_interval"}
-
-    total_provided_dur_us = sum(provided_components.get(comp, 0) for comp in duration_components)
-
-    if not allow_errors:
-        if invalid_components := set(provided_components) - all_valid_components:
-            raise ValueError(f"Invalid {pulse_type} pulse component(s): {invalid_components}")
-        if total_provided_dur_us > STIM_MAX_PULSE_DURATION_MICROSECONDS:
-            raise ValueError(f"Given {pulse_type} pulse component(s) exceed max pulse duration")
-        if total_subprotocol_dur_us is not None:
-            if total_subprotocol_dur_us < total_provided_dur_us:
-                raise ValueError(
-                    f"total_subprotocol_dur_us: {total_subprotocol_dur_us} < sum of durs of provided components: {total_provided_dur_us}"
-                )
-            for providable_component in ("postphase_interval", "num_cycles"):
-                if providable_component in provided_components:
+    # TODO clean this up
+    # TODO allow only 2/3 of these params to be given at once
+    # validate params together and gerenate random values for those not given
+    if total_subprotocol_dur_us is not None:
+        if num_cycles is not None:
+            if freq is not None:
+                if num_cycles * freq != total_subprotocol_dur_us:
                     raise ValueError(
-                        f"Cannot provide both total_subprotocol_dur_us and {providable_component}"
+                        f"num_cycles: {num_cycles} * freq: {freq} != total_subprotocol_dur_us: {total_subprotocol_dur_us}"
                     )
-        # TODO validate charge, will need to take a charge type param to do this
-
-    if total_subprotocol_dur_us is not None:
-        max_dur = min(STIM_MAX_PULSE_DURATION_MICROSECONDS, total_subprotocol_dur_us)
+                cycle_dur_us = math.floor(MICRO_TO_BASE_CONVERSION / freq)
+            else:
+                cycle_dur_us = total_subprotocol_dur_us / num_cycles
+                if not cycle_dur_us.is_integer():
+                    raise ValueError(
+                        f"total_subprotocol_dur_us: {total_subprotocol_dur_us} and num_cycles: {num_cycles} are incompatible"
+                    )
+                cycle_dur_us = int(cycle_dur_us)
+        else:
+            if freq is not None:
+                num_cycles = total_subprotocol_dur_us / freq
+                if not num_cycles.is_integer():
+                    raise ValueError(
+                        f"total_subprotocol_dur_us: {total_subprotocol_dur_us} and freq: {freq} are incompatible"
+                    )
+                num_cycles = int(num_cycles)
+                cycle_dur_us = math.floor(MICRO_TO_BASE_CONVERSION / freq)
+            else:
+                # arbitrarily deciding to set the min number of cycles to 10
+                min_num_cycles = 10
+                factor_pairs = [
+                    (i, total_subprotocol_dur_us // i)
+                    for i in range(min_num_cycles, int(total_subprotocol_dur_us**0.5) + 1)
+                    if total_subprotocol_dur_us % i == 0
+                ]
+                compatible_factors = [pair for pair in factor_pairs if _is_valid_subprotocol_dur(pair[1])]
+                num_cycles, cycle_dur_us = choice(compatible_factors)
     else:
-        max_dur = STIM_MAX_PULSE_DURATION_MICROSECONDS
-    remaining_dur = max_dur - total_provided_dur_us
-    max_dur_per_component = remaining_dur // len(duration_components)
+        if freq is not None:
+            cycle_dur_us = math.floor(MICRO_TO_BASE_CONVERSION / freq)
+            if num_cycles is None:
+                min_num_cycles = math.ceil(STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS / cycle_dur_us)
+                max_num_cycles = math.floor(STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS / cycle_dur_us)
+                num_cycles = randint(min_num_cycles, max_num_cycles)
+        else:
+            if num_cycles is None:
+                num_cycles = randint(10, 1000)
+            min_cycle_dur_us = math.ceil(STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS / num_cycles)
+            max_cycle_dur_us = math.floor(STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS / num_cycles)
+            cycle_dur_us = randint(min_cycle_dur_us, max_cycle_dur_us)
+        total_subprotocol_dur_us = cycle_dur_us * num_cycles
 
-    def _rand_dur():
-        if max_dur_per_component < 1:
-            return 0
-        return randint(1, max_dur_per_component)
+    # set up randomizer for duty cycle components
+    all_pulse_components = {"phase_one_duration", "phase_one_charge", "postphase_interval"}
+    if is_biphasic:
+        all_pulse_components |= SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS
 
-    pulse = {"type": pulse_type}
-    pulse.update({comp: provided_components.get(comp, randint(1, 100) * 10) for comp in charge_components})
-    pulse.update({comp: provided_components.get(comp, _rand_dur()) for comp in pulse_dur_components})
+    charge_components = {comp for comp in all_pulse_components if "charge" in comp}
+    duty_cycle_dur_comps = all_pulse_components - charge_components
 
-    if total_subprotocol_dur_us is not None:
-        pulse_dur = sum(pulse[comp] for comp in pulse_dur_components)
+    def _rand_dur_for_duty_cycle_comp():
+        max_dur_per_duty_cycle_comp = STIM_MAX_PULSE_DURATION_MICROSECONDS // len(duty_cycle_dur_comps)
+        return randint(MICROS_PER_MILLI, max_dur_per_duty_cycle_comp)
 
-        factor_pairs = [
-            (i, total_subprotocol_dur_us // i)
-            for i in range(1, int(total_subprotocol_dur_us**0.5) + 1)
-            if total_subprotocol_dur_us % i == 0
-        ]
-        compatible_factors = [pair for pair in factor_pairs if any(f >= pulse_dur for f in pair)]
-        random_factor_pair = choice(compatible_factors)
-        random_cycle_dur = choice([f for f in random_factor_pair if f >= pulse_dur])
-
-        pulse["postphase_interval"] = random_cycle_dur - pulse_dur
-        pulse["num_cycles"] = total_subprotocol_dur_us // random_cycle_dur
-    else:
-        pulse["postphase_interval"] = provided_components.get("postphase_interval", _rand_dur())
-        pulse["num_cycles"] = provided_components.get("num_cycles", _get_num_cycles(pulse))
+    # create pulse dict
+    pulse = {"type": pulse_type, "num_cycles": num_cycles}
+    pulse.update({comp: randint(1, 100) * 10 for comp in charge_components})
+    pulse.update({comp: _rand_dur_for_duty_cycle_comp() for comp in duty_cycle_dur_comps})
+    pulse["postphase_interval"] = cycle_dur_us - get_pulse_duty_cycle_dur_us(pulse)
 
     return pulse
 
 
-def _get_num_cycles(pulse):
-    total_dur = sum(v for k, v in pulse.items() if k != "type")
+def _is_valid_subprotocol_dur(dur_us: int):
+    return STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS < dur_us < STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
 
-    min_num_cycles = math.ceil(STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS / total_dur)
-    max_num_cycles = math.floor(STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS / total_dur)
 
-    return randint(min_num_cycles, max_num_cycles)
+# def get_random_stim_pulse(
+#     *, allow_errors=False, pulse_type=None, total_subprotocol_dur_us=None, freq=None, **provided_components
+# ):
+#     provided_component_names = set(provided_components)
+
+#     if pulse_type is not None:
+#         if pulse_type not in ("monophasic", "biphasic"):
+#             raise ValueError(f"Invalid pulse type: {pulse_type}")
+#         is_biphasic = pulse_type == "biphasic"
+#     else:
+#         # if a biphasic component is provided then the pulse must be biphasic, o/w choose randomly
+#         contains_biphasic_component = bool(provided_component_names & SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS)
+#         is_biphasic = contains_biphasic_component or random_bool()
+#         pulse_type = "biphasic" if is_biphasic else "monophasic"
+
+#     # allowing freq to be specified rather than postphase_interval
+#     all_valid_components = {"phase_one_duration", "phase_one_charge", "num_cycles"}
+#     if is_biphasic:
+#         all_valid_components |= SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS
+
+#     charge_components = {comp for comp in all_valid_components if "charge" in comp}
+
+#     # TODO
+#     duration_components = all_valid_components - charge_components - {"num_cycles"}
+#     # pulse_dur_components = duration_components - {"postphase_interval"}
+
+#     total_provided_dur_us = sum(provided_components.get(comp, 0) for comp in duration_components)
+
+#     if not allow_errors:
+#         if invalid_components := provided_component_names - all_valid_components:
+#             raise ValueError(f"Invalid {pulse_type} pulse component(s): {invalid_components}")
+#         if total_provided_dur_us > STIM_MAX_PULSE_DURATION_MICROSECONDS:
+#             raise ValueError(f"Given {pulse_type} pulse component(s) exceed max pulse duration")
+#         if total_subprotocol_dur_us is not None:
+#             if total_subprotocol_dur_us < total_provided_dur_us:
+#                 raise ValueError(
+#                     f"total_subprotocol_dur_us: {total_subprotocol_dur_us} < sum of durs of provided components: {total_provided_dur_us}"
+#                 )
+#         # TODO validate charge, will need to take a charge type param to do this
+
+#     # TODO
+#     # - make sure if 2+ given: num_cycles * freq = total_subprotocol_dur_us
+
+#     if total_subprotocol_dur_us is not None:
+#         max_duty_cycle_dur = min(STIM_MAX_PULSE_DURATION_MICROSECONDS, total_subprotocol_dur_us)
+#     else:
+#         max_duty_cycle_dur = STIM_MAX_PULSE_DURATION_MICROSECONDS
+#     remaining_pulse_dur = max_duty_cycle_dur - total_provided_dur_us
+#     max_dur_per_duty_cycle_comp = remaining_pulse_dur // len(duration_components)
+
+#     def _rand_dur_for_duty_cycle_comp():
+#         if max_dur_per_duty_cycle_comp < 1:
+#             return 0
+#         return randint(MICROS_PER_MILLI, max_dur_per_duty_cycle_comp)
+
+#     pulse = {"type": pulse_type}
+#     pulse.update({comp: provided_components.get(comp, randint(1, 100) * 10) for comp in charge_components})
+#     pulse.update(
+#         {
+#             comp: provided_components.get(comp, _rand_dur_for_duty_cycle_comp())
+#             for comp in pulse_dur_components
+#         }
+#     )
+
+#     if total_subprotocol_dur_us is not None:
+#         duty_cycle_dur = sum(pulse[comp] for comp in pulse_dur_components)
+
+#         factor_pairs = [
+#             (i, total_subprotocol_dur_us // i)
+#             for i in range(1, int(total_subprotocol_dur_us**0.5) + 1)
+#             if total_subprotocol_dur_us % i == 0
+#         ]
+#         compatible_factors = [pair for pair in factor_pairs if any(f >= duty_cycle_dur for f in pair)]
+#         random_factor_pair = choice(compatible_factors)
+#         random_cycle_dur = choice([f for f in random_factor_pair if f >= duty_cycle_dur])
+
+#         # TODO make sure this works correctly
+
+#         pulse["postphase_interval"] = random_cycle_dur - duty_cycle_dur
+#         pulse["num_cycles"] = total_subprotocol_dur_us // random_cycle_dur
+#     else:
+#         pulse["postphase_interval"] = provided_components.get("postphase_interval", _rand_dur())
+#         pulse["num_cycles"] = provided_components.get("num_cycles", _get_num_cycles(pulse))
+
+#     return pulse
+
+
+# def _get_num_cycles(pulse):
+#     total_dur = sum(v for k, v in pulse.items() if k != "type")
+
+#     min_num_cycles = math.ceil(STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS / total_dur)
+#     max_num_cycles = math.floor(STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS / total_dur)
+
+#     return randint(min_num_cycles, max_num_cycles)
 
 
 def get_random_monophasic_pulse(**kwargs):

@@ -33,6 +33,8 @@ from tests.fixtures_file_writer import GENERIC_STIM_INFO
 
 from ..fixtures import fixture_generic_queue_container
 from ..fixtures_mc_simulator import create_random_stim_info
+from ..fixtures_mc_simulator import get_random_biphasic_pulse
+from ..fixtures_mc_simulator import get_random_monophasic_pulse
 from ..fixtures_mc_simulator import get_random_stim_pulse
 from ..fixtures_mc_simulator import random_stim_type
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
@@ -1444,13 +1446,17 @@ def test_set_protocol__returns_error_code_with_invalid_subprotocol_duration_for_
     assert f"Protocol {test_protocol_id}, Subprotocol 0, {expected_error_message}" in response.status
 
 
+@pytest.mark.parametrize("test_pulse_fn", [get_random_biphasic_pulse, get_random_monophasic_pulse])
 def test_set_protocols__returns_error_code_when_pulse_duration_is_too_long(
+    test_pulse_fn,
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
+
+    test_pulse = test_pulse_fn()
 
     test_protocol_id = random_protocol_id()
     test_stim_info_dict = {
@@ -1459,16 +1465,7 @@ def test_set_protocols__returns_error_code_when_pulse_duration_is_too_long(
                 "stimulation_type": "V",
                 "protocol_id": test_protocol_id,
                 "run_until_stopped": True,
-                "subprotocols": [
-                    get_random_stim_pulse(
-                        allow_errors=True,
-                        **{
-                            "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
-                            "interphase_interval": 1,
-                            "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
-                        },
-                    )
-                ],
+                "subprotocols": [test_pulse],
             }
         ]
     }

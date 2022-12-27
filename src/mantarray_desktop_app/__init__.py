@@ -57,7 +57,7 @@ from .constants import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import MAX_POSSIBLE_CONNECTED_BOARDS
 from .constants import MICRO_TO_BASE_CONVERSION
-from .constants import MICROS_PER_MILLIS
+from .constants import MICROS_PER_MILLI
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MIDSCALE_CODE
 from .constants import MILLIVOLTS_PER_VOLT
@@ -510,7 +510,7 @@ __all__ = [
     "InstrumentDataStreamingAlreadyStoppedError",
     "SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE",
     "SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE",
-    "MICROS_PER_MILLIS",
+    "MICROS_PER_MILLI",
     "SerialCommInvalidSamplingPeriodError",
     "InvalidBeta2FlagOptionError",
     "SERIAL_COMM_PLATE_EVENT_PACKET_TYPE",

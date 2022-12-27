@@ -55,7 +55,7 @@ from mantarray_desktop_app import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
 from mantarray_desktop_app import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from mantarray_desktop_app import MAX_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import MAX_POSSIBLE_CONNECTED_BOARDS
-from mantarray_desktop_app import MICROS_PER_MILLIS
+from mantarray_desktop_app import MICROS_PER_MILLI
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIDSCALE_CODE
 from mantarray_desktop_app import MILLIVOLTS_PER_VOLT
@@ -245,7 +245,7 @@ def test_time_conversions():
 
 def test_generic_conversions():
     assert MICRO_TO_BASE_CONVERSION == int(1e6)
-    assert MICROS_PER_MILLIS == int(1e3)
+    assert MICROS_PER_MILLI == int(1e3)
 
 
 def test_adc_reading_constants():

@@ -41,7 +41,7 @@ from ..constants import GENERIC_24_WELL_DEFINITION
 from ..constants import GOING_DORMANT_HANDSHAKE_TIMEOUT_CODE
 from ..constants import MAX_MC_REBOOT_DURATION_SECONDS
 from ..constants import MICRO_TO_BASE_CONVERSION
-from ..constants import MICROS_PER_MILLIS
+from ..constants import MICROS_PER_MILLI
 from ..constants import MICROSECONDS_PER_CENTIMILLISECOND
 from ..constants import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from ..constants import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
@@ -96,7 +96,7 @@ from ..utils.serial_comm import convert_module_id_to_well_name
 from ..utils.serial_comm import convert_stim_bytes_to_dict
 from ..utils.serial_comm import convert_well_name_to_module_id
 from ..utils.serial_comm import create_data_packet
-from ..utils.serial_comm import get_subprotocol_duration_us
+from ..utils.serial_comm import get_subprotocol_dur_us
 from ..utils.serial_comm import is_null_subprotocol
 from ..utils.serial_comm import validate_checksum
 
@@ -590,7 +590,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         sampling_period = int.from_bytes(
             comm_from_pc[SERIAL_COMM_PAYLOAD_INDEX : SERIAL_COMM_PAYLOAD_INDEX + 2], byteorder="little"
         )
-        if sampling_period % MICROS_PER_MILLIS != 0:
+        if sampling_period % MICROS_PER_MILLI != 0:
             raise SerialCommInvalidSamplingPeriodError(sampling_period)
         self._sampling_period_us = sampling_period
         return update_status_byte
@@ -744,7 +744,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             if self._stim_subprotocol_indices[protocol_idx] == -1:
                 curr_subprotocol_duration_us = 0
             else:
-                curr_subprotocol_duration_us = get_subprotocol_duration_us(
+                curr_subprotocol_duration_us = get_subprotocol_dur_us(
                     subprotocols[self._stim_subprotocol_indices[protocol_idx]]
                 )
             dur_since_subprotocol_start = _get_us_since_subprotocol_start(start_timepoint)
@@ -800,7 +800,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                     protocol_idx
                 ] += curr_subprotocol_duration_us
                 dur_since_subprotocol_start -= curr_subprotocol_duration_us
-                curr_subprotocol_duration_us = get_subprotocol_duration_us(
+                curr_subprotocol_duration_us = get_subprotocol_dur_us(
                     subprotocols[self._stim_subprotocol_indices[protocol_idx]]
                 )
         if num_status_updates > 0:

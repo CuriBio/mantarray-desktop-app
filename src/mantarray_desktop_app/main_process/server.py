@@ -49,6 +49,7 @@ from flask_cors import CORS
 from flask_socketio import SocketIO
 from immutabledict import immutabledict
 from mantarray_desktop_app.main_process.shared_values import SharedValues
+from mantarray_desktop_app.utils.serial_comm import get_pulse_duty_cycle_dur_us
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
@@ -528,12 +529,9 @@ def set_protocols() -> Response:
                             status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Invalid {component_name}: {component_value}"
                         )
 
-                # TODO make a function for this
+                # TODO rename to duty cycle
                 # make sure subprotocol duration (not including period after pulse) is not too large unless it is a delay
-                single_pulse_dur_us = sum(
-                    subprotocol.get(component_name, 0)
-                    for component_name in ("phase_one_duration", "phase_two_duration", "interphase_interval")
-                )
+                single_pulse_dur_us = get_pulse_duty_cycle_dur_us(subprotocol)
 
                 if single_pulse_dur_us > STIM_MAX_PULSE_DURATION_MICROSECONDS:
                     return Response(
