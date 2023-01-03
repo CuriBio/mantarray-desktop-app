@@ -2,6 +2,7 @@
 import itertools
 import json
 import os
+from random import choice
 from random import randint
 import tempfile
 import urllib
@@ -28,6 +29,8 @@ from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROS
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.exceptions import LoginFailedError
 from mantarray_desktop_app.main_process import server
+from mantarray_desktop_app.utils.serial_comm import get_pulse_duty_cycle_dur_us
+from mantarray_desktop_app.utils.serial_comm import SUBPROTOCOL_DUTY_CYCLE_DUR_COMPONENTS
 import pytest
 from tests.fixtures_file_writer import GENERIC_STIM_INFO
 
@@ -1457,6 +1460,11 @@ def test_set_protocols__returns_error_code_when_pulse_duration_is_too_long(
     shared_values_dict["stimulation_running"] = [False] * 24
 
     test_pulse = test_pulse_fn()
+
+    comp_to_lengthen = choice([comp for comp in SUBPROTOCOL_DUTY_CYCLE_DUR_COMPONENTS if comp in test_pulse])
+    test_pulse[comp_to_lengthen] += (
+        STIM_MAX_PULSE_DURATION_MICROSECONDS + 1 - get_pulse_duty_cycle_dur_us(test_pulse)
+    )
 
     test_protocol_id = random_protocol_id()
     test_stim_info_dict = {

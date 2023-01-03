@@ -9,6 +9,7 @@ from mantarray_desktop_app import get_tissue_dataset_from_file
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from mantarray_desktop_app.utils.serial_comm import chunk_protocols_in_stim_info
 import numpy as np
@@ -691,34 +692,43 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_whole_da
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    expected_stim_info, expected_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
+    test_well_index = 1
+    test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
+
+    expected_stim_info, test_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
         "stim_info": expected_stim_info,
-        "subprotocol_idx_mappings": expected_subprotocol_idx_mappings,
+        "subprotocol_idx_mappings": test_subprotocol_idx_mappings,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
 
     start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    start_recording_command["active_well_indices"] = [1]
+    start_recording_command["active_well_indices"] = [test_well_index]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
-    num_data_points = 5
+    expected_subprotocol_idx_mapping = test_subprotocol_idx_mappings[
+        expected_stim_info["protocol_assignments"][test_well_name]
+    ]
+    num_data_points = len(expected_subprotocol_idx_mapping)
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
     test_data_packet = create_simple_stim_packet(start_timepoint, num_data_points, well_idxs=(0, 1))
+    expected_data = test_data_packet["well_statuses"][test_well_index]
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0])
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_data_packet), board_queues[0]
+    )
     invoke_process_run_and_check_errors(fw_process)
 
-    with open_the_generic_h5_file(file_dir, well_name="B1", beta_version=2) as this_file:
+    with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
         actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
         assert actual_stimulation_data.shape == (2, num_data_points)
-        assert actual_stimulation_data[0, 0] == start_timepoint
-        assert actual_stimulation_data[1, 0] == 0
-        assert actual_stimulation_data[0, num_data_points - 1] == start_timepoint + num_data_points - 1
-        assert actual_stimulation_data[1, num_data_points - 1] == 0
+        np.testing.assert_array_equal(actual_stimulation_data[0], expected_data[0])
+        np.testing.assert_array_equal(
+            actual_stimulation_data[1], [expected_subprotocol_idx_mapping[idx] for idx in expected_data[1]]
+        )
 
 
 def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_timestamp_idx_starts_part_way_through_the_chunk(
@@ -733,39 +743,49 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_timestam
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    expected_stim_info, expected_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
+    test_well_index = 0
+    test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
+
+    expected_stim_info, test_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
         "stim_info": expected_stim_info,
-        "subprotocol_idx_mappings": expected_subprotocol_idx_mappings,
+        "subprotocol_idx_mappings": test_subprotocol_idx_mappings,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
 
     start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    start_recording_command["active_well_indices"] = [0]
+    start_recording_command["active_well_indices"] = [test_well_index]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
-    num_data_points = 5
+    expected_subprotocol_idx_mapping = test_subprotocol_idx_mappings[
+        expected_stim_info["protocol_assignments"][test_well_name]
+    ]
+
+    num_data_points = len(expected_subprotocol_idx_mapping)
     first_recorded_idx = 1
     step = 2
 
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
     test_data_packet = create_simple_stim_packet(
-        start_timepoint - first_recorded_idx - step, num_data_points, step=2, well_idxs=(0, 1)
+        start_timepoint - first_recorded_idx - step, num_data_points, step=step, well_idxs=(0, 1)
     )
+    expected_data = test_data_packet["well_statuses"][test_well_index][:, first_recorded_idx:]
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0])
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_data_packet), board_queues[0]
+    )
     invoke_process_run_and_check_errors(fw_process)
 
-    with open_the_generic_h5_file(file_dir, well_name="A1", beta_version=2) as this_file:
+    with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
         actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
         assert actual_stimulation_data.shape == (2, num_data_points - 1)
-        assert actual_stimulation_data[0, 0] == start_timepoint - 1
-        assert actual_stimulation_data[1, 0] == 0
-        assert actual_stimulation_data[0, 1] == start_timepoint + 1
-        assert actual_stimulation_data[1, 1] == 0
+        np.testing.assert_array_equal(actual_stimulation_data[0], expected_data[0])
+        np.testing.assert_array_equal(
+            actual_stimulation_data[1], [expected_subprotocol_idx_mapping[idx] for idx in expected_data[1]]
+        )
 
 
 def test_FileWriterProcess_process_stim_data_packet__writes_only_final_data_point_if_chunk_is_all_before_the_timestamp_idx(
@@ -780,35 +800,42 @@ def test_FileWriterProcess_process_stim_data_packet__writes_only_final_data_poin
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    expected_stim_info, expected_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
+    test_well_index = 0
+    test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
+
+    expected_stim_info, test_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
         "stim_info": expected_stim_info,
-        "subprotocol_idx_mappings": expected_subprotocol_idx_mappings,
+        "subprotocol_idx_mappings": test_subprotocol_idx_mappings,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
 
     start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    start_recording_command["active_well_indices"] = [0]
+    start_recording_command["active_well_indices"] = [test_well_index]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
-    num_data_points = 5
+    expected_subprotocol_idx_mapping = test_subprotocol_idx_mappings[
+        expected_stim_info["protocol_assignments"][test_well_name]
+    ]
+    num_data_points = len(expected_subprotocol_idx_mapping)
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
-
     test_data_packet = create_simple_stim_packet(
         start_timepoint - num_data_points, num_data_points, well_idxs=(0, 1)
     )
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0])
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_data_packet), board_queues[0]
+    )
     invoke_process_run_and_check_errors(fw_process)
 
     with open_the_generic_h5_file(file_dir, well_name="A1", beta_version=2) as this_file:
         actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
         assert actual_stimulation_data.shape == (2, 1)
         assert actual_stimulation_data[0, 0] == start_timepoint - 1
-        assert actual_stimulation_data[1, 0] == 0
+        assert actual_stimulation_data[1, 0] == expected_subprotocol_idx_mapping[num_data_points - 1]
 
 
 def test_FileWriterProcess_process_stim_data_packet__writes_data_for_two_packets_when_the_timestamp_idx_starts_part_way_through_the_first_packet(
@@ -823,43 +850,57 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_for_two_packets
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    expected_stim_info, expected_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
+    test_well_index = 0
+    test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
+
+    expected_stim_info, test_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
         "stim_info": expected_stim_info,
-        "subprotocol_idx_mappings": expected_subprotocol_idx_mappings,
+        "subprotocol_idx_mappings": test_subprotocol_idx_mappings,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
 
     start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    start_recording_command["active_well_indices"] = [0]
+    start_recording_command["active_well_indices"] = [test_well_index]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
-    num_data_points = 5
+    expected_subprotocol_idx_mapping = test_subprotocol_idx_mappings[
+        expected_stim_info["protocol_assignments"][test_well_name]
+    ]
+    num_data_points = len(expected_subprotocol_idx_mapping)
     first_recorded_idx = 2
 
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
     test_data_packet_1 = create_simple_stim_packet(
         start_timepoint - first_recorded_idx, num_data_points, well_idxs=(0, 1)
     )
-    test_data_packet_2 = create_simple_stim_packet(start_timepoint + 3, num_data_points, well_idxs=(0, 1))
+    expected_data_1 = test_data_packet_1["well_statuses"][test_well_index][:, first_recorded_idx:]
+    test_data_packet_2 = create_simple_stim_packet(
+        expected_data_1[0, -1] + 1, num_data_points, well_idxs=(0, 1)
+    )
+    expected_data_2 = test_data_packet_2["well_statuses"][test_well_index]
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet_1, board_queues[0])
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_data_packet_1), board_queues[0]
+    )
     invoke_process_run_and_check_errors(fw_process)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet_2, board_queues[0])
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_data_packet_2), board_queues[0]
+    )
     invoke_process_run_and_check_errors(fw_process)
 
-    with open_the_generic_h5_file(file_dir, well_name="A1", beta_version=2) as this_file:
+    expected_data = np.concatenate([expected_data_1, expected_data_2], axis=1)
+
+    with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
         actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
         assert actual_stimulation_data.shape == (2, num_data_points * 2 - first_recorded_idx)
-        assert actual_stimulation_data[0, 0] == start_timepoint
-        assert actual_stimulation_data[1, 0] == 0
-        assert actual_stimulation_data[0, num_data_points * 2 - 3] == start_timepoint + 3 + (
-            num_data_points - 1
+        np.testing.assert_array_equal(actual_stimulation_data[0], expected_data[0])
+        np.testing.assert_array_equal(
+            actual_stimulation_data[1], [expected_subprotocol_idx_mapping[idx] for idx in expected_data[1]]
         )
-        assert actual_stimulation_data[1, num_data_points * 2 - 3] == 0
 
 
 def test_FileWriterProcess_process_stim_data_packet__does_not_add_a_data_packet_starting_on_the_stop_recording_timepoint(
