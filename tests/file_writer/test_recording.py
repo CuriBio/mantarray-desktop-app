@@ -4,6 +4,7 @@ import glob
 import json
 import os
 from random import choice
+from random import randint
 
 import h5py
 from mantarray_desktop_app import CalibrationFilesMissingError
@@ -810,41 +811,44 @@ def test_FileWriterProcess__closes_the_files_and_sends_communication_to_main_whe
 ):
     file_dir = four_board_file_writer_process["file_dir"]
 
-    test_num_data_points = 10
+    spied_h5_close = mocker.spy(h5py.File, "close")
 
-    spied_h5_close = mocker.spy(h5py._hl.files.File, "close")
+    test_num_data_points = 10
+    test_well_index = randint(0, 23)
+    test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
 
     update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
     update_user_settings_command["config_settings"]["auto_delete_local_files"] = False
     update_user_settings_command["config_settings"]["auto_upload_on_completion"] = False
+
     msgs_to_main = create_and_close_beta_1_h5_files(
         four_board_file_writer_process,
         update_user_settings_command,
         num_data_points=test_num_data_points,
-        active_well_indices=[0],
+        active_well_indices=[test_well_index],
     )
 
-    with open_the_generic_h5_file(file_dir, well_name="A1", timestamp_str="2020_02_09_190322") as actual_file:
-        # confirm some data already recorded to file
-        actual_data = get_reference_dataset_from_file(actual_file)
-        assert actual_data.shape == (test_num_data_points,)
-        assert actual_data[4] == 8
-        assert actual_data[8] == 16
+    finalization_msg = msgs_to_main[0]
+    assert finalization_msg["communication_type"] == "file_finalized"
+    assert f"_{test_well_name}" in finalization_msg["file_path"]
 
-        actual_data = get_tissue_dataset_from_file(actual_file)
-        assert actual_data.shape == (test_num_data_points,)
-        assert actual_data[3] == 6
-        assert actual_data[9] == 18
+    # corruption check closes file for a second time
+    assert spied_h5_close.call_count == 2
 
-        # corruption check closes file for a second time
-        assert spied_h5_close.call_count == 2
+    with open_the_generic_h5_file(
+        file_dir, well_name=test_well_name, timestamp_str="2020_02_09_190322"
+    ) as actual_file:
+        actual_tissue_data = get_tissue_dataset_from_file(actual_file)[:]
+        actual_ref_data = get_reference_dataset_from_file(actual_file)[:]
+    assert actual_tissue_data.shape == (test_num_data_points,)
+    assert actual_tissue_data[3] == 6
+    assert actual_tissue_data[9] == 18
+    assert actual_ref_data.shape == (test_num_data_points,)
+    assert actual_ref_data[4] == 8
+    assert actual_ref_data[8] == 16
 
-        finalization_msg = msgs_to_main[0]
-        assert finalization_msg["communication_type"] == "file_finalized"
-        assert "_A1" in finalization_msg["file_path"]
 
-
-def test_FileWriterProcess__sends_message_to_main_if_a_corrupt_file_is_found(
+def test_FileWriterProcess__sends_message_to_main_if_a_corrupt_file_is_found_after_a_recording(
     four_board_file_writer_process, mocker
 ):
     file_dir = four_board_file_writer_process["file_dir"]
@@ -875,7 +879,7 @@ def test_FileWriterProcess__sends_message_to_main_if_a_corrupt_file_is_found(
     }
 
 
-def test_FileWriterProcess__does_not_send_message_to_main_if_no_corrupt_files_found(
+def test_FileWriterProcess__does_not_send_message_to_main_if_no_corrupt_files_found_after_a_recording(
     four_board_file_writer_process,
 ):
     to_main_queue = four_board_file_writer_process["to_main_queue"]

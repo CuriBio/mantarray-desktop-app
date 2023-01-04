@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import copy
 import datetime
+from random import randint
 
 from mantarray_desktop_app import get_stimulation_dataset_from_file
 from mantarray_desktop_app import get_time_index_dataset_from_file
@@ -47,6 +48,17 @@ __fixtures__ = [
 ]
 
 
+def _get_expected_sensor_data_arr(data_packet, well_idx):
+    num_data_points = len(data_packet["time_indices"])
+
+    data = np.empty((SERIAL_COMM_NUM_DATA_CHANNELS, num_data_points))
+
+    for channel_idx in range(SERIAL_COMM_NUM_DATA_CHANNELS):
+        data[channel_idx] = data_packet[well_idx][channel_idx]
+
+    return data
+
+
 @pytest.mark.timeout(15)
 @pytest.mark.slow
 def test_FileWriterProcess__passes_magnetometer_data_packet_through_to_output_queue_correctly(
@@ -59,7 +71,9 @@ def test_FileWriterProcess__passes_magnetometer_data_packet_through_to_output_qu
     error_queue = runnable_four_board_file_writer_process["error_queue"]
 
     test_data_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, incoming_data_queue)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_data_packet), incoming_data_queue
+    )
 
     fw_process.start()  # start it after the queue has been populated so that the process will certainly see the object in the queue
     fw_process.soft_stop()
@@ -124,7 +138,9 @@ def test_FileWriterProcess__does_not_pass_magnetometer_data_packet_through_to_ou
         start_recording_command["active_well_indices"],
         10,
     )
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0][0])
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_data_packet), board_queues[0][0]
+    )
     # make sure packet was not passed through
     invoke_process_run_and_check_errors(fw_process)
     confirm_queue_is_eventually_empty(board_queues[0][1])
@@ -141,8 +157,11 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
+    test_well_index = randint(0, 23)
+    test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
+
     start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    start_recording_command["active_well_indices"] = [3]
+    start_recording_command["active_well_indices"] = [test_well_index]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
     num_data_points = 50
@@ -151,27 +170,27 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
         start_timepoint, 0, start_recording_command["active_well_indices"], num_data_points
     )
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0][0])
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_data_packet), board_queues[0][0]
+    )
     invoke_process_run_and_check_errors(fw_process)
 
-    with open_the_generic_h5_file(file_dir, well_name="D1", beta_version=2) as this_file:
-        expected_timestamp = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
-            UTC_BEGINNING_DATA_ACQUISTION_UUID
-        ] + datetime.timedelta(seconds=start_timepoint / MICRO_TO_BASE_CONVERSION)
+    expected_timestamp = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+        UTC_BEGINNING_DATA_ACQUISTION_UUID
+    ] + datetime.timedelta(seconds=start_timepoint / MICRO_TO_BASE_CONVERSION)
+
+    with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
         assert this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
             "%Y-%m-%d %H:%M:%S.%f"
         )
-        actual_time_index_data = get_time_index_dataset_from_file(this_file)
-        assert actual_time_index_data.shape == (num_data_points,)
-        assert actual_time_index_data[0] == start_timepoint
-        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
-        assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, num_data_points)
-        assert actual_time_offset_data[0, 8] == 8 * 2
-        assert actual_time_offset_data[1, 5] == 5 * 2
-        actual_tissue_data = get_tissue_dataset_from_file(this_file)
-        assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, num_data_points)
-        assert actual_tissue_data[0, 8] == 8 * 1
-        assert actual_tissue_data[1, 5] == 5 * 2
+        actual_time_index_data = get_time_index_dataset_from_file(this_file)[:]
+        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)[:]
+        actual_tissue_data = get_tissue_dataset_from_file(this_file)[:]
+
+    np.testing.assert_array_equal(actual_time_index_data, test_data_packet["time_indices"])
+    np.testing.assert_array_equal(actual_time_offset_data, test_data_packet[test_well_index]["time_offsets"])
+    expected_tissue_data = _get_expected_sensor_data_arr(test_data_packet, test_well_index)
+    np.testing.assert_array_equal(actual_tissue_data, expected_tissue_data)
 
 
 def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_timestamp_idx_starts_part_way_through_the_chunk__and_sets_timestamp_metadata_for_tissue_since_this_is_first_piece_of_data(
@@ -185,9 +204,13 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
+    test_well_index = randint(0, 23)
+    test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
+
     start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    start_recording_command["active_well_indices"] = [4]
+    start_recording_command["active_well_indices"] = [test_well_index]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
+
     total_num_data_points = 75
     num_recorded_data_points = 50
     time_index_offset = total_num_data_points - num_recorded_data_points
@@ -196,7 +219,9 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
         start_timepoint, 0, start_recording_command["active_well_indices"], total_num_data_points
     )
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0][0])
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_data_packet), board_queues[0][0]
+    )
     invoke_process_run_and_check_errors(fw_process)
 
     expected_timestamp = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
@@ -205,21 +230,24 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
         seconds=(start_recording_command["timepoint_to_begin_recording_at"]) / MICRO_TO_BASE_CONVERSION
     )
 
-    with open_the_generic_h5_file(file_dir, beta_version=2) as this_file:
+    with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
         assert this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
             "%Y-%m-%d %H:%M:%S.%f"
         )
-        actual_time_index_data = get_time_index_dataset_from_file(this_file)
-        assert actual_time_index_data.shape == (num_recorded_data_points,)
-        assert actual_time_index_data[0] == start_timepoint + time_index_offset
-        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
-        assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, num_recorded_data_points)
-        assert actual_time_offset_data[0, 9] == (9 + time_index_offset) * 2
-        assert actual_time_offset_data[1, 6] == (6 + time_index_offset) * 2
-        actual_tissue_data = get_tissue_dataset_from_file(this_file)
-        assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, num_recorded_data_points)
-        assert actual_tissue_data[0, 9] == (9 + time_index_offset) * 1
-        assert actual_tissue_data[1, 6] == (6 + time_index_offset) * 2
+        actual_time_index_data = get_time_index_dataset_from_file(this_file)[:]
+        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)[:]
+        actual_tissue_data = get_tissue_dataset_from_file(this_file)[:]
+
+    np.testing.assert_array_equal(
+        actual_time_index_data, test_data_packet["time_indices"][time_index_offset:]
+    )
+    np.testing.assert_array_equal(
+        actual_time_offset_data, test_data_packet[test_well_index]["time_offsets"][:, time_index_offset:]
+    )
+    expected_tissue_data = _get_expected_sensor_data_arr(test_data_packet, test_well_index)[
+        :, time_index_offset:
+    ]
+    np.testing.assert_array_equal(actual_tissue_data, expected_tissue_data)
 
 
 def test_FileWriterProcess_process_magnetometer_data_packet__does_not_write_data_if_data_chunk_is_all_before_the_timestamp_idx(
@@ -233,8 +261,11 @@ def test_FileWriterProcess_process_magnetometer_data_packet__does_not_write_data
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
+    test_well_index = randint(0, 23)
+    test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
+
     start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    start_recording_command["active_well_indices"] = [4]
+    start_recording_command["active_well_indices"] = [test_well_index]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     num_data_points = 30
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"] - num_data_points
@@ -242,17 +273,20 @@ def test_FileWriterProcess_process_magnetometer_data_packet__does_not_write_data
         start_timepoint, 0, start_recording_command["active_well_indices"], num_data_points
     )
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0][0])
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_data_packet), board_queues[0][0]
+    )
     invoke_process_run_and_check_errors(fw_process)
 
-    with open_the_generic_h5_file(file_dir, beta_version=2) as this_file:
+    with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
         assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) not in this_file.attrs
-        actual_time_index_data = get_time_index_dataset_from_file(this_file)
-        assert actual_time_index_data.shape == (0,)
-        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
-        assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, 0)
-        actual_tissue_data = get_tissue_dataset_from_file(this_file)
-        assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, 0)
+        actual_time_index_data = get_time_index_dataset_from_file(this_file)[:]
+        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)[:]
+        actual_tissue_data = get_tissue_dataset_from_file(this_file)[:]
+
+    assert actual_time_index_data.shape == (0,)
+    assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, 0)
+    assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, 0)
 
 
 def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_for_two_packets_when_the_timestamp_idx_starts_part_way_through_the_first_packet__and_sets_timestamp_metadata_for_tissue_since_this_is_first_piece_of_data(
@@ -266,8 +300,11 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_for_two
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
+    test_well_index = randint(0, 23)
+    test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
+
     start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    start_recording_command["active_well_indices"] = [4]
+    start_recording_command["active_well_indices"] = [test_well_index]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
     total_num_data_points_1 = 40
@@ -277,6 +314,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_for_two
     first_data_packet = create_simple_beta_2_data_packet(
         start_timepoint, 0, start_recording_command["active_well_indices"], total_num_data_points_1
     )
+
     num_data_points_2 = 15
     second_data_packet = create_simple_beta_2_data_packet(
         start_timepoint + total_num_data_points_1,
@@ -284,36 +322,52 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_for_two
         start_recording_command["active_well_indices"],
         num_data_points_2,
     )
+
     handle_putting_multiple_objects_into_empty_queue(
         [first_data_packet, second_data_packet], board_queues[0][0]
     )
     invoke_process_run_and_check_errors(fw_process, num_iterations=2)
 
-    num_recorded_data_points = num_recorded_data_points_1 + num_data_points_2
+    expected_timestamp = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+        UTC_BEGINNING_DATA_ACQUISTION_UUID
+    ] + datetime.timedelta(
+        seconds=(start_recording_command["timepoint_to_begin_recording_at"]) / MICRO_TO_BASE_CONVERSION
+    )
 
-    with open_the_generic_h5_file(file_dir, beta_version=2) as this_file:
-        expected_timestamp = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
-            UTC_BEGINNING_DATA_ACQUISTION_UUID
-        ] + datetime.timedelta(
-            seconds=(start_recording_command["timepoint_to_begin_recording_at"]) / MICRO_TO_BASE_CONVERSION
-        )
+    with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
         assert this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
             "%Y-%m-%d %H:%M:%S.%f"
         )
-        actual_time_index_data = get_time_index_dataset_from_file(this_file)
-        assert actual_time_index_data.shape == (num_recorded_data_points,)
-        assert actual_time_index_data[0] == start_timepoint + time_index_offset
-        assert (
-            actual_time_index_data[-1] == start_timepoint + time_index_offset + num_recorded_data_points - 1
-        )
-        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
-        assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, num_recorded_data_points)
-        assert actual_time_offset_data[0, -1] == (num_recorded_data_points - 1 + time_index_offset) * 2
-        assert actual_time_offset_data[1, 0] == time_index_offset * 2
-        actual_tissue_data = get_tissue_dataset_from_file(this_file)
-        assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, num_recorded_data_points)
-        assert actual_tissue_data[0, -1] == (num_recorded_data_points - 1 + time_index_offset) * 1
-        assert actual_tissue_data[8, 0] == time_index_offset * 9
+        actual_time_index_data = get_time_index_dataset_from_file(this_file)[:]
+        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)[:]
+        actual_tissue_data = get_tissue_dataset_from_file(this_file)[:]
+
+    np.testing.assert_array_equal(
+        actual_time_index_data,
+        np.concatenate(
+            [first_data_packet["time_indices"][time_index_offset:], second_data_packet["time_indices"]]
+        ),
+    )
+    np.testing.assert_array_equal(
+        actual_time_offset_data,
+        np.concatenate(
+            [
+                first_data_packet[test_well_index]["time_offsets"][:, time_index_offset:],
+                second_data_packet[test_well_index]["time_offsets"],
+            ],
+            axis=1,
+        ),
+    )
+    np.testing.assert_array_equal(
+        actual_tissue_data,
+        np.concatenate(
+            [
+                _get_expected_sensor_data_arr(first_data_packet, test_well_index)[:, time_index_offset:],
+                _get_expected_sensor_data_arr(second_data_packet, test_well_index),
+            ],
+            axis=1,
+        ),
+    )
 
 
 def test_FileWriterProcess_process_magnetometer_data_packet__does_not_add_a_data_packet_starting_on_the_stop_recording_timepoint__and_sets_data_finalization_status_to_true(
@@ -327,9 +381,13 @@ def test_FileWriterProcess_process_magnetometer_data_packet__does_not_add_a_data
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
+    test_well_index = randint(0, 23)
+    test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
+
     start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    start_recording_command["active_well_indices"] = [4]
+    start_recording_command["active_well_indices"] = [test_well_index]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
+
     num_recorded_data_points = 10
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
     recorded_data_packet = create_simple_beta_2_data_packet(
@@ -339,45 +397,43 @@ def test_FileWriterProcess_process_magnetometer_data_packet__does_not_add_a_data
     put_object_into_queue_and_raise_error_if_eventually_still_empty(recorded_data_packet, board_queues[0][0])
     invoke_process_run_and_check_errors(fw_process)
 
-    with open_the_generic_h5_file(file_dir, beta_version=2) as this_file:
-        # confirm some data already recorded to file
-        actual_time_index_data = get_time_index_dataset_from_file(this_file)
-        assert actual_time_index_data.shape == (num_recorded_data_points,)
-        assert actual_time_index_data[-1] == start_timepoint + num_recorded_data_points - 1
-        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
-        assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, num_recorded_data_points)
-        assert actual_time_offset_data[0, 0] == 0
-        assert actual_time_offset_data[1, -1] == (num_recorded_data_points - 1) * 2
-        actual_tissue_data = get_tissue_dataset_from_file(this_file)
-        assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, num_recorded_data_points)
-        assert actual_tissue_data[0, 0] == 0
-        assert actual_tissue_data[1, -1] == (num_recorded_data_points - 1) * 2
+    with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
+        actual_time_index_data = get_time_index_dataset_from_file(this_file)[:]
+        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)[:]
+        actual_tissue_data = get_tissue_dataset_from_file(this_file)[:]
+    np.testing.assert_array_equal(actual_time_index_data, recorded_data_packet["time_indices"])
+    np.testing.assert_array_equal(
+        actual_time_offset_data, recorded_data_packet[test_well_index]["time_offsets"]
+    )
+    expected_tissue_data = _get_expected_sensor_data_arr(recorded_data_packet, test_well_index)
+    np.testing.assert_array_equal(actual_tissue_data, expected_tissue_data)
 
-        stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
-        put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
+    stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
 
-        ignored_data_packet = create_simple_beta_2_data_packet(
-            stop_command["timepoint_to_stop_recording_at"],
-            num_recorded_data_points,
-            start_recording_command["active_well_indices"],
-            15,
-        )
-        put_object_into_queue_and_raise_error_if_eventually_still_empty(
-            ignored_data_packet, board_queues[0][0]
-        )
-        invoke_process_run_and_check_errors(fw_process)
+    ignored_data_packet = create_simple_beta_2_data_packet(
+        stop_command["timepoint_to_stop_recording_at"],
+        num_recorded_data_points,
+        start_recording_command["active_well_indices"],
+        15,  # arbitrary number
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(ignored_data_packet, board_queues[0][0])
+    invoke_process_run_and_check_errors(fw_process)
 
-        # confirm no additional data added to file
-        actual_time_index_data = get_time_index_dataset_from_file(this_file)
-        assert actual_time_index_data.shape == (num_recorded_data_points,)
-        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
-        assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, num_recorded_data_points)
-        actual_tissue_data = get_tissue_dataset_from_file(this_file)
-        assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, num_recorded_data_points)
-        # TODO Tanner (5/19/21): add assertion about reference data once it is added to Beta 2 files
+    with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
+        actual_time_index_data = get_time_index_dataset_from_file(this_file)[:]
+        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)[:]
+        actual_tissue_data = get_tissue_dataset_from_file(this_file)[:]
+    np.testing.assert_array_equal(actual_time_index_data, recorded_data_packet["time_indices"])
+    np.testing.assert_array_equal(
+        actual_time_offset_data, recorded_data_packet[test_well_index]["time_offsets"]
+    )
+    expected_tissue_data = _get_expected_sensor_data_arr(recorded_data_packet, test_well_index)
+    np.testing.assert_array_equal(actual_tissue_data, expected_tissue_data)
+    # TODO Tanner (5/19/21): add assertion about reference data once it is added to Beta 2 files
 
-        tissue_status, _ = fw_process.get_recording_finalization_statuses()
-        assert tissue_status[0][4] is True
+    tissue_status, _ = fw_process.get_recording_finalization_statuses()
+    assert tissue_status[0][test_well_index] is True
 
 
 def test_FileWriterProcess_process_magnetometer_data_packet__adds_a_data_packet_completely_before_the_stop_recording_timepoint__and_does_not_set_data_finalization_status_to_true(
@@ -391,8 +447,11 @@ def test_FileWriterProcess_process_magnetometer_data_packet__adds_a_data_packet_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
+    test_well_index = randint(0, 23)
+    test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
+
     start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    start_recording_command["active_well_indices"] = [4]
+    start_recording_command["active_well_indices"] = [test_well_index]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
     stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
@@ -402,56 +461,66 @@ def test_FileWriterProcess_process_magnetometer_data_packet__adds_a_data_packet_
     test_data_packet_1 = create_simple_beta_2_data_packet(
         start_timepoint_1, 0, start_recording_command["active_well_indices"], num_data_points_1
     )
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet_1, board_queues[0][0])
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_data_packet_1), board_queues[0][0]
+    )
     invoke_process_run_and_check_errors(fw_process)
 
-    with open_the_generic_h5_file(file_dir, beta_version=2) as this_file:
-        # confirm some data already recorded to file
-        actual_time_index_data = get_time_index_dataset_from_file(this_file)
-        assert actual_time_index_data.shape == (num_data_points_1,)
-        assert actual_time_index_data[7] == start_timepoint_1 + 7
-        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
-        assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, num_data_points_1)
-        assert actual_time_offset_data[0, 15] == 15 * 2
-        assert actual_time_offset_data[1, 5] == 5 * 2
-        actual_tissue_data = get_tissue_dataset_from_file(this_file)
-        assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, num_data_points_1)
-        assert actual_tissue_data[0, 15] == 15 * 1
-        assert actual_tissue_data[1, 5] == 5 * 2
+    # confirm some data already recorded to file
+    with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
+        actual_time_index_data = get_time_index_dataset_from_file(this_file)[:]
+        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)[:]
+        actual_tissue_data = get_tissue_dataset_from_file(this_file)[:]
+    np.testing.assert_array_equal(actual_time_index_data, test_data_packet_1["time_indices"])
+    np.testing.assert_array_equal(
+        actual_time_offset_data, test_data_packet_1[test_well_index]["time_offsets"]
+    )
+    expected_tissue_data_1 = _get_expected_sensor_data_arr(test_data_packet_1, test_well_index)
+    np.testing.assert_array_equal(actual_tissue_data, expected_tissue_data_1)
 
-        put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
 
-        num_data_points_2 = 24
-        start_timepoint_2 = stop_command["timepoint_to_stop_recording_at"] - num_data_points_2
-        test_data_packet_2 = create_simple_beta_2_data_packet(
-            start_timepoint_2,
-            num_data_points_1,
-            start_recording_command["active_well_indices"],
-            num_data_points_2,
-        )
-        assert test_data_packet_2["time_indices"][-1] == stop_command["timepoint_to_stop_recording_at"] - 1
-        put_object_into_queue_and_raise_error_if_eventually_still_empty(
-            test_data_packet_2, board_queues[0][0]
-        )
-        invoke_process_run_and_check_errors(fw_process)
+    num_data_points_2 = 24
+    start_timepoint_2 = stop_command["timepoint_to_stop_recording_at"] - num_data_points_2
+    test_data_packet_2 = create_simple_beta_2_data_packet(
+        start_timepoint_2,
+        num_data_points_1,
+        start_recording_command["active_well_indices"],
+        num_data_points_2,
+    )
+    assert test_data_packet_2["time_indices"][-1] == stop_command["timepoint_to_stop_recording_at"] - 1
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_data_packet_2), board_queues[0][0]
+    )
+    invoke_process_run_and_check_errors(fw_process)
 
-        total_num_data_points = num_data_points_1 + num_data_points_2
-        # confirm additional data added to file
-        actual_time_index_data = get_time_index_dataset_from_file(this_file)
-        assert actual_time_index_data.shape == (total_num_data_points,)
-        assert actual_time_index_data[-1] == stop_command["timepoint_to_stop_recording_at"] - 1
-        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)
-        assert actual_time_offset_data.shape == (SERIAL_COMM_NUM_SENSORS_PER_WELL, total_num_data_points)
-        assert actual_time_offset_data[0, 11] == 11 * 2
-        assert actual_time_offset_data[1, 14] == 14 * 2
-        actual_tissue_data = get_tissue_dataset_from_file(this_file)
-        assert actual_tissue_data.shape == (SERIAL_COMM_NUM_DATA_CHANNELS, total_num_data_points)
-        assert actual_tissue_data[3, 11] == 11 * 4
-        assert actual_tissue_data[5, 14] == 14 * 6
-        # TODO Tanner (5/19/21): add assertion about reference data once it is added to Beta 2 files
+    # confirm additional data is added to file
+    with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
+        actual_time_index_data = get_time_index_dataset_from_file(this_file)[:]
+        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)[:]
+        actual_tissue_data = get_tissue_dataset_from_file(this_file)[:]
+    np.testing.assert_array_equal(
+        actual_time_index_data,
+        np.concatenate([test_data_packet_1["time_indices"], test_data_packet_2["time_indices"]]),
+    )
+    np.testing.assert_array_equal(
+        actual_time_offset_data,
+        np.concatenate(
+            [
+                test_data_packet_1[test_well_index]["time_offsets"],
+                test_data_packet_2[test_well_index]["time_offsets"],
+            ],
+            axis=1,
+        ),
+    )
+    expected_tissue_data_2 = _get_expected_sensor_data_arr(test_data_packet_2, test_well_index)
+    np.testing.assert_array_equal(
+        actual_tissue_data, np.concatenate([expected_tissue_data_1, expected_tissue_data_2], axis=1)
+    )
+    # TODO Tanner (5/19/21): add assertion about reference data once it is added to Beta 2 files
 
-        tissue_status, _ = fw_process.get_recording_finalization_statuses()
-        assert tissue_status[0][4] is False
+    tissue_status, _ = fw_process.get_recording_finalization_statuses()
+    assert tissue_status[0][test_well_index] is False
 
 
 def test_FileWriterProcess_process_magnetometer_data_packet__updates_dict_of_time_index_of_latest_recorded_data__when_new_data_is_added(
@@ -473,7 +542,9 @@ def test_FileWriterProcess_process_magnetometer_data_packet__updates_dict_of_tim
     test_data_packet = create_simple_beta_2_data_packet(
         expected_latest_timepoint, 0, start_recording_command["active_well_indices"], 1
     )
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0][0])
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_data_packet), board_queues[0][0]
+    )
     invoke_process_run_and_check_errors(fw_process)
 
     for well_idx in range(24):
@@ -610,8 +681,10 @@ def test_FileWriterProcess_process_stim_data_packet__writes_correct_subprotocol_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
+    test_well_idxs = [0, 1]
+
     # set subprotocol_idx_mappings
-    test_protocol_assignments = GENERIC_STIM_PROTOCOL_ASSIGNMENTS
+    test_protocol_assignments = dict(GENERIC_STIM_PROTOCOL_ASSIGNMENTS)
     test_stim_info = {
         "protocols": [
             {
@@ -655,7 +728,7 @@ def test_FileWriterProcess_process_stim_data_packet__writes_correct_subprotocol_
     expected_well_statuses = [0, 1, 1, 0, 1, 0, 1, 2, 3, 0, 0, 1, 2, 3, 0]
 
     start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    start_recording_command["active_well_indices"] = [0, 1]
+    start_recording_command["active_well_indices"] = test_well_idxs
     start_recording_command["timepoint_to_begin_recording_at"] = 0
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
@@ -666,17 +739,17 @@ def test_FileWriterProcess_process_stim_data_packet__writes_correct_subprotocol_
         put_object_into_queue_and_raise_error_if_eventually_still_empty(test_input_packet, board_queues[0])
         invoke_process_run_and_check_errors(fw_process)
 
-    with open_the_generic_h5_file(
-        file_dir, well_name="A1", beta_version=2, timestamp_str="2020_02_09_190322"
-    ) as this_file:
-        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
-        np.testing.assert_array_equal(actual_stimulation_data[1], expected_well_statuses)
-    with open_the_generic_h5_file(
-        file_dir, well_name="B1", beta_version=2, timestamp_str="2020_02_09_190322"
-    ) as this_file:
-        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
+    for well_idx in test_well_idxs:
+        well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
+        with open_the_generic_h5_file(
+            file_dir, well_name=well_name, beta_version=2, timestamp_str="2020_02_09_190322"
+        ) as this_file:
+            actual_stimulation_data = get_stimulation_dataset_from_file(this_file)[:]
+
+        protocol_id = test_protocol_assignments[well_name]
+        expected_stimulation_data = [subprotocol_idx_mappings[protocol_id][i] for i in expected_well_statuses]
         np.testing.assert_array_equal(
-            actual_stimulation_data[1], [subprotocol_idx_mappings["B"][n] for n in expected_well_statuses]
+            actual_stimulation_data[1], expected_stimulation_data, err_msg=well_name
         )
 
 
@@ -692,7 +765,7 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_whole_da
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    test_well_index = 1
+    test_well_index = randint(0, 1)
     test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
 
     expected_stim_info, test_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
@@ -715,7 +788,6 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_whole_da
     num_data_points = len(expected_subprotocol_idx_mapping)
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
     test_data_packet = create_simple_stim_packet(start_timepoint, num_data_points, well_idxs=(0, 1))
-    expected_data = test_data_packet["well_statuses"][test_well_index]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(test_data_packet), board_queues[0]
@@ -723,12 +795,12 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_whole_da
     invoke_process_run_and_check_errors(fw_process)
 
     with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
-        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
-        assert actual_stimulation_data.shape == (2, num_data_points)
-        np.testing.assert_array_equal(actual_stimulation_data[0], expected_data[0])
-        np.testing.assert_array_equal(
-            actual_stimulation_data[1], [expected_subprotocol_idx_mapping[idx] for idx in expected_data[1]]
-        )
+        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)[:]
+    expected_data = test_data_packet["well_statuses"][test_well_index]
+    np.testing.assert_array_equal(actual_stimulation_data[0], expected_data[0])
+    np.testing.assert_array_equal(
+        actual_stimulation_data[1], [expected_subprotocol_idx_mapping[idx] for idx in expected_data[1]]
+    )
 
 
 def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_timestamp_idx_starts_part_way_through_the_chunk(
@@ -743,7 +815,7 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_timestam
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    test_well_index = 0
+    test_well_index = randint(0, 1)
     test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
 
     expected_stim_info, test_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
@@ -772,7 +844,6 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_timestam
     test_data_packet = create_simple_stim_packet(
         start_timepoint - first_recorded_idx - step, num_data_points, step=step, well_idxs=(0, 1)
     )
-    expected_data = test_data_packet["well_statuses"][test_well_index][:, first_recorded_idx:]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(test_data_packet), board_queues[0]
@@ -780,12 +851,12 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_timestam
     invoke_process_run_and_check_errors(fw_process)
 
     with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
-        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
-        assert actual_stimulation_data.shape == (2, num_data_points - 1)
-        np.testing.assert_array_equal(actual_stimulation_data[0], expected_data[0])
-        np.testing.assert_array_equal(
-            actual_stimulation_data[1], [expected_subprotocol_idx_mapping[idx] for idx in expected_data[1]]
-        )
+        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)[:]
+    expected_data = test_data_packet["well_statuses"][test_well_index][:, first_recorded_idx:]
+    np.testing.assert_array_equal(actual_stimulation_data[0], expected_data[0])
+    np.testing.assert_array_equal(
+        actual_stimulation_data[1], [expected_subprotocol_idx_mapping[idx] for idx in expected_data[1]]
+    )
 
 
 def test_FileWriterProcess_process_stim_data_packet__writes_only_final_data_point_if_chunk_is_all_before_the_timestamp_idx(
@@ -800,7 +871,7 @@ def test_FileWriterProcess_process_stim_data_packet__writes_only_final_data_poin
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    test_well_index = 0
+    test_well_index = randint(0, 1)
     test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
 
     expected_stim_info, test_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
@@ -831,11 +902,13 @@ def test_FileWriterProcess_process_stim_data_packet__writes_only_final_data_poin
     )
     invoke_process_run_and_check_errors(fw_process)
 
-    with open_the_generic_h5_file(file_dir, well_name="A1", beta_version=2) as this_file:
-        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
-        assert actual_stimulation_data.shape == (2, 1)
-        assert actual_stimulation_data[0, 0] == start_timepoint - 1
-        assert actual_stimulation_data[1, 0] == expected_subprotocol_idx_mapping[num_data_points - 1]
+    with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
+        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)[:]
+    expected_data = test_data_packet["well_statuses"][test_well_index][:, -1:]
+    np.testing.assert_array_equal(actual_stimulation_data[0], expected_data[0])
+    np.testing.assert_array_equal(
+        actual_stimulation_data[1], [expected_subprotocol_idx_mapping[idx] for idx in expected_data[1]]
+    )
 
 
 def test_FileWriterProcess_process_stim_data_packet__writes_data_for_two_packets_when_the_timestamp_idx_starts_part_way_through_the_first_packet(
@@ -850,7 +923,7 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_for_two_packets
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    test_well_index = 0
+    test_well_index = randint(0, 1)
     test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
 
     expected_stim_info, test_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
@@ -871,7 +944,7 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_for_two_packets
         expected_stim_info["protocol_assignments"][test_well_name]
     ]
     num_data_points = len(expected_subprotocol_idx_mapping)
-    first_recorded_idx = 2
+    first_recorded_idx = num_data_points - 1
 
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
     test_data_packet_1 = create_simple_stim_packet(
@@ -892,15 +965,13 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_for_two_packets
     )
     invoke_process_run_and_check_errors(fw_process)
 
-    expected_data = np.concatenate([expected_data_1, expected_data_2], axis=1)
-
     with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
-        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
-        assert actual_stimulation_data.shape == (2, num_data_points * 2 - first_recorded_idx)
-        np.testing.assert_array_equal(actual_stimulation_data[0], expected_data[0])
-        np.testing.assert_array_equal(
-            actual_stimulation_data[1], [expected_subprotocol_idx_mapping[idx] for idx in expected_data[1]]
-        )
+        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)[:]
+    expected_data = np.concatenate([expected_data_1, expected_data_2], axis=1)
+    np.testing.assert_array_equal(actual_stimulation_data[0], expected_data[0])
+    np.testing.assert_array_equal(
+        actual_stimulation_data[1], [expected_subprotocol_idx_mapping[idx] for idx in expected_data[1]]
+    )
 
 
 def test_FileWriterProcess_process_stim_data_packet__does_not_add_a_data_packet_starting_on_the_stop_recording_timepoint(
@@ -915,51 +986,65 @@ def test_FileWriterProcess_process_stim_data_packet__does_not_add_a_data_packet_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    expected_stim_info, expected_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
+    test_well_index = randint(0, 1)
+    test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
+
+    expected_stim_info, test_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
         "stim_info": expected_stim_info,
-        "subprotocol_idx_mappings": expected_subprotocol_idx_mappings,
+        "subprotocol_idx_mappings": test_subprotocol_idx_mappings,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
 
     start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    start_recording_command["active_well_indices"] = [1]
+    start_recording_command["active_well_indices"] = [test_well_index]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
-    num_data_points = len(expected_subprotocol_idx_mappings["B"])
+    expected_subprotocol_idx_mapping = test_subprotocol_idx_mappings[
+        expected_stim_info["protocol_assignments"][test_well_name]
+    ]
+    num_data_points = len(expected_subprotocol_idx_mapping)
     start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
-    test_data_packet = create_simple_stim_packet(start_timepoint, num_data_points, well_idxs=(0, 1))
+    test_data_packet_1 = create_simple_stim_packet(start_timepoint, num_data_points, well_idxs=(0, 1))
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0])
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_data_packet_1), board_queues[0]
+    )
     invoke_process_run_and_check_errors(fw_process)
 
-    with open_the_generic_h5_file(file_dir, well_name="B1", beta_version=2) as this_file:
-        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
-        assert actual_stimulation_data.shape == (2, num_data_points)
-        assert actual_stimulation_data[0, 0] == start_timepoint
-        assert actual_stimulation_data[1, 0] == 0
+    with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
+        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)[:]
+    expected_data = test_data_packet_1["well_statuses"][test_well_index]
+    np.testing.assert_array_equal(actual_stimulation_data[0], expected_data[0])
+    np.testing.assert_array_equal(
+        actual_stimulation_data[1], [expected_subprotocol_idx_mapping[idx] for idx in expected_data[1]]
+    )
 
-        # add some magnetometer data to avoid errors when stopping the recording
-        data_packet = create_simple_beta_2_data_packet(
-            start_timepoint, 0, start_recording_command["active_well_indices"], 3
-        )
-        put_object_into_queue_and_raise_error_if_eventually_still_empty(data_packet, board_queues[0])
-        invoke_process_run_and_check_errors(fw_process)
+    # add some magnetometer data to avoid errors when stopping the recording
+    data_packet = create_simple_beta_2_data_packet(
+        start_timepoint, 0, start_recording_command["active_well_indices"], 3
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(data_packet, board_queues[0])
+    invoke_process_run_and_check_errors(fw_process)
 
-        stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
-        put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
+    stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
 
-        stop_timepoint = stop_command["timepoint_to_stop_recording_at"]
-        ignored_data_packet = create_simple_stim_packet(stop_timepoint, num_data_points, well_idxs=(0, 1))
-        put_object_into_queue_and_raise_error_if_eventually_still_empty(ignored_data_packet, board_queues[0])
-        invoke_process_run_and_check_errors(fw_process)
+    stop_timepoint = stop_command["timepoint_to_stop_recording_at"]
+    ignored_data_packet = create_simple_stim_packet(stop_timepoint, num_data_points, well_idxs=(0, 1))
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(ignored_data_packet, board_queues[0])
+    invoke_process_run_and_check_errors(fw_process)
 
-        # confirm no additional data added to file
-        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
-        assert actual_stimulation_data.shape == (2, num_data_points)
+    # confirm no additional data added to file
+    with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
+        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)[:]
+    np.testing.assert_array_equal(actual_stimulation_data[0], expected_data[0])
+    np.testing.assert_array_equal(
+        actual_stimulation_data[1], [expected_subprotocol_idx_mapping[idx] for idx in expected_data[1]]
+    )
 
 
 def test_FileWriterProcess_process_stim_data_packet__adds_a_data_packet_ending_on_the_stop_recording_timepoint(
@@ -974,70 +1059,74 @@ def test_FileWriterProcess_process_stim_data_packet__adds_a_data_packet_ending_o
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    expected_stim_info, expected_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
+    test_well_index = randint(0, 1)
+    test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
+
+    expected_stim_info, test_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
         "stim_info": expected_stim_info,
-        "subprotocol_idx_mappings": expected_subprotocol_idx_mappings,
+        "subprotocol_idx_mappings": test_subprotocol_idx_mappings,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
 
     start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
-    start_recording_command["active_well_indices"] = [0]
+    start_recording_command["active_well_indices"] = [test_well_index]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
-    num_data_points_packet_1 = len(expected_subprotocol_idx_mappings["A"])
-    start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
-    test_data_packet = create_simple_stim_packet(start_timepoint, num_data_points_packet_1, well_idxs=(0, 1))
+    expected_subprotocol_idx_mapping = test_subprotocol_idx_mappings[
+        expected_stim_info["protocol_assignments"][test_well_name]
+    ]
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0])
+    num_data_points_packet_1 = len(expected_subprotocol_idx_mapping)
+    start_timepoint = start_recording_command["timepoint_to_begin_recording_at"]
+    test_data_packet_1 = create_simple_stim_packet(
+        start_timepoint, num_data_points_packet_1, well_idxs=(0, 1)
+    )
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_data_packet_1), board_queues[0]
+    )
     invoke_process_run_and_check_errors(fw_process)
 
-    with open_the_generic_h5_file(file_dir, well_name="A1", beta_version=2) as this_file:
-        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
-        assert actual_stimulation_data.shape == (2, num_data_points_packet_1)
-        assert actual_stimulation_data[0, 0] == start_timepoint
-        assert actual_stimulation_data[1, 0] == 0
-        assert actual_stimulation_data[0, -1] == start_timepoint + num_data_points_packet_1 - 1
-        assert actual_stimulation_data[1, -1] == 1
+    with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
+        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)[:]
+    expected_data = test_data_packet_1["well_statuses"][test_well_index]
+    np.testing.assert_array_equal(actual_stimulation_data[0], expected_data[0])
+    np.testing.assert_array_equal(
+        actual_stimulation_data[1], [expected_subprotocol_idx_mapping[idx] for idx in expected_data[1]]
+    )
 
-        # add some magnetometer data to avoid errors when stopping the recording
-        data_packet = create_simple_beta_2_data_packet(
-            start_timepoint, 0, start_recording_command["active_well_indices"], 3
-        )
-        put_object_into_queue_and_raise_error_if_eventually_still_empty(data_packet, board_queues[0])
-        invoke_process_run_and_check_errors(fw_process)
+    # add some magnetometer data to avoid errors when stopping the recording
+    data_packet = create_simple_beta_2_data_packet(
+        start_timepoint, 0, start_recording_command["active_well_indices"], 3
+    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(data_packet, board_queues[0])
+    invoke_process_run_and_check_errors(fw_process)
 
-        stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
-        put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
+    stop_command = dict(GENERIC_STOP_RECORDING_COMMAND)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(stop_command, from_main_queue)
 
-        num_data_points_packet_2 = num_data_points_packet_1 - 1
-        stop_timepoint = stop_command["timepoint_to_stop_recording_at"]
-        test_data_packet = create_simple_stim_packet(
-            stop_timepoint - (num_data_points_packet_2 - 1), num_data_points_packet_2, well_idxs=(0, 1)
-        )
-        put_object_into_queue_and_raise_error_if_eventually_still_empty(test_data_packet, board_queues[0])
-        invoke_process_run_and_check_errors(fw_process)
+    num_data_points_packet_2 = 2
+    stop_timepoint = stop_command["timepoint_to_stop_recording_at"]
+    test_data_packet_2 = create_simple_stim_packet(
+        stop_timepoint - (num_data_points_packet_2 - 1), num_data_points_packet_2, well_idxs=(0, 1)
+    )
 
-        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_data_packet_2), board_queues[0]
+    )
+    invoke_process_run_and_check_errors(fw_process)
 
-        # confirm data from first packet unchanged
-        assert actual_stimulation_data.shape == (2, num_data_points_packet_1 + num_data_points_packet_2)
-        assert actual_stimulation_data[0, 0] == start_timepoint
-        assert actual_stimulation_data[1, 0] == 0
-        assert (
-            actual_stimulation_data[0, num_data_points_packet_1 - 1]
-            == start_timepoint + num_data_points_packet_1 - 1
-        )
-        assert actual_stimulation_data[1, num_data_points_packet_1 - 1] == 1
-
-        # confirm data from new packet added to file correctly
-        assert actual_stimulation_data[0, num_data_points_packet_1] == stop_timepoint - (
-            num_data_points_packet_2 - 1
-        )
-        assert actual_stimulation_data[1, num_data_points_packet_1] == 0
-        assert actual_stimulation_data[0, -1] == stop_timepoint
-        assert actual_stimulation_data[1, -2] == 0
-        assert actual_stimulation_data[1, -1] == 0
+    # confirm data from new packet added to file correctly
+    with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
+        actual_stimulation_data = get_stimulation_dataset_from_file(this_file)[:]
+    expected_data = np.concatenate(
+        [expected_data, test_data_packet_2["well_statuses"][test_well_index]], axis=1
+    )
+    np.testing.assert_array_equal(actual_stimulation_data[0], expected_data[0])
+    np.testing.assert_array_equal(
+        actual_stimulation_data[1], [expected_subprotocol_idx_mapping[idx] for idx in expected_data[1]]
+    )

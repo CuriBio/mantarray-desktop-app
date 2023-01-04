@@ -83,6 +83,7 @@ for this_well_idx in range(24):
     }
 GENERIC_ADC_OFFSET_VALUES = immutabledict(GENERIC_ADC_OFFSET_VALUES)
 
+# TODO make this an immutable dict
 GENERIC_STIM_PROTOCOL_ASSIGNMENTS: Dict[str, Optional[str]] = {
     GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): None for well_idx in range(24)
 }
@@ -251,6 +252,7 @@ GENERIC_REFERENCE_SENSOR_DATA_PACKET = immutabledict(
 )
 
 
+# TODO remove default value for well_name
 def open_the_generic_h5_file(
     file_dir: str, well_name: str = "A2", beta_version: int = 1, timestamp_str: Optional[str] = None
 ) -> h5py.File:

@@ -330,8 +330,7 @@ def convert_subprotocol_node_dict_to_bytes(
 
 # TODO Tanner (12/23/22): might be nicer eventually to have this take in all the bytes at once and create the full list
 def convert_subprotocol_node_bytes_to_dict(
-    subprotocol_node_bytes: bytes,
-    is_voltage: bool = False,
+    subprotocol_node_bytes: bytes, is_voltage: bool = False
 ) -> Dict[str, Any]:
     subprotocol_node_dict, _ = _convert_subprotocol_node_bytes_to_dict(subprotocol_node_bytes, is_voltage)
     return subprotocol_node_dict
