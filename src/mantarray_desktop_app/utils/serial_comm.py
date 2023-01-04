@@ -261,12 +261,11 @@ def convert_subprotocol_pulse_dict_to_bytes(
                 )
             )
 
-        subprotocol_bytes += subprotocol_components["postphase_interval"].to_bytes(
-            4, byteorder="little"
-        ) + bytes(
-            2  # postphase_interval amplitude (always 0)
+        subprotocol_bytes += (
+            subprotocol_components["postphase_interval"].to_bytes(4, byteorder="little")
+            + bytes(2)  # postphase_interval amplitude (always 0)
+            + subprotocol_components["num_cycles"].to_bytes(4, byteorder="little")
         )
-        subprotocol_bytes += subprotocol_components["num_cycles"].to_bytes(4, byteorder="little")
 
     subprotocol_bytes += bytes([is_null])
     return subprotocol_bytes
@@ -432,7 +431,9 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
 
     # convert module ID / protocol idx pair bytes
     for module_id, protocol_id in enumerate(stim_bytes[curr_byte_idx:], 1):
-        well_name = convert_module_id_to_well_name(module_id, use_stim_mapping=True)
+        well_name = (  # this is used in case > 24 assignments are given
+            convert_module_id_to_well_name(module_id, use_stim_mapping=True) if module_id <= 24 else ""
+        )
         # Tanner (12/23/22): this will not be the original protocol ID since that is lost when converting the original stim info dict to bytes
         if protocol_id == STIM_NO_PROTOCOL_ASSIGNED:
             protocol_id = None  # type: ignore

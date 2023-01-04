@@ -16,6 +16,7 @@ from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import MICROS_PER_MILLI
 from mantarray_desktop_app.constants import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
+from mantarray_desktop_app.constants import STIM_MAX_PULSE_CYCLE_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import VALID_STIMULATION_TYPES
@@ -155,7 +156,7 @@ def get_random_stim_pulse(*, pulse_type=None, total_subprotocol_dur_us=None, fre
             if num_cycles is None:
                 num_cycles = randint(10, 1000)
             min_cycle_dur_us = math.ceil(STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS / num_cycles)
-            max_cycle_dur_us = math.floor(STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS / num_cycles)
+            max_cycle_dur_us = math.floor(STIM_MAX_PULSE_CYCLE_DURATION_MICROSECONDS / num_cycles)
             cycle_dur_us = randint(min_cycle_dur_us, max_cycle_dur_us)
         total_subprotocol_dur_us = cycle_dur_us * num_cycles
 
@@ -167,9 +168,14 @@ def get_random_stim_pulse(*, pulse_type=None, total_subprotocol_dur_us=None, fre
     charge_components = {comp for comp in all_pulse_components if "charge" in comp}
     duty_cycle_dur_comps = all_pulse_components - charge_components
 
+    max_postphase_interval_dur = 2 ** (4 * 8) - 1  # max uint32 value
+    min_dur_per_duty_cycle_comp = max(
+        MICROS_PER_MILLI, (cycle_dur_us - max_postphase_interval_dur) // len(duty_cycle_dur_comps)
+    )
+    max_dur_per_duty_cycle_comp = STIM_MAX_PULSE_DURATION_MICROSECONDS // len(duty_cycle_dur_comps)
+
     def _rand_dur_for_duty_cycle_comp():
-        max_dur_per_duty_cycle_comp = STIM_MAX_PULSE_DURATION_MICROSECONDS // len(duty_cycle_dur_comps)
-        return randint(MICROS_PER_MILLI, max_dur_per_duty_cycle_comp)
+        return randint(min_dur_per_duty_cycle_comp, max_dur_per_duty_cycle_comp)
 
     # create pulse dict
     pulse = {"type": pulse_type, "num_cycles": num_cycles}
