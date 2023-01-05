@@ -29,8 +29,8 @@ from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROS
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.exceptions import LoginFailedError
 from mantarray_desktop_app.main_process import server
-from mantarray_desktop_app.utils.serial_comm import get_pulse_duty_cycle_dur_us
-from mantarray_desktop_app.utils.serial_comm import SUBPROTOCOL_DUTY_CYCLE_DUR_COMPONENTS
+from mantarray_desktop_app.utils.stimulation import get_pulse_duty_cycle_dur_us
+from mantarray_desktop_app.utils.stimulation import SUBPROTOCOL_DUTY_CYCLE_DUR_COMPONENTS
 import pytest
 from tests.fixtures_file_writer import GENERIC_STIM_INFO
 

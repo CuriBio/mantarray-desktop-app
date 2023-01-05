@@ -49,7 +49,7 @@ from flask_cors import CORS
 from flask_socketio import SocketIO
 from immutabledict import immutabledict
 from mantarray_desktop_app.main_process.shared_values import SharedValues
-from mantarray_desktop_app.utils.serial_comm import get_pulse_duty_cycle_dur_us
+from mantarray_desktop_app.utils.stimulation import get_pulse_duty_cycle_dur_us
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS

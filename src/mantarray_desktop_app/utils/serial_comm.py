@@ -2,7 +2,6 @@
 """Utility functions for Serial Communication."""
 from __future__ import annotations
 
-import copy
 import datetime
 import math
 import struct
@@ -38,7 +37,6 @@ from ..constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from ..constants import SERIAL_COMM_TIMESTAMP_EPOCH
 from ..constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from ..constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
-from ..constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
 from ..constants import STIM_MODULE_ID_TO_WELL_IDX
 from ..constants import STIM_NO_PROTOCOL_ASSIGNED
 from ..constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
@@ -67,9 +65,6 @@ METADATA_TYPES: immutabledict[UUID, str] = immutabledict(
 
 SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS = frozenset(
     ["interphase_interval", "phase_two_duration", "phase_two_charge"]
-)
-SUBPROTOCOL_DUTY_CYCLE_DUR_COMPONENTS = frozenset(
-    ["phase_one_duration", "interphase_interval", "phase_two_duration"]
 )
 
 
@@ -439,72 +434,3 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
             protocol_id = None  # type: ignore
         stim_info_dict["protocol_assignments"][well_name] = protocol_id
     return stim_info_dict
-
-
-# TODO move the following to a stim utils file
-
-
-def get_pulse_duty_cycle_dur_us(subprotocol: Dict[str, Union[str, int]]) -> int:
-    return sum(subprotocol.get(comp, 0) for comp in SUBPROTOCOL_DUTY_CYCLE_DUR_COMPONENTS)  # type: ignore
-
-
-def get_pulse_full_cycle_dur_us(subprotocol: Dict[str, Union[str, int]]) -> int:
-    return get_pulse_duty_cycle_dur_us(subprotocol) + subprotocol["postphase_interval"]  # type: ignore
-
-
-def get_subprotocol_dur_us(subprotocol: Dict[str, Union[str, int]]) -> int:
-    duration = (
-        subprotocol["duration"]
-        if subprotocol["type"] == "delay"
-        else get_pulse_full_cycle_dur_us(subprotocol) * subprotocol["num_cycles"]
-    )
-    return duration  # type: ignore
-
-
-def chunk_subprotocol(subprotocol: Dict[str, Any]) -> List[Dict[str, Any]]:
-    # copy so the original subprotocol dict isn't modified
-    subprotocol = copy.deepcopy(subprotocol)
-    subprotocol_dur_us = get_subprotocol_dur_us(subprotocol)
-
-    if subprotocol["type"] == "delay" or subprotocol_dur_us <= STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS:
-        return [subprotocol]
-
-    original_num_cycles = subprotocol["num_cycles"]
-
-    num_loop_repeats = subprotocol_dur_us // STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
-    subprotocol["num_cycles"] //= num_loop_repeats
-
-    subprotocol_chunks = [{"type": "loop", "num_repeats": num_loop_repeats, "subprotocols": [subprotocol]}]
-
-    if num_leftover_cycles := original_num_cycles - (subprotocol["num_cycles"] * num_loop_repeats):
-        subprotocol_chunks.append({**subprotocol, "num_cycles": num_leftover_cycles})
-
-    return subprotocol_chunks
-
-
-def chunk_protocols_in_stim_info(
-    stim_info: Dict[str, Any]
-) -> Tuple[Dict[str, Any], Dict[str, Dict[int, int]]]:
-    # copying so the original dict passed in does not get modified
-    chunked_stim_info = copy.deepcopy(stim_info)
-
-    subprotocol_idx_mappings = {}
-
-    for protocol in chunked_stim_info["protocols"]:
-        chunked_idx_to_original_idx = {}
-        curr_idx = 0
-
-        new_subprotocols = []
-
-        for original_idx, subprotocol in enumerate(protocol["subprotocols"]):
-            subprotocol_chunks = chunk_subprotocol(subprotocol)
-
-            for chunk in subprotocol_chunks:
-                chunked_idx_to_original_idx[curr_idx] = original_idx
-                new_subprotocols.append(chunk)
-                curr_idx += 1
-
-        protocol["subprotocols"] = new_subprotocols
-        subprotocol_idx_mappings[protocol["protocol_id"]] = chunked_idx_to_original_idx
-
-    return chunked_stim_info, subprotocol_idx_mappings

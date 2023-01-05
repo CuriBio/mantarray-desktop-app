@@ -70,7 +70,7 @@ from ..utils.generic import _trim_barcode
 from ..utils.generic import get_redacted_string
 from ..utils.generic import redact_sensitive_info_from_path
 from ..utils.generic import upload_log_files_to_s3
-from ..utils.serial_comm import chunk_protocols_in_stim_info
+from ..utils.stimulation import chunk_protocols_in_stim_info
 
 logger = logging.getLogger(__name__)
 

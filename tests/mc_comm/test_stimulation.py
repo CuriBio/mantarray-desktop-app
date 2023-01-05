@@ -18,7 +18,7 @@ from mantarray_desktop_app.constants import STIM_MODULE_ID_TO_WELL_IDX
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.simulators import mc_simulator
 from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_circuit_status
-from mantarray_desktop_app.utils.serial_comm import get_subprotocol_dur_us
+from mantarray_desktop_app.utils.stimulation import get_subprotocol_dur_us
 import numpy as np
 import pytest
 from stdlib_utils import drain_queue

@@ -19,11 +19,13 @@ from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
 from mantarray_desktop_app import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from mantarray_desktop_app import StimProtocolStatuses
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import MICROS_PER_MILLI
 from mantarray_desktop_app.constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
 from mantarray_desktop_app.constants import STIM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app.simulators import mc_simulator
 from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_circuit_status
-from mantarray_desktop_app.utils.serial_comm import get_subprotocol_dur_us
+from mantarray_desktop_app.utils.serial_comm import is_null_subprotocol
+from mantarray_desktop_app.utils.stimulation import get_subprotocol_dur_us
 import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -32,6 +34,7 @@ from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import get_random_stim_delay
 from ..fixtures_mc_simulator import get_random_stim_pulse
+from ..fixtures_mc_simulator import get_random_subprotocol
 from ..fixtures_mc_simulator import random_stim_type
 from ..fixtures_mc_simulator import set_stim_info_and_start_stimulating
 from ..helpers import assert_serial_packet_is_expected
@@ -1044,3 +1047,121 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
     assert_serial_packet_is_expected(
         stim_status_packet, SERIAL_COMM_STIM_STATUS_PACKET_TYPE, additional_bytes=additional_bytes
     )
+
+
+def test_MantarrayMcSimulator__handles_looping_correctly(mantarray_mc_simulator_no_beacon, mocker):
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    spied_global_timer = mocker.spy(simulator, "_get_global_timer")
+
+    test_well_index = randint(0, 23)
+    test_protocol_assignments = {
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): (
+            "A" if well_idx == test_well_index else None
+        )
+        for well_idx in range(24)
+    }
+
+    test_num_repeats = [2, 3, 2]
+    test_subprotocols = [
+        get_random_subprotocol(total_subprotocol_dur_us=randint(1000, 10000) * MICROS_PER_MILLI)
+        for _ in range(7)
+    ]
+
+    test_num_repeats_iter = iter(test_num_repeats)
+    test_subprotocols_iter = iter(test_subprotocols)
+
+    test_subprotocol_nodes = [
+        next(test_subprotocols_iter),
+        {
+            "type": "loop",
+            "num_repeats": next(test_num_repeats_iter),
+            "subprotocols": [
+                {
+                    "type": "loop",
+                    "num_repeats": next(test_num_repeats_iter),
+                    "subprotocols": [next(test_subprotocols_iter)],
+                },
+                next(test_subprotocols_iter),
+                {
+                    "type": "loop",
+                    "num_repeats": next(test_num_repeats_iter),
+                    "subprotocols": [next(test_subprotocols_iter) for _ in range(3)],
+                },
+            ],
+        },
+        next(test_subprotocols_iter),
+    ]
+
+    test_stim_info = create_converted_stim_info(
+        {
+            "protocols": [
+                {
+                    "protocol_id": "A",
+                    "stimulation_type": "C",
+                    "run_until_stopped": True,
+                    "subprotocols": test_subprotocol_nodes,
+                },
+            ],
+            "protocol_assignments": test_protocol_assignments,
+        }
+    )
+    set_stim_info_and_start_stimulating(mantarray_mc_simulator_no_beacon, test_stim_info)
+
+    test_num_runs_through_protocol = randint(3, 5)
+
+    expected_subprotocol_idx_order = (
+        [0]
+        + (([1] * test_num_repeats[1]) + [2] + ([3, 4, 5] * test_num_repeats[2])) * test_num_repeats[0]
+        + [6]
+    ) * test_num_runs_through_protocol
+
+    expected_subprotocol_dur_order = [
+        get_subprotocol_dur_us(test_subprotocols[i]) for i in expected_subprotocol_idx_order
+    ]
+    mocker.patch.object(
+        mc_simulator,
+        "_get_us_since_subprotocol_start",
+        autospec=True,
+        side_effect=expected_subprotocol_dur_order,
+    )
+
+    # the first subprotocol status up packet is read inside set_stim_info_and_start_stimulating
+    for update_num, subprotocol_idx in enumerate(expected_subprotocol_idx_order[1:], 1):
+        invoke_process_run_and_check_errors(simulator)
+        assert simulator.in_waiting > 0, (update_num, subprotocol_idx)
+
+        stim_status = (
+            StimProtocolStatuses.NULL
+            if is_null_subprotocol(test_subprotocols[subprotocol_idx])
+            else StimProtocolStatuses.ACTIVE
+        )
+
+        current_time_idx = spied_global_timer.spy_return + sum(expected_subprotocol_dur_order[:update_num])
+
+        if subprotocol_idx == 0:  # protocol restarted
+            additional_bytes = (
+                bytes([2])  # number of status updates in this packet
+                + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_index]])
+                + bytes([StimProtocolStatuses.RESTARTING])
+                + current_time_idx.to_bytes(8, byteorder="little")
+                + bytes([subprotocol_idx])
+            )
+        else:
+            additional_bytes = bytes([1])  # number of status updates in this packet
+
+        additional_bytes += (
+            bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_index]])
+            + bytes([stim_status])
+            + current_time_idx.to_bytes(8, byteorder="little")
+            + bytes([subprotocol_idx])
+        )
+
+        expected_size = get_full_packet_size_from_payload_len(len(additional_bytes))
+        stim_status_packet = simulator.read(size=expected_size)
+        assert_serial_packet_is_expected(
+            stim_status_packet,
+            SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
+            additional_bytes=additional_bytes,
+            error_msg=f"Update {update_num}, Subprotocol {subprotocol_idx}",
+        )

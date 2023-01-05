@@ -12,7 +12,7 @@ from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
-from mantarray_desktop_app.utils.serial_comm import chunk_protocols_in_stim_info
+from mantarray_desktop_app.utils.stimulation import chunk_protocols_in_stim_info
 import numpy as np
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_FIRST_TISSUE_DATA_POINT_UUID
