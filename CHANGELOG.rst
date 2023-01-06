@@ -4,13 +4,20 @@ Changelog for Mantarray Desktop App
 1.0.7 (unreleased)
 -------------------
 
+Added:
+^^^^^^
+- Better reporting of start up errors.
+
 Changed:
 ^^^^^^^^
 - Twitch Frequency is now the default metric displayed in the Heat Map.
+- Stimulation pulses now have a max duty cycle of 80%.
+- Heatmap now defaults to displaying Twitch Frequency with a range of 0-1 Hz.
 
 Fixed:
 ^^^^^^
 - Errors in Local Analysis not being reported, leading to it running indefinitely.
+- Importing multiple stimulation protocols in one file will now populate dropdown correctly
 
 
 1.0.6 (2022-12-14)
