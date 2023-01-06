@@ -27,6 +27,7 @@ Fixed:
 ^^^^^^
 - Errors in Local Analysis not being reported, leading to it running indefinitely.
 - Importing multiple stimulation protocols in one file will now populate dropdown correctly.
+- All log timestamps now in UTC+0.
 
 
 1.0.6 (2022-12-14)
