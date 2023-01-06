@@ -29,6 +29,9 @@ log.transports.file.resolvePath = () => {
 
   return path.join(path.dirname(store.path), "logs_flask", main_utils.FILENAME_PREFIX, filename);
 };
+
+// set to UTC, not local time
+process.env.TZ = "UTC";
 console.log = log.log;
 console.error = log.error;
 console.log("Electron store at: '" + main_utils.redact_username_from_logs(store.path) + "'"); // allow-log
