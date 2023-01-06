@@ -61,7 +61,7 @@ jobs:
       - name: Fail if attempting to publish to unstable release channel incorrectly
         if: github.event.inputs.release_channel == 'unstable'
         run: |
-          if [ "${{github.event.inputs.api_endpoint}}" = "test" ] ; then echo "Using prod API endpoint, can proceed to publish"; else exit 1; fi
+          if [ "${{github.event.inputs.api_endpoint}}" = "test" ] ; then echo "Using test API endpoint, can proceed to publish"; else exit 1; fi
 
   publish:
     needs: [check_inputs]
@@ -96,7 +96,7 @@ jobs:
       - name: Convert Workflow Inputs to Env Vars
         run: |
           echo "RELEASE_CHANNEL=$(echo ${{github.event.inputs.release_channel || 'unstable'}})" >> $env:GITHUB_ENV
-          echo "API_ENDPOINT=$(echo ${{github.event.inputs.api_endpoint || 'prod'}})" >> $env:GITHUB_ENV
+          echo "API_ENDPOINT=$(echo ${{github.event.inputs.api_endpoint || 'test'}})" >> $env:GITHUB_ENV
 
       - name: Add prerelease SemVer component (if unstable)
         if: env.RELEASE_CHANNEL == 'unstable'
