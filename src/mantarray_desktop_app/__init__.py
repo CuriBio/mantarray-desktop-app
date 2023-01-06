@@ -142,8 +142,8 @@ from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from .constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from .constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+from .constants import STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS
 from .constants import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
-from .constants import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from .constants import STIM_NO_PROTOCOL_ASSIGNED
 from .constants import StimProtocolStatuses
 from .constants import STM_VID
@@ -542,7 +542,7 @@ __all__ = [
     "DEFAULT_SAMPLING_PERIOD",
     "STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS",
     "STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS",
-    "STIM_MAX_PULSE_DURATION_MICROSECONDS",
+    "STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS",
     "queue_container",
     "get_redacted_string",
     "UnrecognizedCommandFromServerToMainError",

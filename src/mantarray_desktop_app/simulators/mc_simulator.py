@@ -217,6 +217,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._sampling_period_us: int
         self._adc_readings: List[Tuple[int, int]]
         self._stim_info: Dict[str, Any]
+        # TODO all the stim info below into StimulationSubrotocolManager
         self._stim_running_statuses: Dict[str, bool]
         self._timepoints_of_subprotocols_start: List[Optional[int]]
         self._stim_time_indices: List[int]

@@ -11,12 +11,11 @@ from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_MAX_TIMESTAMP_VALUE
 from mantarray_desktop_app import SERIAL_COMM_OKAY_CODE
-from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
+from mantarray_desktop_app import STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import MICROS_PER_MILLI
 from mantarray_desktop_app.constants import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
-from mantarray_desktop_app.constants import STIM_MAX_PULSE_CYCLE_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import VALID_STIMULATION_TYPES
@@ -30,6 +29,8 @@ from stdlib_utils import QUEUE_CHECK_TIMEOUT_SECONDS
 from stdlib_utils import TestingQueue
 
 from .helpers import random_bool
+
+STIM_MAX_PULSE_DURATION_MICROSECONDS = STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS + (2**32 - 1)
 
 STATUS_BEACON_SIZE_BYTES = SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES + SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 HANDSHAKE_RESPONSE_SIZE_BYTES = STATUS_BEACON_SIZE_BYTES
@@ -119,6 +120,7 @@ def get_random_stim_pulse(*, pulse_type=None, total_subprotocol_dur_us=None, fre
 
     # TODO clean this up
     # TODO allow only 2/3 of these params to be given at once
+    # TODO make sure duty cycle does not exceed hard limit or 80% limit
     # validate params together and gerenate random values for those not given
     if total_subprotocol_dur_us is not None:
         if num_cycles is not None:
@@ -165,7 +167,7 @@ def get_random_stim_pulse(*, pulse_type=None, total_subprotocol_dur_us=None, fre
             if num_cycles is None:
                 num_cycles = randint(10, 1000)
             min_cycle_dur_us = math.ceil(STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS / num_cycles)
-            max_cycle_dur_us = math.floor(STIM_MAX_PULSE_CYCLE_DURATION_MICROSECONDS / num_cycles)
+            max_cycle_dur_us = math.floor(STIM_MAX_PULSE_DURATION_MICROSECONDS / num_cycles)
             cycle_dur_us = randint(min_cycle_dur_us, max_cycle_dur_us)
         total_subprotocol_dur_us = cycle_dur_us * num_cycles
 
@@ -181,7 +183,7 @@ def get_random_stim_pulse(*, pulse_type=None, total_subprotocol_dur_us=None, fre
     min_dur_per_duty_cycle_comp = max(
         MICROS_PER_MILLI, (cycle_dur_us - max_postphase_interval_dur) // len(duty_cycle_dur_comps)
     )
-    max_dur_per_duty_cycle_comp = STIM_MAX_PULSE_DURATION_MICROSECONDS // len(duty_cycle_dur_comps)
+    max_dur_per_duty_cycle_comp = STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS // len(duty_cycle_dur_comps)
 
     def _rand_dur_for_duty_cycle_comp():
         return randint(min_dur_per_duty_cycle_comp, max_dur_per_duty_cycle_comp)

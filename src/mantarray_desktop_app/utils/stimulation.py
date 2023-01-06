@@ -20,7 +20,7 @@ def get_pulse_duty_cycle_dur_us(subprotocol: Dict[str, Union[str, int]]) -> int:
     return sum(subprotocol.get(comp, 0) for comp in SUBPROTOCOL_DUTY_CYCLE_DUR_COMPONENTS)  # type: ignore
 
 
-def get_pulse_full_cycle_dur_us(subprotocol: Dict[str, Union[str, int]]) -> int:
+def get_pulse_dur_us(subprotocol: Dict[str, Union[str, int]]) -> int:
     return get_pulse_duty_cycle_dur_us(subprotocol) + subprotocol["postphase_interval"]  # type: ignore
 
 
@@ -28,7 +28,7 @@ def get_subprotocol_dur_us(subprotocol: Dict[str, Union[str, int]]) -> int:
     duration = (
         subprotocol["duration"]
         if subprotocol["type"] == "delay"
-        else get_pulse_full_cycle_dur_us(subprotocol) * subprotocol["num_cycles"]
+        else get_pulse_dur_us(subprotocol) * subprotocol["num_cycles"]
     )
     return duration  # type: ignore
 

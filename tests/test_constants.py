@@ -142,7 +142,7 @@ from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
 from mantarray_desktop_app import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from mantarray_desktop_app import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
-from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
+from mantarray_desktop_app import STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS
 from mantarray_desktop_app import STIM_NO_PROTOCOL_ASSIGNED
 from mantarray_desktop_app import StimProtocolStatuses
 from mantarray_desktop_app import STM_VID
@@ -171,6 +171,7 @@ from mantarray_desktop_app.constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PAC
 from mantarray_desktop_app.constants import SOFTWARE_RELEASE_CHANNEL
 from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MINS
+from mantarray_desktop_app.constants import STIM_MAX_DUTY_CYCLE_PERCENTAGE
 from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
@@ -530,7 +531,9 @@ def test_serial_comm():
 
     assert STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS == int(100e3)
     assert STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS == int(1.2e3)
-    assert STIM_MAX_PULSE_DURATION_MICROSECONDS == int(50e3)
+    assert STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS == int(50e3)
+
+    assert STIM_MAX_DUTY_CYCLE_PERCENTAGE == 0.8
 
     assert STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MINS == 1
     assert (
