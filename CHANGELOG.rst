@@ -10,14 +10,13 @@ Added:
 
 Changed:
 ^^^^^^^^
-- Twitch Frequency is now the default metric displayed in the Heat Map.
+- Heat Map now defaults to displaying Twitch Frequency with the range set to 0-1 Hz.
 - Stimulation pulses now have a max duty cycle of 80%.
-- Heatmap now defaults to displaying Twitch Frequency with a range of 0-1 Hz.
 
 Fixed:
 ^^^^^^
 - Errors in Local Analysis not being reported, leading to it running indefinitely.
-- Importing multiple stimulation protocols in one file will now populate dropdown correctly
+- Importing multiple stimulation protocols in one file will now populate dropdown correctly.
 
 
 1.0.6 (2022-12-14)
