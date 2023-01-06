@@ -721,7 +721,7 @@ def test_start_recording_command__populates_queue__with_correct_adc_offset_value
     test_process_manager_creator, test_client
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    put_generic_beta_1_start_recording_info_in_dict(test_process_manager.values_to_share_to_websocket)
+    put_generic_beta_1_start_recording_info_in_dict(test_process_manager.values_to_share_to_server)
 
     expected_adc_offsets = dict()
     for well_idx in range(24):
@@ -745,7 +745,7 @@ def test_start_recording_command__populates_queue__with_given_time_index_paramet
     test_process_manager_creator, test_client
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    put_generic_beta_1_start_recording_info_in_dict(test_process_manager.values_to_share_to_websocket)
+    put_generic_beta_1_start_recording_info_in_dict(test_process_manager.values_to_share_to_server)
 
     expected_time_index = 9600
     barcode = GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
@@ -773,7 +773,7 @@ def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_
     test_process_manager_creator, test_client
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    put_generic_beta_1_start_recording_info_in_dict(test_process_manager.values_to_share_to_websocket)
+    put_generic_beta_1_start_recording_info_in_dict(test_process_manager.values_to_share_to_server)
 
     expected_plate_barcode = GENERIC_BETA_1_START_RECORDING_COMMAND[
         "metadata_to_copy_onto_main_file_attributes"
@@ -794,7 +794,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_correct_wel
     test_process_manager_creator, test_client
 ):
     test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
-    shared_values_dict = test_process_manager.values_to_share_to_websocket
+    shared_values_dict = test_process_manager.values_to_share_to_server
     put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
 
     total_num_wells = 24
@@ -851,7 +851,7 @@ def test_start_recording_command__correctly_sets_plate_barcode_from_scanner_valu
     test_client,
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    shared_values_dict = test_process_manager.values_to_share_to_websocket
+    shared_values_dict = test_process_manager.values_to_share_to_server
     put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
     shared_values_dict["stimulation_running"] = [False] * 24
 
@@ -914,7 +914,7 @@ def test_start_recording_command__correctly_sets_stim_barcode_from_scanner_value
     test_client,
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    shared_values_dict = test_process_manager.values_to_share_to_websocket
+    shared_values_dict = test_process_manager.values_to_share_to_server
     put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
     shared_values_dict["stimulation_running"] = [True] * 24
 
@@ -953,7 +953,7 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
     test_process_manager_creator, test_client
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    shared_values_dict = test_process_manager.values_to_share_to_websocket
+    shared_values_dict = test_process_manager.values_to_share_to_server
     put_generic_beta_1_start_recording_info_in_dict(shared_values_dict)
 
     expected_acquisition_timestamp = datetime.datetime(
@@ -1081,7 +1081,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     test_process_manager_creator, test_client
 ):
     test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
-    shared_values_dict = test_process_manager.values_to_share_to_websocket
+    shared_values_dict = test_process_manager.values_to_share_to_server
     put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
 
     expected_acquisition_timestamp = datetime.datetime(
@@ -1226,7 +1226,7 @@ def test_start_recording_command__beta_2_mode__populates_queue_with_stim_barcode
 ):
     # TODO ?
     test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
-    shared_values_dict = test_process_manager.values_to_share_to_websocket
+    shared_values_dict = test_process_manager.values_to_share_to_server
     put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
 
     expected_stim_running_list = [random_bool() for _ in range(24)]
@@ -1259,7 +1259,7 @@ def test_start_recording_command__populates_queue_with_recording_file_name_corre
     recording_name, test_process_manager_creator, test_client
 ):
     test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
-    shared_values_dict = test_process_manager.values_to_share_to_websocket
+    shared_values_dict = test_process_manager.values_to_share_to_server
     put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
 
     params = {

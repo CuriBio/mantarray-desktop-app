@@ -37,7 +37,7 @@ def wait_for_subprocesses_to_start() -> None:
     start = time.perf_counter()
     elapsed_time = 0.0
     response: Optional[Response]
-    while elapsed_time < 20:
+    while elapsed_time < 50:
         try:
             response = requests.get(f"{get_api_endpoint()}system_status")
             if response.status_code == 200 and response.json()["ui_status_code"] != str(

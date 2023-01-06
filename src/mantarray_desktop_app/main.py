@@ -307,10 +307,10 @@ def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[
         logger.info("Spawning subprocesses")
 
         process_manager = MantarrayProcessesManager(
-            values_to_share_to_websocket=shared_values_dict, logging_level=log_level
+            values_to_share_to_server=shared_values_dict, logging_level=log_level
         )
         object_access_for_testing["process_manager"] = process_manager
-        object_access_for_testing["values_to_share_to_websocket"] = shared_values_dict
+        object_access_for_testing["values_to_share_to_server"] = shared_values_dict
 
         process_manager.create_processes()
         if start_subprocesses:

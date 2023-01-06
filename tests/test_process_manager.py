@@ -36,7 +36,7 @@ def create_process_manager(
     logging_level=None,
     server_port_number=None
 ):
-    values_to_share_to_websocket = {
+    values_to_share_to_server = {
         "beta_2_mode": beta_2_mode,
         "config_settings": {
             "recording_directory": recording_directory,
@@ -44,9 +44,9 @@ def create_process_manager(
         },
     }
     if server_port_number is not None:
-        values_to_share_to_websocket["server_port_number"] = server_port_number
+        values_to_share_to_server["server_port_number"] = server_port_number
 
-    kwargs = {"values_to_share_to_websocket": values_to_share_to_websocket}
+    kwargs = {"values_to_share_to_server": values_to_share_to_server}
     if logging_level is not None:
         kwargs["logging_level"] = logging_level
 
@@ -365,12 +365,12 @@ def test_MantarrayProcessesManager__passes_file_directory_to_FileWriter():
     assert manager.file_writer_process.get_file_directory() == test_dir
 
 
-def test_MantarrayProcessesManager__passes_shared_values_dict_to_websocket():
+def test_MantarrayProcessesManager__passes_shared_values_dict_to_server():
     expected_dict = {
         "beta_2_mode": False,
         "config_settings": {"recording_directory": "", "mag_analysis_output_dir": ""},
     }
-    manager = MantarrayProcessesManager(values_to_share_to_websocket=expected_dict)
+    manager = MantarrayProcessesManager(values_to_share_to_server=expected_dict)
     manager.create_processes()
     assert manager.server_manager.get_values_from_process_monitor() == expected_dict
 
@@ -399,7 +399,7 @@ def test_MantarrayProcessesManager__boot_up_instrument__populates_ok_comm_queue_
     generic_manager.boot_up_instrument(load_firmware_file=load_firmware_file)
     main_to_instrument_comm_queue = generic_manager.queue_container.to_instrument_comm(0)
     assert is_queue_eventually_of_size(main_to_instrument_comm_queue, 2) is True
-    assert generic_manager.values_to_share_to_websocket["system_status"] == INSTRUMENT_INITIALIZING_STATE
+    assert generic_manager.values_to_share_to_server["system_status"] == INSTRUMENT_INITIALIZING_STATE
 
     actual_communication_1 = main_to_instrument_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_communication_1 == {
@@ -479,7 +479,7 @@ def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_
     assert mocked_da_is_stopped.call_count == 1
 
 
-def test_MantarrayProcessesManager__create_processes__passes_port_value_from_dictionary_to_websocket_manager(
+def test_MantarrayProcessesManager__create_processes__passes_port_value_from_dictionary_to_server_manager(
     mocker,
 ):
     expected_port = 5432

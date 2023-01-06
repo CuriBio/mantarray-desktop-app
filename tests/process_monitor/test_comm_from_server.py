@@ -96,7 +96,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert test_process_manager.values_to_share_to_websocket["mantarray_nickname"][0] == expected_nickname
+    assert test_process_manager.values_to_share_to_server["mantarray_nickname"][0] == expected_nickname
 
     main_to_instrument_comm = test_process_manager.queue_container.to_instrument_comm(0)
     confirm_queue_is_eventually_of_size(main_to_instrument_comm, 1)
@@ -122,7 +122,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert test_process_manager.values_to_share_to_websocket["mantarray_nickname"][0] == expected_nickname
+    assert test_process_manager.values_to_share_to_server["mantarray_nickname"][0] == expected_nickname
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_serial_number_setting_by_setting_shared_values_dictionary_and_passing_command_to_instrument_comm(
@@ -142,7 +142,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert test_process_manager.values_to_share_to_websocket["mantarray_serial_number"][0] == expected_serial
+    assert test_process_manager.values_to_share_to_server["mantarray_serial_number"][0] == expected_serial
 
     main_to_instrument_comm = test_process_manager.queue_container.to_instrument_comm(0)
     confirm_queue_is_eventually_of_size(main_to_instrument_comm, 1)
@@ -168,7 +168,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert test_process_manager.values_to_share_to_websocket["mantarray_serial_number"][0] == expected_serial
+    assert test_process_manager.values_to_share_to_server["mantarray_serial_number"][0] == expected_serial
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raises_error_if_unrecognized_mantarray_naming_command(
@@ -198,7 +198,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert test_process_manager.values_to_share_to_websocket["system_status"] == CALIBRATING_STATE
+    assert test_process_manager.values_to_share_to_server["system_status"] == CALIBRATING_STATE
 
     main_to_instrument_comm = test_process_manager.queue_container.to_instrument_comm(0)
     confirm_queue_is_eventually_of_size(main_to_instrument_comm, 1)
@@ -363,7 +363,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     )
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
-    shared_values_dict = test_process_manager.values_to_share_to_websocket
+    shared_values_dict = test_process_manager.values_to_share_to_server
     assert shared_values_dict["system_status"] == BUFFERING_STATE
 
     main_to_instrument_comm = test_process_manager.queue_container.to_instrument_comm(0)
@@ -514,7 +514,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     actual = main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == communication
-    assert test_process_manager.values_to_share_to_websocket["system_status"] == LIVE_VIEW_ACTIVE_STATE
+    assert test_process_manager.values_to_share_to_server["system_status"] == LIVE_VIEW_ACTIVE_STATE
 
 
 @freeze_time(
@@ -547,7 +547,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     actual = main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual == communication
 
-    shared_values_dict = test_process_manager.values_to_share_to_websocket
+    shared_values_dict = test_process_manager.values_to_share_to_server
     assert shared_values_dict["is_hardware_test_recording"] is True
     assert shared_values_dict["system_status"] == RECORDING_STATE
     assert (
@@ -960,24 +960,18 @@ def test_MantarrayProcessesMonitor__processes_firmware_update_confirmation_comma
 
 
 def test_MantarrayProcessesMonitor___check_and_handle_websocket_to_main_queue_sets_flag_when_websocket_connection_success(
-    test_process_manager_creator, test_monitor, patch_subprocess_joins, mocker
+    test_process_manager_creator,
+    test_monitor,
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    to_main_queue = test_process_manager.queue_container.from_websocket
+    from_websocket_queue = test_process_manager.queue_container.from_websocket
 
     shared_values_dict["websocket_connection_made"] = False
 
     communication = {"communication_type": "connection_success"}
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, to_main_queue)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, from_websocket_queue)
     invoke_process_run_and_check_errors(monitor_thread)
-
-    mocked_successful_connection = mocker.patch.object(
-        monitor_thread, "_check_and_handle_websocket_to_main_queue", autospec=True
-    )
-
-    def se(*args):
-        mocked_successful_connection.assert_called_once()
 
     assert shared_values_dict["websocket_connection_made"] is True

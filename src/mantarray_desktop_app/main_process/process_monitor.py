@@ -91,7 +91,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
     def __init__(
         self,
-        values_to_share_to_websocket: SharedValues,
+        values_to_share_to_server: SharedValues,
         process_manager: MantarrayProcessesManager,
         fatal_error_reporter: queue.Queue[str],
         the_lock: threading.Lock,
@@ -99,7 +99,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         load_firmware_file: bool = True,
     ) -> None:
         super().__init__(fatal_error_reporter, lock=the_lock)
-        self._values_to_share_to_websocket = values_to_share_to_websocket
+        self._values_to_share_to_server = values_to_share_to_server
         self._process_manager = process_manager
         self._boot_up_after_processes_start = boot_up_after_processes_start
         self._load_firmware_file = load_firmware_file
@@ -130,10 +130,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._queue_websocket_message(communication["content"])
         elif communication_type == "file_finalized":
             if (
-                self._values_to_share_to_websocket["system_status"] == CALIBRATING_STATE
+                self._values_to_share_to_server["system_status"] == CALIBRATING_STATE
                 and communication.get("message", None) == "all_finals_finalized"
             ):
-                self._values_to_share_to_websocket["system_status"] = CALIBRATED_STATE
+                self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
                 # stop managed acquisition
                 main_to_ic_queue = self._process_manager.queue_container.to_instrument_comm(0)
                 main_to_fw_queue = self._process_manager.queue_container.to_file_writer
@@ -205,7 +205,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         with self._lock:
             logger.info(msg)
 
-        shared_values_dict = self._values_to_share_to_websocket
+        shared_values_dict = self._values_to_share_to_server
         if communication_type == "mantarray_naming":
             command = communication["command"]
             if command == "set_mantarray_nickname":
@@ -223,7 +223,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             command = communication["command"]
             if command == "hard_stop":
                 self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=False, error=False)
-                upload_log_files_to_s3(self._values_to_share_to_websocket["config_settings"])
+                upload_log_files_to_s3(self._values_to_share_to_server["config_settings"])
             elif command == "shutdown_server":
                 self._process_manager.shutdown_server()
             else:
@@ -277,11 +277,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     }
                 )
             elif command == "set_protocols":
-                self._values_to_share_to_websocket["stimulation_info"] = communication["stim_info"]
+                self._values_to_share_to_server["stimulation_info"] = communication["stim_info"]
                 self._put_communication_into_instrument_comm_queue(communication)
                 self._process_manager.queue_container.to_file_writer.put_nowait(communication)
             elif command == "start_stim_checks":
-                self._values_to_share_to_websocket["stimulator_circuit_statuses"] = {
+                self._values_to_share_to_server["stimulator_circuit_statuses"] = {
                     well_idx: StimulatorCircuitStatuses.CALCULATING.name.lower()
                     for well_idx in communication["well_indices"]
                 }
@@ -412,10 +412,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
             logger.info(msg)
 
         if communication_type == "data_available":
-            if self._values_to_share_to_websocket["system_status"] == BUFFERING_STATE:
+            if self._values_to_share_to_server["system_status"] == BUFFERING_STATE:
                 self._data_dump_buffer_size += 1
                 if self._data_dump_buffer_size == 2:
-                    self._values_to_share_to_websocket["system_status"] = LIVE_VIEW_ACTIVE_STATE
+                    self._values_to_share_to_server["system_status"] = LIVE_VIEW_ACTIVE_STATE
         elif communication_type == "mag_analysis_complete":
             self._queue_websocket_message(communication["content"])
         elif communication_type == "acquisition_manager":
@@ -487,12 +487,12 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         if communication_type == "acquisition_manager":
             if command == "start_managed_acquisition":
-                self._values_to_share_to_websocket["utc_timestamps_of_beginning_of_data_acquisition"] = [
+                self._values_to_share_to_server["utc_timestamps_of_beginning_of_data_acquisition"] = [
                     communication["timestamp"]
                 ]
             elif command == "stop_managed_acquisition":
                 if not communication.get("is_calibration_recording", False):
-                    self._values_to_share_to_websocket["system_status"] = CALIBRATED_STATE
+                    self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
                     self._data_dump_buffer_size = 0
             else:
                 raise NotImplementedError(
@@ -501,7 +501,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         elif communication_type == "stimulation":
             if command == "start_stimulation":
                 stim_running_list = [False] * 24
-                protocol_assignments = self._values_to_share_to_websocket["stimulation_info"][
+                protocol_assignments = self._values_to_share_to_server["stimulation_info"][
                     "protocol_assignments"
                 ]
                 for well_name, assignment in protocol_assignments.items():
@@ -509,49 +509,49 @@ class MantarrayProcessesMonitor(InfiniteThread):
                         continue
                     well_idx = GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
                     stim_running_list[well_idx] = True
-                self._values_to_share_to_websocket["stimulation_running"] = stim_running_list
+                self._values_to_share_to_server["stimulation_running"] = stim_running_list
             elif command == "stop_stimulation":
-                self._values_to_share_to_websocket["stimulation_running"] = [False] * 24
+                self._values_to_share_to_server["stimulation_running"] = [False] * 24
             elif command == "status_update":
                 # ignore stim status updates if stim was already stopped manually
                 for well_idx in communication["wells_done_stimulating"]:
-                    self._values_to_share_to_websocket["stimulation_running"][well_idx] = False
+                    self._values_to_share_to_server["stimulation_running"][well_idx] = False
             elif command == "start_stim_checks":
                 key = "stimulator_circuit_statuses"
                 stimulator_circuit_statuses = communication[key]
-                self._values_to_share_to_websocket[key] = stimulator_circuit_statuses
+                self._values_to_share_to_server[key] = stimulator_circuit_statuses
                 self._queue_websocket_message(
                     {"data_type": key, "data_json": json.dumps(stimulator_circuit_statuses)}
                 )
         elif communication_type == "board_connection_status_change":
             board_idx = communication["board_index"]
-            self._values_to_share_to_websocket["in_simulation_mode"] = not communication["is_connected"]
-            if self._values_to_share_to_websocket["beta_2_mode"]:
+            self._values_to_share_to_server["in_simulation_mode"] = not communication["is_connected"]
+            if self._values_to_share_to_server["beta_2_mode"]:
                 return  # Tanner (4/25/21): Beta 2 Mantarray Instrument cannot send these values until the board is completely initialized, so just returning here
-            self._values_to_share_to_websocket["mantarray_serial_number"] = {
+            self._values_to_share_to_server["mantarray_serial_number"] = {
                 board_idx: communication["mantarray_serial_number"]
             }
-            self._values_to_share_to_websocket["mantarray_nickname"] = {
+            self._values_to_share_to_server["mantarray_nickname"] = {
                 board_idx: communication["mantarray_nickname"]
             }
-            self._values_to_share_to_websocket["xem_serial_number"] = {
+            self._values_to_share_to_server["xem_serial_number"] = {
                 board_idx: communication["xem_serial_number"]
             }
         elif communication_type == "boot_up_instrument":
             board_idx = communication["board_index"]
-            self._values_to_share_to_websocket["main_firmware_version"] = {
+            self._values_to_share_to_server["main_firmware_version"] = {
                 board_idx: communication["main_firmware_version"]
             }
-            self._values_to_share_to_websocket["sleep_firmware_version"] = {
+            self._values_to_share_to_server["sleep_firmware_version"] = {
                 board_idx: communication["sleep_firmware_version"]
             }
         elif communication_type == "xem_scripts":
             if "status_update" in communication:
-                self._values_to_share_to_websocket["system_status"] = communication["status_update"]
+                self._values_to_share_to_server["system_status"] = communication["status_update"]
                 if communication["status_update"] == CALIBRATION_NEEDED_STATE:
                     self._send_enable_sw_auto_install_message()
             if "adc_gain" in communication:
-                self._values_to_share_to_websocket["adc_gain"] = communication["adc_gain"]
+                self._values_to_share_to_server["adc_gain"] = communication["adc_gain"]
             if ADC_OFFSET_DESCRIPTION_TAG in (description := communication.get("description", "")):
                 parsed_description = description.split("__")
                 adc_index = int(parsed_description[1][-1])
@@ -560,16 +560,16 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 self._add_offset_to_shared_dict(adc_index, ch_index, offset_val)
         elif communication_type == "barcode_comm":
             barcode = communication["barcode"]
-            if not self._values_to_share_to_websocket["beta_2_mode"] and len(barcode) == BARCODE_LEN:
+            if not self._values_to_share_to_server["beta_2_mode"] and len(barcode) == BARCODE_LEN:
                 # Tanner (1/27/21): invalid barcodes will be sent untrimmed from ok_comm so the full string is logged, so trimming them here in order to always send trimmed barcodes to frontend.
                 barcode = _trim_barcode(barcode)
-            if "barcodes" not in self._values_to_share_to_websocket:
-                self._values_to_share_to_websocket["barcodes"] = dict()
+            if "barcodes" not in self._values_to_share_to_server:
+                self._values_to_share_to_server["barcodes"] = dict()
             board_idx = communication["board_idx"]
             barcode_type = "stim_barcode" if barcode.startswith("MS") else "plate_barcode"
-            if board_idx not in self._values_to_share_to_websocket["barcodes"]:
-                self._values_to_share_to_websocket["barcodes"][board_idx] = dict()
-            elif self._values_to_share_to_websocket["barcodes"][board_idx].get(barcode_type, None) == barcode:
+            if board_idx not in self._values_to_share_to_server["barcodes"]:
+                self._values_to_share_to_server["barcodes"][board_idx] = dict()
+            elif self._values_to_share_to_server["barcodes"][board_idx].get(barcode_type, None) == barcode:
                 return
             # TODO Tanner (2/7/22): consider removing barcode_status after Beta 1 mode phased out
             valid = communication.get("valid", None)
@@ -582,7 +582,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 barcode_status = BARCODE_INVALID_UUID
 
             board_barcode_dict = {barcode_type: barcode, "barcode_status": barcode_status}
-            self._values_to_share_to_websocket["barcodes"][board_idx].update(board_barcode_dict)
+            self._values_to_share_to_server["barcodes"][board_idx].update(board_barcode_dict)
             # send message to FE
             barcode_dict_copy = copy.deepcopy(board_barcode_dict)
             barcode_dict_copy["barcode_status"] = str(barcode_dict_copy["barcode_status"])
@@ -594,46 +594,46 @@ class MantarrayProcessesMonitor(InfiniteThread):
             for key in list(communication["metadata"].keys()):
                 if not isinstance(key, uuid.UUID):  # type: ignore # queue is defined containing dicts with str keys, but sometimes has UUIDs
                     communication["metadata"].pop(key)
-            self._values_to_share_to_websocket["instrument_metadata"] = {board_idx: communication["metadata"]}
+            self._values_to_share_to_server["instrument_metadata"] = {board_idx: communication["metadata"]}
             # TODO Tanner (4/23/21): eventually these three following values won't need their own fields as they will be accessible through the above entry in shared_values_dict. Need to keep these until Beta 1 is phased out though
-            self._values_to_share_to_websocket["main_firmware_version"] = {
+            self._values_to_share_to_server["main_firmware_version"] = {
                 board_idx: communication["metadata"][MAIN_FIRMWARE_VERSION_UUID]
             }
-            self._values_to_share_to_websocket["mantarray_serial_number"] = {
+            self._values_to_share_to_server["mantarray_serial_number"] = {
                 board_idx: communication["metadata"][MANTARRAY_SERIAL_NUMBER_UUID]
             }
-            self._values_to_share_to_websocket["mantarray_nickname"] = {
+            self._values_to_share_to_server["mantarray_nickname"] = {
                 board_idx: communication["metadata"][MANTARRAY_NICKNAME_UUID]
             }
         elif communication_type == "firmware_update":
             if command == "check_versions":
                 if "error" in communication:
-                    self._values_to_share_to_websocket["system_status"] = CALIBRATION_NEEDED_STATE
+                    self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
                 else:
                     required_sw_for_fw = communication["latest_versions"]["sw"]
                     latest_main_fw = communication["latest_versions"]["main-fw"]
                     latest_channel_fw = communication["latest_versions"]["channel-fw"]
                     min_sw_version_unavailable = _compare_semver(
-                        required_sw_for_fw, self._values_to_share_to_websocket["latest_software_version"]
+                        required_sw_for_fw, self._values_to_share_to_server["latest_software_version"]
                     )
                     main_fw_update_needed = _compare_semver(
                         latest_main_fw,
-                        self._values_to_share_to_websocket["instrument_metadata"][board_idx][
+                        self._values_to_share_to_server["instrument_metadata"][board_idx][
                             MAIN_FIRMWARE_VERSION_UUID
                         ],
                     )
                     channel_fw_update_needed = _compare_semver(
                         latest_channel_fw,
-                        self._values_to_share_to_websocket["instrument_metadata"][board_idx][
+                        self._values_to_share_to_server["instrument_metadata"][board_idx][
                             CHANNEL_FIRMWARE_VERSION_UUID
                         ],
                     )
                     if (main_fw_update_needed or channel_fw_update_needed) and not min_sw_version_unavailable:
-                        self._values_to_share_to_websocket["firmware_updates_needed"] = {
+                        self._values_to_share_to_server["firmware_updates_needed"] = {
                             "main": latest_main_fw if main_fw_update_needed else None,
                             "channel": latest_channel_fw if channel_fw_update_needed else None,
                         }
-                        self._values_to_share_to_websocket["system_status"] = UPDATES_NEEDED_STATE
+                        self._values_to_share_to_server["system_status"] = UPDATES_NEEDED_STATE
                         self._queue_websocket_message(
                             {
                                 "data_type": "fw_update",
@@ -648,18 +648,18 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     else:
                         # if no updates found, enable auto install of SW update and switch to calibration needed state
                         self._send_enable_sw_auto_install_message()
-                        self._values_to_share_to_websocket["system_status"] = CALIBRATION_NEEDED_STATE
+                        self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
             elif command == "download_firmware_updates":
                 if "error" in communication:
-                    self._values_to_share_to_websocket["system_status"] = UPDATE_ERROR_STATE
+                    self._values_to_share_to_server["system_status"] = UPDATE_ERROR_STATE
                 else:
-                    self._values_to_share_to_websocket["system_status"] = INSTALLING_UPDATES_STATE
+                    self._values_to_share_to_server["system_status"] = INSTALLING_UPDATES_STATE
                     to_instrument_comm_queue = self._process_manager.queue_container.to_instrument_comm(
                         board_idx
                     )
                     # Tanner (1/13/22): send both firmware update commands at once, and make sure channel is sent first. If both are sent, the second will be ignored until the first install completes
                     for firmware_type in ("channel", "main"):
-                        new_version = self._values_to_share_to_websocket["firmware_updates_needed"][
+                        new_version = self._values_to_share_to_server["firmware_updates_needed"][
                             firmware_type
                         ]
                         if new_version is not None:
@@ -672,27 +672,26 @@ class MantarrayProcessesMonitor(InfiniteThread):
                             )
             elif command == "update_completed":
                 firmware_type = communication["firmware_type"]
-                self._values_to_share_to_websocket["firmware_updates_needed"][firmware_type] = None
+                self._values_to_share_to_server["firmware_updates_needed"][firmware_type] = None
                 if all(
-                    val is None
-                    for val in self._values_to_share_to_websocket["firmware_updates_needed"].values()
+                    val is None for val in self._values_to_share_to_server["firmware_updates_needed"].values()
                 ):
                     self._send_enable_sw_auto_install_message()
-                    self._values_to_share_to_websocket["system_status"] = UPDATES_COMPLETE_STATE
+                    self._values_to_share_to_server["system_status"] = UPDATES_COMPLETE_STATE
 
     def _start_firmware_update(self) -> None:
-        self._values_to_share_to_websocket["system_status"] = DOWNLOADING_UPDATES_STATE
+        self._values_to_share_to_server["system_status"] = DOWNLOADING_UPDATES_STATE
         board_idx = 0
         to_instrument_comm_queue = self._process_manager.queue_container.to_instrument_comm(board_idx)
         to_instrument_comm_queue.put_nowait(
             {
                 "communication_type": "firmware_update",
                 "command": "download_firmware_updates",
-                "main": self._values_to_share_to_websocket["firmware_updates_needed"]["main"],
-                "channel": self._values_to_share_to_websocket["firmware_updates_needed"]["channel"],
-                "customer_id": self._values_to_share_to_websocket["user_creds"]["customer_id"],
-                "username": self._values_to_share_to_websocket["user_creds"]["user_name"],
-                "password": self._values_to_share_to_websocket["user_creds"]["user_password"],
+                "main": self._values_to_share_to_server["firmware_updates_needed"]["main"],
+                "channel": self._values_to_share_to_server["firmware_updates_needed"]["channel"],
+                "customer_id": self._values_to_share_to_server["user_creds"]["customer_id"],
+                "username": self._values_to_share_to_server["user_creds"]["user_name"],
+                "password": self._values_to_share_to_server["user_creds"]["user_password"],
             }
         )
 
@@ -723,29 +722,29 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._handle_error_in_subprocess(iter_process, communication)
 
         # make sure system status is up to date
-        if self._values_to_share_to_websocket["system_status"] == SERVER_INITIALIZING_STATE:
+        if self._values_to_share_to_server["system_status"] == SERVER_INITIALIZING_STATE:
             self._check_subprocess_start_up_statuses()
-        elif self._values_to_share_to_websocket["system_status"] == SERVER_READY_STATE:
-            if self._values_to_share_to_websocket["beta_2_mode"]:
-                self._values_to_share_to_websocket["system_status"] = INSTRUMENT_INITIALIZING_STATE
+        elif self._values_to_share_to_server["system_status"] == SERVER_READY_STATE:
+            if self._values_to_share_to_server["beta_2_mode"]:
+                self._values_to_share_to_server["system_status"] = INSTRUMENT_INITIALIZING_STATE
             elif self._boot_up_after_processes_start:
-                self._values_to_share_to_websocket["system_status"] = INSTRUMENT_INITIALIZING_STATE
+                self._values_to_share_to_server["system_status"] = INSTRUMENT_INITIALIZING_STATE
                 process_manager.boot_up_instrument(load_firmware_file=self._load_firmware_file)
         elif (
-            self._values_to_share_to_websocket["beta_2_mode"]
-            and self._values_to_share_to_websocket["system_status"] == INSTRUMENT_INITIALIZING_STATE
+            self._values_to_share_to_server["beta_2_mode"]
+            and self._values_to_share_to_server["system_status"] == INSTRUMENT_INITIALIZING_STATE
         ):
             if (
-                "in_simulation_mode" not in self._values_to_share_to_websocket
-                or "instrument_metadata" not in self._values_to_share_to_websocket
+                "in_simulation_mode" not in self._values_to_share_to_server
+                or "instrument_metadata" not in self._values_to_share_to_server
             ):
                 pass  # need to wait for these values before proceeding with state transition
-            elif self._values_to_share_to_websocket["in_simulation_mode"]:
-                self._values_to_share_to_websocket["system_status"] = CALIBRATION_NEEDED_STATE
-            elif self._values_to_share_to_websocket["latest_software_version"] is not None:
-                self._values_to_share_to_websocket["system_status"] = CHECKING_FOR_UPDATES_STATE
+            elif self._values_to_share_to_server["in_simulation_mode"]:
+                self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
+            elif self._values_to_share_to_server["latest_software_version"] is not None:
+                self._values_to_share_to_server["system_status"] = CHECKING_FOR_UPDATES_STATE
                 # send command to instrument comm process to check for firmware updates
-                instrument_metadata = self._values_to_share_to_websocket["instrument_metadata"][board_idx]
+                instrument_metadata = self._values_to_share_to_server["instrument_metadata"][board_idx]
                 to_instrument_comm_queue = self._process_manager.queue_container.to_instrument_comm(board_idx)
                 to_instrument_comm_queue.put_nowait(
                     {
@@ -755,19 +754,19 @@ class MantarrayProcessesMonitor(InfiniteThread):
                         "main_fw_version": instrument_metadata[MAIN_FIRMWARE_VERSION_UUID],
                     }
                 )
-        elif self._values_to_share_to_websocket["system_status"] == UPDATES_NEEDED_STATE:
-            if "firmware_update_accepted" not in self._values_to_share_to_websocket:
+        elif self._values_to_share_to_server["system_status"] == UPDATES_NEEDED_STATE:
+            if "firmware_update_accepted" not in self._values_to_share_to_server:
                 pass  # need to wait for this value
-            elif self._values_to_share_to_websocket["firmware_update_accepted"]:
-                if "user_creds" in self._values_to_share_to_websocket:
-                    if "customer_id" in self._values_to_share_to_websocket["user_creds"]:
+            elif self._values_to_share_to_server["firmware_update_accepted"]:
+                if "user_creds" in self._values_to_share_to_server:
+                    if "customer_id" in self._values_to_share_to_server["user_creds"]:
                         self._start_firmware_update()
                 else:
                     # Tanner (1/25/22): setting this value to empty dict to indicate that user input prompt has been sent
-                    self._values_to_share_to_websocket["user_creds"] = {}
+                    self._values_to_share_to_server["user_creds"] = {}
                     self._send_user_creds_prompt_message()
             else:
-                self._values_to_share_to_websocket["system_status"] = CALIBRATION_NEEDED_STATE
+                self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
 
         # check/handle comm from the server and each subprocess
         self._check_and_handle_instrument_comm_to_main_queue()
@@ -777,7 +776,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self._check_and_handle_websocket_to_main_queue()
 
         # if managed acquisition is running, check for available data
-        if self._values_to_share_to_websocket["system_status"] in (
+        if self._values_to_share_to_server["system_status"] in (
             BUFFERING_STATE,
             LIVE_VIEW_ACTIVE_STATE,
             RECORDING_STATE,
@@ -785,12 +784,12 @@ class MantarrayProcessesMonitor(InfiniteThread):
             self._check_and_handle_data_analyzer_data_out_queue()
 
         # update status of subprocesses
-        self._values_to_share_to_websocket[
+        self._values_to_share_to_server[
             "subprocesses_running"
         ] = self._process_manager.get_subprocesses_running_status()
 
         # handle barcode polling. This should be removed once the physical instrument is able to detect plate placement/removal on its own. The Beta 2 instrument will be able to do this on its own from the start, so no need to send barcode comm in Beta 2 mode.
-        if not self._values_to_share_to_websocket["beta_2_mode"]:
+        if not self._values_to_share_to_server["beta_2_mode"]:
             if self._last_barcode_clear_time is None:
                 self._last_barcode_clear_time = _get_barcode_clear_time()
             if _get_dur_since_last_barcode_clear(self._last_barcode_clear_time) >= BARCODE_POLL_PERIOD:
@@ -801,7 +800,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
     def _check_subprocess_start_up_statuses(self) -> None:
         process_manager = self._process_manager
-        shared_values_dict = self._values_to_share_to_websocket
+        shared_values_dict = self._values_to_share_to_server
         if (
             process_manager.are_subprocess_start_ups_complete()
             and shared_values_dict["websocket_connection_made"]
@@ -809,9 +808,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
             shared_values_dict["system_status"] = SERVER_READY_STATE
 
     def _add_offset_to_shared_dict(self, adc_index: int, ch_index: int, offset_val: int) -> None:
-        if "adc_offsets" not in self._values_to_share_to_websocket:
-            self._values_to_share_to_websocket["adc_offsets"] = dict()
-        adc_offsets = self._values_to_share_to_websocket["adc_offsets"]
+        if "adc_offsets" not in self._values_to_share_to_server:
+            self._values_to_share_to_server["adc_offsets"] = dict()
+        adc_offsets = self._values_to_share_to_server["adc_offsets"]
 
         is_ref_sensor = ADC_CH_TO_IS_REF_SENSOR[adc_index][ch_index]
         if is_ref_sensor:
@@ -863,11 +862,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     "latest_compatible_sw_version": this_err.args[0],
                 }
             self._queue_websocket_message({"data_type": "error", "data_json": json.dumps(data)})
-        elif self._values_to_share_to_websocket["system_status"] in (
+        elif self._values_to_share_to_server["system_status"] in (
             DOWNLOADING_UPDATES_STATE,
             INSTALLING_UPDATES_STATE,
         ):
-            self._values_to_share_to_websocket["system_status"] = UPDATE_ERROR_STATE
+            self._values_to_share_to_server["system_status"] = UPDATE_ERROR_STATE
             shutdown_server = False
 
         self._hard_stop_and_join_processes_and_log_leftovers(shutdown_server=shutdown_server)
@@ -896,4 +895,4 @@ class MantarrayProcessesMonitor(InfiniteThread):
         except queue.Empty:
             return
         if communication["communication_type"] == "connection_success":
-            self._values_to_share_to_websocket["websocket_connection_made"] = True
+            self._values_to_share_to_server["websocket_connection_made"] = True

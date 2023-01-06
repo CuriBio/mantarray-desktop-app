@@ -372,7 +372,7 @@ def test_MantarrayProcessesMonitor__handles_instrument_related_errors_from_instr
     monitor_thread, *_ = test_monitor(test_process_manager)
     ic_process = test_process_manager.instrument_comm_process
     ic_error_queue = test_process_manager.queue_container.instrument_comm_error
-    queue_to_websocket_ws = test_process_manager.queue_container.to_websocket
+    queue_to_websocket = test_process_manager.queue_container.to_websocket
 
     mocker.patch.object(test_process_manager, "hard_stop_and_join_processes", autospec=True)
 
@@ -383,9 +383,9 @@ def test_MantarrayProcessesMonitor__handles_instrument_related_errors_from_instr
     confirm_queue_is_eventually_of_size(ic_error_queue, 1)
 
     invoke_process_run_and_check_errors(monitor_thread)
-    confirm_queue_is_eventually_of_size(queue_to_websocket_ws, 1)
+    confirm_queue_is_eventually_of_size(queue_to_websocket, 1)
 
-    ws_msg = queue_to_websocket_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    ws_msg = queue_to_websocket.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert ws_msg == {
         "data_type": "error",
         "data_json": json.dumps({"error_type": expected_error_sent.__name__}),
@@ -627,7 +627,7 @@ def test_MantarrayProcessesMonitor__correctly_sets_system_status_to_live_view_ac
     assert shared_values_dict["system_status"] == RECORDING_STATE
 
 
-def test_MantarrayProcessesMonitor__sets_system_status_to_websocket_ready_after_subprocesses_finish_start_up(
+def test_MantarrayProcessesMonitor__sets_system_status_to_server_ready_after_subprocesses_finish_start_up__and_websocket_connection_is_made(
     test_monitor, test_process_manager_creator, mocker
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
