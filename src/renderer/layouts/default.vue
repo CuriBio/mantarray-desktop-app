@@ -242,7 +242,8 @@ export default {
         const filename = filename_prefix + "_renderer.txt";
         return path.join(this.log_dir_name, filename);
       };
-
+      // set to UTC, not local time
+      process.env.TZ = "UTC";
       console.log = log.log;
       console.error = log.error;
       console.log("Initial view has been rendered"); // allow-log
