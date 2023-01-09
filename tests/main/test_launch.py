@@ -251,6 +251,10 @@ def test_main_can_launch_server_and_processes__and_initial_boot_up_of_ok_comm_pr
     mocked_main_info_logger = mocker.patch.object(main.logger, "info", autospec=True)
 
     app_info = fully_running_app_from_main_entrypoint()
+
+    # need to set this manually since there is no websocket client in this test
+    app_info["object_access_inside_main"]["values_to_share_to_server"]["websocket_connection_made"] = True
+
     wait_for_subprocesses_to_start()
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
@@ -293,10 +297,7 @@ def test_main_entrypoint__correctly_assigns_shared_values_dictionary_to_process_
     object_access_dict = app_info["object_access_inside_main"]
     shared_values_dict = object_access_dict["values_to_share_to_server"]
     test_process_monitor = object_access_dict["process_monitor"]
-    assert (
-        test_process_monitor._values_to_share_to_server  # pylint: disable=protected-access
-        is shared_values_dict
-    )
+    assert test_process_monitor._values_to_share_to_server is shared_values_dict
     assert isinstance(shared_values_dict, SharedValues)
     test_process_manager = object_access_dict["process_manager"]
     assert test_process_manager.values_to_share_to_server is shared_values_dict

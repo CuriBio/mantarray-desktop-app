@@ -39,6 +39,7 @@ from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
+from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import system_state_eventually_equals
 from mantarray_desktop_app import wait_for_subprocesses_to_start
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
@@ -168,14 +169,15 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
         }
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
+        command_line_args = ["--beta-2-mode", f"--initial-base64-settings={b64_encoded}"]
 
-        app_info = fully_running_app_from_main_entrypoint([f"--initial-base64-settings={b64_encoded}"])
+        app_info = fully_running_app_from_main_entrypoint(command_line_args)
+        assert system_state_eventually_equals(SERVER_INITIALIZING_STATE, 10) is True
+        sio, msg_list_container = test_socketio_client()
         wait_for_subprocesses_to_start()
 
         test_process_manager = app_info["object_access_inside_main"]["process_manager"]
         svd = app_info["object_access_inside_main"]["values_to_share_to_server"]
-
-        sio, msg_list_container = test_socketio_client()
 
         # Tanner (12/30/20): Auto boot-up is completed when system reaches calibration_needed state
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
@@ -249,6 +251,7 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
         # Tanner (7/14/21): Beta 1 data packets are sent once per second, so there should be at least one data packet for every second needed to run analysis, but sometimes the final data packet doesn't get sent in time
         assert len(msg_list_container["waveform_data"]) >= MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 1
         confirm_queue_is_eventually_empty(da_out, timeout_seconds=5)
+        sio.disconnect()
 
         # Tanner (6/1/21): Use new barcode for second set of recordings, change experiment code from '000' to '001'
         expected_plate_barcode_2 = expected_plate_barcode_1.replace("000", "001")
@@ -522,13 +525,14 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         command_line_args = ["--beta-2-mode", f"--initial-base64-settings={b64_encoded}"]
 
         app_info = fully_running_app_from_main_entrypoint(command_line_args)
+        assert system_state_eventually_equals(SERVER_INITIALIZING_STATE, 10) is True
+        sio, msg_list_container = test_socketio_client()
         wait_for_subprocesses_to_start()
+
         test_process_manager = app_info["object_access_inside_main"]["process_manager"]
         shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
 
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 10) is True
-
-        sio, msg_list_container = test_socketio_client()
 
         da_out = test_process_manager.queue_container.get_data_analyzer_data_out_queue()
 
@@ -903,7 +907,11 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
 @pytest.mark.slow
 @pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
 def test_app_shutdown__in_worst_case_while_recording_is_running(
-    patched_xem_scripts_folder, patched_firmware_folder, fully_running_app_from_main_entrypoint, mocker
+    patched_xem_scripts_folder,
+    patched_firmware_folder,
+    test_socketio_client,
+    fully_running_app_from_main_entrypoint,
+    mocker,
 ):
     # mock this so test doesn't actually try to hit cloud API
     mocker.patch.object(server, "validate_user_credentials", autospec=True)
@@ -929,6 +937,8 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         ]
 
         app_info = fully_running_app_from_main_entrypoint(command_line_args)
+        assert system_state_eventually_equals(SERVER_INITIALIZING_STATE, 10) is True
+        sio, msg_list_container = test_socketio_client()
         wait_for_subprocesses_to_start()
         test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 

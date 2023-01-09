@@ -918,7 +918,7 @@ def test_MantarrayProcessesMonitor__processes_set_latest_software_version_comman
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     server_to_main_queue = test_process_manager.queue_container.from_flask
-    queue_to_websocket_ws = test_process_manager.queue_container.to_websocket
+    queue_to_server_ws = test_process_manager.queue_container.to_websocket
 
     mocker.patch.object(process_monitor, "CURRENT_SOFTWARE_VERSION", current_version)
 
@@ -931,8 +931,8 @@ def test_MantarrayProcessesMonitor__processes_set_latest_software_version_comman
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["latest_software_version"] == new_version
     # make sure correct message sent to FE
-    confirm_queue_is_eventually_of_size(queue_to_websocket_ws, 1)
-    ws_message = queue_to_websocket_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
+    ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert ws_message == {
         "data_type": "sw_update",
         "data_json": json.dumps({"software_update_available": update_available}),
