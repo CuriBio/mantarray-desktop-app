@@ -113,8 +113,8 @@ __fixtures__ = [
     fixture_test_socketio_client,
 ]
 LIVE_VIEW_ACTIVE_WAIT_TIME = 150
-CALIBRATED_WAIT_TIME = 20
-STOP_MANAGED_ACQUISITION_WAIT_TIME = 200
+CALIBRATED_WAIT_TIME = 40
+STOP_MANAGED_ACQUISITION_WAIT_TIME = 40
 INTEGRATION_TEST_TIMEOUT = 300
 FIRST_METRIC_WAIT_TIME = 20
 PROTOCOL_COMPLETION_WAIT_TIME = 30
@@ -251,7 +251,6 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
         # Tanner (7/14/21): Beta 1 data packets are sent once per second, so there should be at least one data packet for every second needed to run analysis, but sometimes the final data packet doesn't get sent in time
         assert len(msg_list_container["waveform_data"]) >= MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 1
         confirm_queue_is_eventually_empty(da_out, timeout_seconds=5)
-        sio.disconnect()
 
         # Tanner (6/1/21): Use new barcode for second set of recordings, change experiment code from '000' to '001'
         expected_plate_barcode_2 = expected_plate_barcode_1.replace("000", "001")
