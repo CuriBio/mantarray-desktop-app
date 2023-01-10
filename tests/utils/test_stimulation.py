@@ -28,19 +28,17 @@ def test_chunk_subprotocol__returns_pulse_unmodified_if_no_chunking_needed():
     assert chunk_subprotocol(test_subprotocol) == [test_subprotocol]
 
 
-def test_chunk_subprotocol__returns_single_loop_with_shortened_subprotocol__when_subprotocol_can_be_divided_into_an_integer_num_of_chunks():
+def test_chunk_subprotocol__returns_single_loop_with_shortened_subprotocol__when_subprotocol_can_be_divided_into_an_integer_num_of_full_size_chunks():
     expected_num_loop_repeats = randint(2, 5)
     test_dur_us = STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS * expected_num_loop_repeats
+
     # the original number of cycles must be a multiple of the expected number of loop repeats and a factor of
     # the total duration of the original subprotocol in order for there to be an integer number of cycles in
     # the chunked subprotocol
-    test_original_num_cycles = choice(
-        [
-            n
-            for n in range(1, int(test_dur_us**0.5) + 1)
-            if test_dur_us % n == 0 and n % expected_num_loop_repeats == 0
-        ]
-    )
+    def filt(n):
+        return test_dur_us % n == 0 and n % expected_num_loop_repeats == 0
+
+    test_original_num_cycles = choice([n for n in range(1, int(test_dur_us**0.5) + 1) if filt(n)])
 
     test_subprotocol = get_random_stim_pulse(
         total_subprotocol_dur_us=test_dur_us, num_cycles=test_original_num_cycles
@@ -63,18 +61,27 @@ def test_chunk_subprotocol__returns_single_loop_with_shortened_subprotocol__when
     assert chunked_num_cycles * expected_num_loop_repeats == test_original_num_cycles
 
 
-def test_chunk_subprotocol__returns_loop_with_shortened_subprotocol_and_leftover_subprotocol_with_less_cycles__when_subprotocol_cannot_be_divided_into_an_integer_num_of_chunks():
+def test_chunk_subprotocol__returns_loop_with_shortened_subprotocol_and_leftover_subprotocol_with_less_cycles__when_subprotocol_cannot_be_divided_into_an_integer_num_of_full_size_chunks():
     expected_num_loop_repeats = randint(2, 5)
     test_dur_us = STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS * expected_num_loop_repeats
-    # the original number of cycles must not be a multiple of the expected number of loop repeats and a factor
-    # of the total duration of the original subprotocol in order for there to be a loop and leftover
-    # chunk required
+
+    # the following conditions must be satisfied in order for there to be a loop and leftover chunk required:
+    def filt(n):
+        return (
+            # the original number of cycles must not be a multiple of the expected number of loop repeats
+            test_dur_us % n == 0
+            # the original number of cycles must not be a factor of the total duration of the original subprotocol in order
+            and n % expected_num_loop_repeats != 0
+            # the number of cycles in the loop chunk and leftover chunk must not be the same
+            and n // expected_num_loop_repeats != n % expected_num_loop_repeats
+        )
+
+    # the number of cycles in the loop chunk must be > 1 which is achieved by making sure the min number of
+    # cycles in the original subprotocol is at least double the number of expected loop repeats
+    min_original_num_cycles = expected_num_loop_repeats * 2
+
     test_original_num_cycles = choice(
-        [
-            n
-            for n in range(1, int(test_dur_us**0.5) + 1)
-            if test_dur_us % n == 0 and n % expected_num_loop_repeats != 0
-        ]
+        [n for n in range(min_original_num_cycles, int(test_dur_us**0.5) + 1) if filt(n)]
     )
     expected_num_cycles_in_loop = test_original_num_cycles // expected_num_loop_repeats
     expected_num_cycles_in_leftover = test_original_num_cycles % expected_num_loop_repeats
@@ -82,6 +89,57 @@ def test_chunk_subprotocol__returns_loop_with_shortened_subprotocol_and_leftover
     test_subprotocol = get_random_stim_pulse(
         total_subprotocol_dur_us=test_dur_us, num_cycles=test_original_num_cycles
     )
+
+    chunked_subprotocol_list = chunk_subprotocol(test_subprotocol)
+    assert len(chunked_subprotocol_list) == 2
+
+    loop_chunk, leftover_chunk = chunked_subprotocol_list
+
+    # pop this to make assertion on loop
+    loop_subprotocols = loop_chunk.pop("subprotocols")
+    assert len(loop_subprotocols) == 1
+    assert loop_chunk == {"type": "loop", "num_repeats": expected_num_loop_repeats}
+
+    # pop these to make assertion on the rest of the subprotocol_dict
+    test_subprotocol.pop("num_cycles")
+
+    num_cycles_in_loop_chunk = loop_subprotocols[0].pop("num_cycles")
+    assert loop_subprotocols[0] == test_subprotocol
+    assert num_cycles_in_loop_chunk == expected_num_cycles_in_loop
+
+    num_cycles_in_leftover_chunk = leftover_chunk.pop("num_cycles")
+    assert leftover_chunk == test_subprotocol
+    assert num_cycles_in_leftover_chunk == expected_num_cycles_in_leftover
+
+    assert (
+        num_cycles_in_loop_chunk * expected_num_loop_repeats + num_cycles_in_leftover_chunk
+        == test_original_num_cycles
+    )
+
+
+def test_chunk_subprotocol__returns_loop_with_shortened_subprotocol_and_leftover_subprotocol_with_less_cycles__when_subprotocol_can_be_divided_into_an_integer_num_of_partial_chunks():
+    assert not "TODO"
+
+
+def test_chunk_subprotocol__returns_loop_with_shortened_subprotocol_and_leftover_subprotocol_with_less_cycles__when_subprotocol_cannot_be_divided_into_a_integer_num_of_partial_chunks():
+    assert not "TODO"  # randomize this test correctly
+    expected_num_loop_repeats = 2
+
+    test_original_num_cycles = 191
+
+    expected_num_cycles_in_loop = test_original_num_cycles // expected_num_loop_repeats
+    expected_num_cycles_in_leftover = test_original_num_cycles % expected_num_loop_repeats
+
+    test_subprotocol = {
+        "type": "biphasic",
+        "num_cycles": test_original_num_cycles,
+        "postphase_interval": 75263,
+        "phase_one_duration": 10000,
+        "phase_one_charge": 4000,
+        "interphase_interval": 10000,
+        "phase_two_charge": -4000,
+        "phase_two_duration": 10000,
+    }
 
     chunked_subprotocol_list = chunk_subprotocol(test_subprotocol)
     assert len(chunked_subprotocol_list) == 2
