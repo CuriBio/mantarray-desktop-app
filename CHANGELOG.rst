@@ -1,11 +1,12 @@
 Changelog for Mantarray Desktop App
 ===================================
-1.0.7 (unreleased)
+
+1.0.8 (unreleased)
 ------------------
 
-Added:
+Fixed:
 ^^^^^^
-- Additional check for websocket connection
+- Issue where firmware update(s) are found but no prompt to continue or cancel is given.
 
 
 1.0.7 (unreleased)
