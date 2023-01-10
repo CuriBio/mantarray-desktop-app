@@ -112,10 +112,12 @@ __fixtures__ = [
     fixture_patched_firmware_folder,
     fixture_test_socketio_client,
 ]
-LIVE_VIEW_ACTIVE_WAIT_TIME = 150
-CALIBRATED_WAIT_TIME = 40
-STOP_MANAGED_ACQUISITION_WAIT_TIME = 40
+
 INTEGRATION_TEST_TIMEOUT = 300
+CALIBRATION_NEEDED_WAIT_TIME = 20
+CALIBRATED_WAIT_TIME = 40
+LIVE_VIEW_ACTIVE_WAIT_TIME = 150
+STOP_MANAGED_ACQUISITION_WAIT_TIME = 40
 FIRST_METRIC_WAIT_TIME = 20
 PROTOCOL_COMPLETION_WAIT_TIME = 30
 
@@ -180,7 +182,7 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
         svd = app_info["object_access_inside_main"]["values_to_share_to_server"]
 
         # Tanner (12/30/20): Auto boot-up is completed when system reaches calibration_needed state
-        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
+        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, CALIBRATION_NEEDED_WAIT_TIME) is True
 
         da_out = test_process_manager.queue_container.get_data_analyzer_data_out_queue()
 
@@ -531,7 +533,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         test_process_manager = app_info["object_access_inside_main"]["process_manager"]
         shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
 
-        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 10) is True
+        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, CALIBRATION_NEEDED_WAIT_TIME) is True
 
         da_out = test_process_manager.queue_container.get_data_analyzer_data_out_queue()
 
@@ -937,11 +939,11 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
 
         app_info = fully_running_app_from_main_entrypoint(command_line_args)
         assert system_state_eventually_equals(SERVER_INITIALIZING_STATE, 10) is True
-        sio, msg_list_container = test_socketio_client()
+        test_socketio_client()
         wait_for_subprocesses_to_start()
         test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
-        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
+        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, CALIBRATION_NEEDED_WAIT_TIME) is True
 
         okc_process = test_process_manager.instrument_comm_process
         fw_process = test_process_manager.file_writer_process
