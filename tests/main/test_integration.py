@@ -171,7 +171,7 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
         }
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
-        command_line_args = ["--beta-2-mode", f"--initial-base64-settings={b64_encoded}"]
+        command_line_args = [f"--initial-base64-settings={b64_encoded}"]
 
         app_info = fully_running_app_from_main_entrypoint(command_line_args)
         assert system_state_eventually_equals(SERVER_INITIALIZING_STATE, 10) is True
@@ -220,11 +220,10 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
-        start_recording_time_index_1 = 9600
-        expected_start_index_1 = start_recording_time_index_1 // MICROSECONDS_PER_CENTIMILLISECOND
+        expected_start_index_cms_1 = 960
         start_recording_params_1 = {
             "plate_barcode": expected_plate_barcode_1,
-            "time_index": start_recording_time_index_1,
+            "time_index": expected_start_index_cms_1 * MICROSECONDS_PER_CENTIMILLISECOND,
             "is_hardware_test_recording": False,
         }
         response = requests.get(f"{get_api_endpoint()}start_recording", params=start_recording_params_1)
@@ -241,8 +240,8 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
         assert len(msg_list_container["twitch_metrics"]) > 0
 
         # Tanner (6/1/21): End recording at a known timepoint
-        expected_stop_index_1 = expected_start_index_1 + int(2 * CENTIMILLISECONDS_PER_SECOND)
-        response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_1}")
+        expected_stop_index_cms_1 = expected_start_index_cms_1 + int(2 * CENTIMILLISECONDS_PER_SECOND)
+        response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_cms_1}")
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
 
@@ -261,17 +260,15 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
             f"{get_api_endpoint()}start_managed_acquisition?plate_barcode={expected_plate_barcode_2}"
         )
         assert response.status_code == 200
-        # Tanner (6/1/21): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer yet
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
         # Tanner (5/25/21): Start at a different timepoint to create a different timestamp in the names of the second set of files
-        start_recording_time_index_2 = start_recording_time_index_1 + MICRO_TO_BASE_CONVERSION
-        expected_start_index_2 = start_recording_time_index_2 // MICROSECONDS_PER_CENTIMILLISECOND
+        expected_start_index_cms_2 = expected_start_index_cms_1 + int(CENTIMILLISECONDS_PER_SECOND)
         # Tanner (6/1/21): Start recording with second barcode to create second set of files
         start_recording_params_2 = {
             "plate_barcode": expected_plate_barcode_2,
-            "time_index": start_recording_time_index_2,
+            "time_index": expected_start_index_cms_2 * MICROSECONDS_PER_CENTIMILLISECOND,
             "is_hardware_test_recording": False,
         }
         response = requests.get(f"{get_api_endpoint()}start_recording", params=start_recording_params_2)
@@ -280,8 +277,8 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
 
         time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
 
-        expected_stop_index_2 = expected_start_index_2 + int(1.5 * CENTIMILLISECONDS_PER_SECOND)
-        response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_2}")
+        expected_stop_index_cms_2 = expected_start_index_cms_2 + int(1.5 * CENTIMILLISECONDS_PER_SECOND)
+        response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_cms_2}")
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
 
@@ -336,7 +333,7 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
                     assert this_file.attrs[str(UTC_BEGINNING_DATA_ACQUISTION_UUID)] == expected_time.strftime(
                         "%Y-%m-%d %H:%M:%S.%f"
                     )
-                    assert this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)] == expected_start_index_1
+                    assert this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)] == expected_start_index_cms_1
                     assert this_file.attrs[str(UTC_BEGINNING_RECORDING_UUID)] == expected_time.strftime(
                         "%Y-%m-%d %H:%M:%S.%f"
                     )
@@ -344,7 +341,7 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
                         expected_time
                         + datetime.timedelta(
                             seconds=(
-                                expected_start_index_1
+                                expected_start_index_cms_1
                                 + WELL_24_INDEX_TO_ADC_AND_CH_INDEX[well_idx][1] * DATA_FRAME_PERIOD
                             )
                             / CENTIMILLISECONDS_PER_SECOND
@@ -353,7 +350,7 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
                     assert this_file.attrs[str(UTC_FIRST_REF_DATA_POINT_UUID)] == (
                         expected_time
                         + datetime.timedelta(
-                            seconds=(expected_start_index_1 + DATA_FRAME_PERIOD)
+                            seconds=(expected_start_index_cms_1 + DATA_FRAME_PERIOD)
                             / CENTIMILLISECONDS_PER_SECOND
                         )
                     ).strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -450,7 +447,7 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
                     "r",
                 ) as this_file:
                     assert str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
-                    assert this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)] == expected_start_index_2
+                    assert this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)] == expected_start_index_cms_2
                     assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) in this_file.attrs
                     assert str(UTC_FIRST_REF_DATA_POINT_UUID) in this_file.attrs
                     actual_tissue_data = get_tissue_dataset_from_file(this_file)
@@ -633,7 +630,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
             f"{get_api_endpoint()}start_managed_acquisition?plate_barcode={expected_plate_barcode_2}"
         )
         assert response.status_code == 200
-        # Tanner (6/1/21): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer yet
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
