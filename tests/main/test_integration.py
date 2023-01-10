@@ -995,11 +995,18 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
 
         # Tanner (12/30/20): Confirming the port is available to make sure that the Flask server has shutdown
         confirm_port_available(get_server_port_number(), timeout=10)
-        # Tanner (6/21/21): sleep to ensure program exit log message is produced
-        time.sleep(5)
 
-        # Tanner (12/30/20): This is the very last log message before the app is completely shutdown
-        spied_logger.assert_any_call("Program exiting")
+        program_exit_wait_time_secs = 30
+        for _ in range(program_exit_wait_time_secs):
+            try:
+                # Tanner (12/30/20): This is the very last log message before the app is completely shutdown
+                spied_logger.assert_any_call("Program exiting")
+                program_exit_not_found_error = None
+            except AssertionError as e:
+                program_exit_not_found_error = e
+                time.sleep(1)
+        if program_exit_not_found_error:
+            raise program_exit_not_found_error
 
         # Tanner (12/29/20): If these are alive, this means that zombie processes will be created when the compiled desktop app EXE is running, so this assertion helps make sure that that won't happen
         assert okc_process.is_alive() is False
