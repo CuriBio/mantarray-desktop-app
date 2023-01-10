@@ -723,7 +723,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         # make sure system status is up to date
         if self._values_to_share_to_server["system_status"] == SERVER_INITIALIZING_STATE:
-            self._check_subprocess_start_up_statuses()
+            self._check_if_server_is_ready()
         elif self._values_to_share_to_server["system_status"] == SERVER_READY_STATE:
             if self._values_to_share_to_server["beta_2_mode"]:
                 self._values_to_share_to_server["system_status"] = INSTRUMENT_INITIALIZING_STATE
@@ -798,7 +798,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 to_instrument_comm.put_nowait(barcode_poll_comm)
                 self._last_barcode_clear_time = _get_barcode_clear_time()
 
-    def _check_subprocess_start_up_statuses(self) -> None:
+    def _check_if_server_is_ready(self) -> None:
         process_manager = self._process_manager
         shared_values_dict = self._values_to_share_to_server
         if (
@@ -894,5 +894,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
             communication = to_main_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
         except queue.Empty:
             return
-        if communication["communication_type"] == "connection_success":
+
+        communication_type = communication["communication_type"]
+
+        if communication_type == "connection_success":
             self._values_to_share_to_server["websocket_connection_made"] = True
+        else:
+            raise NotImplementedError(f"Unrecognized comm type from websocket: {communication_type}")
