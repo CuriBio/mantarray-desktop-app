@@ -10,6 +10,7 @@ from typing import Tuple
 from typing import Union
 
 from ..constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
+from ..constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 
 SUBPROTOCOL_DUTY_CYCLE_DUR_COMPONENTS = frozenset(
     ["phase_one_duration", "interphase_interval", "phase_two_duration"]
@@ -33,29 +34,40 @@ def get_subprotocol_dur_us(subprotocol: Dict[str, Union[str, int]]) -> int:
     return duration  # type: ignore
 
 
-def chunk_subprotocol(subprotocol: Dict[str, Any]) -> List[Dict[str, Any]]:
+def chunk_subprotocol(original_subprotocol: Dict[str, Any]) -> List[Dict[str, Any]]:
     # copy so the original subprotocol dict isn't modified
-    subprotocol = copy.deepcopy(subprotocol)
+    subprotocol = copy.deepcopy(original_subprotocol)
     original_subprotocol_dur_us = get_subprotocol_dur_us(subprotocol)
 
     if (
         subprotocol["type"] == "delay"
         or original_subprotocol_dur_us <= STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
     ):
-        return [subprotocol]
+        return [original_subprotocol]
 
     original_num_cycles = subprotocol["num_cycles"]
 
     pulse_dur_us = get_pulse_dur_us(subprotocol)
     max_num_cycles_in_loop = STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // pulse_dur_us
-    subprotocol["num_cycles"] = max_num_cycles_in_loop
+    looped_subprotocol = {**subprotocol, "num_cycles": max_num_cycles_in_loop}
+    num_loop_repeats = original_subprotocol_dur_us // get_subprotocol_dur_us(looped_subprotocol)  # type: ignore
+    loop_chunk = {"type": "loop", "num_repeats": num_loop_repeats, "subprotocols": [looped_subprotocol]}
 
-    num_loop_repeats = original_subprotocol_dur_us // get_subprotocol_dur_us(subprotocol)
+    subprotocol_chunks = [loop_chunk]
 
-    subprotocol_chunks = [{"type": "loop", "num_repeats": num_loop_repeats, "subprotocols": [subprotocol]}]
+    if num_leftover_cycles := original_num_cycles - (looped_subprotocol["num_cycles"] * num_loop_repeats):
+        leftover_chunk = {**subprotocol, "num_cycles": num_leftover_cycles}
 
-    if num_leftover_cycles := original_num_cycles - (subprotocol["num_cycles"] * num_loop_repeats):
-        subprotocol_chunks.append({**subprotocol, "num_cycles": num_leftover_cycles})
+        if get_subprotocol_dur_us(leftover_chunk) < STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS:
+            # if there is only 1 loop repeat, then just return the original subprotocol
+            if loop_chunk["num_repeats"] == 1:
+                return [original_subprotocol]
+
+            # otherwise, combine leftover chunk with the final loop repeat
+            leftover_chunk["num_cycles"] += looped_subprotocol["num_cycles"]
+            loop_chunk["num_repeats"] -= 1  # type: ignore
+
+        subprotocol_chunks.append(leftover_chunk)
 
     return subprotocol_chunks
 
