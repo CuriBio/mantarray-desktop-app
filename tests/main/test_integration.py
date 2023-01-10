@@ -935,7 +935,7 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
 
         app_info = fully_running_app_from_main_entrypoint(command_line_args)
         assert system_state_eventually_equals(SERVER_INITIALIZING_STATE, 10) is True
-        test_socketio_client()
+        sio, _ = test_socketio_client()
         wait_for_subprocesses_to_start()
         test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
@@ -985,6 +985,9 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         assert system_state_eventually_equals(RECORDING_STATE, 5) is True
 
         time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
+
+        # Tanner (1/10/23): disconnect here to avoid problems with attempting to disconnect after calling /shutdown
+        sio.disconnect()
 
         # Tanner (12/29/20): Shutdown now that data is being acquired and actively written to files, which means each subprocess is doing something
         response = requests.get(f"{get_api_endpoint()}shutdown")
