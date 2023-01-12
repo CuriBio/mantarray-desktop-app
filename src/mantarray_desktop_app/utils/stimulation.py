@@ -62,7 +62,6 @@ def chunk_subprotocol(original_subprotocol: Dict[str, Any]) -> List[Dict[str, An
             # if there is only 1 loop repeat, then just return the original subprotocol
             if loop_chunk["num_repeats"] == 1:
                 return [original_subprotocol]
-
             # otherwise, combine leftover chunk with the final loop repeat
             leftover_chunk["num_cycles"] += looped_subprotocol["num_cycles"]
             loop_chunk["num_repeats"] -= 1  # type: ignore
