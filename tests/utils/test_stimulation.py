@@ -38,13 +38,13 @@ def pulse_dur_generator(filt):
 
 def test_chunk_subprotocol__returns_delay_unmodified():
     test_delay = get_random_stim_delay()
-    assert chunk_subprotocol(test_delay) == [test_delay]
+    assert chunk_subprotocol(test_delay) == (None, test_delay)
 
 
 def test_chunk_subprotocol__returns_pulse_unmodified_if_no_chunking_needed():
     test_dur_us = STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
     test_subprotocol = get_random_stim_pulse(total_subprotocol_dur_us=test_dur_us)
-    assert chunk_subprotocol(test_subprotocol) == [test_subprotocol]
+    assert chunk_subprotocol(test_subprotocol) == (None, test_subprotocol)
 
 
 @pytest.mark.parametrize("is_loop_full_size", [True, False])
@@ -61,21 +61,22 @@ def test_chunk_subprotocol__divides_into_loop_without_leftover_cycles(is_loop_fu
         total_subprotocol_dur_us=test_original_dur_us, num_cycles=test_original_num_cycles
     )
 
-    chunked_subprotocol_list = chunk_subprotocol(test_subprotocol)
-    assert len(chunked_subprotocol_list) == 1
+    actual_loop_chunk, actual_leftover_chunk = chunk_subprotocol(test_subprotocol)
 
-    chunked_subprotocol = chunked_subprotocol_list[0]
-
+    # check loop chunk
+    assert actual_loop_chunk is not None
     # pop this to make assertion on loop
-    loop_subprotocols = chunked_subprotocol.pop("subprotocols")
+    loop_subprotocols = actual_loop_chunk.pop("subprotocols")
     assert len(loop_subprotocols) == 1
-    assert chunked_subprotocol == {"type": "loop", "num_iterations": expected_num_loop_iterations}
-
+    assert actual_loop_chunk == {"type": "loop", "num_iterations": expected_num_loop_iterations}
     # pop this to make assertion on the rest of the subprotocol_dict
     chunked_num_cycles = loop_subprotocols[0].pop("num_cycles")
     test_subprotocol.pop("num_cycles")
     assert loop_subprotocols[0] == test_subprotocol
     assert chunked_num_cycles * expected_num_loop_iterations == test_original_num_cycles
+
+    # check leftover chunk
+    assert actual_leftover_chunk is None
 
 
 @pytest.mark.parametrize("is_loop_full_size", [True, False])
@@ -97,25 +98,25 @@ def test_chunk_subprotocol__divides_into_loop_with_leftover_cycles__leftover_chu
         total_subprotocol_dur_us=test_original_dur_us, num_cycles=test_original_num_cycles
     )
 
-    chunked_subprotocol_list = chunk_subprotocol(test_subprotocol)
-    assert len(chunked_subprotocol_list) == 2
-
-    loop_chunk, leftover_chunk = chunked_subprotocol_list
+    actual_loop_chunk, actual_leftover_chunk = chunk_subprotocol(test_subprotocol)
+    # make sure both chunks are present
+    assert actual_loop_chunk is not None
+    assert actual_leftover_chunk is not None
 
     # pop this to make assertion on loop
-    loop_subprotocols = loop_chunk.pop("subprotocols")
+    loop_subprotocols = actual_loop_chunk.pop("subprotocols")
     assert len(loop_subprotocols) == 1
-    assert loop_chunk == {"type": "loop", "num_iterations": expected_num_loop_iterations}
+    assert actual_loop_chunk == {"type": "loop", "num_iterations": expected_num_loop_iterations}
 
-    # pop these to make assertion on the rest of the subprotocol_dict
+    # pop this to make assertion on the rest of the subprotocol_dict
     test_subprotocol.pop("num_cycles")
 
     num_cycles_in_loop_chunk = loop_subprotocols[0].pop("num_cycles")
     assert loop_subprotocols[0] == test_subprotocol
     assert num_cycles_in_loop_chunk == expected_num_loop_cycles
 
-    num_cycles_in_leftover_chunk = leftover_chunk.pop("num_cycles")
-    assert leftover_chunk == test_subprotocol
+    num_cycles_in_leftover_chunk = actual_leftover_chunk.pop("num_cycles")
+    assert actual_leftover_chunk == test_subprotocol
     assert num_cycles_in_leftover_chunk == expected_num_leftover_cycles
 
     assert (
@@ -151,15 +152,15 @@ def test_chunk_subprotocol__divides_into_loop_with_leftover_cycles__leftover_chu
         total_subprotocol_dur_us=test_original_dur_us, num_cycles=test_original_num_cycles
     )
 
-    chunked_subprotocol_list = chunk_subprotocol(test_subprotocol)
-    assert len(chunked_subprotocol_list) == 2
-
-    loop_chunk, leftover_chunk = chunked_subprotocol_list
+    actual_loop_chunk, actual_leftover_chunk = chunk_subprotocol(test_subprotocol)
+    # make sure both chunks are present
+    assert actual_loop_chunk is not None
+    assert actual_leftover_chunk is not None
 
     # pop this to make assertion on loop
-    loop_subprotocols = loop_chunk.pop("subprotocols")
+    loop_subprotocols = actual_loop_chunk.pop("subprotocols")
     assert len(loop_subprotocols) == 1
-    assert loop_chunk == {"type": "loop", "num_iterations": expected_num_loop_iterations}
+    assert actual_loop_chunk == {"type": "loop", "num_iterations": expected_num_loop_iterations}
 
     # pop these to make assertion on the rest of the subprotocol_dict
     test_subprotocol.pop("num_cycles")
@@ -168,8 +169,8 @@ def test_chunk_subprotocol__divides_into_loop_with_leftover_cycles__leftover_chu
     assert loop_subprotocols[0] == test_subprotocol
     assert num_cycles_in_loop_chunk == expected_num_loop_cycles
 
-    num_cycles_in_leftover_chunk = leftover_chunk.pop("num_cycles")
-    assert leftover_chunk == test_subprotocol
+    num_cycles_in_leftover_chunk = actual_leftover_chunk.pop("num_cycles")
+    assert actual_leftover_chunk == test_subprotocol
     assert num_cycles_in_leftover_chunk == expected_num_leftover_cycles
 
     assert (
@@ -203,18 +204,18 @@ def test_chunk_subprotocol__divides_into_loop_with_leftover_cycles__leftover_chu
         total_subprotocol_dur_us=test_original_dur_us, num_cycles=test_original_num_cycles
     )
 
-    assert chunk_subprotocol(test_subprotocol) == [test_subprotocol]
+    assert chunk_subprotocol(test_subprotocol) == (None, test_subprotocol)
 
 
 def test_chunk_protocols_in_stim_info__returns_correct_values(mocker):
     mocked_chunk_subprotocol_returns = [
         # protocol A
-        [{"num_iterations": randint(1, 10)}, {"dummy": 0}],
-        [{"dummy": 1}],
+        ({"num_iterations": randint(1, 10)}, {"dummy": 0}),
+        (None, {"dummy": 1}),
         # protocol B
-        [{"dummy": 2}],
-        [{"dummy": 3}],
-        [{"num_iterations": randint(11, 20)}, {"dummy": 4}],
+        (None, {"dummy": 2}),
+        (None, {"dummy": 3}),
+        ({"num_iterations": randint(11, 20)}, {"dummy": 4}),
     ]
 
     mocked_chunk_subprotocol = mocker.patch.object(
@@ -246,11 +247,11 @@ def test_chunk_protocols_in_stim_info__returns_correct_values(mocker):
     expected_chunked_stim_info["protocols"][0]["subprotocols"] = [
         mocked_chunk_subprotocol_returns[0][0],
         mocked_chunk_subprotocol_returns[0][1],
-        mocked_chunk_subprotocol_returns[1][0],
+        mocked_chunk_subprotocol_returns[1][1],
     ]
     expected_chunked_stim_info["protocols"][1]["subprotocols"] = [
-        mocked_chunk_subprotocol_returns[2][0],
-        mocked_chunk_subprotocol_returns[3][0],
+        mocked_chunk_subprotocol_returns[2][1],
+        mocked_chunk_subprotocol_returns[3][1],
         mocked_chunk_subprotocol_returns[4][0],
         mocked_chunk_subprotocol_returns[4][1],
     ]
