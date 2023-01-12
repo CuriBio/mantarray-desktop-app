@@ -36,27 +36,27 @@ def get_subprotocol_dur_us(subprotocol: Dict[str, Union[str, int]]) -> int:
 
 def chunk_subprotocol(original_subprotocol: Dict[str, Any]) -> List[Dict[str, Any]]:
     # copy so the original subprotocol dict isn't modified
-    subprotocol = copy.deepcopy(original_subprotocol)
-    original_subprotocol_dur_us = get_subprotocol_dur_us(subprotocol)
+    original_subprotocol = copy.deepcopy(original_subprotocol)
+    original_subprotocol_dur_us = get_subprotocol_dur_us(original_subprotocol)
 
     if (
-        subprotocol["type"] == "delay"
+        original_subprotocol["type"] == "delay"
         or original_subprotocol_dur_us <= STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
     ):
         return [original_subprotocol]
 
-    original_num_cycles = subprotocol["num_cycles"]
+    original_num_cycles = original_subprotocol["num_cycles"]
 
-    pulse_dur_us = get_pulse_dur_us(subprotocol)
+    pulse_dur_us = get_pulse_dur_us(original_subprotocol)
     max_num_cycles_in_loop = STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // pulse_dur_us
-    looped_subprotocol = {**subprotocol, "num_cycles": max_num_cycles_in_loop}
+    looped_subprotocol = {**original_subprotocol, "num_cycles": max_num_cycles_in_loop}
     num_loop_iterations = original_subprotocol_dur_us // get_subprotocol_dur_us(looped_subprotocol)  # type: ignore
     loop_chunk = {"type": "loop", "num_iterations": num_loop_iterations, "subprotocols": [looped_subprotocol]}
 
     subprotocol_chunks = [loop_chunk]
 
     if num_leftover_cycles := original_num_cycles - (looped_subprotocol["num_cycles"] * num_loop_iterations):
-        leftover_chunk = {**subprotocol, "num_cycles": num_leftover_cycles}
+        leftover_chunk = {**original_subprotocol, "num_cycles": num_leftover_cycles}
 
         if get_subprotocol_dur_us(leftover_chunk) < STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS:
             # if there is only 1 loop iteration, then just return the original subprotocol
