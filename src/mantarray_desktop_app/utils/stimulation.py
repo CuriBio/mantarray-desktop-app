@@ -50,21 +50,21 @@ def chunk_subprotocol(original_subprotocol: Dict[str, Any]) -> List[Dict[str, An
     pulse_dur_us = get_pulse_dur_us(subprotocol)
     max_num_cycles_in_loop = STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS // pulse_dur_us
     looped_subprotocol = {**subprotocol, "num_cycles": max_num_cycles_in_loop}
-    num_loop_repeats = original_subprotocol_dur_us // get_subprotocol_dur_us(looped_subprotocol)  # type: ignore
-    loop_chunk = {"type": "loop", "num_repeats": num_loop_repeats, "subprotocols": [looped_subprotocol]}
+    num_loop_iterations = original_subprotocol_dur_us // get_subprotocol_dur_us(looped_subprotocol)  # type: ignore
+    loop_chunk = {"type": "loop", "num_iterations": num_loop_iterations, "subprotocols": [looped_subprotocol]}
 
     subprotocol_chunks = [loop_chunk]
 
-    if num_leftover_cycles := original_num_cycles - (looped_subprotocol["num_cycles"] * num_loop_repeats):
+    if num_leftover_cycles := original_num_cycles - (looped_subprotocol["num_cycles"] * num_loop_iterations):
         leftover_chunk = {**subprotocol, "num_cycles": num_leftover_cycles}
 
         if get_subprotocol_dur_us(leftover_chunk) < STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS:
-            # if there is only 1 loop repeat, then just return the original subprotocol
-            if loop_chunk["num_repeats"] == 1:
+            # if there is only 1 loop iteration, then just return the original subprotocol
+            if loop_chunk["num_iterations"] == 1:
                 return [original_subprotocol]
-            # otherwise, combine leftover chunk with the final loop repeat
+            # otherwise, combine leftover chunk with the final loop iteration
             leftover_chunk["num_cycles"] += looped_subprotocol["num_cycles"]
-            loop_chunk["num_repeats"] -= 1  # type: ignore
+            loop_chunk["num_iterations"] -= 1  # type: ignore
 
         subprotocol_chunks.append(leftover_chunk)
 
@@ -101,27 +101,27 @@ def chunk_protocols_in_stim_info(
 
 class StimulationSubrotocolManager:
     def __init__(
-        self, subprotocols: List[Dict[str, Any]], num_repeats: Optional[int] = None, start_idx: int = 0
+        self, subprotocols: List[Dict[str, Any]], num_iterations: Optional[int] = None, start_idx: int = 0
     ) -> None:
-        if num_repeats is not None and num_repeats < 1:
-            raise ValueError("num_repeats must be >= 1")
+        if num_iterations is not None and num_iterations < 1:
+            raise ValueError("num_iterations must be >= 1")
 
         self._subprotocols = copy.deepcopy(subprotocols)
-        self._num_repeats = num_repeats
+        self._num_iterations = num_iterations
         self._start_idx = start_idx
 
         self._subprotocol_idx: int
         self._node_idx: int
-        self._num_repeats_remaining: Optional[int]
+        self._num_iterations_remaining: Optional[int]
         self._loop: Optional[StimulationSubrotocolManager]
         self._reset(hard_reset=True)
 
     def _reset(self, hard_reset: bool) -> None:
         self._reset_idxs(hard_reset)
-        if self._num_repeats:
-            self._num_repeats_remaining = self._num_repeats - 1
+        if self._num_iterations:
+            self._num_iterations_remaining = self._num_iterations - 1
         else:
-            self._num_repeats_remaining = None
+            self._num_iterations_remaining = None
         self._loop = None
 
     def restart(self) -> None:
@@ -154,11 +154,11 @@ class StimulationSubrotocolManager:
         # advance to the next subprotocol node at this level
         self._increment_idxs(1)
         if self._node_idx >= len(self._subprotocols):
-            if self._num_repeats_remaining is not None:
-                if self._num_repeats_remaining <= 0:
+            if self._num_iterations_remaining is not None:
+                if self._num_iterations_remaining <= 0:
                     self._increment_idxs(-1)
                     raise StopIteration
-                self._num_repeats_remaining -= 1
+                self._num_iterations_remaining -= 1
             self._reset_idxs(hard_reset=False)
 
         subprotocol = self.current()
@@ -166,7 +166,7 @@ class StimulationSubrotocolManager:
         # if the next subprotocol node is a loop, setup the loop and advance through it
         if subprotocol["type"] == "loop":
             self._loop = StimulationSubrotocolManager(
-                subprotocol["subprotocols"], subprotocol["num_repeats"], self.idx()
+                subprotocol["subprotocols"], subprotocol["num_iterations"], self.idx()
             )
             return self._loop.advance()
         # otherwise, return this subprotocol

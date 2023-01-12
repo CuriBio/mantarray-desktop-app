@@ -311,7 +311,7 @@ def convert_subprotocol_node_dict_to_bytes(
 
     if is_loop:
         subprotocol_node_bytes += bytes([len(subprotocol_node_dict["subprotocols"])])
-        subprotocol_node_bytes += subprotocol_node_dict["num_repeats"].to_bytes(4, byteorder="little")
+        subprotocol_node_bytes += subprotocol_node_dict["num_iterations"].to_bytes(4, byteorder="little")
         for inner_subprotocol_node_dict in subprotocol_node_dict["subprotocols"]:
             subprotocol_node_bytes += convert_subprotocol_node_dict_to_bytes(
                 inner_subprotocol_node_dict, is_voltage
@@ -345,7 +345,7 @@ def _convert_subprotocol_node_bytes_to_dict(
 
     loop_dict = {
         "type": "loop",
-        "num_repeats": int.from_bytes(subprotocol_node_bytes[2:6], byteorder="little"),
+        "num_iterations": int.from_bytes(subprotocol_node_bytes[2:6], byteorder="little"),
         "subprotocols": subprotocol_nodes,
     }
 

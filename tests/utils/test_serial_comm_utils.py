@@ -501,21 +501,21 @@ def test_convert_subprotocol_node_dict_to_bytes__returns_expected_bytes__when_no
 def test_convert_subprotocol_node_dict_to_bytes__returns_expected_bytes__when_node_is_a_single_level_loop():
     is_voltage = random_bool()
 
-    test_num_repeats = randint(1, 0xFFFFFFFF)
+    test_num_iterations = randint(1, 0xFFFFFFFF)
 
     test_num_subprotocol_pulses = randint(1, 3)
     test_subprotocol_pulses = [get_random_stim_pulse() for _ in range(test_num_subprotocol_pulses)]
 
     test_loop_dict = {
         "type": "loop",
-        "num_repeats": test_num_repeats,
+        "num_iterations": test_num_iterations,
         "subprotocols": test_subprotocol_pulses,
     }
     actual = convert_subprotocol_node_dict_to_bytes(test_loop_dict, is_voltage)
 
     expected_bytes = bytes([1])  # node_type
     expected_bytes += bytes([test_num_subprotocol_pulses])
-    expected_bytes += test_num_repeats.to_bytes(4, byteorder="little")
+    expected_bytes += test_num_iterations.to_bytes(4, byteorder="little")
     for test_pulse_dict in test_subprotocol_pulses:
         expected_bytes += bytes([0])  # node_type
         expected_bytes += convert_subprotocol_pulse_dict_to_bytes(test_pulse_dict, is_voltage)
@@ -526,30 +526,30 @@ def test_convert_subprotocol_node_dict_to_bytes__returns_expected_bytes__when_no
 def test_convert_subprotocol_node_dict_to_bytes__returns_expected_bytes__when_node_is_a_multi_level_loop():
     is_voltage = random_bool()
 
-    test_num_repeats = [randint(1, 0xFFFFFFFF) for _ in range(4)]
+    test_num_iterations = [randint(1, 0xFFFFFFFF) for _ in range(4)]
     test_subprotocol_pulses = [get_random_stim_pulse() for _ in range(7)]
     test_num_subprotocol_nodes = [3, 2, 2, 3]
 
-    test_num_repeats_iter = iter(test_num_repeats)
+    test_num_iterations_iter = iter(test_num_iterations)
     test_subprotocol_pulses_iter = iter(test_subprotocol_pulses)
 
     test_loop_dict = {
         "type": "loop",
-        "num_repeats": next(test_num_repeats_iter),
+        "num_iterations": next(test_num_iterations_iter),
         "subprotocols": [
             next(test_subprotocol_pulses_iter),
             {
                 "type": "loop",
-                "num_repeats": next(test_num_repeats_iter),
+                "num_iterations": next(test_num_iterations_iter),
                 "subprotocols": [
                     {
                         "type": "loop",
-                        "num_repeats": next(test_num_repeats_iter),
+                        "num_iterations": next(test_num_iterations_iter),
                         "subprotocols": [next(test_subprotocol_pulses_iter) for _ in range(2)],
                     },
                     {
                         "type": "loop",
-                        "num_repeats": next(test_num_repeats_iter),
+                        "num_iterations": next(test_num_iterations_iter),
                         "subprotocols": [next(test_subprotocol_pulses_iter) for _ in range(3)],
                     },
                 ],
@@ -559,7 +559,7 @@ def test_convert_subprotocol_node_dict_to_bytes__returns_expected_bytes__when_no
     }
     actual = convert_subprotocol_node_dict_to_bytes(test_loop_dict, is_voltage)
 
-    test_num_repeats_iter = iter(test_num_repeats)
+    test_num_iterations_iter = iter(test_num_iterations)
     test_subprotocol_pulses_iter = iter(test_subprotocol_pulses)
     test_num_subprotocol_nodes_iter = iter(test_num_subprotocol_nodes)
 
@@ -567,7 +567,7 @@ def test_convert_subprotocol_node_dict_to_bytes__returns_expected_bytes__when_no
     expected_bytes = (
         bytes([1])
         + bytes([next(test_num_subprotocol_nodes_iter)])
-        + next(test_num_repeats_iter).to_bytes(4, byteorder="little")
+        + next(test_num_iterations_iter).to_bytes(4, byteorder="little")
     )
     expected_bytes += bytes([0]) + convert_subprotocol_pulse_dict_to_bytes(
         next(test_subprotocol_pulses_iter), is_voltage
@@ -576,13 +576,13 @@ def test_convert_subprotocol_node_dict_to_bytes__returns_expected_bytes__when_no
     expected_bytes += (
         bytes([1])
         + bytes([next(test_num_subprotocol_nodes_iter)])
-        + next(test_num_repeats_iter).to_bytes(4, byteorder="little")
+        + next(test_num_iterations_iter).to_bytes(4, byteorder="little")
     )
     # - - first level 2 loop
     expected_bytes += (
         bytes([1])
         + bytes([next(test_num_subprotocol_nodes_iter)])
-        + next(test_num_repeats_iter).to_bytes(4, byteorder="little")
+        + next(test_num_iterations_iter).to_bytes(4, byteorder="little")
     )
     for _ in range(2):
         expected_bytes += bytes([0]) + convert_subprotocol_pulse_dict_to_bytes(
@@ -592,7 +592,7 @@ def test_convert_subprotocol_node_dict_to_bytes__returns_expected_bytes__when_no
     expected_bytes += (
         bytes([1])
         + bytes([next(test_num_subprotocol_nodes_iter)])
-        + next(test_num_repeats_iter).to_bytes(4, byteorder="little")
+        + next(test_num_iterations_iter).to_bytes(4, byteorder="little")
     )
     for _ in range(3):
         expected_bytes += bytes([0]) + convert_subprotocol_pulse_dict_to_bytes(
@@ -629,7 +629,7 @@ def test_convert_subprotocol_node_bytes_to_dict__returns_expected_dict__when_nod
 
     expected_loop_dict = {
         "type": "loop",
-        "num_repeats": randint(1, 0xFFFFFFFF),
+        "num_iterations": randint(1, 0xFFFFFFFF),
         "subprotocols": [get_random_stim_pulse() for _ in range(randint(1, 3))],
     }
     # Tanner (12/23/22): this test is also dependent on convert_subprotocol_node_dict_to_bytes working properly. If this test fails, make sure the tests for this func are passing first
@@ -656,21 +656,21 @@ def test_convert_subprotocol_node_bytes_to_dict__returns_expected_dict__when_nod
 
     expected_top_level_loop = {
         "type": "loop",
-        "num_repeats": randint(1, 0xFFFFFFFF),
+        "num_iterations": randint(1, 0xFFFFFFFF),
         "subprotocols": [
             get_random_stim_pulse(),
             {
                 "type": "loop",
-                "num_repeats": randint(1, 0xFFFFFFFF),
+                "num_iterations": randint(1, 0xFFFFFFFF),
                 "subprotocols": [
                     {
                         "type": "loop",
-                        "num_repeats": randint(1, 0xFFFFFFFF),
+                        "num_iterations": randint(1, 0xFFFFFFFF),
                         "subprotocols": [get_random_stim_pulse() for _ in range(randint(1, 3))],
                     },
                     {
                         "type": "loop",
-                        "num_repeats": randint(1, 0xFFFFFFFF),
+                        "num_iterations": randint(1, 0xFFFFFFFF),
                         "subprotocols": [get_random_stim_pulse() for _ in range(randint(1, 3))],
                     },
                 ],
@@ -751,11 +751,11 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
                     get_random_biphasic_pulse(),
                     {
                         "type": "loop",
-                        "num_repeats": randint(1, 10),
+                        "num_iterations": randint(1, 10),
                         "subprotocols": [
                             {
                                 "type": "loop",
-                                "num_repeats": randint(1, 10),
+                                "num_iterations": randint(1, 10),
                                 "subprotocols": [get_random_subprotocol()],
                             },
                             get_random_subprotocol(),
@@ -820,12 +820,12 @@ def test_convert_stim_bytes_to_dict__can_correctly_recreate_stim_dict__except_fo
                 "subprotocols": [
                     {
                         "type": "loop",
-                        "num_repeats": randint(1, 10),
+                        "num_iterations": randint(1, 10),
                         "subprotocols": [
                             *[get_random_subprotocol() for _ in range(randint(1, 3))],
                             {
                                 "type": "loop",
-                                "num_repeats": randint(1, 10),
+                                "num_iterations": randint(1, 10),
                                 "subprotocols": [get_random_subprotocol() for _ in range(randint(1, 3))],
                             },
                         ],

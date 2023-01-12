@@ -1062,30 +1062,30 @@ def test_MantarrayMcSimulator__handles_looping_correctly(mantarray_mc_simulator_
         for well_idx in range(24)
     }
 
-    test_num_repeats = [2, 3, 2]
+    test_num_iterations = [2, 3, 2]
     test_subprotocols = [
         get_random_subprotocol(total_subprotocol_dur_us=randint(1000, 10000) * MICROS_PER_MILLI)
         for _ in range(7)
     ]
 
-    test_num_repeats_iter = iter(test_num_repeats)
+    test_num_iterations_iter = iter(test_num_iterations)
     test_subprotocols_iter = iter(test_subprotocols)
 
     test_subprotocol_nodes = [
         next(test_subprotocols_iter),
         {
             "type": "loop",
-            "num_repeats": next(test_num_repeats_iter),
+            "num_iterations": next(test_num_iterations_iter),
             "subprotocols": [
                 {
                     "type": "loop",
-                    "num_repeats": next(test_num_repeats_iter),
+                    "num_iterations": next(test_num_iterations_iter),
                     "subprotocols": [next(test_subprotocols_iter)],
                 },
                 next(test_subprotocols_iter),
                 {
                     "type": "loop",
-                    "num_repeats": next(test_num_repeats_iter),
+                    "num_iterations": next(test_num_iterations_iter),
                     "subprotocols": [next(test_subprotocols_iter) for _ in range(3)],
                 },
             ],
@@ -1112,7 +1112,8 @@ def test_MantarrayMcSimulator__handles_looping_correctly(mantarray_mc_simulator_
 
     expected_subprotocol_idx_order = (
         [0]
-        + (([1] * test_num_repeats[1]) + [2] + ([3, 4, 5] * test_num_repeats[2])) * test_num_repeats[0]
+        + (([1] * test_num_iterations[1]) + [2] + ([3, 4, 5] * test_num_iterations[2]))
+        * test_num_iterations[0]
         + [6]
     ) * test_num_runs_through_protocol
 

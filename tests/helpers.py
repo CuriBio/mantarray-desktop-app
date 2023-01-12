@@ -223,9 +223,9 @@ def assert_subprotocol_node_bytes_are_expected(actual, expected):
     if is_loop:
         assert actual[1] == expected[1], "Incorrect num stim nodes"
 
-        actual_num_repeats = int.from_bytes(actual[2:6], byteorder="little")
-        expected_num_repeats = int.from_bytes(expected[2:6], byteorder="little")
-        assert actual_num_repeats == expected_num_repeats, "Incorrect number of repeats"
+        actual_num_iterations = int.from_bytes(actual[2:6], byteorder="little")
+        expected_num_iterations = int.from_bytes(expected[2:6], byteorder="little")
+        assert actual_num_iterations == expected_num_iterations, "Incorrect number of iterations"
 
         # TODO this will only work with single level loops right now
         num_subprotocols = len(expected[6:]) // STIM_PULSE_BYTES_LEN

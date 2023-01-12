@@ -69,7 +69,7 @@ def test_chunk_subprotocol__divides_into_loop_without_leftover_cycles(is_loop_fu
     # pop this to make assertion on loop
     loop_subprotocols = chunked_subprotocol.pop("subprotocols")
     assert len(loop_subprotocols) == 1
-    assert chunked_subprotocol == {"type": "loop", "num_repeats": expected_num_loop_iterations}
+    assert chunked_subprotocol == {"type": "loop", "num_iterations": expected_num_loop_iterations}
 
     # pop this to make assertion on the rest of the subprotocol_dict
     chunked_num_cycles = loop_subprotocols[0].pop("num_cycles")
@@ -105,7 +105,7 @@ def test_chunk_subprotocol__divides_into_loop_with_leftover_cycles__leftover_chu
     # pop this to make assertion on loop
     loop_subprotocols = loop_chunk.pop("subprotocols")
     assert len(loop_subprotocols) == 1
-    assert loop_chunk == {"type": "loop", "num_repeats": expected_num_loop_iterations}
+    assert loop_chunk == {"type": "loop", "num_iterations": expected_num_loop_iterations}
 
     # pop these to make assertion on the rest of the subprotocol_dict
     test_subprotocol.pop("num_cycles")
@@ -159,7 +159,7 @@ def test_chunk_subprotocol__divides_into_loop_with_leftover_cycles__leftover_chu
     # pop this to make assertion on loop
     loop_subprotocols = loop_chunk.pop("subprotocols")
     assert len(loop_subprotocols) == 1
-    assert loop_chunk == {"type": "loop", "num_repeats": expected_num_loop_iterations}
+    assert loop_chunk == {"type": "loop", "num_iterations": expected_num_loop_iterations}
 
     # pop these to make assertion on the rest of the subprotocol_dict
     test_subprotocol.pop("num_cycles")
