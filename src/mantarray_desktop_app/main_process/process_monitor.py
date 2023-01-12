@@ -281,7 +281,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 stim_info = communication["stim_info"]
                 self._values_to_share_to_server["stimulation_info"] = stim_info
 
-                chunked_stim_info, subprotocol_idx_mappings = chunk_protocols_in_stim_info(stim_info)
+                chunked_stim_info, subprotocol_idx_mappings, _ = chunk_protocols_in_stim_info(stim_info)
                 self._put_communication_into_instrument_comm_queue(
                     {**communication, "stim_info": chunked_stim_info}
                 )

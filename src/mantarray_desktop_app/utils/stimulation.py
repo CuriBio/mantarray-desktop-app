@@ -34,6 +34,7 @@ def get_subprotocol_dur_us(subprotocol: Dict[str, Union[str, int]]) -> int:
     return duration  # type: ignore
 
 
+# TODO have this return a tuple instead
 def chunk_subprotocol(original_subprotocol: Dict[str, Any]) -> List[Dict[str, Any]]:
     # copy so the original subprotocol dict isn't modified
     original_subprotocol = copy.deepcopy(original_subprotocol)
@@ -73,30 +74,39 @@ def chunk_subprotocol(original_subprotocol: Dict[str, Any]) -> List[Dict[str, An
 
 def chunk_protocols_in_stim_info(
     stim_info: Dict[str, Any]
-) -> Tuple[Dict[str, Any], Dict[str, Dict[int, int]]]:
+) -> Tuple[Dict[str, Any], Dict[str, Dict[int, int]], Dict[str, Tuple[int, ...]]]:
     # copying so the original dict passed in does not get modified
     chunked_stim_info = copy.deepcopy(stim_info)
 
     subprotocol_idx_mappings = {}
+    subprotocol_idx_counters = {}
 
     for protocol in chunked_stim_info["protocols"]:
-        chunked_idx_to_original_idx = {}
-        curr_idx = 0
+        curr_chunked_idx = 0
 
+        chunked_idx_to_original_idx = {}
+        original_idx_counts = []
         new_subprotocols = []
 
         for original_idx, subprotocol in enumerate(protocol["subprotocols"]):
-            subprotocol_chunks = chunk_subprotocol(subprotocol)
+            original_idx_count = 0
 
-            for chunk in subprotocol_chunks:
-                chunked_idx_to_original_idx[curr_idx] = original_idx
+            for chunk in chunk_subprotocol(subprotocol):
+                chunked_idx_to_original_idx[curr_chunked_idx] = original_idx
+                original_idx_count += chunk.get("num_iterations", 1)
                 new_subprotocols.append(chunk)
-                curr_idx += 1
+
+                curr_chunked_idx += 1
+
+            original_idx_counts.append(original_idx_count)
 
         protocol["subprotocols"] = new_subprotocols
-        subprotocol_idx_mappings[protocol["protocol_id"]] = chunked_idx_to_original_idx
 
-    return chunked_stim_info, subprotocol_idx_mappings
+        protocol_id = protocol["protocol_id"]
+        subprotocol_idx_mappings[protocol_id] = chunked_idx_to_original_idx
+        subprotocol_idx_counters[protocol_id] = tuple(original_idx_counts)
+
+    return chunked_stim_info, subprotocol_idx_mappings, subprotocol_idx_counters
 
 
 class StimulationSubrotocolManager:

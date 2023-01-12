@@ -878,10 +878,9 @@ class FileWriterProcess(InfiniteProcess):
 
         # Tanner (5/17/21): This code was not previously guarded by this if statement. If issues start occurring with recorded data or performance metrics, check here first
         if self._is_recording or self._board_has_open_files(board_idx):
-            if self._beta_2_mode:
-                self._num_recorded_points.append(data_packet["time_indices"].shape[0])
-            else:
-                self._num_recorded_points.append(data_packet["data"].shape[1])
+            self._num_recorded_points.append(
+                data_packet["time_indices"].shape[0] if self._beta_2_mode else data_packet["data"].shape[1]
+            )
 
             start = time.perf_counter()
             self._handle_recording_of_data_packet(data_packet)
