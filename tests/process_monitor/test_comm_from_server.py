@@ -866,7 +866,7 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
         process_monitor,
         "chunk_protocols_in_stim_info",
         autospec=True,
-        return_value=(mocker.Mock(), mocker.Mock()),
+        return_value=(mocker.Mock(), mocker.Mock(), mocker.Mock()),
     )
 
     shared_values_dict["stimulation_running"] = [False] * 24
@@ -894,6 +894,7 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
     assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == {
         **test_command,
         "subprotocol_idx_mappings": mocked_chunk.return_value[1],
+        "max_subprotocol_idx_counts": mocked_chunk.return_value[2],
     }
 
 

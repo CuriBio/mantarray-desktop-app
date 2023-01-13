@@ -256,7 +256,7 @@ def test_chunk_protocols_in_stim_info__returns_correct_values(mocker):
         mocked_chunk_subprotocol_returns[4][1],
     ]
 
-    actual_stim_info, subprotocol_idx_mappings, subprotocol_idx_counters = chunk_protocols_in_stim_info(
+    actual_stim_info, subprotocol_idx_mappings, max_subprotocol_idx_counts = chunk_protocols_in_stim_info(
         test_stim_info
     )
 
@@ -281,7 +281,7 @@ def test_chunk_protocols_in_stim_info__returns_correct_values(mocker):
     assert subprotocol_idx_mappings == {"A": {0: 0, 1: 0, 2: 1}, "B": {0: 0, 1: 1, 2: 2, 3: 2}}
 
     # test counters
-    assert subprotocol_idx_counters == {
+    assert max_subprotocol_idx_counts == {
         "A": (mocked_chunk_subprotocol_returns[0][0]["num_iterations"] + 1, 1),
         "B": (1, 1, mocked_chunk_subprotocol_returns[4][0]["num_iterations"] + 1),
     }

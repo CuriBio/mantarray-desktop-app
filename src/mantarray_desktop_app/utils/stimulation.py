@@ -80,7 +80,7 @@ def chunk_protocols_in_stim_info(
     chunked_stim_info = copy.deepcopy(stim_info)
 
     subprotocol_idx_mappings = {}
-    subprotocol_idx_counters = {}
+    max_subprotocol_idx_counts = {}
 
     for protocol in chunked_stim_info["protocols"]:
         curr_chunked_idx = 0
@@ -109,9 +109,9 @@ def chunk_protocols_in_stim_info(
 
         protocol_id = protocol["protocol_id"]
         subprotocol_idx_mappings[protocol_id] = chunked_idx_to_original_idx
-        subprotocol_idx_counters[protocol_id] = tuple(original_idx_counts)
+        max_subprotocol_idx_counts[protocol_id] = tuple(original_idx_counts)
 
-    return chunked_stim_info, subprotocol_idx_mappings, subprotocol_idx_counters
+    return chunked_stim_info, subprotocol_idx_mappings, max_subprotocol_idx_counts
 
 
 class StimulationSubrotocolManager:

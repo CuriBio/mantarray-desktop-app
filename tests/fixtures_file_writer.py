@@ -28,6 +28,7 @@ from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app.constants import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
 import numpy as np
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import BACKEND_LOG_UUID
@@ -96,13 +97,19 @@ GENERIC_STIM_INFO = {
             "protocol_id": "A",
             "stimulation_type": "C",
             "run_until_stopped": True,
-            "subprotocols": [get_random_stim_pulse(), get_random_stim_delay(50 * MICRO_TO_BASE_CONVERSION)],  # type: ignore
+            "subprotocols": [  # type: ignore
+                get_random_stim_pulse(total_subprotocol_dur_us=STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS),
+                get_random_stim_delay(50 * MICRO_TO_BASE_CONVERSION),
+            ],
         },
         {
             "protocol_id": "B",
             "stimulation_type": "V",
             "run_until_stopped": False,
-            "subprotocols": [get_random_stim_pulse(), get_random_stim_pulse()],  # type: ignore
+            "subprotocols": [  # type: ignore
+                get_random_stim_pulse(total_subprotocol_dur_us=STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS),
+                get_random_stim_pulse(total_subprotocol_dur_us=STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS),
+            ],
         },
     ],
     "protocol_assignments": GENERIC_STIM_PROTOCOL_ASSIGNMENTS,

@@ -566,7 +566,7 @@ def test_FileWriterProcess__passes_stim_data_packet_through_to_output_queue_corr
     from_main_queue = four_board_file_writer_process["from_main_queue"]
 
     # set subprotocol_idx_mappings
-    test_protocol_assignments = GENERIC_STIM_PROTOCOL_ASSIGNMENTS
+    test_protocol_assignments = dict(GENERIC_STIM_PROTOCOL_ASSIGNMENTS)
     test_stim_info = {
         "protocols": [
             {
@@ -581,46 +581,59 @@ def test_FileWriterProcess__passes_stim_data_packet_through_to_output_queue_corr
         "protocol_assignments": test_protocol_assignments,
     }
     subprotocol_idx_mappings = {"A": {i: i for i in range(4)}, "B": {i: i // 2 for i in range(4)}}
+    max_subprotocol_idx_counts = {"A": [5, 4, 3, 2], "B": [4, 3]}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {
             "communication_type": "stimulation",
             "command": "set_protocols",
             "stim_info": test_stim_info,
             "subprotocol_idx_mappings": subprotocol_idx_mappings,
+            "max_subprotocol_idx_counts": max_subprotocol_idx_counts,
         },
         from_main_queue,
     )
     invoke_process_run_and_check_errors(fw_process)
 
+    # the actual value of the time indices currently won't affect this test
     test_well_statuses = [
-        {0: np.array([[10], [0]])},
-        {1: np.array([[20], [0]])},
-        {0: np.array([[11], [1]])},
-        {1: np.array([[21], [1]])},  # this will not produce a packet sent through to the output queue
-        {0: np.array([[11], [1]]), 1: np.array([[21], [1]])},
-        {0: np.array([[10, 11], [0, 1]])},
-        {1: np.array([[20, 21], [0, 1]])},
-        {0: np.array([[10, 11, 12, 13, 14], [0, 1, 2, 3, 0]])},
-        {1: np.array([[20, 21, 22, 23, 24], [0, 1, 2, 3, 0]])},
+        {0: np.array([[0], [0]])},
+        {1: np.array([[0], [0]])},
+        {0: np.array([list(range(5)), [0] * 5])},
+        {1: np.array([list(range(4)), [0] * 4])},
+        {0: np.array([list(range(6)), [0] * 6])},
+        #
+        {1: np.array([list(range(5)), [0] * 5])},
+        {0: np.array([list(range(10)), [0, 0, 0, 0, 0, 1, 1, 1, 1, 2]])},
+        {1: np.array([list(range(7)), [0, 0, 1, 1, 2, 2, 2]])},
+        {0: np.array([[0, 1], [0, 1]])},
+        {1: np.array([[0, 1], [0, 1]])},
+        #
+        {0: np.array([list(range(5)), [0, 1, 2, 3, 0]])},
+        {1: np.array([list(range(5)), [0, 1, 2, 3, 0]])},
         {
-            0: np.array([[10, 11, 12, 13, 14], [0, 1, 2, 3, 0]]),
-            1: np.array([[20, 21, 22, 23, 24], [0, 1, 2, 3, 0]]),
+            0: np.array([list(range(5)), [0, 1, 2, 3, 0]]),
+            1: np.array([list(range(5)), [0, 1, 2, 3, 0]]),
         },
     ]
     expected_well_statuses = [
         # Protocol A is assigned to well 0, Protocol B is assigned to well 1
-        {0: np.array([[10], [0]])},
-        {1: np.array([[20], [0]])},
-        {0: np.array([[11], [1]])},
-        None,
-        {0: np.array([[11], [1]])},
-        {0: np.array([[10, 11], [0, 1]])},
-        {1: np.array([[20], [0]])},
-        {0: np.array([[10, 11, 12, 13, 14], [0, 1, 2, 3, 0]])},
-        {1: np.array([[20, 22, 24], [0, 1, 0]])},
+        {0: np.array([[0], [0]])},
+        {1: np.array([[0], [0]])},
+        {0: np.array([[0], [0]])},
+        {1: np.array([[0], [0]])},
+        {0: np.array([[0, 5], [0, 0]])},
+        #
+        {1: np.array([[0, 4], [0, 0]])},
+        {0: np.array([[0, 5, 9], [0, 1, 2]])},
+        {1: np.array([[0, 4], [0, 1]])},
+        {0: np.array([[0, 1], [0, 1]])},
+        {1: np.array([[0], [0]])},
+        #
+        {0: np.array([[0, 1, 2, 3, 4], [0, 1, 2, 3, 0]])},
+        {1: np.array([[0, 2, 4], [0, 1, 0]])},
         {
-            0: np.array([[10, 11, 12, 13, 14], [0, 1, 2, 3, 0]]),
-            1: np.array([[20, 22, 24], [0, 1, 0]]),
+            0: np.array([[0, 1, 2, 3, 4], [0, 1, 2, 3, 0]]),
+            1: np.array([[0, 2, 4], [0, 1, 0]]),
         },
     ]
 
@@ -635,7 +648,9 @@ def test_FileWriterProcess__passes_stim_data_packet_through_to_output_queue_corr
             copy.deepcopy(test_input_packet),
             data_input_queue,
         )
+
         invoke_process_run_and_check_errors(fw_process)
+        fw_process._reset_stim_idx_counters()
 
         if expected_output_statuses is None:
             confirm_queue_is_eventually_empty(data_output_queue)
@@ -699,12 +714,14 @@ def test_FileWriterProcess_process_stim_data_packet__writes_correct_subprotocol_
         "protocol_assignments": test_protocol_assignments,
     }
     subprotocol_idx_mappings = {"A": {i: i for i in range(4)}, "B": {i: i // 2 for i in range(4)}}
+    max_subprotocol_idx_counts = {"A": [1] * 4, "B": [1] * 4}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {
             "communication_type": "stimulation",
             "command": "set_protocols",
             "stim_info": test_stim_info,
             "subprotocol_idx_mappings": subprotocol_idx_mappings,
+            "max_subprotocol_idx_counts": max_subprotocol_idx_counts,
         },
         from_main_queue,
     )
@@ -768,12 +785,17 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_whole_da
     test_well_index = randint(0, 1)
     test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
 
-    expected_stim_info, test_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
+    (
+        expected_stim_info,
+        test_subprotocol_idx_mappings,
+        max_subprotocol_idx_counts,
+    ) = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
         "stim_info": expected_stim_info,
         "subprotocol_idx_mappings": test_subprotocol_idx_mappings,
+        "max_subprotocol_idx_counts": max_subprotocol_idx_counts,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
@@ -818,12 +840,17 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_if_the_timestam
     test_well_index = randint(0, 1)
     test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
 
-    expected_stim_info, test_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
+    (
+        expected_stim_info,
+        test_subprotocol_idx_mappings,
+        max_subprotocol_idx_counts,
+    ) = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
         "stim_info": expected_stim_info,
         "subprotocol_idx_mappings": test_subprotocol_idx_mappings,
+        "max_subprotocol_idx_counts": max_subprotocol_idx_counts,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
@@ -874,12 +901,17 @@ def test_FileWriterProcess_process_stim_data_packet__writes_only_final_data_poin
     test_well_index = randint(0, 1)
     test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
 
-    expected_stim_info, test_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
+    (
+        expected_stim_info,
+        test_subprotocol_idx_mappings,
+        max_subprotocol_idx_counts,
+    ) = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
         "stim_info": expected_stim_info,
         "subprotocol_idx_mappings": test_subprotocol_idx_mappings,
+        "max_subprotocol_idx_counts": max_subprotocol_idx_counts,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
@@ -926,12 +958,17 @@ def test_FileWriterProcess_process_stim_data_packet__writes_data_for_two_packets
     test_well_index = randint(0, 1)
     test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
 
-    expected_stim_info, test_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
+    (
+        expected_stim_info,
+        test_subprotocol_idx_mappings,
+        max_subprotocol_idx_counts,
+    ) = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
         "stim_info": expected_stim_info,
         "subprotocol_idx_mappings": test_subprotocol_idx_mappings,
+        "max_subprotocol_idx_counts": max_subprotocol_idx_counts,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
@@ -989,12 +1026,18 @@ def test_FileWriterProcess_process_stim_data_packet__does_not_add_a_data_packet_
     test_well_index = randint(0, 1)
     test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
 
-    expected_stim_info, test_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
+    (
+        expected_stim_info,
+        test_subprotocol_idx_mappings,
+        max_subprotocol_idx_counts,
+    ) = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
+
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
         "stim_info": expected_stim_info,
         "subprotocol_idx_mappings": test_subprotocol_idx_mappings,
+        "max_subprotocol_idx_counts": max_subprotocol_idx_counts,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)
@@ -1062,12 +1105,17 @@ def test_FileWriterProcess_process_stim_data_packet__adds_a_data_packet_ending_o
     test_well_index = randint(0, 1)
     test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
 
-    expected_stim_info, test_subprotocol_idx_mappings = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
+    (
+        expected_stim_info,
+        test_subprotocol_idx_mappings,
+        max_subprotocol_idx_counts,
+    ) = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
         "stim_info": expected_stim_info,
         "subprotocol_idx_mappings": test_subprotocol_idx_mappings,
+        "max_subprotocol_idx_counts": max_subprotocol_idx_counts,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(fw_process)

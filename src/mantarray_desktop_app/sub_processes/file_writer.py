@@ -19,7 +19,6 @@ from typing import Deque
 from typing import Dict
 from typing import List
 from typing import Optional
-from typing import Set
 from typing import Tuple
 from typing import Union
 from uuid import UUID
@@ -186,21 +185,6 @@ def _find_earliest_valid_stim_status_index(
     return idx
 
 
-def _get_subprotocol_indices_to_preserve(
-    subprotocol_idx_mappings: Dict[str, Dict[int, int]]
-) -> Dict[str, Set[int]]:
-    subprotocol_indices_to_preserve = {}
-    for protocol_id, mapping in subprotocol_idx_mappings.items():
-        original_indices_found = set()
-        chunked_indices_to_preserve = set()
-        for chunked_idx, original_idx in mapping.items():
-            if original_idx not in original_indices_found:
-                original_indices_found.add(original_idx)
-                chunked_indices_to_preserve.add(chunked_idx)
-        subprotocol_indices_to_preserve[protocol_id] = chunked_indices_to_preserve
-    return subprotocol_indices_to_preserve
-
-
 def _drain_board_queues(board: Tuple[Queue[Any], Queue[Any]]) -> Dict[str, List[Any]]:
     board_dict = dict()
     board_dict["instrument_comm_to_file_writer"] = drain_queue(board[0])
@@ -291,7 +275,10 @@ class FileWriterProcess(InfiniteProcess):
             for _ in range(len(self._board_queues))
         )
         self._subprotocol_idx_mappings: Dict[str, Dict[int, int]] = {}
-        self._subprotocol_indices_to_preserve: Dict[str, Set[int]] = {}
+        self._max_original_subprotocol_idx_counts: Dict[str, Tuple[int, ...]] = {}
+        self._curr_original_subprotocol_idx_for_wells: List[Optional[int]]
+        self._curr_original_subprotocol_count_for_wells: List[Optional[int]]
+        self._reset_stim_idx_counters()
         # performance tracking values
         self._iterations_per_logging_cycle = int(
             PERFOMANCE_LOGGING_PERIOD_SECS / self._minimum_iteration_duration_seconds
@@ -305,6 +292,10 @@ class FileWriterProcess(InfiniteProcess):
         self._reset_performance_measurements()
         self._num_recorded_points = list()
         self._recording_durations = list()
+
+    def _reset_stim_idx_counters(self) -> None:
+        self._curr_original_subprotocol_idx_for_wells = [None] * self._num_wells
+        self._curr_original_subprotocol_count_for_wells = [None] * self._num_wells
 
     @property
     def _file_directory(self) -> str:
@@ -518,9 +509,7 @@ class FileWriterProcess(InfiniteProcess):
         elif command == "set_protocols":
             self._stim_info = communication["stim_info"]
             self._subprotocol_idx_mappings = communication["subprotocol_idx_mappings"]
-            self._subprotocol_indices_to_preserve = _get_subprotocol_indices_to_preserve(
-                self._subprotocol_idx_mappings
-            )
+            self._max_original_subprotocol_idx_counts = communication["max_subprotocol_idx_counts"]
             self._add_protocols_to_recording_files()
         else:
             raise UnrecognizedCommandFromMainToFileWriterError(command)
@@ -1030,6 +1019,7 @@ class FileWriterProcess(InfiniteProcess):
         if stim_packet["is_first_packet_of_stream"]:
             self._end_of_stim_stream_reached[board_idx] = False
             self._clear_stim_data_buffers()
+            self._reset_stim_idx_counters()
         if not self._end_of_stim_stream_reached[board_idx]:
             self.append_to_stim_data_buffers(stim_packet["well_statuses"])
             output_queue = self._board_queues[board_idx][1]
@@ -1041,7 +1031,7 @@ class FileWriterProcess(InfiniteProcess):
             for well_idx, well_statuses in stim_packet["well_statuses"].items():
                 self._handle_recording_of_stim_statuses(well_idx, well_statuses)
 
-    def _reduce_subprotocol_chunks(self, well_statuses: Dict[str, Any]) -> Dict[str, Any]:
+    def _reduce_subprotocol_chunks(self, well_statuses: Dict[int, Any]) -> Dict[int, Any]:
         reduced_well_statuses = {}
         for well_idx, well_status_arr in well_statuses.items():
             well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
@@ -1049,11 +1039,21 @@ class FileWriterProcess(InfiniteProcess):
 
             timepoint_well_status_pairs = []
             for timepoint, chunked_subprotocol_idx in well_status_arr.T:
-                # only preserve statuses that aren't from intermediate chunks
-                if chunked_subprotocol_idx in self._subprotocol_indices_to_preserve[assigned_protocol_id]:
-                    original_subprotocol_idx = self._subprotocol_idx_mappings[assigned_protocol_id][
-                        chunked_subprotocol_idx
-                    ]
+                original_subprotocol_idx = self._subprotocol_idx_mappings[assigned_protocol_id][
+                    chunked_subprotocol_idx
+                ]
+
+                if original_subprotocol_idx != self._curr_original_subprotocol_idx_for_wells[well_idx]:
+                    self._curr_original_subprotocol_idx_for_wells[well_idx] = original_subprotocol_idx
+                    self._curr_original_subprotocol_count_for_wells[well_idx] = -1
+
+                curr_count = self._curr_original_subprotocol_count_for_wells[well_idx]
+                max_count = self._max_original_subprotocol_idx_counts[assigned_protocol_id][
+                    original_subprotocol_idx
+                ]
+                self._curr_original_subprotocol_count_for_wells[well_idx] = (curr_count + 1) % max_count  # type: ignore
+
+                if self._curr_original_subprotocol_count_for_wells[well_idx] == 0:
                     timepoint_well_status_pairs.append((timepoint, original_subprotocol_idx))
 
             if timepoint_well_status_pairs:

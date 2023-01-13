@@ -281,12 +281,20 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 stim_info = communication["stim_info"]
                 self._values_to_share_to_server["stimulation_info"] = stim_info
 
-                chunked_stim_info, subprotocol_idx_mappings, _ = chunk_protocols_in_stim_info(stim_info)
+                (
+                    chunked_stim_info,
+                    subprotocol_idx_mappings,
+                    max_subprotocol_idx_counts,
+                ) = chunk_protocols_in_stim_info(stim_info)
                 self._put_communication_into_instrument_comm_queue(
                     {**communication, "stim_info": chunked_stim_info}
                 )
                 self._process_manager.queue_container.to_file_writer.put_nowait(
-                    {**communication, "subprotocol_idx_mappings": subprotocol_idx_mappings}
+                    {
+                        **communication,
+                        "subprotocol_idx_mappings": subprotocol_idx_mappings,
+                        "max_subprotocol_idx_counts": max_subprotocol_idx_counts,
+                    }
                 )
             elif command == "start_stim_checks":
                 self._values_to_share_to_server["stimulator_circuit_statuses"] = {
