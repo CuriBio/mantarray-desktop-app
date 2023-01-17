@@ -73,6 +73,7 @@ from ..constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from ..constants import ROUND_ROBIN_PERIOD
 from ..constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from ..constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
+from ..constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from ..exceptions import CalibrationFilesMissingError
 from ..exceptions import InvalidStopRecordingTimepointError
 from ..exceptions import UnrecognizedCommandFromMainToFileWriterError
@@ -1039,10 +1040,15 @@ class FileWriterProcess(InfiniteProcess):
 
             timepoint_well_status_pairs = []
             for timepoint, chunked_subprotocol_idx in well_status_arr.T:
-                original_subprotocol_idx = self._subprotocol_idx_mappings[assigned_protocol_id][
-                    chunked_subprotocol_idx
-                ]
+                original_subprotocol_idx = self._convert_subprotocol_idx(
+                    assigned_protocol_id, chunked_subprotocol_idx
+                )
 
+                if original_subprotocol_idx == STIM_COMPLETE_SUBPROTOCOL_IDX:
+                    timepoint_well_status_pairs.append((timepoint, original_subprotocol_idx))
+                    continue
+
+                # update idx and reset count if subprotocol idx changed
                 if original_subprotocol_idx != self._curr_original_subprotocol_idx_for_wells[well_idx]:
                     self._curr_original_subprotocol_idx_for_wells[well_idx] = original_subprotocol_idx
                     self._curr_original_subprotocol_count_for_wells[well_idx] = -1
@@ -1053,6 +1059,7 @@ class FileWriterProcess(InfiniteProcess):
                 ]
                 self._curr_original_subprotocol_count_for_wells[well_idx] = (curr_count + 1) % max_count  # type: ignore
 
+                # filter out intermediate idxs
                 if self._curr_original_subprotocol_count_for_wells[well_idx] == 0:
                     timepoint_well_status_pairs.append((timepoint, original_subprotocol_idx))
 
@@ -1070,10 +1077,11 @@ class FileWriterProcess(InfiniteProcess):
 
         well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
         assigned_protocol_id = self._stim_info["protocol_assignments"][well_name]
+
         stim_data_arr[1] = np.array(
             [
-                self._subprotocol_idx_mappings[assigned_protocol_id][subprotocol_idx]
-                for subprotocol_idx in stim_data_arr[1]
+                self._convert_subprotocol_idx(assigned_protocol_id, chunked_subprotocol_idx)
+                for chunked_subprotocol_idx in stim_data_arr[1]
             ]
         )
 
@@ -1097,6 +1105,13 @@ class FileWriterProcess(InfiniteProcess):
         previous_data_size = stimulation_dataset.shape[1]
         stimulation_dataset.resize((2, previous_data_size + stim_data_arr.shape[1]))
         stimulation_dataset[:, previous_data_size:] = stim_data_arr
+
+    def _convert_subprotocol_idx(self, protocol_id: str, chunked_subprotocol_idx: int) -> int:
+        return (
+            chunked_subprotocol_idx
+            if chunked_subprotocol_idx == STIM_COMPLETE_SUBPROTOCOL_IDX
+            else self._subprotocol_idx_mappings[protocol_id][chunked_subprotocol_idx]
+        )
 
     def _update_buffers(self) -> None:
         board_idx = 0

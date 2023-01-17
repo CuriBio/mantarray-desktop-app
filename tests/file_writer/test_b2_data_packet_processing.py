@@ -9,6 +9,7 @@ from mantarray_desktop_app import get_time_offset_dataset_from_file
 from mantarray_desktop_app import get_tissue_dataset_from_file
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
+from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
@@ -613,6 +614,7 @@ def test_FileWriterProcess__passes_stim_data_packet_through_to_output_queue_corr
             0: np.array([list(range(5)), [0, 1, 2, 3, 0]]),
             1: np.array([list(range(5)), [0, 1, 2, 3, 0]]),
         },
+        {0: np.array([[0], [STIM_COMPLETE_SUBPROTOCOL_IDX]])},
     ]
     expected_well_statuses = [
         # Protocol A is assigned to well 0, Protocol B is assigned to well 1
@@ -634,6 +636,7 @@ def test_FileWriterProcess__passes_stim_data_packet_through_to_output_queue_corr
             0: np.array([[0, 1, 2, 3, 4], [0, 1, 2, 3, 0]]),
             1: np.array([[0, 2, 4], [0, 1, 0]]),
         },
+        {0: np.array([[0], [STIM_COMPLETE_SUBPROTOCOL_IDX]])},
     ]
 
     for packet_num, (input_statuses, expected_output_statuses) in enumerate(
@@ -740,8 +743,12 @@ def test_FileWriterProcess_process_stim_data_packet__writes_correct_subprotocol_
             0: np.array([[10, 11, 12, 13, 14], [0, 1, 2, 3, 0]]),
             1: np.array([[20, 21, 22, 23, 24], [0, 1, 2, 3, 0]]),
         },
+        {
+            0: np.array([[10], [STIM_COMPLETE_SUBPROTOCOL_IDX]]),
+            1: np.array([[20], [STIM_COMPLETE_SUBPROTOCOL_IDX]]),
+        },
     ]
-    expected_well_statuses = [0, 1, 1, 0, 1, 0, 1, 2, 3, 0, 0, 1, 2, 3, 0]
+    expected_well_statuses = [0, 1, 1, 0, 1, 0, 1, 2, 3, 0, 0, 1, 2, 3, 0, STIM_COMPLETE_SUBPROTOCOL_IDX]
 
     start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     start_recording_command["active_well_indices"] = test_well_idxs
@@ -763,7 +770,9 @@ def test_FileWriterProcess_process_stim_data_packet__writes_correct_subprotocol_
             actual_stimulation_data = get_stimulation_dataset_from_file(this_file)[:]
 
         protocol_id = test_protocol_assignments[well_name]
-        expected_stimulation_data = [subprotocol_idx_mappings[protocol_id][i] for i in expected_well_statuses]
+        expected_stimulation_data = [
+            subprotocol_idx_mappings[protocol_id][i] for i in expected_well_statuses[:-1]
+        ] + [STIM_COMPLETE_SUBPROTOCOL_IDX]
         np.testing.assert_array_equal(
             actual_stimulation_data[1], expected_stimulation_data, err_msg=well_name
         )
