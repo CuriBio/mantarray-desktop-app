@@ -758,6 +758,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 # update time index for subprotocol
                 self._stim_time_indices[protocol_idx] += curr_subprotocol_duration_us
                 # move on to next subprotocol in this protocol
+                protocol_complete = subprotocol_manager.complete()
                 curr_subprotocol = subprotocol_manager.advance()
 
                 stim_status = (
@@ -771,7 +772,6 @@ class MantarrayMcSimulator(InfiniteProcess):
                     + self._stim_time_indices[protocol_idx].to_bytes(8, byteorder="little")
                     + bytes([subprotocol_manager.idx()])
                 )
-                protocol_complete = subprotocol_manager.idx() == 0 and curr_subprotocol_duration_us > 0
                 protocol_stopping = not protocol["run_until_stopped"] and protocol_complete
                 if protocol_complete:
                     protocol_complete_status = (
@@ -797,7 +797,6 @@ class MantarrayMcSimulator(InfiniteProcess):
                         if protocol_stopping:
                             # change subprotocol idx in status bytes
                             continue
-                        subprotocol_manager.restart()
                     packet_bytes += bytes([module_id]) + status_bytes
                     num_status_updates += 1  # increment for all statuses
                 if protocol_stopping:

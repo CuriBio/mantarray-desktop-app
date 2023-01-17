@@ -343,15 +343,16 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         super()._teardown_after_loop()
 
-    def _report_fatal_error(self, the_err: Exception) -> None:
+    def _report_fatal_error(self, err: Exception, formatted_stack_trace: Optional[str] = None) -> None:
         self._error = (
-            the_err if not isinstance(the_err, SerialCommCommandProcessingError) else the_err.__cause__  # type: ignore
+            err if not isinstance(err, SerialCommCommandProcessingError) else err.__cause__  # type: ignore
         )
         # TODO put the following code into InfiniteProcess._report_fatal_error in stdlib_utils
-        formatted_stack_trace = "".join(traceback.format_exception(None, the_err, the_err.__traceback__))
+        if not formatted_stack_trace:
+            formatted_stack_trace = "".join(traceback.format_exception(None, err, err.__traceback__))
         if isinstance(self._fatal_error_reporter, queue.Queue):
             raise NotImplementedError("The error reporter for InfiniteProcess cannot be a threading queue")
-        self._fatal_error_reporter.put_nowait((the_err, formatted_stack_trace))
+        self._fatal_error_reporter.put_nowait((err, formatted_stack_trace))
 
     def _reset_mag_data_cache(self) -> None:
         self._mag_data_cache_dict = {"raw_bytes": bytearray(0), "num_packets": 0}
@@ -1234,8 +1235,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         simulator_has_error = not simulator_error_queue.empty()
         if simulator_has_error:
             # Tanner (4/22/21): setting an arbitrary, very high timeout value here to prevent possible hanging, even though if the queue is not empty it should not hang indefinitely
-            simulator_error_tuple = simulator_error_queue.get(timeout=5)
-            self._report_fatal_error(simulator_error_tuple[0])
+            self._report_fatal_error(*simulator_error_queue.get(timeout=5))
         return simulator_has_error
 
     def _check_worker_thread(self) -> None:

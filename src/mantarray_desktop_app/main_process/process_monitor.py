@@ -110,7 +110,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
     def _report_fatal_error(self, the_err: Exception) -> None:
         super()._report_fatal_error(the_err)
         stack_trace = get_formatted_stack_trace(the_err)
-        msg = f"Error raised by Process Monitor\n{stack_trace}\n{the_err}"
+        msg = f"Error raised by Process Monitor\n{stack_trace}"
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.error(msg)
@@ -854,7 +854,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         error_communication: Tuple[Exception, str],
     ) -> None:
         this_err, this_stack_trace = error_communication
-        msg = f"Error raised by subprocess {process}\n{this_stack_trace}\n{this_err}"
+        msg = f"Error raised by subprocess {process}\n{this_stack_trace}"
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.error(msg)

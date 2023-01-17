@@ -129,18 +129,22 @@ class StimulationSubrotocolManager:
         self._node_idx: int
         self._num_iterations_remaining: Optional[int]
         self._loop: Optional[StimulationSubrotocolManager]
-        self._reset(hard_reset=True)
+        self._reset()
 
-    def _reset(self, hard_reset: bool) -> None:
-        self._reset_idxs(hard_reset)
+    def _reset(self) -> None:
+        self._reset_idxs(hard_reset=True)
         if self._num_iterations:
             self._num_iterations_remaining = self._num_iterations - 1
         else:
             self._num_iterations_remaining = None
         self._loop = None
 
-    def restart(self) -> None:
-        self._reset(hard_reset=False)
+    def complete(self) -> bool:
+        if self._node_idx < len(self._subprotocols) - 1 or self._num_iterations_remaining:
+            return False
+        if self._loop:
+            return self._loop.complete()
+        return True
 
     def current(self) -> Dict[str, Any]:
         # if there is a loop, the current subprotocol must be retrieved from it the current node at this level is a loop

@@ -1049,7 +1049,10 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
     )
 
 
-def test_MantarrayMcSimulator__handles_looping_correctly(mantarray_mc_simulator_no_beacon, mocker):
+@pytest.mark.parametrize("is_loop_top_level", [True, False])
+def test_MantarrayMcSimulator__handles_looping_correctly(
+    is_loop_top_level, mantarray_mc_simulator_no_beacon, mocker
+):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
@@ -1093,6 +1096,10 @@ def test_MantarrayMcSimulator__handles_looping_correctly(mantarray_mc_simulator_
         next(test_subprotocols_iter),
     ]
 
+    if is_loop_top_level:
+        test_subprotocols = test_subprotocols[1:-1]
+        test_subprotocol_nodes = test_subprotocol_nodes[1:-1]
+
     test_stim_info = create_converted_stim_info(
         {
             "protocols": [
@@ -1115,7 +1122,11 @@ def test_MantarrayMcSimulator__handles_looping_correctly(mantarray_mc_simulator_
         + (([1] * test_num_iterations[1]) + [2] + ([3, 4, 5] * test_num_iterations[2]))
         * test_num_iterations[0]
         + [6]
-    ) * test_num_runs_through_protocol
+    )
+    if is_loop_top_level:
+        expected_subprotocol_idx_order = [i - 1 for i in expected_subprotocol_idx_order[1:-1]]
+    # run through entire protocol twice
+    expected_subprotocol_idx_order *= test_num_runs_through_protocol
 
     expected_subprotocol_dur_order = [
         get_subprotocol_dur_us(test_subprotocols[i]) for i in expected_subprotocol_idx_order
@@ -1129,8 +1140,10 @@ def test_MantarrayMcSimulator__handles_looping_correctly(mantarray_mc_simulator_
 
     # the first subprotocol status up packet is read inside set_stim_info_and_start_stimulating
     for update_num, subprotocol_idx in enumerate(expected_subprotocol_idx_order[1:], 1):
+        error_msg = f"Update {update_num}, Subprotocol {subprotocol_idx}"
+
         invoke_process_run_and_check_errors(simulator)
-        assert simulator.in_waiting > 0, (update_num, subprotocol_idx)
+        assert simulator.in_waiting > 0, error_msg
 
         stim_status = (
             StimProtocolStatuses.NULL
@@ -1140,7 +1153,9 @@ def test_MantarrayMcSimulator__handles_looping_correctly(mantarray_mc_simulator_
 
         current_time_idx = spied_global_timer.spy_return + sum(expected_subprotocol_dur_order[:update_num])
 
-        if subprotocol_idx == 0:  # protocol restarted
+        if (
+            update_num % (len(expected_subprotocol_idx_order) // test_num_runs_through_protocol) == 0
+        ):  # protocol restarted
             additional_bytes = (
                 bytes([2])  # number of status updates in this packet
                 + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_index]])
@@ -1164,5 +1179,5 @@ def test_MantarrayMcSimulator__handles_looping_correctly(mantarray_mc_simulator_
             stim_status_packet,
             SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
             additional_bytes=additional_bytes,
-            error_msg=f"Update {update_num}, Subprotocol {subprotocol_idx}",
+            error_msg=error_msg,
         )
