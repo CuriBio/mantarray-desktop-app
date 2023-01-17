@@ -99,7 +99,7 @@ from ..utils.serial_comm import create_data_packet
 from ..utils.serial_comm import is_null_subprotocol
 from ..utils.serial_comm import validate_checksum
 from ..utils.stimulation import get_subprotocol_dur_us
-from ..utils.stimulation import StimulationSubrotocolManager
+from ..utils.stimulation import StimulationProtocolManager
 
 
 MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)
@@ -217,11 +217,11 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._sampling_period_us: int
         self._adc_readings: List[Tuple[int, int]]
         self._stim_info: Dict[str, Any]
-        # TODO all the stim info below into StimulationSubrotocolManager
+        # TODO move all the stim info below into StimulationProtocolManager?
         self._stim_running_statuses: Dict[str, bool]
         self._timepoints_of_subprotocols_start: List[Optional[int]]
         self._stim_time_indices: List[int]
-        self._stim_subprotocol_managers: List[StimulationSubrotocolManager]
+        self._stim_subprotocol_managers: List[StimulationProtocolManager]
         self._reset_stim_running_statuses()
         self._firmware_update_type: Optional[int] = None
         self._firmware_update_idx: Optional[int] = None
@@ -269,7 +269,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             start_time_index = self._get_global_timer()
             self._stim_time_indices = [start_time_index] * len(self._stim_info["protocols"])
             self._stim_subprotocol_managers = [
-                StimulationSubrotocolManager(protocol["subprotocols"])
+                StimulationProtocolManager(protocol["subprotocols"])
                 for protocol in self._stim_info["protocols"]
             ]
             for well_name, protocol_idx in self._stim_info["protocol_assignments"].items():

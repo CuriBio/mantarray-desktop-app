@@ -32,7 +32,6 @@ from ..fixtures_file_writer import GENERIC_STIM_PROTOCOL_ASSIGNMENTS
 from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import open_the_generic_h5_file
 from ..fixtures_file_writer import populate_calibration_folder
-from ..helpers import assert_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
@@ -78,7 +77,7 @@ def test_FileWriterProcess__passes_magnetometer_data_packet_through_to_output_qu
     fw_process.start()  # start it after the queue has been populated so that the process will certainly see the object in the queue
     fw_process.soft_stop()
     confirm_parallelism_is_stopped(fw_process, timeout_seconds=15)
-    assert_queue_is_eventually_empty(error_queue)
+    confirm_queue_is_eventually_empty(error_queue)
 
     out_packet = outgoing_data_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     np.testing.assert_array_equal(out_packet["time_indices"], test_data_packet["time_indices"])

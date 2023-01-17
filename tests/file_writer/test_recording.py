@@ -99,8 +99,6 @@ from ..fixtures_file_writer import TEST_USER_NAME
 from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
-from ..helpers import is_queue_eventually_empty
-from ..helpers import is_queue_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from ..parsed_channel_data_packets import SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0
 from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
@@ -767,7 +765,7 @@ def test_FileWriterProcess__stop_recording__sets_stop_recording_timestamp_to_tim
 
     assert stop_timestamps[0] == stop_timepoint
 
-    confirm_queue_is_eventually_of_size(to_main_queue, 2, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS)
+    confirm_queue_is_eventually_of_size(to_main_queue, 2)
     to_main_queue.get(
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # pop off the initial receipt of start command message
@@ -1776,7 +1774,7 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
             ),
         }
         instrument_board_queues[0][0].put_nowait(data_packet)
-    assert is_queue_eventually_of_size(
+    confirm_queue_is_eventually_of_size(
         instrument_board_queues[0][0],
         expected_remaining_packets_recorded + dummy_packets,
         timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
@@ -1789,7 +1787,7 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
     stop_recording_command = dict(GENERIC_STOP_RECORDING_COMMAND)
     stop_recording_command["timepoint_to_stop_recording_at"] = expected_stop_timepoint
     # confirm the queue is empty before adding another command
-    assert is_queue_eventually_empty(comm_from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS)
+    confirm_queue_is_eventually_empty(comm_from_main_queue)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         stop_recording_command, comm_from_main_queue
     )

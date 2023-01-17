@@ -1179,5 +1179,5 @@ def test_MantarrayMcSimulator__handles_looping_correctly(
             stim_status_packet,
             SERIAL_COMM_STIM_STATUS_PACKET_TYPE,
             additional_bytes=additional_bytes,
-            error_msg=error_msg,
+            err_msg=error_msg,
         )

@@ -34,7 +34,6 @@ def get_subprotocol_dur_us(subprotocol: Dict[str, Union[str, int]]) -> int:
     return duration  # type: ignore
 
 
-# TODO have this return a tuple instead
 def chunk_subprotocol(
     original_subprotocol: Dict[str, Any]
 ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
@@ -114,7 +113,7 @@ def chunk_protocols_in_stim_info(
     return chunked_stim_info, subprotocol_idx_mappings, max_subprotocol_idx_counts
 
 
-class StimulationSubrotocolManager:
+class StimulationProtocolManager:
     def __init__(
         self, subprotocols: List[Dict[str, Any]], num_iterations: Optional[int] = None, start_idx: int = 0
     ) -> None:
@@ -128,11 +127,12 @@ class StimulationSubrotocolManager:
         self._subprotocol_idx: int
         self._node_idx: int
         self._num_iterations_remaining: Optional[int]
-        self._loop: Optional[StimulationSubrotocolManager]
+        self._loop: Optional[StimulationProtocolManager]
         self._reset()
 
     def _reset(self) -> None:
         self._reset_idxs(hard_reset=True)
+        # reset the number of iteratioms remaining if a limit was given
         if self._num_iterations:
             self._num_iterations_remaining = self._num_iterations - 1
         else:
@@ -140,10 +140,13 @@ class StimulationSubrotocolManager:
         self._loop = None
 
     def complete(self) -> bool:
+        # if not on the final node or still have more iterations, then not complete
         if self._node_idx < len(self._subprotocols) - 1 or self._num_iterations_remaining:
             return False
+        # if on the final node but a loop is present, need to check if the loop is complete
         if self._loop:
             return self._loop.complete()
+        # if on the final node and no loop is present, then the protocol is complete
         return True
 
     def current(self) -> Dict[str, Any]:
@@ -184,7 +187,7 @@ class StimulationSubrotocolManager:
 
         # if the next subprotocol node is a loop, setup the loop and advance through it
         if subprotocol["type"] == "loop":
-            self._loop = StimulationSubrotocolManager(
+            self._loop = StimulationProtocolManager(
                 subprotocol["subprotocols"], subprotocol["num_iterations"], self.idx()
             )
             return self._loop.advance()

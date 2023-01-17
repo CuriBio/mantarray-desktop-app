@@ -84,7 +84,6 @@ for this_well_idx in range(24):
     }
 GENERIC_ADC_OFFSET_VALUES = immutabledict(GENERIC_ADC_OFFSET_VALUES)
 
-# TODO make this an immutable dict
 GENERIC_STIM_PROTOCOL_ASSIGNMENTS: Dict[str, Optional[str]] = {
     GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): None for well_idx in range(24)
 }

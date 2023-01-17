@@ -405,7 +405,7 @@ def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
         num_subprotocol_nodes, is_voltage_controlled, run_until_stopped = stim_bytes[
             curr_byte_idx : curr_byte_idx + 3
         ]
-        # Tanner (data_type is not used at the moment, so skipping one extra byte):
+        # Tanner (1/17/23): data_type is not used at the moment, so skipping one extra byte
         curr_byte_idx += 3 + 1
 
         subprotocol_nodes = []
