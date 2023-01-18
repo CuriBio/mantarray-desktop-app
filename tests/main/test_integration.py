@@ -996,7 +996,8 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         # Tanner (12/30/20): Confirming the port is available to make sure that the Flask server has shutdown
         confirm_port_available(get_server_port_number(), timeout=10)
 
-        program_exit_wait_time_secs = 30
+        # Tanner (1/18/23): socketio has problems shutting down on windows, so need a large timeout
+        program_exit_wait_time_secs = 150
         for _ in range(program_exit_wait_time_secs):
             try:
                 # Tanner (12/30/20): This is the very last log message before the app is completely shutdown
