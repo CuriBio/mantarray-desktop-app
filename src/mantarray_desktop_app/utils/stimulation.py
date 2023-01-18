@@ -117,7 +117,7 @@ class StimulationProtocolManager:
     def __init__(
         self, subprotocols: List[Dict[str, Any]], num_iterations: Optional[int] = None, start_idx: int = 0
     ) -> None:
-        if num_iterations is not None and num_iterations < 1:
+        if num_iterations is not None and num_iterations < 1:  # pragma: no cover
             raise ValueError("num_iterations must be >= 1")
 
         self._subprotocols = copy.deepcopy(subprotocols)

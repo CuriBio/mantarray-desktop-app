@@ -19,6 +19,7 @@ from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_FIRST_TISSUE_DATA_POINT_UUID
 import pytest
 from stdlib_utils import confirm_parallelism_is_stopped
+from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
@@ -684,6 +685,75 @@ def test_FileWriterProcess__passes_stim_data_packet_through_to_output_queue_corr
     )
     invoke_process_run_and_check_errors(fw_process)
     confirm_queue_is_eventually_empty(data_output_queue)
+
+
+def test_FileWriterProcess__tracks_itermediate_subprotocol_idxs_across_multiple_packets(
+    four_board_file_writer_process,
+):
+    fw_process = four_board_file_writer_process["fw_process"]
+    fw_process.set_beta_2_mode()
+
+    board_idx = 0
+    board_queues = four_board_file_writer_process["board_queues"][board_idx]
+    data_input_queue, data_output_queue = board_queues
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+
+    # set subprotocol_idx_mappings
+    test_protocol_assignments = dict(GENERIC_STIM_PROTOCOL_ASSIGNMENTS)
+    test_stim_info = {
+        "protocols": [
+            {
+                "protocol_id": protocol_id,
+                "stimulation_type": "C",
+                "run_until_stopped": True,
+                # Tanner (11/27/22): actual subprotocols currently not needed for this test to pass
+                "subprotocols": [],
+            }
+            for protocol_id in ("A", "B")
+        ],
+        "protocol_assignments": test_protocol_assignments,
+    }
+    subprotocol_idx_mappings = {protocol_id: {0: 0} for protocol_id in ("A", "B")}
+    max_subprotocol_idx_counts = {"A": [3], "B": [6]}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {
+            "communication_type": "stimulation",
+            "command": "set_protocols",
+            "stim_info": test_stim_info,
+            "subprotocol_idx_mappings": subprotocol_idx_mappings,
+            "max_subprotocol_idx_counts": max_subprotocol_idx_counts,
+        },
+        from_main_queue,
+    )
+    invoke_process_run_and_check_errors(fw_process)
+
+    for test_packet_idx in range(7):
+        test_statuses = {0: np.array([[test_packet_idx], [0]]), 1: np.array([[10 + test_packet_idx], [0]])}
+
+        # send stim packets and make sure they pass through correctly
+        test_input_packet = copy.deepcopy(SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS)
+        test_input_packet["well_statuses"] = test_statuses
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(
+            # copy this packet before sending it into the queue so it can be modified later
+            copy.deepcopy(test_input_packet),
+            data_input_queue,
+        )
+
+        invoke_process_run_and_check_errors(fw_process)
+
+    confirm_queue_is_eventually_of_size(data_output_queue, 3)
+    outgoing_packets = drain_queue(data_output_queue)
+
+    expected_well_statuses = [
+        {0: np.array([[0], [0]]), 1: np.array([[10], [0]])},
+        {0: np.array([[3], [0]])},
+        {0: np.array([[6], [0]]), 1: np.array([[16], [0]])},
+    ]
+    for actual_packet, expected_statuses in zip(outgoing_packets, expected_well_statuses):
+        actual_well_statuses = actual_packet["well_statuses"]
+        assert actual_well_statuses.keys() == expected_statuses.keys()
+        for key in expected_statuses:
+            np.testing.assert_array_equal(actual_well_statuses[key], expected_statuses[key])
 
 
 def test_FileWriterProcess_process_stim_data_packet__writes_correct_subprotocol_indices_using_chunked_to_original_mapping(
