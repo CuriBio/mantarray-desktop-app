@@ -68,11 +68,13 @@ def get_server_port_number() -> int:
     return server_manager.get_port_number()
 
 
-def _set_up_socketio_handlers(ws_queue: LightQueue) -> Callable[[], None]:
+def _set_up_socketio_handlers(
+    to_websocket_queue: LightQueue, from_websocket_queue: queue.Queue[Dict[str, Any]]
+) -> Callable[[], None]:
     def data_sender() -> None:  # pragma: no cover  # Tanner (6/21/21): code coverage can't follow into start_background_task where this function is run
         while True:
             try:
-                item = ws_queue.get(timeout=0.0001)
+                item = to_websocket_queue.get(timeout=0.0001)
             except Empty:
                 continue
 
@@ -91,12 +93,13 @@ def _set_up_socketio_handlers(ws_queue: LightQueue) -> Callable[[], None]:
         if not _socketio_background_task_status["data_sender"]:
             socketio.start_background_task(data_sender)
         _socketio_background_task_status["data_sender"] = True
+        from_websocket_queue.put_nowait({"communication_type": "connection_success"})
 
     @socketio.on("disconnect")
     def stop_data_sender():  # type: ignore
         # only send tombstone if already running
         if _socketio_background_task_status["data_sender"]:
-            ws_queue.put_nowait({"data_type": "tombstone"})
+            to_websocket_queue.put_nowait({"data_type": "tombstone"})
         _socketio_background_task_status["data_sender"] = False
 
     # only returning this for testing purposes
@@ -343,9 +346,14 @@ def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[
             logger.info("Starting Flask SocketIO")
             _, host, _ = get_server_address_components()
 
-            data_queue_to_server = process_manager.queue_container.to_server
+            data_queue_to_websocket = process_manager.queue_container.to_websocket
+            data_queue_from_websocket = process_manager.queue_container.from_websocket
 
-            object_access_for_testing["data_sender"] = _set_up_socketio_handlers(data_queue_to_server)
+            shared_values_dict["websocket_connection_made"] = False
+
+            object_access_for_testing["data_sender"] = _set_up_socketio_handlers(
+                data_queue_to_websocket, data_queue_from_websocket
+            )
 
             # Tanner (5/20/22): This is currently having issues with exiting on Windows.
             # It likely has something to do with keeping the HTTP connections alive and/or the sockets open.

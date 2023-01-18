@@ -251,6 +251,10 @@ def test_main_can_launch_server_and_processes__and_initial_boot_up_of_ok_comm_pr
     mocked_main_info_logger = mocker.patch.object(main.logger, "info", autospec=True)
 
     app_info = fully_running_app_from_main_entrypoint()
+
+    # need to set this manually since there is no websocket client in this test
+    app_info["object_access_inside_main"]["values_to_share_to_server"]["websocket_connection_made"] = True
+
     wait_for_subprocesses_to_start()
     test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
@@ -480,8 +484,13 @@ def test_main__full_launch_script_runs_as_expected(fully_running_app_from_main_e
     assert next_call_args is None, f"Message: '{next_call_args}' not found"
 
     # assert socketio was set up correctly
-    ws_queue = app_info["object_access_inside_main"]["process_manager"].queue_container.to_server
-    mocked_set_up.assert_called_once_with(ws_queue)
+    data_queue_to_websocket = app_info["object_access_inside_main"][
+        "process_manager"
+    ].queue_container.to_websocket
+    data_queue_from_websocket = app_info["object_access_inside_main"][
+        "process_manager"
+    ].queue_container.from_websocket
+    mocked_set_up.assert_called_once_with(data_queue_to_websocket, data_queue_from_websocket)
     # assert Flask was started correctly
     _, host, port = get_server_address_components()
     mocked_socketio_run = app_info["mocked_socketio_run"]

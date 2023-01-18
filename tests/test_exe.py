@@ -5,11 +5,13 @@ import subprocess
 
 from mantarray_desktop_app import CALIBRATION_NEEDED_STATE
 from mantarray_desktop_app import get_api_endpoint
+from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import system_state_eventually_equals
 from mantarray_desktop_app import wait_for_subprocesses_to_start
 from mantarray_desktop_app.constants import DEFAULT_SERVER_PORT_NUMBER
 import pytest
 import requests
+import socketio
 from stdlib_utils import confirm_port_available
 from stdlib_utils import confirm_port_in_use
 from stdlib_utils import is_system_windows
@@ -39,11 +41,17 @@ def test_exe__can_launch_server_and_shutdown():
     with subprocess.Popen(subprocess_args) as sub_process:
         _print_with_timestamp("confirm port is in use")
         confirm_port_in_use(DEFAULT_SERVER_PORT_NUMBER, timeout=30)
+        assert system_state_eventually_equals(SERVER_INITIALIZING_STATE, 30)
+        _print_with_timestamp("creating websocket client connection")
+        sio = socketio.Client()
+        sio.connect("http://localhost:4567")
         _print_with_timestamp("waiting for subprocesses to start")
         wait_for_subprocesses_to_start()
         _print_with_timestamp("waiting for calibration_needed state")
         assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 30)
 
+        _print_with_timestamp("websocket client disconnecting")
+        sio.disconnect()
         _print_with_timestamp("shutting down")
         response = requests.get(f"{get_api_endpoint()}shutdown")
         assert response.status_code == 200

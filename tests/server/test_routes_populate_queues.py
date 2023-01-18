@@ -733,7 +733,7 @@ def test_start_recording_command__populates_queue__with_correct_adc_offset_value
     response = test_client.get(f"/start_recording?plate_barcode={barcode}")
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container.from_server
+    comm_queue = test_process_manager.queue_container.from_flask
     confirm_queue_is_eventually_of_size(comm_queue, 1)
 
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -756,7 +756,7 @@ def test_start_recording_command__populates_queue__with_given_time_index_paramet
     )
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container.from_server
+    comm_queue = test_process_manager.queue_container.from_flask
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -783,7 +783,7 @@ def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_
     )
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container.from_server
+    comm_queue = test_process_manager.queue_container.from_flask
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -806,7 +806,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_correct_wel
     )
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container.from_server
+    comm_queue = test_process_manager.queue_container.from_flask
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -866,7 +866,7 @@ def test_start_recording_command__correctly_sets_plate_barcode_from_scanner_valu
     )
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container.from_server
+    comm_queue = test_process_manager.queue_container.from_flask
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -932,7 +932,7 @@ def test_start_recording_command__correctly_sets_stim_barcode_from_scanner_value
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container.from_server
+    comm_queue = test_process_manager.queue_container.from_flask
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -974,7 +974,7 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
     )
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container.from_server
+    comm_queue = test_process_manager.queue_container.from_flask
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -1102,7 +1102,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     )
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container.from_server
+    comm_queue = test_process_manager.queue_container.from_flask
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -1247,7 +1247,7 @@ def test_start_recording_command__beta_2_mode__populates_queue_with_stim_barcode
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container.from_server
+    comm_queue = test_process_manager.queue_container.from_flask
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -1272,7 +1272,7 @@ def test_start_recording_command__populates_queue_with_recording_file_name_corre
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container.from_server
+    comm_queue = test_process_manager.queue_container.from_flask
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"

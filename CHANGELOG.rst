@@ -1,6 +1,14 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+1.0.8 (unreleased)
+------------------
+
+Fixed:
+^^^^^^
+- Issue where firmware update(s) are found but no prompt to continue or cancel is given.
+
+
 1.0.7 (unreleased)
 -------------------
 
