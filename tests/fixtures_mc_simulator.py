@@ -260,7 +260,7 @@ def get_random_stim_loop():
 
 def create_random_stim_info():
     protocol_ids = (None, "A", "B", "C", "D")
-    return {
+    stim_info = {
         "protocols": [
             {
                 "protocol_id": pid,
@@ -278,6 +278,15 @@ def create_random_stim_info():
             for well_idx in range(24)
         },
     }
+
+    if all(protocol_id is None for protocol_id in stim_info["protocol_assignments"].values()):
+        # make sure at least one well has a protocol assigned
+        stim_info["protocol_assignments"]["A1"] = "A"
+    elif all(protocol_id is not None for protocol_id in stim_info["protocol_assignments"].values()):
+        # make sure at least one well does not have a protocol assigned
+        stim_info["protocol_assignments"]["A1"] = None
+
+    return stim_info
 
 
 def set_stim_info_and_start_stimulating(simulator_fixture, stim_info):
