@@ -162,8 +162,8 @@ from mantarray_desktop_app.constants import ALL_VALID_BARCODE_HEADERS
 from mantarray_desktop_app.constants import BARCODE_HEADERS
 from mantarray_desktop_app.constants import BARCODE_LEN
 from mantarray_desktop_app.constants import MICRO_TO_BASE_CONVERSION
-from mantarray_desktop_app.constants import MM_PER_MT_Z_AXIS_SENSOR_0
 from mantarray_desktop_app.constants import PERFOMANCE_LOGGING_PERIOD_SECS
+from mantarray_desktop_app.constants import POST_STIFFNESS_TO_MM_PER_MT_Z_AXIS_SENSOR_0
 from mantarray_desktop_app.constants import RECORDING_SNAPSHOT_DUR_SECS
 from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH
@@ -586,7 +586,7 @@ def test_calibration_constants():
 
 
 def test_live_view_conversion():
-    assert MM_PER_MT_Z_AXIS_SENSOR_0 == 8
+    assert POST_STIFFNESS_TO_MM_PER_MT_Z_AXIS_SENSOR_0 == {1: 8, 3: 8, 6: 8, 9: 8, 12: 6.896551}
 
 
 def test_recording_snapshot():
