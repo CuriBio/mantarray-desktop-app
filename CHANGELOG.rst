@@ -7,10 +7,11 @@ Changelog for Mantarray Desktop App
 Fixed:
 ^^^^^^
 - Issue where firmware update(s) are found but no prompt to continue or cancel is given.
+- Force amplitude in Live View for SkM plates.
 
 
-1.0.7 (unreleased)
--------------------
+1.0.7 (2022-01-23)
+------------------
 
 Added:
 ^^^^^^
