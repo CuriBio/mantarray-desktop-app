@@ -43,7 +43,7 @@ jobs:
         run: |
           git branch -av
           echo "SHA_OF_MAIN_BRANCH=$(echo $(git branch -av | grep remotes/origin/main | grep -oP 'main\s+\K\w+'))" >> $env:GITHUB_ENV
-          echo "SHA_OF_CURRENT_BRANCH=$(echo $(git branch -av | grep '*' | grep -oP ' \s+\K\w+')" >> $env:GITHUB_ENV
+          echo "SHA_OF_CURRENT_BRANCH=$(echo $(git branch -av | grep '*' | grep -oP ' \s+\K\w+'))" >> $env:GITHUB_ENV
 
       - name: Display extracted branch information
         run: |
