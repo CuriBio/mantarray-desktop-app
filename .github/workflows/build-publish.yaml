@@ -42,8 +42,8 @@ jobs:
       - name: Extract branch name # Adapted from: https://stackoverflow.com/questions/58033366/how-to-get-current-branch-within-github-actions
         run: |
           git branch -av
-          echo "SHA_OF_MAIN_BRANCH=$(echo $(git branch -av | grep remotes/origin/main | grep -oP 'main\s+\K\w+'))" >> $env:GITHUB_ENV
-          echo "SHA_OF_CURRENT_BRANCH=$(echo $(git branch -av | grep '*' | grep -oP ' \s+\K\w+')" >> $env:GITHUB_ENV
+          echo "SHA_OF_MAIN_BRANCH=$(echo $(git branch -av | grep remotes/origin/main | grep -oP 'main\s+\K\w+'))" >> $GITHUB_ENV
+          echo "SHA_OF_CURRENT_BRANCH=$(echo $(git branch -av | grep '*' | grep -oP ' \s+\K\w+'))" >> $GITHUB_ENV
 
       - name: Display extracted branch information
         run: |
