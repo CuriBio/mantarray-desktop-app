@@ -4,10 +4,15 @@ Changelog for Mantarray Desktop App
 1.0.8 (unreleased)
 ------------------
 
+Changed:
+^^^^^^^^
+- Stim protocol colors are no longer random, will now be selected from a predetermined list of colors
+
 Fixed:
 ^^^^^^
 - Issue where firmware update(s) are found but no prompt to continue or cancel is given.
 - Force amplitude in Live View for SkM plates.
+- Heatmap now correctly averages the last 5 datapoints per well.
 
 
 1.0.7 (2022-01-23)
