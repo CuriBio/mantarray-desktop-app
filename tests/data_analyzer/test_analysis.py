@@ -14,11 +14,13 @@ from mantarray_desktop_app.sub_processes import data_analyzer
 from mantarray_desktop_app.sub_processes.data_analyzer import check_for_new_twitches
 from mantarray_desktop_app.sub_processes.data_analyzer import get_force_signal
 from mantarray_desktop_app.sub_processes.data_analyzer import live_data_metrics
+from mantarray_desktop_app.sub_processes.data_analyzer import METRIC_CALCULATORS
 import numpy as np
 from pulse3D.constants import AMPLITUDE_UUID
 from pulse3D.constants import BUTTERWORTH_LOWPASS_30_UUID
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import TWITCH_FREQUENCY_UUID
+from pulse3D.exceptions import PeakDetectionError
 from pulse3D.peak_detection import peak_detector
 from pulse3D.transforms import create_filter
 import pytest
@@ -114,7 +116,7 @@ def test_get_force_signal__returns_converts_to_force_correctly(is_beta_2_data, c
     )
 
 
-def test_live_data_metrics__returns_desired_metrics(mantarray_mc_simulator, mocker):
+def test_live_data_metrics__returns_desired_metrics(mantarray_mc_simulator):
     test_y_data = (
         mantarray_mc_simulator["simulator"]
         .get_interpolated_data(ROUND_ROBIN_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND)
@@ -137,6 +139,36 @@ def test_live_data_metrics__returns_desired_metrics(mantarray_mc_simulator, mock
         assert sorted(twitch_dict.keys()) == sorted(
             [TWITCH_FREQUENCY_UUID, AMPLITUDE_UUID]
         ), twitch_time_index
+
+
+def test_live_data_metrics__raises_error_if_no_twitch_indices(mocker):
+    mocker.patch.object(data_analyzer, "find_twitch_indices", autospec=True, return_value=dict())
+
+    with pytest.raises(PeakDetectionError):
+        # currently does not need real values passed in to raise this error
+        live_data_metrics(tuple(), np.empty((0, 0)))
+
+
+def test_live_data_metrics__raises_error_if_all_metric_calculations_fail(mantarray_mc_simulator, mocker):
+    for metric_calculator in METRIC_CALCULATORS.values():
+        mocker.patch.object(metric_calculator, "fit", autospec=True, side_effect=Exception())
+
+    test_y_data = (
+        mantarray_mc_simulator["simulator"]
+        .get_interpolated_data(ROUND_ROBIN_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND)
+        .tolist()
+        * MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
+    )
+    test_x_data = (
+        np.arange(0, ROUND_ROBIN_PERIOD * len(test_y_data), ROUND_ROBIN_PERIOD)
+        * MICROSECONDS_PER_CENTIMILLISECOND
+    )
+    test_data_arr = np.array([test_x_data, test_y_data], dtype=np.int32)
+
+    peak_detection_results = peak_detector(test_data_arr)
+
+    with pytest.raises(PeakDetectionError):
+        live_data_metrics(peak_detection_results, test_data_arr)
 
 
 def test_append_data__beta_1__correctly_appends_x_and_y_data_from_numpy_array_to_list(
@@ -331,6 +363,53 @@ def test_check_for_new_twitches__returns_latest_twitch_index_and_populated_metri
 
     assert updated_time_index == 10
     assert actual_dict == {(latest_time_index + 1): None, 10: None}
+
+
+def test_DataAnalyzerProcess__handles_problematic_data(
+    four_board_analyzer_process_beta_2_mode, mantarray_mc_simulator, mocker
+):
+    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
+    da_process.init_streams()
+
+    # mock so waveform data doesn't populate outgoing data queue
+    mocker.patch.object(da_process, "_dump_data_into_queue", autospec=True)
+    mocker.patch.object(da_process, "_create_outgoing_beta_2_data", autospec=True)
+    mocker.patch.object(da_process, "_handle_performance_logging", autospec=True)
+
+    expected_sampling_period_us = 11000
+    set_sampling_period(four_board_analyzer_process_beta_2_mode, expected_sampling_period_us)
+
+    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
+    board_queues = four_board_analyzer_process_beta_2_mode["board_queues"]
+    from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
+    # make sure data analyzer knows that managed acquisition is running
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        TEST_START_MANAGED_ACQUISITION_COMMUNICATION, from_main_queue
+    )
+
+    test_twitch = mantarray_mc_simulator["simulator"].get_interpolated_data(expected_sampling_period_us)
+
+    # twitch waveform to send for wells 0-10
+    test_y_data = test_twitch.tolist() * 2 + np.zeros(len(test_twitch)).tolist() * (
+        MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS - 2
+    )
+    test_x_data = np.arange(
+        0, expected_sampling_period_us * len(test_y_data), expected_sampling_period_us, dtype=np.uint64
+    )
+    # flat line to send for wells 11-23
+    dummy_y_data = np.zeros(len(test_y_data))
+
+    # send less data than required for analysis first
+    test_packet_1 = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
+    test_packet_1["time_indices"] = test_x_data
+    for well_idx in range(24):
+        # Tanner (7/14/21): time offsets are currently unused in data analyzer so not modifying them here
+        first_channel = list(test_packet_1[well_idx].keys())[1]
+        y_data = test_y_data if well_idx <= 10 else dummy_y_data
+        test_packet_1[well_idx][first_channel] = np.array(y_data, dtype=np.uint16)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_packet_1, board_queues[0][0])
+    invoke_process_run_and_check_errors(da_process)
+    confirm_queue_is_eventually_empty(board_queues[0][1])
 
 
 def test_DataAnalyzerProcess__sends_beta_1_metrics_of_all_wells_to_main_when_ready(
