@@ -1,8 +1,16 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.0.7 (unreleased)
--------------------
+1.0.8 (2022-01-24)
+------------------
+
+Fixed:
+^^^^^^
+- Issue with creation of twitch metrics for prolonged/erratic twitches causing Live View to crash.
+
+
+1.0.7 (2022-01-23)
+------------------
 
 Added:
 ^^^^^^
