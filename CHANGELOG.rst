@@ -1,12 +1,16 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.0.9 (unreleased)
-------------------
+1.0.10 (unreleased)
+-------------------
+
+Added:
+^^^^^^
+- PlateMap editor TODO
+
 
 Changed:
 ^^^^^^^^
-- Stim protocol colors are no longer random, will now be selected from a predetermined list of colors
 - Beta 2 H5 file format version is now 1.2.1. Format Changes:
 
   - Removed the following values:
@@ -17,11 +21,26 @@ Changed:
     - TRIMMED_TIME_FROM_ORIGINAL_END_UUID
 
 
+1.0.9 (unreleased)
+------------------
+
+Changed:
+^^^^^^^^
+- Stim protocol colors are no longer random, will now be selected from a predetermined list of colors
+
 Fixed:
 ^^^^^^
 - Issue where firmware update(s) are found but no prompt to continue or cancel is given.
 - Force amplitude in Live View for SkM plates.
 - Heatmap now correctly averages the last 5 datapoints per well.
+
+
+1.0.8 (2022-01-24)
+------------------
+
+Fixed:
+^^^^^^
+- Issue with creation of twitch metrics for prolonged/erratic twitches causing Live View to crash.
 
 
 1.0.7 (2022-01-23)

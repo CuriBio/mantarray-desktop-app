@@ -154,21 +154,28 @@ def live_data_metrics(
 
     # get values needed for metrics creation
     twitch_indices = find_twitch_indices(peak_and_valley_indices)
-    num_twitches = len(twitch_indices)
+    if not twitch_indices:
+        raise PeakDetectionError()
+
     time_series = filtered_data[0, :]
 
     # create top level dict
-    twitch_peak_indices = tuple(twitch_indices.keys())
-    main_twitch_dict = {time_series[twitch_peak_indices[i]]: dict() for i in range(num_twitches)}
+    main_twitch_dict = {time_series[idx]: dict() for idx in twitch_indices}
 
     # create metrics
     for metric_uuid in (TWITCH_FREQUENCY_UUID, AMPLITUDE_UUID):
-        metric_df = METRIC_CALCULATORS[metric_uuid].fit(
-            peak_and_valley_indices, filtered_data, twitch_indices
-        )
+        try:
+            metric_df = METRIC_CALCULATORS[metric_uuid].fit(
+                peak_and_valley_indices, filtered_data, twitch_indices
+            )
+        except Exception:  # nosec B112
+            continue
         for twitch_idx, metric_value in metric_df.to_dict().items():
             time_index = time_series[twitch_idx]
             main_twitch_dict[time_index][metric_uuid] = metric_value
+
+    if not any(main_twitch_dict.values()):
+        raise PeakDetectionError()
 
     return main_twitch_dict
 
@@ -734,6 +741,9 @@ class DataAnalyzerProcess(InfiniteProcess):
             for twitch_metric_dict in per_twitch_dict.values():
                 for metric_id, metric_val in twitch_metric_dict.items():
                     outgoing_metrics[well_idx][str(metric_id)].append(metric_val)
+
+        if not outgoing_metrics:
+            return
 
         outgoing_metrics_json = json.dumps(outgoing_metrics)
         outgoing_msg = {"data_type": "twitch_metrics", "data_json": outgoing_metrics_json}
