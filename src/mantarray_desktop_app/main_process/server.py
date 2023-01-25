@@ -40,6 +40,7 @@ from typing import Dict
 from typing import Optional
 from typing import Tuple
 from typing import Union
+import urllib.parse
 from uuid import UUID
 
 from flask import Flask
@@ -675,13 +676,19 @@ def start_recording() -> Response:
 
     time_index_str = request.args.get("time_index", None)
 
+    # TODO unit test
+    if platemap := request.args.get("platemap"):
+        platemap_info = json.loads(urllib.parse.unquote_plus(platemap))
+    else:
+        platemap_info = None
+
     comm_dict = _create_start_recording_command(
         shared_values_dict,
         recording_name=request.args.get("recording_name"),
         time_index=time_index_str,
         active_well_indices=active_well_indices,
         barcodes=barcodes,
-        platemap_info=request.args.get("platemap"),  # TODO unit test
+        platemap_info=platemap_info,
         is_hardware_test_recording=is_hardware_test_recording,
     )
 

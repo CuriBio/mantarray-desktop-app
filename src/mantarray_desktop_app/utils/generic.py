@@ -297,10 +297,10 @@ def _create_start_recording_command(
         "labels": [str(NOT_APPLICABLE_H5_METADATA)] * 24,
     }
     if platemap_info:
-        formatted_platemap_info["name"] = platemap_info["name"]
-        for label_name, wells_with_label in platemap_info["labels"].items():
-            for well_idx in wells_with_label:
-                platemap_info["labels"][well_idx] = label_name
+        formatted_platemap_info["name"] = platemap_info["map_name"]
+        for label_info in platemap_info["labels"]:
+            for well_idx in label_info["wells"]:
+                formatted_platemap_info["labels"][well_idx] = label_info["name"]  # type: ignore
 
     comm_dict: Dict[str, Any] = {
         "communication_type": "recording",

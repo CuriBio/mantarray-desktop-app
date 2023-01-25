@@ -443,7 +443,7 @@ STIM_WELL_IDX_TO_MODULE_ID: immutabledict[int, int] = immutabledict(
 
 
 # Calibration
-CALIBRATION_RECORDING_DUR_SECONDS = 30
+CALIBRATION_RECORDING_DUR_SECONDS = 5
 
 # Live View Conversion (last updated 1/19/23)
 POST_STIFFNESS_TO_MM_PER_MT_Z_AXIS_SENSOR_0 = immutabledict(
