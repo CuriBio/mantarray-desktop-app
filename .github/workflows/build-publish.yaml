@@ -40,28 +40,26 @@ jobs:
         run: if [$(git ls-remote --tags origin | grep ${{ steps.extract_version.outputs.package-version }}) = '']; then echo Tag does not exist on remote; else echo Tag already exists on remote && exit 1; fi
 
       - name: Extract branch name # Adapted from: https://stackoverflow.com/questions/58033366/how-to-get-current-branch-within-github-actions
-        shell: bash
         run: |
           git branch -av
-          echo '##[set-output name=sha-of-main-branch;]$(echo $(git branch -av | grep remotes/origin/main | grep -oP "main\s+\K\w+"))'
-          echo '##[set-output name=sha-of-current-branch;]$(echo $(git branch -av | grep "*" | grep -oP " \s+\K\w+"))'
-        id: extract_branch
+          echo "SHA_OF_MAIN_BRANCH=$(echo $(git branch -av | grep remotes/origin/main | grep -oP 'main\s+\K\w+'))" >> $GITHUB_ENV
+          echo "SHA_OF_CURRENT_BRANCH=$(echo $(git branch -av | grep '*' | grep -oP ' \s+\K\w+'))" >> $GITHUB_ENV
 
       - name: Display extracted branch information
         run: |
-          echo "SHA of current branch: ${{ steps.extract_branch.outputs.sha-of-current-branch }}"
-          echo "SHA of main branch: ${{ steps.extract_branch.outputs.sha-of-main-branch }}"
+          echo "SHA of current branch: ${{ env.SHA_OF_CURRENT_BRANCH }}"
+          echo "SHA of main branch: ${{ env.SHA_OF_MAIN_BRANCH }}"
 
-      # - name: Fail if attempting to publish to prod release channel incorrectly
-      #   if: github.event.inputs.release_channel == 'prod'
-      #   run: |
-      #     if [ "${{github.event.inputs.api_endpoint}}" = "prod" ] ; then echo "Using prod API endpoint, can proceed to publish"; else exit 1; fi
-      #     if [ "${{ steps.extract_branch.outputs.sha-of-current-branch}}" = "${{ steps.extract_branch.outputs.sha-of-main-branch}}" ] ; then echo "Running on main branch, can proceed to publish"; else exit 1; fi
+      - name: Fail if attempting to publish to prod release channel incorrectly
+        if: github.event.inputs.release_channel == 'prod'
+        run: |
+          if [ "${{github.event.inputs.api_endpoint}}" = "prod" ] ; then echo "Using prod API endpoint, can proceed to publish"; else exit 1; fi
+          if [ "${{ env.SHA_OF_CURRENT_BRANCH }}" = "${{ env.SHA_OF_MAIN_BRANCH }}" ] ; then echo "Running on main branch, can proceed to publish"; else exit 1; fi
 
       - name: Fail if attempting to publish to unstable release channel incorrectly
         if: github.event.inputs.release_channel == 'unstable'
         run: |
-          if [ "${{github.event.inputs.api_endpoint}}" = "test" ] ; then echo "Using prod API endpoint, can proceed to publish"; else exit 1; fi
+          if [ "${{github.event.inputs.api_endpoint}}" = "test" ] ; then echo "Using test API endpoint, can proceed to publish"; else exit 1; fi
 
   publish:
     needs: [check_inputs]
@@ -96,7 +94,7 @@ jobs:
       - name: Convert Workflow Inputs to Env Vars
         run: |
           echo "RELEASE_CHANNEL=$(echo ${{github.event.inputs.release_channel || 'unstable'}})" >> $env:GITHUB_ENV
-          echo "API_ENDPOINT=$(echo ${{github.event.inputs.api_endpoint || 'prod'}})" >> $env:GITHUB_ENV
+          echo "API_ENDPOINT=$(echo ${{github.event.inputs.api_endpoint || 'test'}})" >> $env:GITHUB_ENV
 
       - name: Add prerelease SemVer component (if unstable)
         if: env.RELEASE_CHANNEL == 'unstable'

@@ -1283,5 +1283,5 @@ class ServerManager:
         queue_items = dict()
 
         queue_items["to_main"] = drain_queue(self._to_main_queue)
-        queue_items["outgoing_data"] = drain_queue(self.queue_container.to_server)
+        queue_items["outgoing_data"] = drain_queue(self.queue_container.to_websocket)
         return queue_items

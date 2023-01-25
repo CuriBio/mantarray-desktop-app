@@ -281,7 +281,7 @@ def test_MantarrayProcessesMonitor__handled_completed_mag_analysis_command_corre
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
 
-    queue_to_server_ws = test_process_manager.queue_container.to_server
+    queue_to_server_ws = test_process_manager.queue_container.to_websocket
     data_analyzer_to_main = test_process_manager.queue_container.from_data_analyzer
 
     expected_data_json = json.dumps(list(range(100)))
@@ -306,7 +306,7 @@ def test_MantarrayProcessesMonitor__handled_completed_mag_analysis_command_corre
     assert str(expected_comm) in mocked_logger.call_args[0][0]
 
 
-def test_MantarrayProcessesMonitor__pulls_outgoing_data_from_data_analyzer_and_makes_it_available_to_server(
+def test_MantarrayProcessesMonitor__pulls_outgoing_data_from_data_analyzer_and_makes_it_available_to_websocket(
     test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -314,7 +314,7 @@ def test_MantarrayProcessesMonitor__pulls_outgoing_data_from_data_analyzer_and_m
     shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
 
     da_data_out_queue = test_process_manager.queue_container.data_analyzer_boards[0][1]
-    pm_data_out_queue = test_process_manager.queue_container.to_server
+    pm_data_out_queue = test_process_manager.queue_container.to_websocket
 
     # add dummy data here. In this test, the item is never actually looked at, so it can be any string value
     expected_json_data = json.dumps({"well": 0, "data": [1, 2, 3, 4, 5]})
@@ -327,14 +327,14 @@ def test_MantarrayProcessesMonitor__pulls_outgoing_data_from_data_analyzer_and_m
     assert actual == expected_json_data
 
 
-def test_MantarrayProcessesMonitor__passes_update_upload_status_data_to_server(
+def test_MantarrayProcessesMonitor__passes_update_upload_status_data_to_websocket(
     test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
     fw_data_out_queue = test_process_manager.queue_container.from_file_writer
-    pm_data_out_queue = test_process_manager.queue_container.to_server
+    pm_data_out_queue = test_process_manager.queue_container.to_websocket
 
     expected_content = {"key": "value"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -372,7 +372,7 @@ def test_MantarrayProcessesMonitor__handles_instrument_related_errors_from_instr
     monitor_thread, *_ = test_monitor(test_process_manager)
     ic_process = test_process_manager.instrument_comm_process
     ic_error_queue = test_process_manager.queue_container.instrument_comm_error
-    queue_to_server_ws = test_process_manager.queue_container.to_server
+    queue_to_websocket = test_process_manager.queue_container.to_websocket
 
     mocker.patch.object(test_process_manager, "hard_stop_and_join_processes", autospec=True)
 
@@ -383,9 +383,9 @@ def test_MantarrayProcessesMonitor__handles_instrument_related_errors_from_instr
     confirm_queue_is_eventually_of_size(ic_error_queue, 1)
 
     invoke_process_run_and_check_errors(monitor_thread)
-    confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
+    confirm_queue_is_eventually_of_size(queue_to_websocket, 1)
 
-    ws_msg = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    ws_msg = queue_to_websocket.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert ws_msg == {
         "data_type": "error",
         "data_json": json.dumps({"error_type": expected_error_sent.__name__}),
@@ -399,7 +399,7 @@ def test_MantarrayProcessesMonitor__handles_software_firwmare_incompatibility_er
     monitor_thread, *_ = test_monitor(test_process_manager)
     ic_process = test_process_manager.instrument_comm_process
     ic_error_queue = test_process_manager.queue_container.instrument_comm_error
-    queue_to_server_ws = test_process_manager.queue_container.to_server
+    queue_to_server_ws = test_process_manager.queue_container.to_websocket
 
     mocker.patch.object(test_process_manager, "hard_stop_and_join_processes", autospec=True)
 
@@ -554,7 +554,7 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_file_writer_item, to_file_writer)
     to_data_analyzer = test_process_manager.queue_container.to_data_analyzer
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_da_item, to_data_analyzer)
-    server_to_main = test_process_manager.queue_container.from_server
+    server_to_main = test_process_manager.queue_container.from_flask
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_server_item, server_to_main)
 
     invoke_process_run_and_check_errors(monitor_thread)
@@ -627,7 +627,7 @@ def test_MantarrayProcessesMonitor__correctly_sets_system_status_to_live_view_ac
     assert shared_values_dict["system_status"] == RECORDING_STATE
 
 
-def test_MantarrayProcessesMonitor__sets_system_status_to_server_ready_after_subprocesses_finish_start_up(
+def test_MantarrayProcessesMonitor__sets_system_status_to_server_ready_after_subprocesses_finish_start_up__and_websocket_connection_is_made(
     test_monitor, test_process_manager_creator, mocker
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -641,12 +641,16 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_server_ready_after_sub
     mocked_fw_started = mocker.patch.object(fw_process, "is_start_up_complete", side_effect=[True, True])
     mocked_da_started = mocker.patch.object(da_process, "is_start_up_complete", side_effect=[False, True])
 
+    # Websocket connection fail
+    shared_values_dict["websocket_connection_made"] = False
     invoke_process_run_and_check_errors(monitor_thread)
     assert mocked_okc_started.call_count == 1
     assert mocked_fw_started.call_count == 1
     assert mocked_da_started.call_count == 1
     assert shared_values_dict["system_status"] == SERVER_INITIALIZING_STATE
 
+    # Websocket connection success
+    shared_values_dict["websocket_connection_made"] = True
     invoke_process_run_and_check_errors(monitor_thread)
     assert mocked_okc_started.call_count == 2
     assert mocked_fw_started.call_count == 2
@@ -939,7 +943,7 @@ def test_MantarrayProcessesMonitor__enables_sw_auto_install_when_reaching_CALIBR
 
     board_idx = 0
     from_ic_queue = test_process_manager.queue_container.from_instrument_comm(board_idx)
-    queue_to_server_ws = test_process_manager.queue_container.to_server
+    queue_to_server_ws = test_process_manager.queue_container.to_websocket
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"communication_type": "xem_scripts", "status_update": CALIBRATION_NEEDED_STATE}, from_ic_queue
@@ -1030,7 +1034,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
     board_idx = 0
     from_ic_queue = test_process_manager.queue_container.from_instrument_comm(board_idx)
     to_ic_queue = test_process_manager.queue_container.to_instrument_comm(board_idx)
-    queue_to_server_ws = test_process_manager.queue_container.to_server
+    queue_to_server_ws = test_process_manager.queue_container.to_websocket
 
     expected_state = expected_state_from_sw or expected_state_from_fw
 
@@ -1184,7 +1188,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
         assert "user_creds" not in shared_values_dict
         # make sure user input prompt message is sent only once
         invoke_process_run_and_check_errors(monitor_thread, num_iterations=2)
-        queue_to_server_ws = test_process_manager.queue_container.to_server
+        queue_to_server_ws = test_process_manager.queue_container.to_websocket
         confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
         assert queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == {
             "data_type": "prompt_user_input",
@@ -1285,7 +1289,7 @@ def test_MantarrayProcessesMonitor__handles_firmware_update_completed_commands_c
 
     board_idx = 0
     from_ic_queue = test_process_manager.queue_container.from_instrument_comm(board_idx)
-    queue_to_server_ws = test_process_manager.queue_container.to_server
+    queue_to_server_ws = test_process_manager.queue_container.to_websocket
 
     command_responses = [
         {
@@ -1591,7 +1595,7 @@ def test_MantarrayProcessesMonitor__stores_barcode_sent_from_instrument_comm__an
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     expected_board_idx = 0
     from_instrument_comm_queue = test_process_manager.queue_container.from_instrument_comm(expected_board_idx)
-    queue_to_server_ws = test_process_manager.queue_container.to_server
+    queue_to_server_ws = test_process_manager.queue_container.to_websocket
 
     barcode_comm = {
         "communication_type": "barcode_comm",
@@ -1663,7 +1667,7 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_instrument_
     }
 
     from_instrument_comm_queue = test_process_manager.queue_container.from_instrument_comm(expected_board_idx)
-    queue_to_server_ws = test_process_manager.queue_container.to_server
+    queue_to_server_ws = test_process_manager.queue_container.to_websocket
 
     barcode_comm = {
         "communication_type": "barcode_comm",
@@ -1725,7 +1729,7 @@ def test_MantarrayProcessesMonitor__does_not_update_any_values_or_send_barcode_u
     shared_values_dict["barcodes"] = {expected_board_idx: expected_dict}
 
     from_instrument_comm_queue = test_process_manager.queue_container.from_instrument_comm(expected_board_idx)
-    queue_to_server_ws = test_process_manager.queue_container.to_server
+    queue_to_server_ws = test_process_manager.queue_container.to_websocket
 
     barcode_comm = {
         "communication_type": "barcode_comm",
@@ -1944,7 +1948,7 @@ def test_MantarrayProcessesMonitor__passes_stim_status_check_results_from_mc_com
     spied_info = mocker.spy(process_monitor.logger, "info")
 
     instrument_comm_to_main = test_process_manager.queue_container.from_instrument_comm(0)
-    queue_to_server_ws = test_process_manager.queue_container.to_server
+    queue_to_server_ws = test_process_manager.queue_container.to_websocket
 
     test_wells = range(randint(0, 3), randint(20, 24))
     possible_stim_statuses = [member.name.lower() for member in StimulatorCircuitStatuses]
@@ -1990,7 +1994,7 @@ def test_MantarrayProcessesMonitor__passes_corrupt_file_message_from_file_writer
     monitor_thread, *_ = test_monitor(test_process_manager)
 
     file_writer_to_main = test_process_manager.queue_container.from_file_writer
-    queue_to_server_ws = test_process_manager.queue_container.to_server
+    queue_to_server_ws = test_process_manager.queue_container.to_websocket
 
     test_corrupt_files = ["test_file_A1", "test_file_C4"]
 

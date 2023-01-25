@@ -339,7 +339,7 @@ def test_MantarrayProcessesManager__hard_stop_and_join_processes__hard_stops_pro
     data_analyzer_to_main = container.from_data_analyzer
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_da_item, data_analyzer_to_main)
 
-    server_to_main = container.from_server
+    server_to_main = container.from_flask
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_server_item, server_to_main)
 
     actual = generic_manager.hard_stop_and_join_processes(shutdown_server=shutdown_server)
@@ -609,7 +609,7 @@ def test_MantarrayProcessesManager__creates_mc_comm_instead_of_ok_comm_when_beta
     assert isinstance(mc_comm_process, McCommunicationProcess) is True
 
 
-def test_MantarrayProcessesManager_shutdown_server__shutsdown_server_and_returns_remaining_items_in_queue_to_server(
+def test_MantarrayProcessesManager_shutdown_server__shutsdown_server_and_returns_remaining_items_in_queue_to_websocket(
     generic_manager, mocker
 ):
     generic_manager.create_processes()

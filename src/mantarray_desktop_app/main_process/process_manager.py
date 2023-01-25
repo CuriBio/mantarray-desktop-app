@@ -68,7 +68,7 @@ class MantarrayProcessesManager:
         beta_2_mode = self.values_to_share_to_server["beta_2_mode"]
 
         self.server_manager = ServerManager(
-            self.queue_container.from_server,
+            self.queue_container.from_flask,
             self.queue_container,
             logging_level=self._logging_level,
             values_from_process_monitor=self.values_to_share_to_server,

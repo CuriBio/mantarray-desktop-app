@@ -34,10 +34,10 @@ def test_get_server_port_number__returns_default_port_number_if_server_has_been_
     assert get_server_port_number() == DEFAULT_SERVER_PORT_NUMBER
 
 
-def test_get_server_port_number__returns_port_number_from_server_if_instantiated(
+def test_get_server_port_number__returns_port_number_from_flask_if_instantiated(
     generic_queue_container,
 ):
-    to_main_queue = generic_queue_container.from_server
+    to_main_queue = generic_queue_container.from_flask
     expected_port = 4321
 
     ServerManager(to_main_queue, generic_queue_container, port=expected_port)
@@ -50,9 +50,10 @@ def test_get_server_port_number__returns_port_number_from_server_if_instantiated
 def test_set_up_socketio_handlers__sets_up_socketio_events_correctly(mocker, fsio_test_client_creator):
     mocked_start_bg_task = mocker.patch.object(main.socketio, "start_background_task", autospec=True)
 
-    test_queue = TestingQueue()
+    websocket_queue = TestingQueue()
+    process_monitor_queque = TestingQueue()
 
-    data_sender = main._set_up_socketio_handlers(test_queue)
+    data_sender = main._set_up_socketio_handlers(websocket_queue, process_monitor_queque)
 
     test_clients = []
     try:
@@ -68,7 +69,7 @@ def test_set_up_socketio_handlers__sets_up_socketio_events_correctly(mocker, fsi
             if client.connected:
                 client.disconnect()
     # make sure tombstone message only sent once
-    assert drain_queue(test_queue) == [{"data_type": "tombstone"}]
+    assert drain_queue(websocket_queue) == [{"data_type": "tombstone"}]
 
 
 def test_SensitiveFormatter__redacts_from_request_log_entries_correctly():

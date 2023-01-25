@@ -39,6 +39,7 @@ from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
+from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import system_state_eventually_equals
 from mantarray_desktop_app import wait_for_subprocesses_to_start
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
@@ -111,10 +112,12 @@ __fixtures__ = [
     fixture_patched_firmware_folder,
     fixture_test_socketio_client,
 ]
-LIVE_VIEW_ACTIVE_WAIT_TIME = 150
-CALIBRATED_WAIT_TIME = 20
-STOP_MANAGED_ACQUISITION_WAIT_TIME = 40
+
 INTEGRATION_TEST_TIMEOUT = 300
+CALIBRATION_NEEDED_WAIT_TIME = 20
+CALIBRATED_WAIT_TIME = 40
+LIVE_VIEW_ACTIVE_WAIT_TIME = 150
+STOP_MANAGED_ACQUISITION_WAIT_TIME = 40
 FIRST_METRIC_WAIT_TIME = 20
 PROTOCOL_COMPLETION_WAIT_TIME = 30
 
@@ -168,17 +171,18 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
         }
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
+        command_line_args = [f"--initial-base64-settings={b64_encoded}"]
 
-        app_info = fully_running_app_from_main_entrypoint([f"--initial-base64-settings={b64_encoded}"])
+        app_info = fully_running_app_from_main_entrypoint(command_line_args)
+        assert system_state_eventually_equals(SERVER_INITIALIZING_STATE, 10) is True
+        sio, msg_list_container = test_socketio_client()
         wait_for_subprocesses_to_start()
 
         test_process_manager = app_info["object_access_inside_main"]["process_manager"]
         svd = app_info["object_access_inside_main"]["values_to_share_to_server"]
 
-        sio, msg_list_container = test_socketio_client()
-
         # Tanner (12/30/20): Auto boot-up is completed when system reaches calibration_needed state
-        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
+        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, CALIBRATION_NEEDED_WAIT_TIME) is True
 
         da_out = test_process_manager.queue_container.get_data_analyzer_data_out_queue()
 
@@ -216,11 +220,10 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
-        start_recording_time_index_1 = 9600
-        expected_start_index_1 = start_recording_time_index_1 // MICROSECONDS_PER_CENTIMILLISECOND
+        expected_start_index_cms_1 = 960
         start_recording_params_1 = {
             "plate_barcode": expected_plate_barcode_1,
-            "time_index": start_recording_time_index_1,
+            "time_index": expected_start_index_cms_1 * MICROSECONDS_PER_CENTIMILLISECOND,
             "is_hardware_test_recording": False,
         }
         response = requests.get(f"{get_api_endpoint()}start_recording", params=start_recording_params_1)
@@ -237,8 +240,8 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
         assert len(msg_list_container["twitch_metrics"]) > 0
 
         # Tanner (6/1/21): End recording at a known timepoint
-        expected_stop_index_1 = expected_start_index_1 + int(2 * CENTIMILLISECONDS_PER_SECOND)
-        response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_1}")
+        expected_stop_index_cms_1 = expected_start_index_cms_1 + int(2 * CENTIMILLISECONDS_PER_SECOND)
+        response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_cms_1}")
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
 
@@ -257,17 +260,15 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
             f"{get_api_endpoint()}start_managed_acquisition?plate_barcode={expected_plate_barcode_2}"
         )
         assert response.status_code == 200
-        # Tanner (6/1/21): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer yet
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
         # Tanner (5/25/21): Start at a different timepoint to create a different timestamp in the names of the second set of files
-        start_recording_time_index_2 = start_recording_time_index_1 + MICRO_TO_BASE_CONVERSION
-        expected_start_index_2 = start_recording_time_index_2 // MICROSECONDS_PER_CENTIMILLISECOND
+        expected_start_index_cms_2 = expected_start_index_cms_1 + int(CENTIMILLISECONDS_PER_SECOND)
         # Tanner (6/1/21): Start recording with second barcode to create second set of files
         start_recording_params_2 = {
             "plate_barcode": expected_plate_barcode_2,
-            "time_index": start_recording_time_index_2,
+            "time_index": expected_start_index_cms_2 * MICROSECONDS_PER_CENTIMILLISECOND,
             "is_hardware_test_recording": False,
         }
         response = requests.get(f"{get_api_endpoint()}start_recording", params=start_recording_params_2)
@@ -276,8 +277,8 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
 
         time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
 
-        expected_stop_index_2 = expected_start_index_2 + int(1.5 * CENTIMILLISECONDS_PER_SECOND)
-        response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_2}")
+        expected_stop_index_cms_2 = expected_start_index_cms_2 + int(1.5 * CENTIMILLISECONDS_PER_SECOND)
+        response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_cms_2}")
         assert response.status_code == 200
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, 3) is True
 
@@ -332,7 +333,7 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
                     assert this_file.attrs[str(UTC_BEGINNING_DATA_ACQUISTION_UUID)] == expected_time.strftime(
                         "%Y-%m-%d %H:%M:%S.%f"
                     )
-                    assert this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)] == expected_start_index_1
+                    assert this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)] == expected_start_index_cms_1
                     assert this_file.attrs[str(UTC_BEGINNING_RECORDING_UUID)] == expected_time.strftime(
                         "%Y-%m-%d %H:%M:%S.%f"
                     )
@@ -340,7 +341,7 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
                         expected_time
                         + datetime.timedelta(
                             seconds=(
-                                expected_start_index_1
+                                expected_start_index_cms_1
                                 + WELL_24_INDEX_TO_ADC_AND_CH_INDEX[well_idx][1] * DATA_FRAME_PERIOD
                             )
                             / CENTIMILLISECONDS_PER_SECOND
@@ -349,7 +350,7 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
                     assert this_file.attrs[str(UTC_FIRST_REF_DATA_POINT_UUID)] == (
                         expected_time
                         + datetime.timedelta(
-                            seconds=(expected_start_index_1 + DATA_FRAME_PERIOD)
+                            seconds=(expected_start_index_cms_1 + DATA_FRAME_PERIOD)
                             / CENTIMILLISECONDS_PER_SECOND
                         )
                     ).strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -446,7 +447,7 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
                     "r",
                 ) as this_file:
                     assert str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
-                    assert this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)] == expected_start_index_2
+                    assert this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)] == expected_start_index_cms_2
                     assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) in this_file.attrs
                     assert str(UTC_FIRST_REF_DATA_POINT_UUID) in this_file.attrs
                     actual_tissue_data = get_tissue_dataset_from_file(this_file)
@@ -522,13 +523,14 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         command_line_args = ["--beta-2-mode", f"--initial-base64-settings={b64_encoded}"]
 
         app_info = fully_running_app_from_main_entrypoint(command_line_args)
+        assert system_state_eventually_equals(SERVER_INITIALIZING_STATE, 10) is True
+        sio, msg_list_container = test_socketio_client()
         wait_for_subprocesses_to_start()
+
         test_process_manager = app_info["object_access_inside_main"]["process_manager"]
         shared_values_dict = app_info["object_access_inside_main"]["values_to_share_to_server"]
 
-        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 10) is True
-
-        sio, msg_list_container = test_socketio_client()
+        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, CALIBRATION_NEEDED_WAIT_TIME) is True
 
         da_out = test_process_manager.queue_container.get_data_analyzer_data_out_queue()
 
@@ -628,7 +630,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
             f"{get_api_endpoint()}start_managed_acquisition?plate_barcode={expected_plate_barcode_2}"
         )
         assert response.status_code == 200
-        # Tanner (6/1/21): managed_acquisition in beta 2 mode will currently only cause the system to enter buffering state. This is because no beta 2 data will come out of Data Analyzer yet
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
 
@@ -903,7 +904,11 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
 @pytest.mark.slow
 @pytest.mark.timeout(INTEGRATION_TEST_TIMEOUT)
 def test_app_shutdown__in_worst_case_while_recording_is_running(
-    patched_xem_scripts_folder, patched_firmware_folder, fully_running_app_from_main_entrypoint, mocker
+    patched_xem_scripts_folder,
+    patched_firmware_folder,
+    test_socketio_client,
+    fully_running_app_from_main_entrypoint,
+    mocker,
 ):
     # mock this so test doesn't actually try to hit cloud API
     mocker.patch.object(server, "validate_user_credentials", autospec=True)
@@ -929,10 +934,12 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         ]
 
         app_info = fully_running_app_from_main_entrypoint(command_line_args)
+        assert system_state_eventually_equals(SERVER_INITIALIZING_STATE, 10) is True
+        sio, _ = test_socketio_client()
         wait_for_subprocesses_to_start()
         test_process_manager = app_info["object_access_inside_main"]["process_manager"]
 
-        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, 5) is True
+        assert system_state_eventually_equals(CALIBRATION_NEEDED_STATE, CALIBRATION_NEEDED_WAIT_TIME) is True
 
         okc_process = test_process_manager.instrument_comm_process
         fw_process = test_process_manager.file_writer_process
@@ -979,17 +986,28 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
 
         time.sleep(3)  # Tanner (6/15/20): This allows data to be written to files
 
+        # Tanner (1/10/23): disconnect here to avoid problems with attempting to disconnect after calling /shutdown
+        sio.disconnect()
+
         # Tanner (12/29/20): Shutdown now that data is being acquired and actively written to files, which means each subprocess is doing something
         response = requests.get(f"{get_api_endpoint()}shutdown")
         assert response.status_code == 200
 
         # Tanner (12/30/20): Confirming the port is available to make sure that the Flask server has shutdown
         confirm_port_available(get_server_port_number(), timeout=10)
-        # Tanner (6/21/21): sleep to ensure program exit log message is produced
-        time.sleep(5)
 
-        # Tanner (12/30/20): This is the very last log message before the app is completely shutdown
-        spied_logger.assert_any_call("Program exiting")
+        # Tanner (1/18/23): socketio has problems shutting down on windows, so need a large timeout
+        program_exit_wait_time_secs = 150
+        for _ in range(program_exit_wait_time_secs):
+            try:
+                # Tanner (12/30/20): This is the very last log message before the app is completely shutdown
+                spied_logger.assert_any_call("Program exiting")
+                program_exit_not_found_error = None
+            except AssertionError as e:
+                program_exit_not_found_error = e
+                time.sleep(1)
+        if program_exit_not_found_error:
+            raise program_exit_not_found_error
 
         # Tanner (12/29/20): If these are alive, this means that zombie processes will be created when the compiled desktop app EXE is running, so this assertion helps make sure that that won't happen
         assert okc_process.is_alive() is False
