@@ -253,6 +253,7 @@ def _create_start_recording_command(
     time_index: Optional[Union[str, int]] = 0,
     active_well_indices: Optional[List[int]] = None,
     barcodes: Optional[Dict[str, Union[str, UUID]]] = None,
+    platemap_info: Optional[Dict[str, Any]] = None,
     is_calibration_recording: bool = False,
     is_hardware_test_recording: bool = False,
 ) -> Dict[str, Any]:
@@ -290,10 +291,22 @@ def _create_start_recording_command(
     customer_id = shared_values_dict["config_settings"].get("customer_id", NOT_APPLICABLE_H5_METADATA)
     user_name = shared_values_dict["config_settings"].get("user_name", NOT_APPLICABLE_H5_METADATA)
 
+    # TODO unit test
+    formatted_platemap_info = {
+        "name": str(NOT_APPLICABLE_H5_METADATA),
+        "labels": [str(NOT_APPLICABLE_H5_METADATA)] * 24,
+    }
+    if platemap_info:
+        formatted_platemap_info["name"] = platemap_info["name"]
+        for label_name, wells_with_label in platemap_info["labels"].items():
+            for well_idx in wells_with_label:
+                platemap_info["labels"][well_idx] = label_name
+
     comm_dict: Dict[str, Any] = {
         "communication_type": "recording",
         "command": "start_recording",
         "active_well_indices": active_well_indices,
+        "platemap": formatted_platemap_info,
         "is_calibration_recording": is_calibration_recording,
         "is_hardware_test_recording": is_hardware_test_recording,
         "metadata_to_copy_onto_main_file_attributes": {

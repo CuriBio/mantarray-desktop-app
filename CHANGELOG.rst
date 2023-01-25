@@ -1,12 +1,21 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.0.8 (unreleased)
+1.0.9 (unreleased)
 ------------------
 
 Changed:
 ^^^^^^^^
 - Stim protocol colors are no longer random, will now be selected from a predetermined list of colors
+- Beta 2 H5 file format version is now 1.2.1. Format Changes:
+
+  - Removed the following values:
+
+    - ORIGINAL_FILE_VERSION_UUID
+    - IS_FILE_ORIGINAL_UNTRIMMED_UUID
+    - TRIMMED_TIME_FROM_ORIGINAL_START_UUID
+    - TRIMMED_TIME_FROM_ORIGINAL_END_UUID
+
 
 Fixed:
 ^^^^^^

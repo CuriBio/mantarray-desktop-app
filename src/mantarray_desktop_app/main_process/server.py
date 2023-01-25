@@ -681,6 +681,7 @@ def start_recording() -> Response:
         time_index=time_index_str,
         active_well_indices=active_well_indices,
         barcodes=barcodes,
+        platemap_info=request.args.get("platemap"),  # TODO unit test
         is_hardware_test_recording=is_hardware_test_recording,
     )
 
