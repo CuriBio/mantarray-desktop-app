@@ -15,7 +15,6 @@ import uuid
 
 import h5py
 from immutabledict import immutabledict
-from labware_domain_models import LabwareDefinition
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
@@ -69,8 +68,6 @@ from .helpers import confirm_queue_is_eventually_empty
 from .helpers import confirm_queue_is_eventually_of_size
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
-WELL_DEF_24 = LabwareDefinition(row_count=4, column_count=6)
-
 
 TEST_CUSTOMER_ID = uuid.UUID("73f52be0-368c-42d8-a1fd-660d49ba5604")
 TEST_USER_NAME = "test_user"
@@ -118,7 +115,6 @@ GENERIC_PLATEMAP_INFO = immutabledict(
         "labels": tuple(["Label1"] + ["Label2"] + [str(NOT_APPLICABLE_H5_METADATA)] * 22),
     }
 )
-
 
 GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
     "communication_type": "recording",
@@ -459,7 +455,7 @@ def create_and_close_beta_1_h5_files(
 
 def populate_calibration_folder(fw_process):
     for well_idx in range(24):
-        well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
+        well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
         file_path = os.path.join(fw_process.calibration_file_directory, f"Calibration__{well_name}.h5")
         # create and close file
         with open(file_path, "w"):

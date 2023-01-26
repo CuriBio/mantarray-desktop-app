@@ -589,7 +589,6 @@ class FileWriterProcess(InfiniteProcess):
             else:
                 this_file.attrs[str(IS_CALIBRATION_FILE_UUID)] = self._is_recording_calibration
             this_file.attrs[str(TOTAL_WELL_COUNT_UUID)] = 24
-            # TODO unit test these next two
             this_file.attrs[str(PLATEMAP_NAME_UUID)] = communication["platemap"]["name"]
             this_file.attrs[str(PLATEMAP_LABEL_UUID)] = communication["platemap"]["labels"][this_well_idx]
 

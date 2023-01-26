@@ -60,14 +60,14 @@ from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import FILE_FORMAT_VERSION_METADATA_KEY
 from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
 from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
-from pulse3D.constants import IS_FILE_ORIGINAL_UNTRIMMED_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
-from pulse3D.constants import ORIGINAL_FILE_VERSION_UUID
 from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
+from pulse3D.constants import PLATEMAP_LABEL_UUID
+from pulse3D.constants import PLATEMAP_NAME_UUID
 from pulse3D.constants import REF_SAMPLING_PERIOD_UUID
 from pulse3D.constants import REFERENCE_VOLTAGE_UUID
 from pulse3D.constants import SLEEP_FIRMWARE_VERSION_UUID
@@ -79,8 +79,6 @@ from pulse3D.constants import STIM_BARCODE_UUID
 from pulse3D.constants import STIMULATION_PROTOCOL_UUID
 from pulse3D.constants import TISSUE_SAMPLING_PERIOD_UUID
 from pulse3D.constants import TOTAL_WELL_COUNT_UUID
-from pulse3D.constants import TRIMMED_TIME_FROM_ORIGINAL_END_UUID
-from pulse3D.constants import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
@@ -100,9 +98,10 @@ from ..fixtures import fixture_patched_firmware_folder
 from ..fixtures import fixture_patched_xem_scripts_folder
 from ..fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
-from ..fixtures_file_writer import WELL_DEF_24
+from ..fixtures_file_writer import GENERIC_PLATEMAP_INFO
 from ..fixtures_mc_simulator import get_random_stim_delay
 from ..fixtures_mc_simulator import get_random_stim_pulse
+from ..fixtures_server import convert_formatted_platemap_to_query_param
 from ..fixtures_server import fixture_test_socketio_client
 from ..helpers import confirm_queue_is_eventually_empty
 
@@ -224,6 +223,7 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
         start_recording_params_1 = {
             "plate_barcode": expected_plate_barcode_1,
             "time_index": expected_start_index_cms_1 * MICROSECONDS_PER_CENTIMILLISECOND,
+            "platemap": convert_formatted_platemap_to_query_param(GENERIC_PLATEMAP_INFO),
             "is_hardware_test_recording": False,
         }
         response = requests.get(f"{get_api_endpoint()}start_recording", params=start_recording_params_1)
@@ -309,120 +309,114 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
         assert len(actual_set_of_files_1) == 24
 
         # test first recording for all data and metadata
-        for row_idx in range(4):
-            for col_idx in range(6):
-                well_idx = col_idx * 4 + row_idx
-                with h5py.File(
-                    os.path.join(
-                        expected_recordings_dir,
-                        f"{expected_plate_barcode_1}__{expected_timestamp_1}",
-                        f"{expected_plate_barcode_1}__{expected_timestamp_1}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
-                    ),
-                    "r",
-                ) as this_file:
-                    assert bool(this_file.attrs[str(HARDWARE_TEST_RECORDING_UUID)]) is False
-                    assert this_file.attrs[str(SOFTWARE_BUILD_NUMBER_UUID)] == COMPILED_EXE_BUILD_TIMESTAMP
-                    assert (
-                        this_file.attrs[str(ORIGINAL_FILE_VERSION_UUID)]
-                        == CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
-                    )
-                    assert (
-                        this_file.attrs[FILE_FORMAT_VERSION_METADATA_KEY]
-                        == CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
-                    )
-                    assert this_file.attrs[str(UTC_BEGINNING_DATA_ACQUISTION_UUID)] == expected_time.strftime(
-                        "%Y-%m-%d %H:%M:%S.%f"
-                    )
-                    assert this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)] == expected_start_index_cms_1
-                    assert this_file.attrs[str(UTC_BEGINNING_RECORDING_UUID)] == expected_time.strftime(
-                        "%Y-%m-%d %H:%M:%S.%f"
-                    )
-                    assert this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == (
-                        expected_time
-                        + datetime.timedelta(
-                            seconds=(
-                                expected_start_index_cms_1
-                                + WELL_24_INDEX_TO_ADC_AND_CH_INDEX[well_idx][1] * DATA_FRAME_PERIOD
-                            )
-                            / CENTIMILLISECONDS_PER_SECOND
+        for well_idx in range(24):
+            well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
+            with h5py.File(
+                os.path.join(
+                    expected_recordings_dir,
+                    f"{expected_plate_barcode_1}__{expected_timestamp_1}",
+                    f"{expected_plate_barcode_1}__{expected_timestamp_1}__{well_name}.h5",
+                ),
+                "r",
+            ) as this_file:
+                assert bool(this_file.attrs[str(HARDWARE_TEST_RECORDING_UUID)]) is False
+                assert this_file.attrs[str(SOFTWARE_BUILD_NUMBER_UUID)] == COMPILED_EXE_BUILD_TIMESTAMP
+                assert (
+                    this_file.attrs[FILE_FORMAT_VERSION_METADATA_KEY]
+                    == CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION
+                )
+                assert this_file.attrs[str(UTC_BEGINNING_DATA_ACQUISTION_UUID)] == expected_time.strftime(
+                    "%Y-%m-%d %H:%M:%S.%f"
+                )
+                assert this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)] == expected_start_index_cms_1
+                assert this_file.attrs[str(UTC_BEGINNING_RECORDING_UUID)] == expected_time.strftime(
+                    "%Y-%m-%d %H:%M:%S.%f"
+                )
+                assert this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == (
+                    expected_time
+                    + datetime.timedelta(
+                        seconds=(
+                            expected_start_index_cms_1
+                            + WELL_24_INDEX_TO_ADC_AND_CH_INDEX[well_idx][1] * DATA_FRAME_PERIOD
                         )
-                    ).strftime("%Y-%m-%d %H:%M:%S.%f")
-                    assert this_file.attrs[str(UTC_FIRST_REF_DATA_POINT_UUID)] == (
-                        expected_time
-                        + datetime.timedelta(
-                            seconds=(expected_start_index_cms_1 + DATA_FRAME_PERIOD)
-                            / CENTIMILLISECONDS_PER_SECOND
-                        )
-                    ).strftime("%Y-%m-%d %H:%M:%S.%f")
-                    assert this_file.attrs[str(USER_ACCOUNT_ID_UUID)] == "test_user"
-                    assert this_file.attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == "test_id"
-                    assert this_file.attrs[str(ADC_GAIN_SETTING_UUID)] == 16
-                    assert (
-                        this_file.attrs[str(ADC_TISSUE_OFFSET_UUID)] == FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
+                        / CENTIMILLISECONDS_PER_SECOND
                     )
-                    assert this_file.attrs[str(ADC_REF_OFFSET_UUID)] == FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
-                    assert this_file.attrs[str(REFERENCE_VOLTAGE_UUID)] == REFERENCE_VOLTAGE
-                    assert this_file.attrs[str(SLEEP_FIRMWARE_VERSION_UUID)] == "0.0.0"
-                    assert (
-                        this_file.attrs[str(MAIN_FIRMWARE_VERSION_UUID)]
-                        == RunningFIFOSimulator.default_firmware_version
+                ).strftime("%Y-%m-%d %H:%M:%S.%f")
+                assert this_file.attrs[str(UTC_FIRST_REF_DATA_POINT_UUID)] == (
+                    expected_time
+                    + datetime.timedelta(
+                        seconds=(expected_start_index_cms_1 + DATA_FRAME_PERIOD)
+                        / CENTIMILLISECONDS_PER_SECOND
                     )
-                    assert (
-                        this_file.attrs[str(MANTARRAY_SERIAL_NUMBER_UUID)]
-                        == RunningFIFOSimulator.default_mantarray_serial_number
-                    )
-                    assert (
-                        this_file.attrs[str(MANTARRAY_NICKNAME_UUID)]
-                        == RunningFIFOSimulator.default_mantarray_nickname
-                    )
-                    assert (
-                        this_file.attrs[str(XEM_SERIAL_NUMBER_UUID)]
-                        == RunningFIFOSimulator.default_xem_serial_number
-                    )
-                    assert this_file.attrs[str(SOFTWARE_RELEASE_VERSION_UUID)] == CURRENT_SOFTWARE_VERSION
+                ).strftime("%Y-%m-%d %H:%M:%S.%f")
+                assert this_file.attrs[str(USER_ACCOUNT_ID_UUID)] == "test_user"
+                assert this_file.attrs[str(CUSTOMER_ACCOUNT_ID_UUID)] == "test_id"
+                assert this_file.attrs[str(ADC_GAIN_SETTING_UUID)] == 16
+                assert this_file.attrs[str(ADC_TISSUE_OFFSET_UUID)] == FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
+                assert this_file.attrs[str(ADC_REF_OFFSET_UUID)] == FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
+                assert this_file.attrs[str(REFERENCE_VOLTAGE_UUID)] == REFERENCE_VOLTAGE
+                assert this_file.attrs[str(SLEEP_FIRMWARE_VERSION_UUID)] == "0.0.0"
+                assert (
+                    this_file.attrs[str(MAIN_FIRMWARE_VERSION_UUID)]
+                    == RunningFIFOSimulator.default_firmware_version
+                )
+                assert (
+                    this_file.attrs[str(MANTARRAY_SERIAL_NUMBER_UUID)]
+                    == RunningFIFOSimulator.default_mantarray_serial_number
+                )
+                assert (
+                    this_file.attrs[str(MANTARRAY_NICKNAME_UUID)]
+                    == RunningFIFOSimulator.default_mantarray_nickname
+                )
+                assert (
+                    this_file.attrs[str(XEM_SERIAL_NUMBER_UUID)]
+                    == RunningFIFOSimulator.default_xem_serial_number
+                )
+                assert this_file.attrs[str(SOFTWARE_RELEASE_VERSION_UUID)] == CURRENT_SOFTWARE_VERSION
 
-                    assert (
-                        this_file.attrs[str(WELL_NAME_UUID)]
-                        == f"{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}"
-                    )
-                    assert this_file.attrs["Metadata UUID Descriptions"] == json.dumps(
-                        str(METADATA_UUID_DESCRIPTIONS)
-                    )
-                    assert bool(this_file.attrs[str(IS_FILE_ORIGINAL_UNTRIMMED_UUID)]) is True
-                    assert this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] == 0
-                    assert this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_END_UUID)] == 0
-                    assert this_file.attrs[str(TOTAL_WELL_COUNT_UUID)] == 24
-                    assert this_file.attrs[str(WELL_ROW_UUID)] == row_idx
-                    assert this_file.attrs[str(WELL_COLUMN_UUID)] == col_idx
-                    assert this_file.attrs[
-                        str(WELL_INDEX_UUID)
-                    ] == WELL_DEF_24.get_well_index_from_row_and_column(row_idx, col_idx)
-                    assert (
-                        this_file.attrs[str(TISSUE_SAMPLING_PERIOD_UUID)]
-                        == CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
-                    )
-                    assert (
-                        this_file.attrs[str(REF_SAMPLING_PERIOD_UUID)]
-                        == REFERENCE_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
-                    )
-                    assert this_file.attrs[str(BACKEND_LOG_UUID)] == str(
-                        GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-                            BACKEND_LOG_UUID
-                        ]
-                    )
-                    assert (
-                        this_file.attrs[str(COMPUTER_NAME_HASH_UUID)]
-                        == GENERIC_BETA_1_START_RECORDING_COMMAND[
-                            "metadata_to_copy_onto_main_file_attributes"
-                        ][COMPUTER_NAME_HASH_UUID]
-                    )
-                    assert this_file.attrs[str(PLATE_BARCODE_UUID)] == expected_plate_barcode_1
-                    assert (
-                        bool(this_file.attrs[str(PLATE_BARCODE_IS_FROM_SCANNER_UUID)])
-                        is GENERIC_BETA_1_START_RECORDING_COMMAND[
-                            "metadata_to_copy_onto_main_file_attributes"
-                        ][PLATE_BARCODE_IS_FROM_SCANNER_UUID]
-                    )
+                assert this_file.attrs[str(WELL_NAME_UUID)] == well_name
+                assert this_file.attrs["Metadata UUID Descriptions"] == json.dumps(
+                    str(METADATA_UUID_DESCRIPTIONS)
+                )
+                assert this_file.attrs[str(TOTAL_WELL_COUNT_UUID)] == 24
+                row_idx, col_idx = GENERIC_24_WELL_DEFINITION.get_row_and_column_from_well_index(well_idx)
+                assert this_file.attrs[str(WELL_ROW_UUID)] == row_idx
+                assert this_file.attrs[str(WELL_COLUMN_UUID)] == col_idx
+                assert this_file.attrs[str(WELL_INDEX_UUID)] == well_idx
+                assert (
+                    this_file.attrs[str(TISSUE_SAMPLING_PERIOD_UUID)]
+                    == CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
+                )
+                assert (
+                    this_file.attrs[str(REF_SAMPLING_PERIOD_UUID)]
+                    == REFERENCE_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
+                )
+                assert this_file.attrs[str(BACKEND_LOG_UUID)] == str(
+                    GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+                        BACKEND_LOG_UUID
+                    ]
+                )
+                assert (
+                    this_file.attrs[str(COMPUTER_NAME_HASH_UUID)]
+                    == GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+                        COMPUTER_NAME_HASH_UUID
+                    ]
+                )
+                assert this_file.attrs[str(PLATE_BARCODE_UUID)] == expected_plate_barcode_1
+                assert (
+                    bool(this_file.attrs[str(PLATE_BARCODE_IS_FROM_SCANNER_UUID)])
+                    is GENERIC_BETA_1_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+                        PLATE_BARCODE_IS_FROM_SCANNER_UUID
+                    ]
+                )
+                assert (
+                    this_file.attrs[str(PLATEMAP_NAME_UUID)]
+                    == GENERIC_BETA_1_START_RECORDING_COMMAND["platemap"]["name"]
+                )
+                assert (
+                    this_file.attrs[str(PLATEMAP_LABEL_UUID)]
+                    == GENERIC_BETA_1_START_RECORDING_COMMAND["platemap"]["labels"][well_idx]
+                )
 
         expected_timestamp_2 = "2020_07_16_141956"
         actual_set_of_files_2 = set(
@@ -436,22 +430,22 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
         assert len(actual_set_of_files_2) == 24
 
         # Tanner (12/30/20): test second recording (only make sure it contains waveform data)
-        for row_idx in range(4):
-            for col_idx in range(6):
-                with h5py.File(
-                    os.path.join(
-                        expected_recordings_dir,
-                        f"{expected_plate_barcode_2}__{expected_timestamp_2}",
-                        f"{expected_plate_barcode_2}__{expected_timestamp_2}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5",
-                    ),
-                    "r",
-                ) as this_file:
-                    assert str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
-                    assert this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)] == expected_start_index_cms_2
-                    assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) in this_file.attrs
-                    assert str(UTC_FIRST_REF_DATA_POINT_UUID) in this_file.attrs
-                    actual_tissue_data = get_tissue_dataset_from_file(this_file)
-                    assert actual_tissue_data.shape[0] > 0
+        for well_idx in range(24):
+            well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
+            with h5py.File(
+                os.path.join(
+                    expected_recordings_dir,
+                    f"{expected_plate_barcode_2}__{expected_timestamp_2}",
+                    f"{expected_plate_barcode_2}__{expected_timestamp_2}__{well_name}.h5",
+                ),
+                "r",
+            ) as this_file:
+                assert str(START_RECORDING_TIME_INDEX_UUID) in this_file.attrs
+                assert this_file.attrs[str(START_RECORDING_TIME_INDEX_UUID)] == expected_start_index_cms_2
+                assert str(UTC_FIRST_TISSUE_DATA_POINT_UUID) in this_file.attrs
+                assert str(UTC_FIRST_REF_DATA_POINT_UUID) in this_file.attrs
+                actual_tissue_data = get_tissue_dataset_from_file(this_file)
+                assert actual_tissue_data.shape[0] > 0
 
 
 @pytest.mark.slow
@@ -587,6 +581,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
             "plate_barcode": expected_plate_barcode_1,
             "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
             "time_index": expected_start_index_1,
+            "platemap": convert_formatted_platemap_to_query_param(GENERIC_PLATEMAP_INFO),
             "is_hardware_test_recording": False,
         }
         response = requests.get(f"{get_api_endpoint()}start_recording", params=start_recording_params_1)
@@ -715,7 +710,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
             expected_stop_index_1 - expected_start_index_1
         ) // DEFAULT_SAMPLING_PERIOD + 1
         for well_idx in range(24):
-            well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
+            well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
             with h5py.File(
                 os.path.join(
                     expected_recordings_dir,
@@ -727,9 +722,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                 # test metadata values
                 assert bool(this_file.attrs[str(HARDWARE_TEST_RECORDING_UUID)]) is False
                 assert this_file.attrs[str(SOFTWARE_BUILD_NUMBER_UUID)] == COMPILED_EXE_BUILD_TIMESTAMP
-                assert (
-                    this_file.attrs[str(ORIGINAL_FILE_VERSION_UUID)] == CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
-                )
                 assert (
                     this_file.attrs[FILE_FORMAT_VERSION_METADATA_KEY]
                     == CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION
@@ -772,11 +764,8 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                 assert this_file.attrs["Metadata UUID Descriptions"] == json.dumps(
                     str(METADATA_UUID_DESCRIPTIONS)
                 )
-                assert bool(this_file.attrs[str(IS_FILE_ORIGINAL_UNTRIMMED_UUID)]) is True
-                assert this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] == 0
-                assert this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_END_UUID)] == 0
                 assert this_file.attrs[str(TOTAL_WELL_COUNT_UUID)] == 24
-                row_idx, col_idx = WELL_DEF_24.get_row_and_column_from_well_index(well_idx)
+                row_idx, col_idx = GENERIC_24_WELL_DEFINITION.get_row_and_column_from_well_index(well_idx)
                 assert this_file.attrs[str(WELL_ROW_UUID)] == row_idx
                 assert this_file.attrs[str(WELL_COLUMN_UUID)] == col_idx
                 assert this_file.attrs[str(WELL_INDEX_UUID)] == well_idx
@@ -821,6 +810,14 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                         INITIAL_MAGNET_FINDING_PARAMS_UUID
                     ]
                 )
+                assert (
+                    this_file.attrs[str(PLATEMAP_NAME_UUID)]
+                    == GENERIC_BETA_2_START_RECORDING_COMMAND["platemap"]["name"]
+                )
+                assert (
+                    this_file.attrs[str(PLATEMAP_LABEL_UUID)]
+                    == GENERIC_BETA_2_START_RECORDING_COMMAND["platemap"]["labels"][well_idx]
+                )
                 # test recorded magnetometer data
                 actual_time_index_data = get_time_index_dataset_from_file(this_file)
                 assert actual_time_index_data.shape == (num_recorded_data_points_1,)
@@ -858,7 +855,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
             expected_stop_index_2 - expected_start_index_2
         ) // DEFAULT_SAMPLING_PERIOD + 1
         for well_idx in range(24):
-            well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
+            well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
             with h5py.File(
                 os.path.join(
                     expected_recordings_dir,

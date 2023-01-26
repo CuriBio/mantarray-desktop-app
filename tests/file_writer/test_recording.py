@@ -45,14 +45,14 @@ from pulse3D.constants import FILE_FORMAT_VERSION_METADATA_KEY
 from pulse3D.constants import HARDWARE_TEST_RECORDING_UUID
 from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import IS_CALIBRATION_FILE_UUID
-from pulse3D.constants import IS_FILE_ORIGINAL_UNTRIMMED_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
-from pulse3D.constants import ORIGINAL_FILE_VERSION_UUID
 from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
+from pulse3D.constants import PLATEMAP_LABEL_UUID
+from pulse3D.constants import PLATEMAP_NAME_UUID
 from pulse3D.constants import REF_SAMPLING_PERIOD_UUID
 from pulse3D.constants import REFERENCE_VOLTAGE_UUID
 from pulse3D.constants import SLEEP_FIRMWARE_VERSION_UUID
@@ -64,8 +64,6 @@ from pulse3D.constants import STIM_BARCODE_UUID
 from pulse3D.constants import STIMULATION_PROTOCOL_UUID
 from pulse3D.constants import TISSUE_SAMPLING_PERIOD_UUID
 from pulse3D.constants import TOTAL_WELL_COUNT_UUID
-from pulse3D.constants import TRIMMED_TIME_FROM_ORIGINAL_END_UUID
-from pulse3D.constants import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
@@ -94,7 +92,6 @@ from ..fixtures_file_writer import open_the_generic_h5_file
 from ..fixtures_file_writer import populate_calibration_folder
 from ..fixtures_file_writer import TEST_CUSTOMER_ID
 from ..fixtures_file_writer import TEST_USER_NAME
-from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_empty
@@ -156,30 +153,27 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
     }
     assert len(actual_set_of_files) == 24
 
-    expected_set_of_files = set()
-    for row_idx in range(4):
-        for col_idx in range(6):
-            expected_set_of_files.add(
-                f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)}.h5"
-            )
+    expected_set_of_files = {
+        f"{expected_plate_barcode}__{timestamp_str}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)}.h5"
+        for well_idx in range(24)
+    }
     assert actual_set_of_files == expected_set_of_files
 
-    for this_well_idx in range(24):
-        assert file_writer_process._open_files[0][this_well_idx].swmr_mode is True, this_well_idx
+    for well_idx in range(24):
+        assert file_writer_process._open_files[0][well_idx].swmr_mode is True, well_idx
 
     for well_idx in range(24):
-        row_idx, col_idx = WELL_DEF_24.get_row_and_column_from_well_index(well_idx)
+        well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
 
         this_file = h5py.File(
             os.path.join(
                 file_dir,
                 f"{expected_plate_barcode}__{timestamp_str}",
-                f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+                f"{expected_plate_barcode}__{timestamp_str}__{well_name}.h5",
             ),
             "r",
         )
         # test metadata present in both beta versions
-        assert this_file.attrs[str(ORIGINAL_FILE_VERSION_UUID)] == file_version
         assert this_file.attrs[FILE_FORMAT_VERSION_METADATA_KEY] == file_version
         assert bool(this_file.attrs[str(HARDWARE_TEST_RECORDING_UUID)]) is False
         assert this_file.attrs[str(UTC_BEGINNING_DATA_ACQUISTION_UUID)] == "2020-02-09 19:03:22.332597"
@@ -204,18 +198,12 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
         )
 
         assert this_file.attrs["Metadata UUID Descriptions"] == json.dumps(str(METADATA_UUID_DESCRIPTIONS))
-        assert (
-            this_file.attrs[str(WELL_NAME_UUID)] == f"{WELL_DEF_24.get_well_name_from_well_index(well_idx)}"
-        )
+        assert this_file.attrs[str(WELL_NAME_UUID)] == well_name
+        row_idx, col_idx = GENERIC_24_WELL_DEFINITION.get_row_and_column_from_well_index(well_idx)
         assert this_file.attrs[str(WELL_ROW_UUID)] == row_idx
         assert this_file.attrs[str(WELL_COLUMN_UUID)] == col_idx
-        assert this_file.attrs[str(WELL_INDEX_UUID)] == WELL_DEF_24.get_well_index_from_row_and_column(
-            row_idx, col_idx
-        )
+        assert this_file.attrs[str(WELL_INDEX_UUID)] == well_idx
         assert this_file.attrs[str(TOTAL_WELL_COUNT_UUID)] == 24
-        assert bool(this_file.attrs[str(IS_FILE_ORIGINAL_UNTRIMMED_UUID)]) is True
-        assert this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] == 0
-        assert this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_END_UUID)] == 0
         assert (
             this_file.attrs[str(COMPUTER_NAME_HASH_UUID)]
             == start_recording_command["metadata_to_copy_onto_main_file_attributes"][COMPUTER_NAME_HASH_UUID]
@@ -226,6 +214,11 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
             is start_recording_command["metadata_to_copy_onto_main_file_attributes"][
                 PLATE_BARCODE_IS_FROM_SCANNER_UUID
             ]
+        )
+        assert this_file.attrs[str(PLATEMAP_NAME_UUID)] == start_recording_command["platemap"]["name"]
+        assert (
+            this_file.attrs[str(PLATEMAP_LABEL_UUID)]
+            == start_recording_command["platemap"]["labels"][well_idx]
         )
         # test metadata values and datasets not present in both beta versions
         if test_beta_version == 1:
@@ -416,16 +409,17 @@ def test_FileWriterProcess__beta_2_mode__creates_files_for_all_active_wells__whe
         file_path for file_path in actual_set_of_files if expected_plate_barcode in file_path
     }
     expected_set_of_files = {
-        f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5"
+        f"{expected_plate_barcode}__{timestamp_str}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)}.h5"
         for well_idx in range(24)
     }
     assert actual_set_of_files == expected_set_of_files
     for well_idx in range(24):
+        well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
         this_file = h5py.File(
             os.path.join(
                 file_dir,
                 f"{expected_plate_barcode}__{timestamp_str}",
-                f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+                f"{expected_plate_barcode}__{timestamp_str}__{well_name}.h5",
             ),
             "r",
         )
@@ -493,12 +487,12 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
         file_path for file_path in actual_set_of_files if expected_plate_barcode in file_path
     }
     expected_set_of_files = {
-        f"{expected_plate_barcode}__{file_timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5"
+        f"{expected_plate_barcode}__{file_timestamp_str}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)}.h5"
         for well_idx in range(24)
     }
     assert actual_set_of_files == expected_set_of_files
     for well_idx in range(24):
-        well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
+        well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
         this_file = h5py.File(
             os.path.join(
                 file_dir,
@@ -556,12 +550,12 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
         file_path for file_path in actual_set_of_files if expected_plate_barcode in file_path
     }
     expected_set_of_files = {
-        f"{expected_plate_barcode}__{file_timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5"
+        f"{expected_plate_barcode}__{file_timestamp_str}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)}.h5"
         for well_idx in range(24)
     }
     assert actual_set_of_files == expected_set_of_files
     for well_idx in range(24):
-        well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
+        well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
         this_file = h5py.File(
             os.path.join(
                 file_dir,
@@ -599,12 +593,12 @@ def test_FileWriterProcess__beta_2_mode__creates_calibration_files_in_correct_fo
         # test created files
         actual_set_of_files = set(os.listdir(file_dir))
         expected_set_of_files = {
-            f"Calibration__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5"
+            f"Calibration__{timestamp_str}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)}.h5"
             for well_idx in range(24)
         }
         assert actual_set_of_files == expected_set_of_files, timestamp_str
         for well_idx in range(24):
-            well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
+            well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
             this_file = h5py.File(
                 os.path.join(
                     file_dir,
@@ -636,7 +630,7 @@ def test_FileWriterProcess__beta_2_mode__copies_calibration_files_to_new_recordi
 
     # populate calibration folder with recording files for each well
     for well_idx in range(24):
-        well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
+        well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
         file_path = os.path.join(
             file_writer_process.calibration_file_directory, f"Calibration__{timestamp_str}__{well_name}.h5"
         )
@@ -654,7 +648,7 @@ def test_FileWriterProcess__beta_2_mode__copies_calibration_files_to_new_recordi
 
     expected_set_of_files = set()
     for well_idx in range(24):
-        well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
+        well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
         expected_set_of_files.add(f"{expected_plate_barcode}__{timestamp_str}__{well_name}.h5")
         expected_set_of_files.add(f"Calibration__{timestamp_str}__{well_name}.h5")
     assert actual_set_of_files == expected_set_of_files
@@ -672,7 +666,7 @@ def test_FileWriterProcess__beta_2_mode__raises_error_if_calibration_files_are_m
 
     # populate calibration folder with recording files for some wells
     for well_idx in range(15):
-        well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
+        well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
         file_path = os.path.join(
             file_writer_process.calibration_file_directory, f"Calibration__{timestamp_str}__{well_name}.h5"
         )
@@ -681,7 +675,7 @@ def test_FileWriterProcess__beta_2_mode__raises_error_if_calibration_files_are_m
             pass
 
     expected_missing_wells = [
-        WELL_DEF_24.get_well_name_from_well_index(well_idx) for well_idx in range(15, 24)
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx) for well_idx in range(15, 24)
     ]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
@@ -1088,7 +1082,7 @@ def test_FileWriterProcess__records_all_requested_beta_1_magnetometer_data_in_bu
         os.path.join(
             file_dir,
             f"{expected_plate_barcode}__{timestamp_str}",
-            f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(expected_well_idx)}.h5",
+            f"{expected_plate_barcode}__{timestamp_str}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(expected_well_idx)}.h5",
         ),
         "r",
     )
@@ -1149,11 +1143,12 @@ def test_FileWriterProcess__records_all_requested_beta_2_magnetometer_data_in_bu
     ]
     timestamp_str = "2020_02_09_190322"
     for well_idx in range(24):
+        well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
         this_file = h5py.File(
             os.path.join(
                 four_board_file_writer_process["file_dir"],
                 f"{expected_plate_barcode}__{timestamp_str}",
-                f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+                f"{expected_plate_barcode}__{timestamp_str}__{well_name}.h5",
             ),
             "r",
         )
@@ -1482,11 +1477,12 @@ def test_FileWriterProcess__records_all_relevant_stim_statuses_in_buffer_when_st
     ]
     timestamp_str = "2020_02_09_190322"
     for well_idx in range(24):
+        well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
         this_file = h5py.File(
             os.path.join(
                 four_board_file_writer_process["file_dir"],
                 f"{expected_plate_barcode}__{timestamp_str}",
-                f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+                f"{expected_plate_barcode}__{timestamp_str}__{well_name}.h5",
             ),
             "r",
         )
@@ -1572,11 +1568,12 @@ def test_FileWriterProcess__deletes_recorded_beta_1_well_data_after_stop_time(
     timestamp_str = "2020_02_09_190322"
 
     for well_idx in expected_well_indices:
+        well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
         this_file = h5py.File(
             os.path.join(
                 file_dir,
                 f"{expected_plate_barcode}__{timestamp_str}",
-                f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+                f"{expected_plate_barcode}__{timestamp_str}__{well_name}.h5",
             ),
             "r",
         )
@@ -1672,11 +1669,12 @@ def test_FileWriterProcess__deletes_recorded_beta_2_well_data_after_stop_time(
     expected_time_offsets_shape = (SERIAL_COMM_NUM_SENSORS_PER_WELL, expected_total_num_data_points)
     expected_data_shape = (SERIAL_COMM_NUM_DATA_CHANNELS, expected_total_num_data_points)
     for well_idx in range(24):
+        well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
         this_file = h5py.File(
             os.path.join(
                 four_board_file_writer_process["file_dir"],
                 f"{expected_plate_barcode}__{timestamp_str}",
-                f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+                f"{expected_plate_barcode}__{timestamp_str}__{well_name}.h5",
             ),
             "r",
         )
@@ -1782,7 +1780,7 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
         os.path.join(
             file_dir,
             f"{expected_plate_barcode}__{timestamp_str}",
-            f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(expected_well_idx)}.h5",
+            f"{expected_plate_barcode}__{timestamp_str}__{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(expected_well_idx)}.h5",
         ),
         "r",
     )
@@ -1944,11 +1942,12 @@ def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
     ]
     timestamp_str = "2020_02_09_190322"
     for well_idx in range(24):
+        well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
         with h5py.File(
             os.path.join(
                 four_board_file_writer_process["file_dir"],
                 f"{expected_plate_barcode}__{timestamp_str}",
-                f"{expected_plate_barcode}__{timestamp_str}__{WELL_DEF_24.get_well_name_from_well_index(well_idx)}.h5",
+                f"{expected_plate_barcode}__{timestamp_str}__{well_name}.h5",
             ),
             "r",
         ) as this_file:
