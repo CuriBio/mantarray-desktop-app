@@ -158,7 +158,7 @@ import {
   DataAnalysisControl,
   PlateMapEditorButton,
 } from "@curi-bio/mantarray-frontend-components";
-import { ipcRenderer /* webFrame */ } from "electron";
+import { ipcRenderer } from "electron";
 import { mapState } from "vuex";
 const log = require("electron-log");
 import path from "path";

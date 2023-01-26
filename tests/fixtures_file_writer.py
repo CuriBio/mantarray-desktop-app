@@ -41,6 +41,7 @@ from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
+from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
 from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import REFERENCE_VOLTAGE_UUID
@@ -111,10 +112,20 @@ GENERIC_STIM_INFO = immutabledict(GENERIC_STIM_INFO)
 # make this immutable after storing it in GENERIC_STIM_INFO
 GENERIC_STIM_PROTOCOL_ASSIGNMENTS = immutabledict(GENERIC_STIM_PROTOCOL_ASSIGNMENTS)
 
+GENERIC_PLATEMAP_INFO = immutabledict(
+    {
+        "name": "platemap_name",
+        "labels": tuple(["Label1"] + ["Label2"] + [str(NOT_APPLICABLE_H5_METADATA)] * 22),
+    }
+)
+
+
 GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
     "communication_type": "recording",
     "command": "start_recording",
     "timepoint_to_begin_recording_at": 298518 * 125,
+    "active_well_indices": frozenset(range(24)),
+    "platemap": GENERIC_PLATEMAP_INFO,
     "is_calibration_recording": False,
     "is_hardware_test_recording": False,
     "metadata_to_copy_onto_main_file_attributes": immutabledict(
@@ -135,7 +146,6 @@ GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
             PLATE_BARCODE_IS_FROM_SCANNER_UUID: True,
         }
     ),
-    "active_well_indices": frozenset(range(24)),
 }
 GENERIC_BASE_START_RECORDING_COMMAND = immutabledict(GENERIC_BASE_START_RECORDING_COMMAND)
 

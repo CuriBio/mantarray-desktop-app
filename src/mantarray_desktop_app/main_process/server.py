@@ -626,10 +626,7 @@ def set_stim_status() -> Response:
 
 @flask_app.route("/start_recording", methods=["GET"])
 def start_recording() -> Response:
-    """Tell the FileWriter to begin recording data to disk.
-
-    Can be invoked by: curl http://localhost:4567/start_recording
-    curl http://localhost:4567/start_recording?active_well_indices=2,5,9&plate_barcode=ML2022001000&stim_barcode=MS2022001000&time_index=9600&is_hardware_test_recording=True
+    """Tell the FileWriter to begin recording data to file.
 
     Args:
         active_well_indices: [Optional, default=all 24] CSV of well indices to record from
@@ -676,7 +673,6 @@ def start_recording() -> Response:
 
     time_index_str = request.args.get("time_index", None)
 
-    # TODO unit test
     if platemap := request.args.get("platemap"):
         platemap_info = json.loads(urllib.parse.unquote_plus(platemap))
     else:
