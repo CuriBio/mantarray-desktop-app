@@ -6,7 +6,7 @@ Changelog for Mantarray Desktop App
 
 Added:
 ^^^^^^
-- PlateMap editor TODO
+- PlateMap Editor page for creating labelled groupings of wells.
 
 
 Changed:
@@ -19,6 +19,10 @@ Changed:
     - IS_FILE_ORIGINAL_UNTRIMMED_UUID
     - TRIMMED_TIME_FROM_ORIGINAL_START_UUID
     - TRIMMED_TIME_FROM_ORIGINAL_END_UUID
+
+Fixed:
+^^^^^^
+- Heatmap colors not updating as new twitches are analyzed.
 
 
 1.0.9 (unreleased)
