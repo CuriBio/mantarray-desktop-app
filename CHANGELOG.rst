@@ -11,7 +11,13 @@ Added:
 
 Changed:
 ^^^^^^^^
+- Stim protocol colors are no longer random, will now be selected from a predetermined list of colors
 - Beta 2 H5 file format version is now 1.2.1. Format Changes:
+
+  - Added the following values:
+
+    - PLATEMAP_NAME_UUID
+    - PLATEMAP_LABEL_UUID
 
   - Removed the following values:
 
@@ -22,21 +28,10 @@ Changed:
 
 Fixed:
 ^^^^^^
-- Heatmap colors not updating as new twitches are analyzed.
-
-
-1.0.9 (unreleased)
-------------------
-
-Changed:
-^^^^^^^^
-- Stim protocol colors are no longer random, will now be selected from a predetermined list of colors
-
-Fixed:
-^^^^^^
 - Issue where firmware update(s) are found but no prompt to continue or cancel is given.
 - Force amplitude in Live View for SkM plates.
 - Heatmap now correctly averages the last 5 datapoints per well.
+- Heatmap colors not updating as new twitches are analyzed.
 
 
 1.0.8 (2022-01-24)
