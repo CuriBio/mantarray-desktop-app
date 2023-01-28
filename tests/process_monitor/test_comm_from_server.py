@@ -245,6 +245,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         {
             "active_well_indices": list(range(24)),
             "is_calibration_recording": True,
+            "platemap": {
+                "name": str(NOT_APPLICABLE_H5_METADATA),
+                "labels": [str(NOT_APPLICABLE_H5_METADATA)] * 24,
+            },
             "timepoint_to_begin_recording_at": 0,
         }
     )
