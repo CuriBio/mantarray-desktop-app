@@ -36,6 +36,9 @@
           <div class="div__plate-navigator-container">
             <PlateNavigator />
           </div>
+          <NuxtLink to="/platemapeditor">
+            <PlateMapEditorButton />
+          </NuxtLink>
           <div class="div__status-bar-container">
             <StatusBar
               :da_check="da_check"
@@ -153,8 +156,9 @@ import {
   StimulationControls,
   UploadFilesWidget,
   DataAnalysisControl,
+  PlateMapEditorButton,
 } from "@curi-bio/mantarray-frontend-components";
-import { ipcRenderer /* webFrame */ } from "electron";
+import { ipcRenderer } from "electron";
 import { mapState } from "vuex";
 const log = require("electron-log");
 import path from "path";
@@ -177,6 +181,7 @@ export default {
     UploadFilesWidget,
     DataAnalysisControl,
     BCollapse,
+    PlateMapEditorButton,
   },
   data: function () {
     return {

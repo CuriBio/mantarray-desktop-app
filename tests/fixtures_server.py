@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+from collections import defaultdict
+import json
+import urllib
+
 from mantarray_desktop_app import clear_the_server_manager
 from mantarray_desktop_app import flask_app
 from mantarray_desktop_app import get_api_endpoint
@@ -29,6 +33,20 @@ __fixtures__ = [
     fixture_generic_queue_container,
     fixture_test_monitor,
 ]
+
+
+def convert_formatted_platemap_to_query_param(formatted_platemap_info):
+    platemap = {"map_name": formatted_platemap_info["name"]}
+
+    intermediate_labels = defaultdict(list)
+    for well_idx, label_name in enumerate(formatted_platemap_info["labels"]):
+        intermediate_labels[label_name].append(well_idx)
+
+    platemap["labels"] = [
+        {"name": label_name, "wells": wells} for label_name, wells in intermediate_labels.items()
+    ]
+
+    return urllib.parse.quote_plus(json.dumps(platemap))
 
 
 @pytest.fixture(scope="function", name="server_manager")

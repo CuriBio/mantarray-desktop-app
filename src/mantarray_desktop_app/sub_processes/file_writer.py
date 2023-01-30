@@ -31,11 +31,11 @@ from pulse3D.constants import ADC_REF_OFFSET_UUID
 from pulse3D.constants import ADC_TISSUE_OFFSET_UUID
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import IS_CALIBRATION_FILE_UUID
-from pulse3D.constants import IS_FILE_ORIGINAL_UNTRIMMED_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
-from pulse3D.constants import ORIGINAL_FILE_VERSION_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
+from pulse3D.constants import PLATEMAP_LABEL_UUID
+from pulse3D.constants import PLATEMAP_NAME_UUID
 from pulse3D.constants import REF_SAMPLING_PERIOD_UUID
 from pulse3D.constants import REFERENCE_SENSOR_READINGS
 from pulse3D.constants import STIMULATION_PROTOCOL_UUID
@@ -45,8 +45,6 @@ from pulse3D.constants import TIME_OFFSETS
 from pulse3D.constants import TISSUE_SAMPLING_PERIOD_UUID
 from pulse3D.constants import TISSUE_SENSOR_READINGS
 from pulse3D.constants import TOTAL_WELL_COUNT_UUID
-from pulse3D.constants import TRIMMED_TIME_FROM_ORIGINAL_END_UUID
-from pulse3D.constants import TRIMMED_TIME_FROM_ORIGINAL_START_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_FIRST_REF_DATA_POINT_UUID
 from pulse3D.constants import UTC_FIRST_TISSUE_DATA_POINT_UUID
@@ -575,7 +573,7 @@ class FileWriterProcess(InfiniteProcess):
             )
             this_file = MantarrayH5FileCreator(file_path, file_format_version=file_version)
             self._open_files[board_idx][this_well_idx] = this_file
-            this_file.attrs[str(ORIGINAL_FILE_VERSION_UUID)] = file_version
+
             this_file.attrs[str(WELL_NAME_UUID)] = well_name
             this_row, this_col = GENERIC_24_WELL_DEFINITION.get_row_and_column_from_well_index(this_well_idx)
             this_file.attrs[str(WELL_ROW_UUID)] = this_row
@@ -591,9 +589,8 @@ class FileWriterProcess(InfiniteProcess):
             else:
                 this_file.attrs[str(IS_CALIBRATION_FILE_UUID)] = self._is_recording_calibration
             this_file.attrs[str(TOTAL_WELL_COUNT_UUID)] = 24
-            this_file.attrs[str(IS_FILE_ORIGINAL_UNTRIMMED_UUID)] = True
-            this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_START_UUID)] = 0
-            this_file.attrs[str(TRIMMED_TIME_FROM_ORIGINAL_END_UUID)] = 0
+            this_file.attrs[str(PLATEMAP_NAME_UUID)] = communication["platemap"]["name"]
+            this_file.attrs[str(PLATEMAP_LABEL_UUID)] = communication["platemap"]["labels"][this_well_idx]
 
             for this_attr_name, this_attr_value in attrs_to_copy.items():
                 if this_attr_name == "adc_offsets":
