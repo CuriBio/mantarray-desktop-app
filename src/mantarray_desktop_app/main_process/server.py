@@ -40,6 +40,7 @@ from typing import Dict
 from typing import Optional
 from typing import Tuple
 from typing import Union
+import urllib.parse
 from uuid import UUID
 
 from flask import Flask
@@ -631,10 +632,7 @@ def set_stim_status() -> Response:
 
 @flask_app.route("/start_recording", methods=["GET"])
 def start_recording() -> Response:
-    """Tell the FileWriter to begin recording data to disk.
-
-    Can be invoked by: curl http://localhost:4567/start_recording
-    curl http://localhost:4567/start_recording?active_well_indices=2,5,9&plate_barcode=ML2022001000&stim_barcode=MS2022001000&time_index=9600&is_hardware_test_recording=True
+    """Tell the FileWriter to begin recording data to file.
 
     Args:
         active_well_indices: [Optional, default=all 24] CSV of well indices to record from
@@ -681,12 +679,18 @@ def start_recording() -> Response:
 
     time_index_str = request.args.get("time_index", None)
 
+    if platemap := request.args.get("platemap"):
+        platemap_info = json.loads(urllib.parse.unquote_plus(platemap))
+    else:
+        platemap_info = None
+
     comm_dict = _create_start_recording_command(
         shared_values_dict,
         recording_name=request.args.get("recording_name"),
         time_index=time_index_str,
         active_well_indices=active_well_indices,
         barcodes=barcodes,
+        platemap_info=platemap_info,
         is_hardware_test_recording=is_hardware_test_recording,
     )
 
@@ -1289,5 +1293,5 @@ class ServerManager:
         queue_items = dict()
 
         queue_items["to_main"] = drain_queue(self._to_main_queue)
-        queue_items["outgoing_data"] = drain_queue(self.queue_container.to_server)
+        queue_items["outgoing_data"] = drain_queue(self.queue_container.to_websocket)
         return queue_items

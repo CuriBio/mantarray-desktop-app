@@ -65,7 +65,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
 
     bad_comm_type = "bad_comm_type"
     expected_comm = {"communication_type": bad_comm_type}
@@ -85,7 +85,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
     expected_nickname = "The Nautilus"
     expected_comm = {
         "communication_type": "mantarray_naming",
@@ -110,7 +110,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
     shared_values_dict["mantarray_nickname"] = {0: "The Nautilus 1"}
     expected_nickname = "The Nautilus 2"
     expected_comm = {
@@ -131,7 +131,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
     expected_serial = "M02001901"
     expected_comm = {
         "communication_type": "mantarray_naming",
@@ -156,7 +156,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, svd, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
     svd["mantarray_serial_number"] = {0: "M02001901"}
     expected_serial = "M02001902"
     expected_comm = {
@@ -177,7 +177,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
     expected_command = "bad_command"
     expected_comm = {"communication_type": "mantarray_naming", "command": expected_command}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
@@ -192,7 +192,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     monitor_thread, svd, *_ = test_monitor(test_process_manager)
     svd["beta_2_mode"] = False
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
     expected_comm = {"communication_type": "xem_scripts", "script_type": "start_calibration"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
@@ -223,7 +223,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     del svd["config_settings"]["customer_id"]
     del svd["config_settings"]["user_name"]
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
     main_to_ic_queue = test_process_manager.queue_container.to_instrument_comm(0)
     main_to_fw_queue = test_process_manager.queue_container.to_file_writer
 
@@ -245,6 +245,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         {
             "active_well_indices": list(range(24)),
             "is_calibration_recording": True,
+            "platemap": {
+                "name": str(NOT_APPLICABLE_H5_METADATA),
+                "labels": [str(NOT_APPLICABLE_H5_METADATA)] * 24,
+            },
             "timepoint_to_begin_recording_at": 0,
         }
     )
@@ -293,7 +297,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__passe
         "well_indices": test_wells,
     }
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         start_stim_checks_command, server_to_main_queue
     )
@@ -318,7 +322,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     mocker.patch.object(process_manager, "get_latest_firmware", autospec=True, return_value=None)
 
     spied_boot_up_instrument = mocker.spy(test_process_manager, "boot_up_instrument")
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
     expected_comm = {"communication_type": "to_instrument", "command": "boot_up"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
@@ -341,7 +345,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
     expected_command = "bad_command"
     expected_comm = {"communication_type": test_comm_type, "command": expected_command}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_comm, server_to_main_queue)
@@ -355,7 +359,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         dict(START_MANAGED_ACQUISITION_COMMUNICATION),
@@ -383,7 +387,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
 
     main_to_da = test_process_manager.queue_container.to_data_analyzer
     main_to_fw = test_process_manager.queue_container.to_file_writer
@@ -423,7 +427,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
 
     new_customer_id = "new_cid"
     new_username = "new_un"
@@ -440,7 +444,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         {"auto_upload_on_completion": False, "auto_delete_local_files": True, "pulse3d_version": "1.2.3"}
     )
 
-    comm_from_server = {
+    comm_from_flask = {
         "communication_type": "update_user_settings",
         "content": {
             "customer_id": new_customer_id,
@@ -451,11 +455,11 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
             "pulse3d_version": "6.7.9",
         },
     }
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(comm_from_server, server_to_main_queue)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(comm_from_flask, server_to_main_queue)
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
 
-    assert shared_values_dict["config_settings"] == comm_from_server["content"]
+    assert shared_values_dict["config_settings"] == comm_from_flask["content"]
     assert shared_values_dict["user_creds"] == {
         "customer_id": new_customer_id,
         "user_name": new_username,
@@ -465,7 +469,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     to_file_writer_queue = test_process_manager.queue_container.to_file_writer
     confirm_queue_is_eventually_of_size(to_file_writer_queue, 1)
     comm_from_fw = to_file_writer_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert comm_from_fw == {"command": "update_user_settings", "config_settings": comm_from_server["content"]}
+    assert comm_from_fw == {"command": "update_user_settings", "config_settings": comm_from_flask["content"]}
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_update_shared_values__by_populating_file_writer_queue_when_recording_directory_updated(
@@ -474,7 +478,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
 
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         communication = {
@@ -499,7 +503,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
     expected_timepoint = 55432
     communication = {
         "communication_type": "recording",
@@ -526,7 +530,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
     # expected_timepoint = 55432
     adc_offsets = dict()
     for well_idx in range(24):
@@ -562,7 +566,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raise
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
     adc_offsets = dict()
     for well_idx in range(24):
         adc_offsets[well_idx] = {"construct": 0, "ref": 0}
@@ -580,7 +584,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__adds_
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
     main_to_fw_queue = test_process_manager.queue_container.to_file_writer
 
     communication = {
@@ -606,7 +610,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         test_process_manager, "hard_stop_and_join_processes", autospec=True
     )  # Eli (11/17/20): mocking instead of spying because processes can't be joined unless they were actually started, and we're just doing a create_processes here
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
 
     communication = {"communication_type": "shutdown", "command": "hard_stop"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
@@ -637,7 +641,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     spied_fw_hard_stop = mocker.spy(fw_process, "hard_stop")
     spied_da_hard_stop = mocker.spy(da_process, "hard_stop")
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
 
     communication = {"communication_type": "shutdown", "command": "hard_stop"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
@@ -658,7 +662,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
 
     okc_process = test_process_manager.instrument_comm_process
     fw_process = test_process_manager.file_writer_process
@@ -696,7 +700,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
 
     shared_values_dict["config_settings"] = {"config": "settings"}
 
@@ -724,7 +728,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
 
     shared_values_dict["config_settings"] = {}
 
@@ -734,7 +738,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     spied_shutdown_server = mocker.spy(server_manager, "shutdown_server")
     mocker.patch.object(server_manager, "drain_all_queues", autospec=True, return_value=expected_server_item)
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
 
     communication = {"communication_type": "shutdown", "command": "shutdown_server"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
@@ -743,7 +747,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     spied_shutdown_server.assert_called_once()
 
 
-def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_mantarray_nickname(
+def test_MantarrayProcessesMonitor__logs_messages_from_flask__and_redacts_mantarray_nickname(
     mocker, test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -751,7 +755,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_manta
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
 
-    to_main_queue = test_process_manager.queue_container.from_server
+    to_main_queue = test_process_manager.queue_container.from_flask
 
     test_nickname = "The Nautilus"
     test_comm = {
@@ -769,7 +773,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_manta
     mocked_logger.assert_called_once_with(f"Communication from the Server: {expected_comm}")
 
 
-def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_user_password(
+def test_MantarrayProcessesMonitor__logs_messages_from_flask__and_redacts_user_password(
     mocker, test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -777,7 +781,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_user_
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
 
-    to_main_queue = test_process_manager.queue_container.from_server
+    to_main_queue = test_process_manager.queue_container.from_flask
 
     test_comm = {"communication_type": "update_user_settings", "content": {"user_password": "test_password"}}
     expected_comm = copy.deepcopy(test_comm)
@@ -790,7 +794,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_user_
     mocked_logger.assert_called_once_with(f"Communication from the Server: {expected_comm}")
 
 
-def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_recording_paths(
+def test_MantarrayProcessesMonitor__logs_messages_from_flask__and_redacts_recording_paths(
     mocker, test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -798,7 +802,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_server__and_redacts_recor
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
 
-    to_main_queue = test_process_manager.queue_container.from_server
+    to_main_queue = test_process_manager.queue_container.from_flask
 
     test_comm = {
         "communication_type": "mag_finding_analysis",
@@ -825,7 +829,7 @@ def test_MantarrayProcessesMonitor__processes_set_stim_status_command(
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
     main_to_ic_queue = test_process_manager.queue_container.to_instrument_comm(0)
 
     test_well_names = ["A1", "A2", "B1"]
@@ -858,7 +862,7 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
     main_to_ic_queue = test_process_manager.queue_container.to_instrument_comm(0)
     main_to_fw_queue = test_process_manager.queue_container.to_file_writer
 
@@ -903,7 +907,7 @@ def test_MantarrayProcessesMonitor__processes_start_mag_analysis_command(
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
     main_to_da_queue = test_process_manager.queue_container.to_data_analyzer
 
     test_command = {
@@ -932,8 +936,8 @@ def test_MantarrayProcessesMonitor__processes_set_latest_software_version_comman
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-    server_to_main_queue = test_process_manager.queue_container.from_server
-    queue_to_server_ws = test_process_manager.queue_container.to_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
+    queue_to_server_ws = test_process_manager.queue_container.to_websocket
 
     mocker.patch.object(process_monitor, "CURRENT_SOFTWARE_VERSION", current_version)
 
@@ -962,7 +966,7 @@ def test_MantarrayProcessesMonitor__processes_firmware_update_confirmation_comma
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     shared_values_dict["system_status"] = UPDATES_NEEDED_STATE
 
-    server_to_main_queue = test_process_manager.queue_container.from_server
+    server_to_main_queue = test_process_manager.queue_container.from_flask
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"communication_type": "firmware_update_confirmation", "update_accepted": update_accepted},
@@ -972,3 +976,21 @@ def test_MantarrayProcessesMonitor__processes_firmware_update_confirmation_comma
     assert shared_values_dict["firmware_update_accepted"] is update_accepted
     # make sure system status was not updated
     assert shared_values_dict["system_status"] == UPDATES_NEEDED_STATE
+
+
+def test_MantarrayProcessesMonitor___check_and_handle_websocket_to_main_queue_sets_flag_when_websocket_connection_success(
+    test_process_manager_creator,
+    test_monitor,
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    from_websocket_queue = test_process_manager.queue_container.from_websocket
+
+    shared_values_dict["websocket_connection_made"] = False
+
+    communication = {"communication_type": "connection_success"}
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, from_websocket_queue)
+    invoke_process_run_and_check_errors(monitor_thread)
+
+    assert shared_values_dict["websocket_connection_made"] is True

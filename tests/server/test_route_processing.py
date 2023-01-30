@@ -97,11 +97,11 @@ def test_send_single_set_mantarray_nickname_command__gets_processed_and_stores_n
     ok_process = test_process_manager.instrument_comm_process
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
     comm_from_ok_queue = test_process_manager.queue_container.from_instrument_comm(0)
-    comm_from_server_queue = test_process_manager.queue_container.from_server
+    comm_from_flask_queue = test_process_manager.queue_container.from_flask
 
     response = test_client.get(f"/set_mantarray_nickname?nickname={expected_nickname}")
     assert response.status_code == 200
-    confirm_queue_is_eventually_of_size(comm_from_server_queue, 1)
+    confirm_queue_is_eventually_of_size(comm_from_flask_queue, 1)
 
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["mantarray_nickname"][0] == expected_nickname
@@ -136,7 +136,7 @@ def test_send_single_start_calibration_command__gets_processed_and_sets_system_s
     ok_process = test_process_manager.instrument_comm_process
     set_connection_to_beta_1_board(ok_process, initialize_board=False)
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
-    comm_from_server_queue = test_process_manager.queue_container.from_server
+    comm_from_flask_queue = test_process_manager.queue_container.from_flask
     comm_from_ok_queue = test_process_manager.queue_container.from_instrument_comm(0)
 
     response = test_client.get("/insert_xem_command_into_queue/initialize_board")
@@ -144,7 +144,7 @@ def test_send_single_start_calibration_command__gets_processed_and_sets_system_s
     confirm_queue_is_eventually_of_size(comm_to_ok_queue, 1)
     response = test_client.get("/start_calibration")
     assert response.status_code == 200
-    confirm_queue_is_eventually_of_size(comm_from_server_queue, 1)
+    confirm_queue_is_eventually_of_size(comm_from_flask_queue, 1)
 
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == CALIBRATING_STATE
@@ -748,7 +748,7 @@ def test_send_single_boot_up_command__gets_processed_and_sets_system_status_to_i
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
-    server_to_main = test_process_manager.queue_container.from_server
+    server_to_main = test_process_manager.queue_container.from_flask
     comm_to_ok_queue = test_process_manager.queue_container.to_instrument_comm(0)
     comm_from_ok_queue = test_process_manager.queue_container.from_instrument_comm(0)
 

@@ -18,6 +18,7 @@ from mantarray_desktop_app import REF_INDEX_TO_24_WELL_INDEX
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import UnrecognizedCommandFromMainToFileWriterError
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from mantarray_desktop_app.sub_processes import file_writer
 import numpy as np
@@ -41,7 +42,6 @@ from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_UPDATE_RECORDING_NAME_COMMAND
 from ..fixtures_file_writer import GENERIC_UPDATE_USER_SETTINGS
 from ..fixtures_file_writer import populate_calibration_folder
-from ..fixtures_file_writer import WELL_DEF_24
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -719,7 +719,7 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_1_files_after_stop_recordi
     # confirm files can be opened and files contains at least one piece of metadata and the correct tissue data
     for row_idx in range(4):
         for col_idx in range(6):
-            well_name = WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)
+            well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_row_and_column(row_idx, col_idx)
             with h5py.File(
                 os.path.join(
                     tmp_dir,
@@ -793,7 +793,7 @@ def test_FileWriterProcess_hard_stop__closes_all_beta_2_files_after_stop_recordi
     # confirm files can be opened and files contains at least one piece of metadata and the correct tissue data
     for row_idx in range(4):
         for col_idx in range(6):
-            well_name = WELL_DEF_24.get_well_name_from_row_and_column(row_idx, col_idx)
+            well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_row_and_column(row_idx, col_idx)
             with h5py.File(
                 os.path.join(
                     tmp_dir,

@@ -15,7 +15,6 @@ import uuid
 
 import h5py
 from immutabledict import immutabledict
-from labware_domain_models import LabwareDefinition
 from mantarray_desktop_app import COMPILED_EXE_BUILD_TIMESTAMP
 from mantarray_desktop_app import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
@@ -42,6 +41,7 @@ from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
+from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
 from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import REFERENCE_VOLTAGE_UUID
@@ -68,8 +68,6 @@ from .fixtures_mc_simulator import get_random_stim_pulse
 from .helpers import confirm_queue_is_eventually_empty
 from .helpers import confirm_queue_is_eventually_of_size
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
-
-WELL_DEF_24 = LabwareDefinition(row_count=4, column_count=6)
 
 
 TEST_CUSTOMER_ID = uuid.UUID("73f52be0-368c-42d8-a1fd-660d49ba5604")
@@ -118,10 +116,19 @@ GENERIC_STIM_INFO = immutabledict(GENERIC_STIM_INFO)
 # make this immutable after storing it in GENERIC_STIM_INFO
 GENERIC_STIM_PROTOCOL_ASSIGNMENTS = immutabledict(GENERIC_STIM_PROTOCOL_ASSIGNMENTS)
 
+GENERIC_PLATEMAP_INFO = immutabledict(
+    {
+        "name": "platemap_name",
+        "labels": tuple(["Label1"] + ["Label2"] + [str(NOT_APPLICABLE_H5_METADATA)] * 22),
+    }
+)
+
 GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
     "communication_type": "recording",
     "command": "start_recording",
     "timepoint_to_begin_recording_at": 298518 * 125,
+    "active_well_indices": frozenset(range(24)),
+    "platemap": GENERIC_PLATEMAP_INFO,
     "is_calibration_recording": False,
     "is_hardware_test_recording": False,
     "metadata_to_copy_onto_main_file_attributes": immutabledict(
@@ -142,7 +149,6 @@ GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
             PLATE_BARCODE_IS_FROM_SCANNER_UUID: True,
         }
     ),
-    "active_well_indices": frozenset(range(24)),
 }
 GENERIC_BASE_START_RECORDING_COMMAND = immutabledict(GENERIC_BASE_START_RECORDING_COMMAND)
 
@@ -457,7 +463,7 @@ def create_and_close_beta_1_h5_files(
 
 def populate_calibration_folder(fw_process):
     for well_idx in range(24):
-        well_name = WELL_DEF_24.get_well_name_from_well_index(well_idx)
+        well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
         file_path = os.path.join(fw_process.calibration_file_directory, f"Calibration__{well_name}.h5")
         # create and close file
         with open(file_path, "w"):

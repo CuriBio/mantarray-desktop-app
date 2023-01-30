@@ -2,6 +2,7 @@
 import copy
 import datetime
 import json
+from random import randint
 import urllib
 
 from freezegun import freeze_time
@@ -31,6 +32,7 @@ from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
+from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
 from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import REFERENCE_VOLTAGE_UUID
@@ -716,7 +718,7 @@ def test_stop_recording_command__is_received_by_main__with_default__utcnow_recor
     )
 
 
-def test_start_recording_command__populates_queue__with_correct_adc_offset_values_if_is_hardware_test_recording_is_true(
+def test_start_recording_command__populates_queue_with_correct_adc_offset_values_if_is_hardware_test_recording_is_true(
     test_process_manager_creator, test_client
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -732,7 +734,7 @@ def test_start_recording_command__populates_queue__with_correct_adc_offset_value
     response = test_client.get(f"/start_recording?plate_barcode={barcode}")
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container.from_server
+    comm_queue = test_process_manager.queue_container.from_flask
     confirm_queue_is_eventually_of_size(comm_queue, 1)
 
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -740,7 +742,7 @@ def test_start_recording_command__populates_queue__with_correct_adc_offset_value
     assert communication["metadata_to_copy_onto_main_file_attributes"]["adc_offsets"] == expected_adc_offsets
 
 
-def test_start_recording_command__populates_queue__with_given_time_index_parameter(
+def test_start_recording_command__populates_queue_with_given_time_index_parameter(
     test_process_manager_creator, test_client
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -755,7 +757,7 @@ def test_start_recording_command__populates_queue__with_given_time_index_paramet
     )
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container.from_server
+    comm_queue = test_process_manager.queue_container.from_flask
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -768,7 +770,7 @@ def test_start_recording_command__populates_queue__with_given_time_index_paramet
     )
 
 
-def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_well_indices(
+def test_start_recording_command__populates_queue_with_correctly_parsed_set_of_well_indices(
     test_process_manager_creator, test_client
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -782,14 +784,14 @@ def test_start_recording_command__populates_queue__with_correctly_parsed_set_of_
     )
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container.from_server
+    comm_queue = test_process_manager.queue_container.from_flask
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
     assert set(communication["active_well_indices"]) == set([0, 8, 5])
 
 
-def test_start_recording_command__beta_2_mode__populates_queue__with_correct_well_indices(
+def test_start_recording_command__beta_2_mode__populates_queue_with_correct_well_indices(
     test_process_manager_creator, test_client
 ):
     test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
@@ -805,7 +807,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_correct_wel
     )
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container.from_server
+    comm_queue = test_process_manager.queue_container.from_flask
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -865,7 +867,7 @@ def test_start_recording_command__correctly_sets_plate_barcode_from_scanner_valu
     )
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container.from_server
+    comm_queue = test_process_manager.queue_container.from_flask
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -926,12 +928,11 @@ def test_start_recording_command__correctly_sets_stim_barcode_from_scanner_value
     params = {
         "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
         "stim_barcode": user_entered_barcode,
-        "is_hardware_test_recording": False,
     }
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container.from_server
+    comm_queue = test_process_manager.queue_container.from_flask
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -973,7 +974,7 @@ def test_start_recording_command__beta_1_mode__populates_queue__with_defaults__2
     )
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container.from_server
+    comm_queue = test_process_manager.queue_container.from_flask
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -1101,7 +1102,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     )
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container.from_server
+    comm_queue = test_process_manager.queue_container.from_flask
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -1196,61 +1197,47 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     assert response_json["command"] == "start_recording"
 
 
-# TODO parametrize stim barcode to either be a barcode or None ?
 @pytest.mark.parametrize(
-    "test_stim_start_timestamp,test_stim_info,expected_stim_info,test_description",
+    "test_stim_info,test_stim_barcode,is_stim_running",
     [
-        (None, None, None, "sets metadata value to None when protocols not set and stim not running"),
-        (
-            None,
-            {"test": "info"},
-            None,
-            "sets metadata value to None when protocols set and stim not running",
-        ),
-        (
-            datetime.datetime(year=2021, month=10, day=19, hour=12, minute=42, second=22, microsecond=332597),
-            {"test": "info"},
-            {"test": "info"},
-            "sets metadata value to stim info dict when protocols set and stim running",
-        ),
+        (None, None, False),
+        ({"test": "info"}, None, False),
+        ({"test": "info"}, MantarrayMcSimulator.default_stim_barcode, False),
+        ({"test": "info"}, MantarrayMcSimulator.default_stim_barcode, True),
     ],
 )
 def test_start_recording_command__beta_2_mode__populates_queue_with_stim_barcode_correctly(
-    test_stim_start_timestamp,
-    test_stim_info,
-    expected_stim_info,
-    test_description,
-    test_process_manager_creator,
-    test_client,
+    test_stim_info, test_stim_barcode, is_stim_running, test_process_manager_creator, test_client
 ):
-    # TODO ?
     test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
     shared_values_dict = test_process_manager.values_to_share_to_server
     put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
 
-    expected_stim_running_list = [random_bool() for _ in range(24)]
-    shared_values_dict["stimulation_running"] = expected_stim_running_list
     shared_values_dict["stimulation_info"] = test_stim_info
+    expected_stim_running_list = [False] * 24
+    if is_stim_running:
+        expected_stim_running_list[randint(0, 23)] = True
+    shared_values_dict["stimulation_running"] = expected_stim_running_list
 
     test_plate_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
         PLATE_BARCODE_UUID
     ]
-    test_stim_barcode = GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
-        STIM_BARCODE_UUID
-    ]
-    params = {
-        "plate_barcode": test_plate_barcode,
-        "stim_barcode": test_stim_barcode,
-        "is_hardware_test_recording": False,
-    }
+    params = {"plate_barcode": test_plate_barcode}
+    if test_stim_barcode:
+        params["stim_barcode"] = test_stim_barcode
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container.from_server
+    comm_queue = test_process_manager.queue_container.from_flask
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
     assert communication["command"] == "start_recording"
-    # TODO make assertion about stim barcode only
+    expected_stim_barcode = test_stim_barcode if test_stim_barcode else NOT_APPLICABLE_H5_METADATA
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][STIM_BARCODE_UUID]
+        == expected_stim_barcode
+    )
 
 
 @pytest.mark.parametrize("recording_name", ["Test Name", None])
@@ -1261,17 +1248,14 @@ def test_start_recording_command__populates_queue_with_recording_file_name_corre
     shared_values_dict = test_process_manager.values_to_share_to_server
     put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
 
-    params = {
-        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
-        "is_hardware_test_recording": False,
-    }
+    params = {"plate_barcode": MantarrayMcSimulator.default_plate_barcode}
     if recording_name:
         params["recording_name"] = recording_name
 
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
     assert response.status_code == 200
 
-    comm_queue = test_process_manager.queue_container.from_server
+    comm_queue = test_process_manager.queue_container.from_flask
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["command"] == "start_recording"
@@ -1279,6 +1263,51 @@ def test_start_recording_command__populates_queue_with_recording_file_name_corre
         assert communication["recording_name"] == recording_name
     else:
         assert "recording_name" not in communication
+
+
+@pytest.mark.parametrize(
+    "test_platemap",
+    [
+        None,
+        {},
+        {
+            "map_name": "test platemap name",
+            "labels": [
+                {"name": "test-label-1", "wells": [0]},
+                {"name": "test_label_2", "wells": [1]},
+            ],
+        },
+    ],
+)
+def test_start_recording_command__populates_queue_with_platemap_info_correctly(
+    test_platemap, test_process_manager_creator, test_client
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    put_generic_beta_2_start_recording_info_in_dict(test_process_manager.values_to_share_to_server)
+
+    params = {"plate_barcode": MantarrayMcSimulator.default_plate_barcode}
+    if test_platemap is not None:
+        params["platemap"] = urllib.parse.quote_plus(json.dumps(test_platemap))
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
+    assert response.status_code == 200
+
+    comm_queue = test_process_manager.queue_container.from_flask
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
+    assert communication["command"] == "start_recording"
+    if test_platemap:
+        expected_platemap = {
+            "name": test_platemap["map_name"],
+            "labels": [label_info["name"] for label_info in test_platemap["labels"]]
+            + [str(NOT_APPLICABLE_H5_METADATA)] * 22,
+        }
+    else:
+        expected_platemap = {
+            "name": str(NOT_APPLICABLE_H5_METADATA),
+            "labels": [str(NOT_APPLICABLE_H5_METADATA)] * 24,
+        }
+    assert communication["platemap"] == expected_platemap
 
 
 def test_shutdown__sends_hard_stop_command__waits_for_subprocesses_to_stop__then_shutdown_server_command_to_process_monitor(

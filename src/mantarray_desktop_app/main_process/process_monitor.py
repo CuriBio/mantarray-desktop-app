@@ -176,7 +176,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
     def _check_and_handle_server_to_main_queue(self) -> None:
         process_manager = self._process_manager
-        to_main_queue = process_manager.queue_container.from_server
+        to_main_queue = process_manager.queue_container.from_flask
         try:
             communication = to_main_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
         except queue.Empty:
@@ -739,7 +739,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         # make sure system status is up to date
         if self._values_to_share_to_server["system_status"] == SERVER_INITIALIZING_STATE:
-            self._check_subprocess_start_up_statuses()
+            self._check_if_server_is_ready()
         elif self._values_to_share_to_server["system_status"] == SERVER_READY_STATE:
             if self._values_to_share_to_server["beta_2_mode"]:
                 self._values_to_share_to_server["system_status"] = INSTRUMENT_INITIALIZING_STATE
@@ -789,6 +789,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self._check_and_handle_file_writer_to_main_queue()
         self._check_and_handle_data_analyzer_to_main_queue()
         self._check_and_handle_server_to_main_queue()
+        self._check_and_handle_websocket_to_main_queue()
 
         # if managed acquisition is running, check for available data
         if self._values_to_share_to_server["system_status"] in (
@@ -813,10 +814,13 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 to_instrument_comm.put_nowait(barcode_poll_comm)
                 self._last_barcode_clear_time = _get_barcode_clear_time()
 
-    def _check_subprocess_start_up_statuses(self) -> None:
+    def _check_if_server_is_ready(self) -> None:
         process_manager = self._process_manager
         shared_values_dict = self._values_to_share_to_server
-        if process_manager.are_subprocess_start_ups_complete():
+        if (
+            process_manager.are_subprocess_start_ups_complete()
+            and shared_values_dict["websocket_connection_made"]
+        ):
             shared_values_dict["system_status"] = SERVER_READY_STATE
 
     def _add_offset_to_shared_dict(self, adc_index: int, ch_index: int, offset_val: int) -> None:
@@ -845,8 +849,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
         )
 
     def _queue_websocket_message(self, message_dict: Dict[str, Any]) -> None:
-        data_to_server_queue = self._process_manager.queue_container.to_server
-        data_to_server_queue.put_nowait(message_dict)
+        data_to_websocket_queue = self._process_manager.queue_container.to_websocket
+        data_to_websocket_queue.put_nowait(message_dict)
 
     def _handle_error_in_subprocess(
         self,
@@ -898,3 +902,18 @@ class MantarrayProcessesMonitor(InfiniteThread):
     def soft_stop(self) -> None:
         self._process_manager.soft_stop_and_join_processes()
         super().soft_stop()
+
+    def _check_and_handle_websocket_to_main_queue(self) -> None:
+        process_manager = self._process_manager
+        to_main_queue = process_manager.queue_container.from_websocket
+        try:
+            communication = to_main_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
+        except queue.Empty:
+            return
+
+        communication_type = communication["communication_type"]
+
+        if communication_type == "connection_success":
+            self._values_to_share_to_server["websocket_connection_made"] = True
+        else:
+            raise NotImplementedError(f"Unrecognized comm type from websocket: {communication_type}")

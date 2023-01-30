@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+from collections import defaultdict
+import json
+import urllib
+
 from mantarray_desktop_app import clear_the_server_manager
 from mantarray_desktop_app import flask_app
 from mantarray_desktop_app import get_api_endpoint
@@ -31,10 +35,24 @@ __fixtures__ = [
 ]
 
 
+def convert_formatted_platemap_to_query_param(formatted_platemap_info):
+    platemap = {"map_name": formatted_platemap_info["name"]}
+
+    intermediate_labels = defaultdict(list)
+    for well_idx, label_name in enumerate(formatted_platemap_info["labels"]):
+        intermediate_labels[label_name].append(well_idx)
+
+    platemap["labels"] = [
+        {"name": label_name, "wells": wells} for label_name, wells in intermediate_labels.items()
+    ]
+
+    return urllib.parse.quote_plus(json.dumps(platemap))
+
+
 @pytest.fixture(scope="function", name="server_manager")
 def fixture_server_manager(generic_queue_container):
     # Tanner (8/10/21): it is the responsibility of tests using this fixture to drain the queues used
-    to_main_queue = generic_queue_container.from_server
+    to_main_queue = generic_queue_container.from_flask
 
     sm = ServerManager(to_main_queue, generic_queue_container)
     shared_values_dict = sm._values_from_process_monitor
@@ -170,12 +188,12 @@ def fixture_test_socketio_client():
     def stimulation_handler(data):
         msg_list_container["stimulation_data"].append(data)
 
-    def _connect_client_to_server():
+    def _connect_client_to_ws_server():
         confirm_port_in_use(get_server_port_number(), timeout=4)  # wait for server to boot up
         sio.connect(get_api_endpoint(), wait_timeout=10)
         return sio, msg_list_container
 
-    yield _connect_client_to_server
+    yield _connect_client_to_ws_server
 
     if sio.connected:
         sio.disconnect()

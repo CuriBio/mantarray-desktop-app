@@ -55,8 +55,8 @@ from ..constants import DEFAULT_SAMPLING_PERIOD
 from ..constants import MICRO_TO_BASE_CONVERSION
 from ..constants import MICROSECONDS_PER_CENTIMILLISECOND
 from ..constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
-from ..constants import MM_PER_MT_Z_AXIS_SENSOR_0
 from ..constants import PERFOMANCE_LOGGING_PERIOD_SECS
+from ..constants import POST_STIFFNESS_TO_MM_PER_MT_Z_AXIS_SENSOR_0
 from ..constants import RECORDING_SNAPSHOT_DUR_SECS
 from ..constants import REF_INDEX_TO_24_WELL_INDEX
 from ..constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
@@ -74,8 +74,12 @@ METRIC_CALCULATORS = immutabledict(
 )
 
 
+def _get_post_stiffness_factor_for_well(plate_barcode: str, well_idx: int) -> int:
+    return get_stiffness_factor(get_experiment_id(plate_barcode), well_idx)  # type: ignore
+
+
 def calculate_displacement_from_magnetic_flux_density(
-    magnetic_flux_data: NDArray[(2, Any), np.float64],
+    magnetic_flux_data: NDArray[(2, Any), np.float64], post_stiffness_factor: int
 ) -> NDArray[(2, Any), np.float64]:
     """Convert magnetic flux density to displacement.
 
@@ -91,7 +95,7 @@ def calculate_displacement_from_magnetic_flux_density(
     time = magnetic_flux_data[0, :]
 
     # calculate displacement
-    sample_in_mm = sample_in_milliteslas * MM_PER_MT_Z_AXIS_SENSOR_0
+    sample_in_mm = sample_in_milliteslas * POST_STIFFNESS_TO_MM_PER_MT_Z_AXIS_SENSOR_0[post_stiffness_factor]
 
     return np.vstack((time, sample_in_mm)).astype(np.float64)
 
@@ -104,6 +108,8 @@ def get_force_signal(
     compress: bool = True,
     is_beta_2_data: bool = True,
 ) -> NDArray[(2, Any), np.float64]:
+    post_stiffness_factor = _get_post_stiffness_factor_for_well(plate_barcode, well_idx)
+
     if is_beta_2_data:
         filtered_memsic = apply_noise_filtering(raw_signal, filter_coefficients)
         if compress:
@@ -113,14 +119,14 @@ def get_force_signal(
             [filtered_memsic[0], calculate_magnetic_flux_density_from_memsic(filtered_memsic[1])],
             dtype=np.float64,
         )
-        displacement = calculate_displacement_from_magnetic_flux_density(mfd)
+        displacement = calculate_displacement_from_magnetic_flux_density(mfd, post_stiffness_factor)
     else:
         filtered_gmr = apply_noise_filtering(raw_signal, filter_coefficients)
         if compress:
             filtered_gmr = compress_filtered_magnetic_data(filtered_gmr)
         voltage = calculate_voltage_from_gmr(filtered_gmr)
         displacement = calculate_displacement_from_voltage(voltage)
-    post_stiffness_factor = get_stiffness_factor(get_experiment_id(plate_barcode), well_idx)
+
     return calculate_force_from_displacement(displacement, post_stiffness_factor, in_mm=is_beta_2_data)
 
 
@@ -148,21 +154,28 @@ def live_data_metrics(
 
     # get values needed for metrics creation
     twitch_indices = find_twitch_indices(peak_and_valley_indices)
-    num_twitches = len(twitch_indices)
+    if not twitch_indices:
+        raise PeakDetectionError()
+
     time_series = filtered_data[0, :]
 
     # create top level dict
-    twitch_peak_indices = tuple(twitch_indices.keys())
-    main_twitch_dict = {time_series[twitch_peak_indices[i]]: dict() for i in range(num_twitches)}
+    main_twitch_dict = {time_series[idx]: dict() for idx in twitch_indices}
 
     # create metrics
     for metric_uuid in (TWITCH_FREQUENCY_UUID, AMPLITUDE_UUID):
-        metric_df = METRIC_CALCULATORS[metric_uuid].fit(
-            peak_and_valley_indices, filtered_data, twitch_indices
-        )
+        try:
+            metric_df = METRIC_CALCULATORS[metric_uuid].fit(
+                peak_and_valley_indices, filtered_data, twitch_indices
+            )
+        except Exception:  # nosec B112
+            continue
         for twitch_idx, metric_value in metric_df.to_dict().items():
             time_index = time_series[twitch_idx]
             main_twitch_dict[time_index][metric_uuid] = metric_value
+
+    if not any(main_twitch_dict.values()):
+        raise PeakDetectionError()
 
     return main_twitch_dict
 
@@ -728,6 +741,9 @@ class DataAnalyzerProcess(InfiniteProcess):
             for twitch_metric_dict in per_twitch_dict.values():
                 for metric_id, metric_val in twitch_metric_dict.items():
                     outgoing_metrics[well_idx][str(metric_id)].append(metric_val)
+
+        if not outgoing_metrics:
+            return
 
         outgoing_metrics_json = json.dumps(outgoing_metrics)
         outgoing_msg = {"data_type": "twitch_metrics", "data_json": outgoing_metrics_json}
