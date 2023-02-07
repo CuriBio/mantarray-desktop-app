@@ -10,7 +10,6 @@ cython = "==0.29.33"
 freezegun = "==1.0.0"
 pefile = "==2019.4.18" # Eli (3/1/21): this must be explicitly specified when using a Linux dev environment so that it will be included in a Windows build environment
 pre-commit = "==2.11.1"
-pyenchant = "==3.2.0"
 pyinstaller = "==5.7.0"
 pytest = "==7.2.1"
 pytest-cov = "==4.0.0"
@@ -20,7 +19,6 @@ pytest-randomly = "==3.12.0"
 pytest-timeout = "==1.4.2"
 pywin32-ctypes = "==0.2.0" # Eli (3/1/21): this must be explicitly specified when using a Linux dev environment so that it will be included in a Windows build environment
 sphinx = "==4.2.0"
-websocket-client = "==1.1.0"
 
 [packages]
 eventlet = "==0.33.3"
@@ -40,7 +38,6 @@ psutil = "==5.8.0"
 pulse3d = "==0.30.0"
 pyserial = "==3.5"
 scipy = "==1.9.3"
-secrets-manager = "==0.4"
 semver = "==2.13.0"
 stdlib-utils = "==0.5.2"
 streamz = "==0.6.2"
