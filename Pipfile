@@ -4,27 +4,26 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
-atomicwrites = "==1.4.0" # Tanner (7/11/22): pytest on windows needs this, so need to explicitly keep this here until pytest drops this package.  TODO check and see if pytest dropped this package
 boto3 = "==1.17.32"
 click = "==8.0.3"  # Tanner (4/11/22): pinned for black
-cython = "==0.29.23"
+cython = "==0.29.33"
 freezegun = "==1.0.0"
 pefile = "==2019.4.18" # Eli (3/1/21): this must be explicitly specified when using a Linux dev environment so that it will be included in a Windows build environment
 pre-commit = "==2.11.1"
 pyenchant = "==3.2.0"
 pyinstaller = "==4.5.1"
-pytest = "==6.2.2"
-pytest-cov = "==2.11.1"
-pytest-mock = "==3.5.1"
+pytest = "==7.2.1"
+pytest-cov = "==4.0.0"
+pytest-mock = "==3.10.0"
 pytest-profiling = "==1.7.0"
-pytest-randomly = "==3.5.0"
+pytest-randomly = "==3.12.0"
 pytest-timeout = "==1.4.2"
 pywin32-ctypes = "==0.2.0" # Eli (3/1/21): this must be explicitly specified when using a Linux dev environment so that it will be included in a Windows build environment
 sphinx = "==4.2.0"
 websocket-client = "==1.1.0"
 
 [packages]
-eventlet = "==0.31.0"
+eventlet = "==0.33.3"
 flask = "==1.1.2"
 flask-cors = "==3.0.10"
 Flask-SocketIO = "==5.1.1"
@@ -50,4 +49,4 @@ werkzeug = "==2.0.3"  # Tanner (4/7/22): pinned for flask
 xem-wrapper = "==0.3.0"
 
 [requires]
-python_version = "3.8"
+python_version = "3.10"
