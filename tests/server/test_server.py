@@ -153,6 +153,24 @@ def test_ServerManager__get_values_from_process_monitor__acquires_lock_and_retur
     clear_the_server_manager()
 
 
+def test_ServerManager__drain_all_queues__returns_correct_items(generic_queue_container, mocker):
+    to_main_queue = Queue()
+    sm = ServerManager(to_main_queue, generic_queue_container, values_from_process_monitor={})
+
+    expected_items = {"to_main": ["to_main_item"], "outgoing_data": ["outgoing_item"]}
+
+    def se(q):
+        return expected_items["to_main" if q is to_main_queue else "outgoing_data"]
+
+    # Tanner (2/7/23): need to mock this since actually interacting with the LightQueue to the WS messes with the code cov
+    mocker.patch.object(server, "drain_queue", autospec=True, side_effect=se)
+
+    actual = sm.drain_all_queues()
+    assert actual == expected_items
+
+    clear_the_server_manager()
+
+
 def test_get_server_address_components__returns_default_port_number_if_server_manager_not_defined(
     mocker,
 ):
