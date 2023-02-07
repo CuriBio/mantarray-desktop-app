@@ -61,6 +61,7 @@ a = Analysis(  # type: ignore # noqa: F821     the 'Analysis' object is special 
         "dns.zone",
         "dns.asyncquery",
         "dns.asyncresolver",
+        "dns.versioned",
         "engineio.async_drivers.eventlet",
     ],
     hookspath=[os.path.join(get_current_file_abs_directory(), "hooks")],
