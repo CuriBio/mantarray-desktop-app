@@ -3,6 +3,7 @@ import os
 
 from mantarray_desktop_app.workers import magnet_finder
 from mantarray_desktop_app.workers.magnet_finder import run_magnet_finding_alg
+import pandas as pd
 import pytest
 
 
@@ -67,6 +68,26 @@ def test_run_magnet_finding_alg__only_returns_dataframes_if_no_output_dir_is_giv
     # not that size has been confirmed, make sure the contents are correct
     expected_dfs = [] if output_dir else [mocked_df] * len(test_recording_paths)
     assert actual_dfs == expected_dfs
+
+
+def test_run_magnet_finding_alg__removes_unnecessary_columns_from_returned_dataframe(mocker):
+    mocker.patch.object(magnet_finder.shutil, "copytree", autospec=True)
+    mocked_pr = mocker.patch.object(magnet_finder, "PlateRecording", autospec=True)
+
+    test_recording_paths = [f"path/to/rec{i}" for i in range(3)]
+    mocked_df = pd.DataFrame({"Time (s)": [1], "Stim Time": [2], "A1": [3], "A1__raw": [4], "A1__stim": [5]})
+
+    def to_dataframe_se(*args):
+        return mocked_df
+
+    mocked_pr.return_value.to_dataframe.side_effect = to_dataframe_se
+
+    actual_dfs = run_magnet_finding_alg({}, test_recording_paths)
+    # confirm precondition
+    assert len(actual_dfs) == len(test_recording_paths)
+
+    for i, df in enumerate(actual_dfs):
+        assert list(df.columns) == ["Time (s)", "A1"], i
 
 
 @pytest.mark.parametrize("failure", [True, False])
