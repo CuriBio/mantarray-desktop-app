@@ -258,7 +258,7 @@ def test_McCommunicationProcess_register_magic_word__raises_error_if_less_than_8
     mc_process.set_board_connection(board_idx, simulator)
     with pytest.raises(SerialCommPacketRegistrationTimeoutError) as exc_info:
         invoke_process_run_and_check_errors(mc_process)
-    assert str(expected_partial_bytes) in str(exc_info.value)
+    assert str(list(expected_partial_bytes)) in str(exc_info.value)
 
 
 def test_McCommunicationProcess_register_magic_word__raises_error_if_reading_next_byte_results_in_empty_read_for_longer_than_registration_timeout_period(

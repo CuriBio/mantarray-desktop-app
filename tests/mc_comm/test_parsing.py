@@ -176,7 +176,7 @@ def test_sort_serial_packets__raises_error_when_packet_from_instrument_has_incor
     expected_checksum = int.from_bytes(bad_packet[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:], byteorder="little")
     assert str(bad_checksum) in exc_info.value.args[0]
     assert str(expected_checksum) in exc_info.value.args[0]
-    assert str(bytearray(bad_packet)) in exc_info.value.args[0]
+    assert str(list(bad_packet)) in exc_info.value.args[0]
 
 
 def test_parse_magnetometer_data__handles_two_mag_data_packets_correctly__and_assigns_correct_data_type_to_parsed_values__when_all_channels_enabled():
