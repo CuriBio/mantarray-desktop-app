@@ -16,6 +16,7 @@ from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
 from mantarray_desktop_app import SerialCommPacketRegistrationReadEmptyError
 from mantarray_desktop_app import SerialCommPacketRegistrationSearchExhaustedError
 from mantarray_desktop_app import SerialCommPacketRegistrationTimeoutError
+from mantarray_desktop_app.constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from mantarray_desktop_app.simulators import mc_simulator
 from mantarray_desktop_app.simulators.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app.sub_processes import mc_comm
@@ -37,6 +38,7 @@ from ..fixtures_mc_comm import set_connection_and_register_simulator
 from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODES
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
+from ..helpers import assert_serial_packet_is_expected
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -424,6 +426,7 @@ def test_McCommunicationProcess__requests_metadata_if_setup_before_loop_was_perf
     testing_queue = mantarray_mc_simulator["testing_queue"]
     set_connection_and_register_simulator(four_board_mc_comm_process_no_handshake, mantarray_mc_simulator)
 
+    spied_write = mocker.spy(simulator, "write")
     mocker.patch.object(  # Tanner (4/6/21): Need to prevent automatic beacons without interrupting the beacons sent after status code updates
         mc_simulator, "_get_secs_since_last_status_beacon", return_value=0, autospec=True
     )
@@ -443,6 +446,7 @@ def test_McCommunicationProcess__requests_metadata_if_setup_before_loop_was_perf
     invoke_process_run_and_check_errors(simulator)
     # send metadata to main
     invoke_process_run_and_check_errors(mc_process)
+    assert_serial_packet_is_expected(spied_write.call_args[0][0], SERIAL_COMM_GET_METADATA_PACKET_TYPE)
     # check that metadata was sent to main
     to_main_items = drain_queue(output_queue)
     metadata_comm = to_main_items[-1]

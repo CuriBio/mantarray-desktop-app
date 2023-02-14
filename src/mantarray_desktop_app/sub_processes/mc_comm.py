@@ -117,7 +117,6 @@ from ..utils.serial_comm import convert_semver_str_to_bytes
 from ..utils.serial_comm import convert_status_code_bytes_to_dict
 from ..utils.serial_comm import convert_stim_dict_to_bytes
 from ..utils.serial_comm import convert_stimulator_check_bytes_to_dict
-from ..utils.serial_comm import convert_to_timestamp_bytes
 from ..utils.serial_comm import create_data_packet
 from ..utils.serial_comm import get_serial_comm_timestamp
 from ..utils.serial_comm import parse_metadata_bytes
@@ -920,11 +919,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         )
         self._handle_status_codes(status_codes_dict, "Status Beacon")
         if status_codes_dict["main_status"] == SERIAL_COMM_OKAY_CODE and self._auto_get_metadata:
-            self._send_data_packet(
-                board_idx,
-                SERIAL_COMM_GET_METADATA_PACKET_TYPE,
-                convert_to_timestamp_bytes(get_serial_comm_timestamp()),
-            )
+            self._send_data_packet(board_idx, SERIAL_COMM_GET_METADATA_PACKET_TYPE)
             self._add_command_to_track(
                 SERIAL_COMM_GET_METADATA_PACKET_TYPE,
                 {"communication_type": "metadata_comm", "command": "get_metadata"},
