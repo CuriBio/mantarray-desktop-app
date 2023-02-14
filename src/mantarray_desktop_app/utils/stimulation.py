@@ -104,7 +104,8 @@ def chunk_protocols_in_stim_info(
 
             original_idx_counts.append(original_idx_count)
 
-        protocol["subprotocols"] = new_subprotocols
+        # FW requires top level to be a single loop
+        protocol["subprotocols"] = {"type": "loop", "num_iterations": 1, "subprotocols": new_subprotocols}
 
         protocol_id = protocol["protocol_id"]
         subprotocol_idx_mappings[protocol_id] = chunked_idx_to_original_idx
