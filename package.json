@@ -67,7 +67,7 @@
     "canvas": "~2.9.3",
     "cross-env": "~7.0.3",
     "deepmerge": "~4.2.2",
-    "electron": "~19.0.7",
+    "electron": "~23.1.0",
     "electron-builder": "~23.0.2",
     "electron-debug": "~3.2.0",
     "electron-devtools-installer": "~3.2.0",
