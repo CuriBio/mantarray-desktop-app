@@ -5,7 +5,7 @@ import os
 from mantarray_desktop_app import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app import get_current_software_version
 from mantarray_desktop_app import get_redacted_string
-from mantarray_desktop_app import redact_sensitive_info_from_path
+from mantarray_desktop_app import redact_sensitive_info
 from mantarray_desktop_app.utils import generic
 from mantarray_desktop_app.utils.generic import validate_user_credentials
 import pytest
@@ -91,10 +91,10 @@ def test_get_redacted_string__returns_correct_string():
         ),
     ],
 )
-def test_redact_sensitive_info_from_path__scrubs_chars_in_between_Users_and_AppData(
+def test_redact_sensitive_info__scrubs_chars_in_between_Users_and_AppData(
     test_path, expected_path, test_description
 ):
-    actual = redact_sensitive_info_from_path(test_path)
+    actual = redact_sensitive_info(file_path=test_path)
     assert actual == expected_path
 
 
@@ -119,10 +119,8 @@ def test_redact_sensitive_info_from_path__scrubs_chars_in_between_Users_and_AppD
         ),
     ],
 )
-def test_redact_sensitive_info_from_path__scrubs_everything_if_does_not_match_pattern(
-    test_path, test_description
-):
-    actual = redact_sensitive_info_from_path(test_path)
+def test_redact_sensitive_info__scrubs_everything_if_does_not_match_pattern(test_path, test_description):
+    actual = redact_sensitive_info(file_path=test_path)
     assert actual == get_redacted_string(len(test_path))
 
 

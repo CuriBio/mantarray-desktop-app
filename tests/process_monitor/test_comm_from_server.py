@@ -23,7 +23,7 @@ from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.constants import UPDATES_NEEDED_STATE
 from mantarray_desktop_app.main_process import process_manager
 from mantarray_desktop_app.main_process import process_monitor
-from mantarray_desktop_app.utils.generic import redact_sensitive_info_from_path
+from mantarray_desktop_app.utils.generic import redact_sensitive_info
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
@@ -664,15 +664,40 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     monitor_thread, *_ = test_monitor(test_process_manager)
     server_to_main_queue = test_process_manager.queue_container.from_flask
 
-    okc_process = test_process_manager.instrument_comm_process
     fw_process = test_process_manager.file_writer_process
     da_process = test_process_manager.data_analyzer_process
-    expected_okc_item = "item 1"
-    expected_fw_item = "item 2"
-    expected_da_item = "item 3"
+    expected_file_writer_item = {
+        "board_0": {
+            "main_to_instrument_comm": [],
+            "instrument_comm_to_main": [
+                {
+                    "communication_type": "log",
+                    "log_level": 20,
+                    "message": "Microcontroller Communication Process beginning teardown at 2023-02-06 23:25:37.441945",
+                },
+                {
+                    "communication_type": "log",
+                    "log_level": 20,
+                    "message": "Microcontroller Communication Process beginning teardown at 2023-02-06 23:25:37.457458",
+                },
+                {
+                    "communication_type": "log",
+                    "log_level": 20,
+                    "message": "Remaining serial data in cache: [], in buffer: [67, 85, 82, 73, 32, 66, 73, 79, 85, 2, 42, 54, 242, 92, 0, 0, 0, 0, 1, 108, 25, 24, 93, 0, 0, 0, 0, 0, 0, 0, 2, 0, 2, 0, 2, 0, 0, 0, 2, 0, 2, 0, 2, 0, 0, 0, 2, 0, 2, 0, 2, 0, 0, 128, 1, 128, 1, 128, 1, 0, 0, 128, 1, 128, 1, 128, 1, 0, 0, 128, 1, 128, 1, 128, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 128, 0, 128, 0, 128, 0, 0, 0, 128, 0, 128, 0, 128, 0, 0, 0, 128, 0, 128, 0, 128, 0, 0, 0, 0, 4, 0, 4, 0, 4, 0, 0, 0, 4, 0, 4, 0, 4, 0, 0, 0, 4, 0, 4, 0, 4, 0, 0, 128, 3, 128, 3, 128, 3, 0, 0, 128, 3, 128, 3, 128, 3, 0, 0, 128, 3, 128, 3, 128, 3, 0, 0, 0, 3, 0, 3, 0, 3, 0, 0, 0, 3, 0, 3, 0, 3, 0, 0, 0, 3, 0, 3, 0, 3, 0, 0, 128, 2, 128, 2, 128, 2, 0, 0, 128, 2, 128, 2, 128, 2, 0, 0, 128, 2, 128, 2, 128, 2, 0, 0, 0, 6, 0, 6, 0, 6, 0, 0, 0, 6, 0, 6, 0, 6, 0, 0, 0, 6, 0, 6, 0, 6, 0, 0, 128, 5, 128, 5, 128, 5, 0, 0, 128, 5, 128, 5, 128, 5, 0, 0, 128, 5, 128, 5, 128, 5, 0, 0, 0, 5, 0, 5, 0, 5, 0, 0, 0, 5, 0, 5, 0, 5, 0, 0, 0, 5, 0, 5, 0, 5, 0, 0, 128, 4, 128, 4, 128, 4, 0, 0, 128, 4, 128, 4, 128, 4, 0, 0, 128, 4, 128, 4, 128, 4, 0, 0, 0, 8, 0, 8, 0, 8, 0, 0, 0, 8, 0, 8, 0, 8, 0, 0, 0, 8, 0, 8, 0, 8, 0, 0, 128, 7, 128, 7, 128, 7, 0, 0, 128, 7, 128, 7, 128, 7, 0, 0, 128, 7, 128, 7, 128, 7, 0, 0, 0, 7, 0, 7, 0, 7, 0, 0, 0, 7, 0, 7, 0, 7, 0, 0, 0, 7, 0, 7, 0, 7, 0, 0, 128, 6, 128, 6, 128, 6, 0, 0, 128, 6, 128, 6, 128, 6, 0, 0, 128, 6, 128, 6, 128, 6, 0, 0, 0, 10, 0, 10, 0, 10, 0, 0, 0, 10, 0, 10, 0, 10, 0, 0, 0, 10, 0, 10, 0, 10, 0, 0, 128, 9, 128, 9, 128, 9, 0, 0, 128, 9, 128, 9, 128, 9, 0, 0, 128, 9, 128, 9, 128, 9, 0, 0, 0, 9, 0, 9, 0, 9, 0, 0, 0, 9, 0, 9, 0, 9, 0, 0, 0, 9, 0, 9, 0, 9, 0, 0, 128, 8, 128, 8, 128, 8, 0, 0, 128, 8, 128, 8, 128, 8, 0, 0, 128, 8, 128, 8, 128, 8, 0, 0, 0, 12, 0, 12, 0, 12, 0, 0, 0, 12, 0, 12, 0, 12, 0, 0, 0, 12, 0, 12, 0, 12, 0, 0, 128, 11, 128, 11, 128, 11, 0, 0, 128, 11, 128, 11, 128, 11, 0, 0, 128, 11, 128, 11, 128, 11, 0, 0, 0, 11, 0, 11, 0, 11, 0, 0, 0, 11, 0, 11, 0, 11, 0, 0, 0, 11, 0, 11, 0, 11, 0, 0, 128, 10, 128, 10, 128, 10, 0, 0, 128, 10, 128, 10, 128, 10, 0, 0, 128, 10, 128, 10, 128, 10, 34, 226, 12, 164]",
+                },
+            ],
+            "instrument_comm_to_file_writer": [],
+        },
+        "fatal_error_reporter": [],
+    }
+    expected_da_item = {
+        "board_0": {"file_writer_to_data_analyzer": [], "outgoing_data": []},
+        "from_main_to_data_analyzer": [],
+        "from_data_analyzer_to_main": [],
+        "fatal_error_reporter": [],
+    }
 
-    mocker.patch.object(okc_process, "hard_stop", autospec=True, return_value=expected_okc_item)
-    mocker.patch.object(fw_process, "hard_stop", autospec=True, return_value=expected_fw_item)
+    mocker.patch.object(fw_process, "hard_stop", autospec=True, return_value=expected_file_writer_item)
     mocker.patch.object(da_process, "hard_stop", autospec=True, return_value=expected_da_item)
 
     communication = {"communication_type": "shutdown", "command": "hard_stop"}
@@ -690,9 +715,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     invoke_process_run_and_check_errors(monitor_thread)
 
     actual_log_message = mocked_monitor_logger_info.call_args[0][0]
-    assert expected_okc_item in actual_log_message
-    assert expected_fw_item in actual_log_message
-    assert expected_da_item in actual_log_message
+    assert str(expected_file_writer_item) in actual_log_message
+    assert str(expected_da_item) in actual_log_message
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop_by__uploading_files_after_hard_stopping_and_joining_subprocesses(
@@ -818,7 +842,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_flask__and_redacts_record
 
     expected_comm = copy.deepcopy(test_comm)
     expected_comm["recordings"] = [
-        redact_sensitive_info_from_path(recording_path) for recording_path in expected_comm["recordings"]
+        redact_sensitive_info(file_path=recording_path) for recording_path in expected_comm["recordings"]
     ]
     mocked_logger.assert_called_once_with(f"Communication from the Server: {expected_comm}")
 

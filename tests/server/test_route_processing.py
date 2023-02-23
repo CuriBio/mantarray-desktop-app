@@ -15,7 +15,7 @@ from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import produce_data
 from mantarray_desktop_app import RECORDING_STATE
-from mantarray_desktop_app import redact_sensitive_info_from_path
+from mantarray_desktop_app import redact_sensitive_info
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.main_process import process_manager
@@ -887,7 +887,7 @@ def test_update_settings__stores_values_in_shared_values_dict__and_recordings_fo
         assert shared_values_dict["config_settings"]["customer_id"] == expected_customer_uuid
         assert shared_values_dict["config_settings"]["recording_directory"] == expected_recordings_dir
 
-        scrubbed_recordings_dir = redact_sensitive_info_from_path(expected_recordings_dir)
+        scrubbed_recordings_dir = redact_sensitive_info(file_path=expected_recordings_dir)
         spied_monitor_logger.assert_any_call(
             f"Using directory for recording files: {scrubbed_recordings_dir}"
         )
@@ -1372,5 +1372,5 @@ def test_after_request__redacts_recording_folder_path_from_get_recordings_log_me
     logged_json = convert_after_request_log_msg_to_json(spied_server_logger.call_args_list[0][0][0])
     assert logged_json == {
         "recordings_list": test_recording_info_list,
-        "root_recording_path": redact_sensitive_info_from_path(test_recording_dir),
+        "root_recording_path": redact_sensitive_info(file_path=test_recording_dir),
     }

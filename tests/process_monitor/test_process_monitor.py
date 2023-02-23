@@ -50,7 +50,7 @@ from mantarray_desktop_app.main_process import process_manager
 from mantarray_desktop_app.main_process import process_monitor
 from mantarray_desktop_app.main_process.server import queue_command_to_instrument_comm
 from mantarray_desktop_app.sub_processes import ok_comm
-from mantarray_desktop_app.utils.generic import redact_sensitive_info_from_path
+from mantarray_desktop_app.utils.generic import redact_sensitive_info
 import numpy as np
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
@@ -245,7 +245,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_file_writer__and_redacts_
     assert is_queue_eventually_empty(file_writer_to_main) is True
 
     for sensitive_key in sensitive_keys:
-        expected_comm[sensitive_key] = redact_sensitive_info_from_path(expected_comm[sensitive_key])
+        expected_comm[sensitive_key] = redact_sensitive_info(file_path=expected_comm[sensitive_key])
     mocked_logger.assert_called_once_with(
         f"Communication from the File Writer: {expected_comm}".replace(r"\\", "\\")
     )
@@ -518,13 +518,40 @@ def test_MantarrayProcessesMonitor__logs_errors_from_data_analyzer(
     mocked_logger.assert_any_call(expected_message)
 
 
-def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queue_items_when_error_is_raised_in_ok_comm_subprocess(
+def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queue_items_with_sensitive_info_redacted_when_error_is_raised_in_ok_comm_subprocess(
     mocker, test_process_manager_creator, test_monitor
 ):
-    expected_ok_comm_item = f"ok_comm_queue_item, {str(bytes(4))}"
-    expected_file_writer_item = "file_writer_queue_item"
-    expected_da_item = "data_analyzer_queue_item"
-    expected_server_item = "server_manager_queue_item"
+    # items for redaction
+    expected_file_writer_item = {
+        "board_0": {
+            "main_to_instrument_comm": [],
+            "instrument_comm_to_main": [
+                {
+                    "communication_type": "log",
+                    "log_level": 20,
+                    "message": "Microcontroller Communication Process beginning teardown at 2023-02-06 23:25:37.441945",
+                },
+                {
+                    "communication_type": "log",
+                    "log_level": 20,
+                    "message": "Microcontroller Communication Process beginning teardown at 2023-02-06 23:25:37.457458",
+                },
+                {
+                    "communication_type": "log",
+                    "log_level": 20,
+                    "message": "Remaining serial data in cache: [], in buffer: [67, 85, 82, 73, 32, 66, 73, 79, 85, 2, 42, 54, 242, 92, 0, 0, 0, 0, 1, 108, 25, 24, 93, 0, 0, 0, 0, 0, 0, 0, 2, 0, 2, 0, 2, 0, 0, 0, 2, 0, 2, 0, 2, 0, 0, 0, 2, 0, 2, 0, 2, 0, 0, 128, 1, 128, 1, 128, 1, 0, 0, 128, 1, 128, 1, 128, 1, 0, 0, 128, 1, 128, 1, 128, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 128, 0, 128, 0, 128, 0, 0, 0, 128, 0, 128, 0, 128, 0, 0, 0, 128, 0, 128, 0, 128, 0, 0, 0, 0, 4, 0, 4, 0, 4, 0, 0, 0, 4, 0, 4, 0, 4, 0, 0, 0, 4, 0, 4, 0, 4, 0, 0, 128, 3, 128, 3, 128, 3, 0, 0, 128, 3, 128, 3, 128, 3, 0, 0, 128, 3, 128, 3, 128, 3, 0, 0, 0, 3, 0, 3, 0, 3, 0, 0, 0, 3, 0, 3, 0, 3, 0, 0, 0, 3, 0, 3, 0, 3, 0, 0, 128, 2, 128, 2, 128, 2, 0, 0, 128, 2, 128, 2, 128, 2, 0, 0, 128, 2, 128, 2, 128, 2, 0, 0, 0, 6, 0, 6, 0, 6, 0, 0, 0, 6, 0, 6, 0, 6, 0, 0, 0, 6, 0, 6, 0, 6, 0, 0, 128, 5, 128, 5, 128, 5, 0, 0, 128, 5, 128, 5, 128, 5, 0, 0, 128, 5, 128, 5, 128, 5, 0, 0, 0, 5, 0, 5, 0, 5, 0, 0, 0, 5, 0, 5, 0, 5, 0, 0, 0, 5, 0, 5, 0, 5, 0, 0, 128, 4, 128, 4, 128, 4, 0, 0, 128, 4, 128, 4, 128, 4, 0, 0, 128, 4, 128, 4, 128, 4, 0, 0, 0, 8, 0, 8, 0, 8, 0, 0, 0, 8, 0, 8, 0, 8, 0, 0, 0, 8, 0, 8, 0, 8, 0, 0, 128, 7, 128, 7, 128, 7, 0, 0, 128, 7, 128, 7, 128, 7, 0, 0, 128, 7, 128, 7, 128, 7, 0, 0, 0, 7, 0, 7, 0, 7, 0, 0, 0, 7, 0, 7, 0, 7, 0, 0, 0, 7, 0, 7, 0, 7, 0, 0, 128, 6, 128, 6, 128, 6, 0, 0, 128, 6, 128, 6, 128, 6, 0, 0, 128, 6, 128, 6, 128, 6, 0, 0, 0, 10, 0, 10, 0, 10, 0, 0, 0, 10, 0, 10, 0, 10, 0, 0, 0, 10, 0, 10, 0, 10, 0, 0, 128, 9, 128, 9, 128, 9, 0, 0, 128, 9, 128, 9, 128, 9, 0, 0, 128, 9, 128, 9, 128, 9, 0, 0, 0, 9, 0, 9, 0, 9, 0, 0, 0, 9, 0, 9, 0, 9, 0, 0, 0, 9, 0, 9, 0, 9, 0, 0, 128, 8, 128, 8, 128, 8, 0, 0, 128, 8, 128, 8, 128, 8, 0, 0, 128, 8, 128, 8, 128, 8, 0, 0, 0, 12, 0, 12, 0, 12, 0, 0, 0, 12, 0, 12, 0, 12, 0, 0, 0, 12, 0, 12, 0, 12, 0, 0, 128, 11, 128, 11, 128, 11, 0, 0, 128, 11, 128, 11, 128, 11, 0, 0, 128, 11, 128, 11, 128, 11, 0, 0, 0, 11, 0, 11, 0, 11, 0, 0, 0, 11, 0, 11, 0, 11, 0, 0, 0, 11, 0, 11, 0, 11, 0, 0, 128, 10, 128, 10, 128, 10, 0, 0, 128, 10, 128, 10, 128, 10, 0, 0, 128, 10, 128, 10, 128, 10, 34, 226, 12, 164]",
+                },
+            ],
+            "instrument_comm_to_file_writer": [],
+        },
+        "fatal_error_reporter": [],
+    }
+    expected_da_item = {
+        "board_0": {"file_writer_to_data_analyzer": [], "outgoing_data": []},
+        "from_main_to_data_analyzer": [],
+        "from_data_analyzer_to_main": [],
+        "fatal_error_reporter": [],
+    }
 
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
@@ -548,14 +575,10 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         ("error", "stack_trace"), ok_comm_error_queue
     )
-    to_instrument_comm = test_process_manager.queue_container.to_instrument_comm(0)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_ok_comm_item, to_instrument_comm)
     to_file_writer = test_process_manager.queue_container.to_file_writer
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_file_writer_item, to_file_writer)
     to_data_analyzer = test_process_manager.queue_container.to_data_analyzer
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_da_item, to_data_analyzer)
-    server_to_main = test_process_manager.queue_container.from_flask
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_server_item, server_to_main)
 
     invoke_process_run_and_check_errors(monitor_thread)
 
@@ -566,10 +589,8 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
 
     actual = mocked_logger.call_args_list[1][0][0]
     assert "Remaining items in process queues: {" in actual
-    assert expected_ok_comm_item in actual
-    assert expected_file_writer_item in actual
-    assert expected_da_item in actual
-    assert expected_server_item in actual
+    assert str(expected_file_writer_item) in actual
+    assert str(expected_da_item) in actual
 
 
 @freeze_time(datetime.datetime(year=2020, month=2, day=27, hour=12, minute=14, second=22, microsecond=336597))

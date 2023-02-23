@@ -96,7 +96,7 @@ from ..utils.generic import convert_request_args_to_config_dict
 from ..utils.generic import get_current_software_version
 from ..utils.generic import get_info_of_recordings
 from ..utils.generic import get_redacted_string
-from ..utils.generic import redact_sensitive_info_from_path
+from ..utils.generic import redact_sensitive_info
 from ..utils.generic import validate_settings
 from ..utils.generic import validate_user_credentials
 
@@ -1207,8 +1207,8 @@ def after_request(response: Response) -> Response:
         elif "update_settings" in rule.rule:
             response_json["user_password"] = get_redacted_string(4)
         elif "get_recordings" in rule.rule:
-            response_json["root_recording_path"] = redact_sensitive_info_from_path(
-                response_json["root_recording_path"]
+            response_json["root_recording_path"] = redact_sensitive_info(
+                file_path=response_json["root_recording_path"]
             )
     msg = "Response to HTTP Request in next log entry: "
     if response.status_code == 200:

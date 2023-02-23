@@ -148,17 +148,39 @@ def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[st
     return config_dict
 
 
-def redact_sensitive_info_from_path(file_path: Optional[str]) -> Optional[str]:
-    """Scrubs username from file path to protect sensitive info."""
-    if file_path is None:
+def redact_sensitive_info(
+    file_path: str = None, process_items: Dict[str, Any] = None
+) -> Union[str, Dict[str, Any], None]:
+    """Redacted sensative data from logs.
+
+    Returns redacted file path string or redacted procces_items
+    """
+    if file_path is not None:
+        # Scrubs username from file path to protect sensitive info.
+        split_path = re.split(r"(Users\\)(.*)(\\AppData)", file_path)
+        if len(split_path) != 5:
+            return get_redacted_string(len(file_path))
+        scrubbed_path = split_path[0] + split_path[1]
+        scrubbed_path += get_redacted_string(len(split_path[2]))
+        scrubbed_path += split_path[3] + split_path[4]
+        return scrubbed_path
+    elif process_items is not None:
+        # Scrubs usename and password from logs.
+        for items in process_items.values():
+            for queue_dict in items.values():
+                if type(queue_dict) is not list:
+                    for queue in queue_dict.values():
+                        for message in queue:
+                            if message.get("communication_type", "") == "update_user_settings":
+                                message["content"]["user_password"] = get_redacted_string(
+                                    len(message["content"]["user_password"])
+                                )
+                                message["content"]["user_name"] = get_redacted_string(
+                                    len(message["content"]["user_name"])
+                                )
+        return process_items
+    else:
         return None
-    split_path = re.split(r"(Users\\)(.*)(\\AppData)", file_path)
-    if len(split_path) != 5:
-        return get_redacted_string(len(file_path))
-    scrubbed_path = split_path[0] + split_path[1]
-    scrubbed_path += get_redacted_string(len(split_path[2]))
-    scrubbed_path += split_path[3] + split_path[4]
-    return scrubbed_path
 
 
 def get_redacted_string(length: int) -> str:
