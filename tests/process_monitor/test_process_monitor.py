@@ -532,6 +532,10 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
                     "message": "Microcontroller Communication Process beginning teardown at 2023-02-06 23:25:37.441945",
                 },
                 {
+                    "communication_type": "update_user_settings",
+                    "content": {"user_password": "password", "user_name": "123Password"},
+                },
+                {
                     "communication_type": "log",
                     "log_level": 20,
                     "message": "Microcontroller Communication Process beginning teardown at 2023-02-06 23:25:37.457458",
