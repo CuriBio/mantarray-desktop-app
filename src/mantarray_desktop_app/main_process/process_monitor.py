@@ -839,7 +839,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self, shutdown_server: bool = True, error: bool = True
     ) -> None:
         process_items = self._process_manager.hard_stop_and_join_processes(shutdown_server=shutdown_server)
-
+        _redact_from_queue_items(process_items)
         msg = f"Remaining items in process queues: {process_items}".replace(r"\\", "\\")
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:

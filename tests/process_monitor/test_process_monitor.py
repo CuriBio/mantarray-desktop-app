@@ -521,7 +521,6 @@ def test_MantarrayProcessesMonitor__logs_errors_from_data_analyzer(
 def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queue_items_when_error_is_raised_in_ok_comm_subprocess(
     mocker, test_process_manager_creator, test_monitor
 ):
-    expected_ok_comm_item = f"ok_comm_queue_item, {str(bytes(4))}"
     expected_file_writer_item = "file_writer_queue_item"
     expected_da_item = "data_analyzer_queue_item"
     expected_server_item = "server_manager_queue_item"
