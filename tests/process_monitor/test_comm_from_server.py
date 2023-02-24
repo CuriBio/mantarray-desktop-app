@@ -295,8 +295,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__passe
         "communication_type": "stimulation",
         "command": "start_stim_checks",
         "well_indices": test_wells,
-        "stimulator_circuit_statuses": "ok",
-        "adc_readings": "reading data",
     }
 
     server_to_main_queue = test_process_manager.queue_container.from_flask

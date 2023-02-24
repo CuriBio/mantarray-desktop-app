@@ -64,9 +64,10 @@ from ..exceptions import InstrumentError
 from ..exceptions import UnrecognizedCommandFromServerToMainError
 from ..exceptions import UnrecognizedMantarrayNamingCommandError
 from ..exceptions import UnrecognizedRecordingCommandError
-from ..utils.generic import _compare_semver, redact_sensitive_info
+from ..utils.generic import _compare_semver
 from ..utils.generic import _create_start_recording_command
 from ..utils.generic import _trim_barcode
+from ..utils.generic import redact_sensitive_info
 from ..utils.generic import redact_sensitive_info_from_path
 from ..utils.generic import upload_log_files_to_s3
 

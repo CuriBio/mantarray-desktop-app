@@ -52,13 +52,14 @@ from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_frozen_as_exe
 
 from .web_api import get_cloud_api_tokens
-from ..constants import ALL_VALID_BARCODE_HEADERS, GENERIC_24_WELL_DEFINITION
+from ..constants import ALL_VALID_BARCODE_HEADERS
 from ..constants import BARCODE_HEADERS
 from ..constants import BARCODE_LEN
 from ..constants import CENTIMILLISECONDS_PER_SECOND
 from ..constants import COMPILED_EXE_BUILD_TIMESTAMP
 from ..constants import CURRENT_SOFTWARE_VERSION
 from ..constants import DEFAULT_SAMPLING_PERIOD
+from ..constants import GENERIC_24_WELL_DEFINITION
 from ..constants import MICRO_TO_BASE_CONVERSION
 from ..constants import MICROSECONDS_PER_CENTIMILLISECOND
 from ..constants import REFERENCE_VOLTAGE
@@ -182,7 +183,9 @@ def redact_sensitive_info(communication: Dict[str, Any]) -> Dict[str, Any]:
     elif communication_type == "stimulation" and command == "start_stim_checks":
         comm_copy = copy.deepcopy(communication)
         for sub_dict_name in ("stimulator_circuit_statuses", "adc_readings"):
-            sub_dict = comm_copy[sub_dict_name]
+            sub_dict = comm_copy.get(sub_dict_name, "")
+            if sub_dict == "":
+                return comm_copy
             for well_idx in sorted(sub_dict):
                 well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
                 sub_dict[well_name] = sub_dict.pop(well_idx)

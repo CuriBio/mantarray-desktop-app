@@ -7,6 +7,7 @@ Changelog for Mantarray Desktop App
 Added:
 ^^^^^^
 - PlateMap Editor page for creating labelled groupings of wells.
+- User password and username redacted from logs
 
 
 Changed:
