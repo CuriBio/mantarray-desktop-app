@@ -64,7 +64,7 @@ from ..exceptions import InstrumentError
 from ..exceptions import UnrecognizedCommandFromServerToMainError
 from ..exceptions import UnrecognizedMantarrayNamingCommandError
 from ..exceptions import UnrecognizedRecordingCommandError
-from ..utils.generic import _compare_semver
+from ..utils.generic import _compare_semver, redact_sensitive_info
 from ..utils.generic import _create_start_recording_command
 from ..utils.generic import _trim_barcode
 from ..utils.generic import get_redacted_string
@@ -80,6 +80,14 @@ def _get_barcode_clear_time() -> float:
 
 def _get_dur_since_last_barcode_clear(last_clear_time: float) -> float:
     return time.perf_counter() - last_clear_time
+
+
+def _redact_from_queue_items(d):
+    for key, val in d.items():
+        if isinstance(val, list) and not key == "fatal_error_reporter":
+            d[key] = [redact_sensitive_info(item) for item in val]
+        else:
+            _redact_from_queue_items(val)
 
 
 class MantarrayProcessesMonitor(InfiniteThread):
@@ -183,27 +191,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         communication_type = communication["communication_type"]
 
-        if "mantarray_nickname" in communication:
-            # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
-            comm_copy = copy.deepcopy(communication)
-            comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
-            comm_str = str(comm_copy)
-        elif communication_type == "update_user_settings":
-            comm_copy = copy.deepcopy(communication)
-            comm_copy["content"]["user_password"] = get_redacted_string(4)
-            comm_str = str(comm_copy)
-        elif communication_type == "mag_finding_analysis":
-            comm_copy = copy.deepcopy(communication)
-            comm_copy["recordings"] = [
-                redact_sensitive_info_from_path(recording_path) for recording_path in comm_copy["recordings"]
-            ]
-            comm_str = str(comm_copy)
-        else:
-            comm_str = str(communication)
-        msg = f"Communication from the Server: {comm_str}"
+        comm_copy_with_redactions = redact_sensitive_info(communication)
+
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
-            logger.info(msg)
+            logger.info(f"Communication from the Server: {comm_copy_with_redactions}")
 
         shared_values_dict = self._values_to_share_to_server
         if communication_type == "mantarray_naming":
@@ -394,22 +386,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         communication_type = communication["communication_type"]
 
-        if communication_type == "mag_analysis_complete":
-            data_type = communication["content"]["data_type"]
-            comm_copy = {
-                "communication_type": "mag_analysis_complete",
-                # make a shallow copy so all the data isn't copied
-                "content": copy.copy(communication["content"]),
-            }
-            if data_type == "recording_snapshot_data":
-                comm_copy["content"].pop("data_json")
-            comm_str = str(comm_copy)
-        else:
-            comm_str = str(communication)
-        msg = f"Communication from the Data Analyzer: {comm_str}"
+        comm_copy_with_redactions = redact_sensitive_info(communication)
+
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
-            logger.info(msg)
+            logger.info(f"Communication from the Data Analyzer: {comm_copy_with_redactions}")
 
         if communication_type == "data_available":
             if self._values_to_share_to_server["system_status"] == BUFFERING_STATE:
@@ -455,35 +436,18 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 )
 
         communication_type = communication["communication_type"]
-
         command = communication.get("command")
 
-        # Tanner (1/20/21): items in communication dict are used after these log messages are generated, so need to create a copy of the dict when redacting info
-        if "mantarray_nickname" in communication:
-            comm_copy = copy.deepcopy(communication)
-            comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
-            comm_str = str(comm_copy)
-        elif communication_type == "metadata_comm":
-            comm_copy = copy.deepcopy(communication)
-            comm_copy["metadata"][MANTARRAY_NICKNAME_UUID] = get_redacted_string(
-                len(comm_copy["metadata"][MANTARRAY_NICKNAME_UUID])
-            )
-            comm_str = str(comm_copy)
-        elif communication_type == "stimulation" and command == "start_stim_checks":
-            comm_copy = copy.deepcopy(communication)
-            for sub_dict_name in ("stimulator_circuit_statuses", "adc_readings"):
-                sub_dict = comm_copy[sub_dict_name]
-                for well_idx in sorted(sub_dict):
-                    well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
-                    sub_dict[well_name] = sub_dict.pop(well_idx)
-            comm_str = str(comm_copy)
-        else:
-            comm_str = str(communication)
-        # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
-        msg = f"Communication from the Instrument Controller: {comm_str}".replace(r"\\", "\\")
+        comm_copy_with_redactions = redact_sensitive_info(communication)
+
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
-            logger.info(msg)
+            # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
+            logger.info(
+                f"Communication from the Instrument Controller: {comm_copy_with_redactions}".replace(
+                    r"\\", "\\"
+                )
+            )
 
         if communication_type == "acquisition_manager":
             if command == "start_managed_acquisition":
@@ -875,6 +839,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self, shutdown_server: bool = True, error: bool = True
     ) -> None:
         process_items = self._process_manager.hard_stop_and_join_processes(shutdown_server=shutdown_server)
+
         msg = f"Remaining items in process queues: {process_items}".replace(r"\\", "\\")
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
