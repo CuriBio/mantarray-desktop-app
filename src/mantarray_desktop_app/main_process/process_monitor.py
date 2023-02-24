@@ -68,7 +68,7 @@ from ..utils.generic import _compare_semver
 from ..utils.generic import _create_start_recording_command
 from ..utils.generic import _trim_barcode
 from ..utils.generic import get_redacted_string
-from ..utils.generic import redact_sensitive_info_from_path
+from ..utils.generic import redact_sensitive_info
 from ..utils.generic import upload_log_files_to_s3
 
 logger = logging.getLogger(__name__)
@@ -166,7 +166,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         # Tanner (12/13/21): redact file/folder path after handling comm in case the actual file path is needed
         for sensitive_key in ("file_path", "file_folder", "recording_path"):
             if sensitive_value := communication.get(sensitive_key):
-                communication[sensitive_key] = redact_sensitive_info_from_path(sensitive_value)
+                communication[sensitive_key] = redact_sensitive_info(file_path=sensitive_value)
         # Tanner (1/11/21): Unsure why the back slashes are duplicated when converting the communication dict to string. Using replace here to remove the duplication, not sure if there is a better way to solve or avoid this problem
         msg = f"Communication from the File Writer: {communication}".replace(r"\\", "\\")
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
@@ -195,7 +195,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         elif communication_type == "mag_finding_analysis":
             comm_copy = copy.deepcopy(communication)
             comm_copy["recordings"] = [
-                redact_sensitive_info_from_path(recording_path) for recording_path in comm_copy["recordings"]
+                redact_sensitive_info(file_path=recording_path) for recording_path in comm_copy["recordings"]
             ]
             comm_str = str(comm_copy)
         else:
@@ -236,7 +236,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     {"command": "update_directory", "new_directory": new_recording_directory}
                 )
 
-                scrubbed_recordings_dir = redact_sensitive_info_from_path(new_recording_directory)
+                scrubbed_recordings_dir = redact_sensitive_info(file_path=new_recording_directory)
                 logger.info(f"Using directory for recording files: {scrubbed_recordings_dir}")
             if "customer_id" in new_values:
                 # TODO Tanner (5/5/22): should probably combine this with config_settings
@@ -447,11 +447,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
             return
 
         if "bit_file_name" in communication:
-            communication["bit_file_name"] = redact_sensitive_info_from_path(communication["bit_file_name"])
+            communication["bit_file_name"] = redact_sensitive_info(file_path=communication["bit_file_name"])
         if "response" in communication:
             if communication["response"] is not None and "bit_file_name" in communication["response"]:
-                communication["response"]["bit_file_name"] = redact_sensitive_info_from_path(
-                    communication["response"]["bit_file_name"]
+                communication["response"]["bit_file_name"] = redact_sensitive_info(
+                    file_path=communication["response"]["bit_file_name"]
                 )
 
         communication_type = communication["communication_type"]
@@ -875,6 +875,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self, shutdown_server: bool = True, error: bool = True
     ) -> None:
         process_items = self._process_manager.hard_stop_and_join_processes(shutdown_server=shutdown_server)
+        for item_key, item in process_items.items():
+            process_items[item_key] = redact_sensitive_info(item=item)
         msg = f"Remaining items in process queues: {process_items}".replace(r"\\", "\\")
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:

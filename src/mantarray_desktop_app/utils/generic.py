@@ -148,7 +148,29 @@ def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[st
     return config_dict
 
 
-def redact_sensitive_info_from_path(file_path: Optional[str]) -> Optional[str]:
+def redact_sensitive_info(
+    file_path: str = None, item: Dict[str, Any] = None
+) -> Union[str, Dict[str, Any], None]:
+    if file_path is not None:
+        return _redact_sensitive_info_from_path(file_path)
+    elif item is not None:
+        for queue in item.values():
+            if type(queue) is not list:
+                for messages_list in queue.values():
+                    for message in messages_list:
+                        if not isinstance(message, str) and "content" in message:
+                            message["content"]["user_password"] = get_redacted_string(
+                                len(message["content"]["user_password"])
+                            )
+                            message["content"]["user_name"] = get_redacted_string(
+                                len(message["content"]["user_name"])
+                            )
+        return item
+    else:
+        return None
+
+
+def _redact_sensitive_info_from_path(file_path: Optional[str]) -> Optional[str]:
     """Scrubs username from file path to protect sensitive info."""
     if file_path is None:
         return None

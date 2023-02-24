@@ -50,7 +50,7 @@ from mantarray_desktop_app.main_process import process_manager
 from mantarray_desktop_app.main_process import process_monitor
 from mantarray_desktop_app.main_process.server import queue_command_to_instrument_comm
 from mantarray_desktop_app.sub_processes import ok_comm
-from mantarray_desktop_app.utils.generic import redact_sensitive_info_from_path
+from mantarray_desktop_app.utils.generic import redact_sensitive_info
 import numpy as np
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
@@ -245,7 +245,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_file_writer__and_redacts_
     assert is_queue_eventually_empty(file_writer_to_main) is True
 
     for sensitive_key in sensitive_keys:
-        expected_comm[sensitive_key] = redact_sensitive_info_from_path(expected_comm[sensitive_key])
+        expected_comm[sensitive_key] = redact_sensitive_info(file_path=expected_comm[sensitive_key])
     mocked_logger.assert_called_once_with(
         f"Communication from the File Writer: {expected_comm}".replace(r"\\", "\\")
     )

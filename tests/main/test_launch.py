@@ -23,7 +23,7 @@ from mantarray_desktop_app import LocalServerPortAlreadyInUseError
 from mantarray_desktop_app import main
 from mantarray_desktop_app import MantarrayProcessesMonitor
 from mantarray_desktop_app import MultiprocessingNotSetToSpawnError
-from mantarray_desktop_app import redact_sensitive_info_from_path
+from mantarray_desktop_app import redact_sensitive_info
 from mantarray_desktop_app import SensitiveFormatter
 from mantarray_desktop_app import wait_for_subprocesses_to_start
 from mantarray_desktop_app.constants import SOFTWARE_RELEASE_CHANNEL
@@ -83,7 +83,7 @@ def test_main__redacts_log_file_dir_from_log_message_of_command_line_args(mocker
             ["--debug-test-post-build", f"--log-file-dir={expected_log_file_dir}", get_generic_base64_args()]
         )
 
-        redacted_log_file_dir = redact_sensitive_info_from_path(expected_log_file_dir)
+        redacted_log_file_dir = redact_sensitive_info(file_path=expected_log_file_dir)
         for call_args in spied_info_logger.call_args_list:
             if "Command Line Args:" in call_args[0][0]:
                 assert f"'log_file_dir': '{redacted_log_file_dir}'" in call_args[0][0]

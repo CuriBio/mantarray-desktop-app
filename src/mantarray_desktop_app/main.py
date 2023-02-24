@@ -46,7 +46,7 @@ from .main_process.server import get_the_server_manager
 from .main_process.server import ServerManagerNotInitializedError
 from .main_process.server import socketio
 from .main_process.shared_values import SharedValues
-from .utils.generic import redact_sensitive_info_from_path
+from .utils.generic import redact_sensitive_info
 from .utils.log_formatter import SensitiveFormatter
 
 
@@ -226,7 +226,7 @@ def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[
             logging_formatter=logging_formatter,
         )
 
-        scrubbed_path_to_log_folder = redact_sensitive_info_from_path(path_to_log_folder)
+        scrubbed_path_to_log_folder = redact_sensitive_info(file_path=path_to_log_folder)
 
         logger.info(f"Mantarray Controller v{CURRENT_SOFTWARE_VERSION} started")
         logger.info(f"Build timestamp/version: {COMPILED_EXE_BUILD_TIMESTAMP}")

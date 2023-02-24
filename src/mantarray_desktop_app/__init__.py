@@ -277,7 +277,7 @@ from .utils.firmware_manager import sort_firmware_files
 from .utils.generic import check_barcode_for_errors
 from .utils.generic import get_current_software_version
 from .utils.generic import get_redacted_string
-from .utils.generic import redact_sensitive_info_from_path
+from .utils.generic import redact_sensitive_info
 from .utils.generic import upload_log_files_to_s3
 from .utils.log_formatter import SensitiveFormatter
 from .utils.mantarray_front_panel import MantarrayFrontPanel
@@ -371,7 +371,7 @@ __all__ = [
     "sort_firmware_files",
     "get_latest_firmware",
     "get_latest_firmware_version",
-    "redact_sensitive_info_from_path",
+    "redact_sensitive_info",
     "ADC_GAIN_DESCRIPTION_TAG",
     "parse_gain",
     "system_state_eventually_equals",
