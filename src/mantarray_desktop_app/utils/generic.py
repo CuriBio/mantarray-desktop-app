@@ -151,7 +151,7 @@ def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[st
 
 
 def redact_sensitive_info(communication: Dict[str, Any]) -> Dict[str, Any]:
-    communication_type = communication["communication_type"]
+    communication_type = communication.get("communication_type")
     command = communication.get("command")
 
     if "mantarray_nickname" in communication:
@@ -183,8 +183,8 @@ def redact_sensitive_info(communication: Dict[str, Any]) -> Dict[str, Any]:
     elif communication_type == "stimulation" and command == "start_stim_checks":
         comm_copy = copy.deepcopy(communication)
         for sub_dict_name in ("stimulator_circuit_statuses", "adc_readings"):
-            sub_dict = comm_copy.get(sub_dict_name, "")
-            if sub_dict == "":
+            sub_dict = comm_copy.get(sub_dict_name, None)
+            if sub_dict is None:
                 return comm_copy
             for well_idx in sorted(sub_dict):
                 well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)

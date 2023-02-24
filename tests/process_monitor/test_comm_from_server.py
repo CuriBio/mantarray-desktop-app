@@ -664,14 +664,31 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     monitor_thread, *_ = test_monitor(test_process_manager)
     server_to_main_queue = test_process_manager.queue_container.from_flask
 
-    okc_process = test_process_manager.instrument_comm_process
     fw_process = test_process_manager.file_writer_process
     da_process = test_process_manager.data_analyzer_process
-    expected_okc_item = "item 1"
-    expected_fw_item = "item 2"
-    expected_da_item = "item 3"
+    expected_fw_item = {
+        "board_0": {"instrument_comm_to_file_writer": [], "file_writer_to_data_analyzer": []},
+        "from_main_to_file_writer": [],
+        "from_file_writer_to_main": [
+            {
+                "communication_type": "log",
+                "log_level": 20,
+                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
+            },
+            {
+                "communication_type": "update_user_settings",
+                "content": {"user_password": "********", "user_name": "********"},
+            },
+        ],
+        "fatal_error_reporter": [],
+    }
+    expected_da_item = {
+        "board_0": {"file_writer_to_data_analyzer": [], "outgoing_data": []},
+        "from_main_to_data_analyzer": [],
+        "from_data_analyzer_to_main": [],
+        "fatal_error_reporter": [],
+    }
 
-    mocker.patch.object(okc_process, "hard_stop", autospec=True, return_value=expected_okc_item)
     mocker.patch.object(fw_process, "hard_stop", autospec=True, return_value=expected_fw_item)
     mocker.patch.object(da_process, "hard_stop", autospec=True, return_value=expected_da_item)
 
@@ -690,9 +707,8 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     invoke_process_run_and_check_errors(monitor_thread)
 
     actual_log_message = mocked_monitor_logger_info.call_args[0][0]
-    assert expected_okc_item in actual_log_message
-    assert expected_fw_item in actual_log_message
-    assert expected_da_item in actual_log_message
+    assert str(expected_fw_item) in actual_log_message
+    assert str(expected_da_item) in actual_log_message
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop_by__uploading_files_after_hard_stopping_and_joining_subprocesses(

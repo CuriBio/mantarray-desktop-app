@@ -83,6 +83,8 @@ def _get_dur_since_last_barcode_clear(last_clear_time: float) -> float:
 
 
 def _redact_from_queue_items(d: Any) -> None:
+    if isinstance(d, list):
+        return
     for key, val in d.items():
         if isinstance(val, list) and not key == "fatal_error_reporter":
             d[key] = [redact_sensitive_info(item) for item in val]
