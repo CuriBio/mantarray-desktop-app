@@ -161,6 +161,7 @@ def redact_sensitive_info(communication: Dict[str, Any]) -> Dict[str, Any]:
     elif communication_type == "update_user_settings":
         comm_copy = copy.deepcopy(communication)
         comm_copy["content"]["user_password"] = get_redacted_string(4)
+        comm_copy["content"]["user_name"] = get_redacted_string(4)
     elif communication_type == "mag_finding_analysis":
         comm_copy = copy.deepcopy(communication)
         comm_copy["recordings"] = [
@@ -183,12 +184,10 @@ def redact_sensitive_info(communication: Dict[str, Any]) -> Dict[str, Any]:
     elif communication_type == "stimulation" and command == "start_stim_checks":
         comm_copy = copy.deepcopy(communication)
         for sub_dict_name in ("stimulator_circuit_statuses", "adc_readings"):
-            sub_dict = comm_copy.get(sub_dict_name, None)
-            if sub_dict is None:
-                return comm_copy
-            for well_idx in sorted(sub_dict):
-                well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
-                sub_dict[well_name] = sub_dict.pop(well_idx)
+            if sub_dict := comm_copy.get(sub_dict_name):
+                for well_idx in sorted(sub_dict):
+                    well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
+                    sub_dict[well_name] = sub_dict.pop(well_idx)
     else:
         comm_copy = copy.copy(communication)
 

@@ -521,6 +521,13 @@ def test_MantarrayProcessesMonitor__logs_errors_from_data_analyzer(
 def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queue_items_when_error_is_raised_in_ok_comm_subprocess(
     mocker, test_process_manager_creator, test_monitor
 ):
+
+    expected_ok_comm_item = {
+        "board_0": {"file_writer_to_data_analyzer": [], "outgoing_data": []},
+        "from_main_to_data_analyzer": [],
+        "from_data_analyzer_to_main": [],
+        "fatal_error_reporter": [],
+    }
     expected_file_writer_item = {
         "board_0": {"instrument_comm_to_file_writer": [], "file_writer_to_data_analyzer": []},
         "from_main_to_file_writer": [],
@@ -532,12 +539,18 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
             },
             {
                 "communication_type": "update_user_settings",
-                "content": {"user_password": "********", "user_name": "********"},
+                "content": {"user_password": "password", "user_name": "username"},
             },
         ],
         "fatal_error_reporter": [],
     }
     expected_da_item = {
+        "board_0": {"file_writer_to_data_analyzer": [], "outgoing_data": []},
+        "from_main_to_data_analyzer": [],
+        "from_data_analyzer_to_main": [],
+        "fatal_error_reporter": [],
+    }
+    expected_server_item = {
         "board_0": {"file_writer_to_data_analyzer": [], "outgoing_data": []},
         "from_main_to_data_analyzer": [],
         "from_data_analyzer_to_main": [],
@@ -566,10 +579,14 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         ("error", "stack_trace"), ok_comm_error_queue
     )
+    to_instrument_comm = test_process_manager.queue_container.to_instrument_comm(0)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_ok_comm_item, to_instrument_comm)
     to_file_writer = test_process_manager.queue_container.to_file_writer
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_file_writer_item, to_file_writer)
     to_data_analyzer = test_process_manager.queue_container.to_data_analyzer
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_da_item, to_data_analyzer)
+    server_to_main = test_process_manager.queue_container.from_flask
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_server_item, server_to_main)
 
     invoke_process_run_and_check_errors(monitor_thread)
 
@@ -582,6 +599,10 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
     assert "Remaining items in process queues: {" in actual
     assert str(expected_file_writer_item) in actual
     assert str(expected_da_item) in actual
+
+    process_monitor._redact_from_queue_items(expected_file_writer_item)
+    assert expected_file_writer_item["from_file_writer_to_main"][1]["content"]["user_password"] == "****"
+    assert expected_file_writer_item["from_file_writer_to_main"][1]["content"]["user_name"] == "****"
 
 
 @freeze_time(datetime.datetime(year=2020, month=2, day=27, hour=12, minute=14, second=22, microsecond=336597))

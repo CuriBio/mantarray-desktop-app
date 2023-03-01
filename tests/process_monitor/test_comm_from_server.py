@@ -666,6 +666,12 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     fw_process = test_process_manager.file_writer_process
     da_process = test_process_manager.data_analyzer_process
+    expected_okc_item = {
+        "board_0": {"file_writer_to_data_analyzer": [], "outgoing_data": []},
+        "from_main_to_data_analyzer": [],
+        "from_data_analyzer_to_main": [],
+        "fatal_error_reporter": [],
+    }
     expected_fw_item = {
         "board_0": {"instrument_comm_to_file_writer": [], "file_writer_to_data_analyzer": []},
         "from_main_to_file_writer": [],
@@ -677,7 +683,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
             },
             {
                 "communication_type": "update_user_settings",
-                "content": {"user_password": "********", "user_name": "********"},
+                "content": {"user_password": "password", "user_name": "username"},
             },
         ],
         "fatal_error_reporter": [],
@@ -691,6 +697,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     mocker.patch.object(fw_process, "hard_stop", autospec=True, return_value=expected_fw_item)
     mocker.patch.object(da_process, "hard_stop", autospec=True, return_value=expected_da_item)
+    mocker.patch.object(da_process, "hard_stop", autospec=True, return_value=expected_okc_item)
 
     communication = {"communication_type": "shutdown", "command": "hard_stop"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
@@ -707,8 +714,11 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     invoke_process_run_and_check_errors(monitor_thread)
 
     actual_log_message = mocked_monitor_logger_info.call_args[0][0]
+    assert str(expected_okc_item) in actual_log_message
     assert str(expected_fw_item) in actual_log_message
     assert str(expected_da_item) in actual_log_message
+    assert expected_fw_item["from_file_writer_to_main"][1]["content"]["user_password"] == "****"
+    assert expected_fw_item["from_file_writer_to_main"][1]["content"]["user_name"] == "****"
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop_by__uploading_files_after_hard_stopping_and_joining_subprocesses(
@@ -789,7 +799,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_flask__and_redacts_mantar
     mocked_logger.assert_called_once_with(f"Communication from the Server: {expected_comm}")
 
 
-def test_MantarrayProcessesMonitor__logs_messages_from_flask__and_redacts_user_password(
+def test_MantarrayProcessesMonitor__logs_messages_from_flask__and_redacts_user_password_and_user_name(
     mocker, test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -799,7 +809,10 @@ def test_MantarrayProcessesMonitor__logs_messages_from_flask__and_redacts_user_p
 
     to_main_queue = test_process_manager.queue_container.from_flask
 
-    test_comm = {"communication_type": "update_user_settings", "content": {"user_password": "test_password"}}
+    test_comm = {
+        "communication_type": "update_user_settings",
+        "content": {"user_password": "test_password", "user_name": "test_username"},
+    }
     expected_comm = copy.deepcopy(test_comm)
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_comm, to_main_queue)
@@ -807,6 +820,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_flask__and_redacts_user_p
     confirm_queue_is_eventually_empty(to_main_queue)
 
     expected_comm["content"]["user_password"] = get_redacted_string(4)
+    expected_comm["content"]["user_name"] = get_redacted_string(4)
     mocked_logger.assert_called_once_with(f"Communication from the Server: {expected_comm}")
 
 
