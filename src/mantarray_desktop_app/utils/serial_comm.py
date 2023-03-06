@@ -300,25 +300,29 @@ def convert_subprotocol_pulse_bytes_to_dict(
     return subprotocol_dict
 
 
-# TODO Tanner (12/23/22): might be nicer eventually to have this take in a list of all the subprotocols
 def convert_subprotocol_node_dict_to_bytes(
-    subprotocol_node_dict: Dict[str, Any], is_voltage: bool = False
-) -> bytes:
+    subprotocol_node_dict: Dict[str, Any], start_idx: int, is_voltage: bool = False
+) -> Tuple[bytes, int]:
     is_loop = subprotocol_node_dict["type"] == "loop"
 
     subprotocol_node_bytes = bytes([is_loop])
+
+    curr_idx = start_idx
 
     if is_loop:
         subprotocol_node_bytes += bytes([len(subprotocol_node_dict["subprotocols"])])
         subprotocol_node_bytes += subprotocol_node_dict["num_iterations"].to_bytes(4, byteorder="little")
         for inner_subprotocol_node_dict in subprotocol_node_dict["subprotocols"]:
-            subprotocol_node_bytes += convert_subprotocol_node_dict_to_bytes(
-                inner_subprotocol_node_dict, is_voltage
+            new_bytes, curr_idx = convert_subprotocol_node_dict_to_bytes(
+                inner_subprotocol_node_dict, curr_idx, is_voltage
             )
+            subprotocol_node_bytes += new_bytes
     else:
+        subprotocol_node_bytes += bytes([curr_idx])
         subprotocol_node_bytes += convert_subprotocol_pulse_dict_to_bytes(subprotocol_node_dict, is_voltage)
+        curr_idx += 1
 
-    return subprotocol_node_bytes
+    return subprotocol_node_bytes, curr_idx
 
 
 def _convert_subprotocol_node_bytes_to_dict(
@@ -327,8 +331,8 @@ def _convert_subprotocol_node_bytes_to_dict(
     is_loop = bool(subprotocol_node_bytes[0])
 
     if not is_loop:
-        stop_idx = STIM_PULSE_BYTES_LEN + 1
-        pulse_dict = convert_subprotocol_pulse_bytes_to_dict(subprotocol_node_bytes[1:stop_idx], is_voltage)
+        stop_idx = STIM_PULSE_BYTES_LEN + 2
+        pulse_dict = convert_subprotocol_pulse_bytes_to_dict(subprotocol_node_bytes[2:stop_idx], is_voltage)
         return pulse_dict, stop_idx
 
     num_subprotocol_nodes = subprotocol_node_bytes[1]
@@ -340,15 +344,15 @@ def _convert_subprotocol_node_bytes_to_dict(
         "subprotocols": subprotocol_nodes,
     }
 
-    start_idx = 6
+    curr_idx = 6
     for _ in range(num_subprotocol_nodes):
         subprotocol_node_dict, num_bytes_processed = _convert_subprotocol_node_bytes_to_dict(
-            subprotocol_node_bytes[start_idx:], is_voltage
+            subprotocol_node_bytes[curr_idx:], is_voltage
         )
         subprotocol_nodes.append(subprotocol_node_dict)
-        start_idx += num_bytes_processed
+        curr_idx += num_bytes_processed
 
-    return loop_dict, start_idx
+    return loop_dict, curr_idx
 
 
 def convert_stim_dict_to_bytes(stim_dict: Dict[str, Any]) -> bytes:
@@ -364,10 +368,14 @@ def convert_stim_dict_to_bytes(stim_dict: Dict[str, Any]) -> bytes:
         # data type is always 0 as of 12/23/22
         stim_bytes += bytes([is_voltage_controlled, protocol_dict["run_until_stopped"], 0])
 
+        # TODO remove this since the top level should always be a loop
+
+        curr_idx = 0
         for subprotocol_dict in protocol_dict["subprotocols"]:
-            stim_bytes += convert_subprotocol_node_dict_to_bytes(
-                subprotocol_dict, is_voltage=is_voltage_controlled
+            subprotocol_bytes, curr_idx = convert_subprotocol_node_dict_to_bytes(
+                subprotocol_dict, curr_idx, is_voltage=is_voltage_controlled
             )
+            stim_bytes += subprotocol_bytes
 
         module_ids_assigned = [
             convert_well_name_to_module_id(well_name, use_stim_mapping=True)

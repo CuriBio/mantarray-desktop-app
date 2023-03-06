@@ -177,7 +177,7 @@ def get_full_packet_size_from_payload_len(payload_len: int) -> int:
     return packet_size
 
 
-def assert_subprotocol_bytes_are_expected(actual, expected, err_msg=None):
+def assert_subprotocol_pulse_bytes_are_expected(actual, expected, include_idx=False, err_msg=None):
     if len(expected) != STIM_PULSE_BYTES_LEN:
         raise ValueError(f"'expected' has incorrect len: {len(expected)}, should be: {STIM_PULSE_BYTES_LEN}")
 
@@ -206,15 +206,18 @@ def assert_subprotocol_node_bytes_are_expected(actual, expected):
         expected_num_iterations = int.from_bytes(expected[2:6], byteorder="little")
         assert actual_num_iterations == expected_num_iterations, "Incorrect number of iterations"
 
-        # TODO this will only work with single level loops right now
+        # this will only work with single level loops right now
         num_subprotocols = len(expected[6:]) // STIM_PULSE_BYTES_LEN
         for subprotocol_idx in range(num_subprotocols):
-            start_idx = 6 + (subprotocol_idx * STIM_PULSE_BYTES_LEN)
+            start_idx = 6 + (subprotocol_idx * (STIM_PULSE_BYTES_LEN + 1))
             stop_idx = start_idx + STIM_PULSE_BYTES_LEN
-            assert_subprotocol_bytes_are_expected(
+
+            assert actual[start_idx - 1] == expected[start_idx - 1], "Invalid subprotocol idx"
+            assert_subprotocol_pulse_bytes_are_expected(
                 actual[start_idx:stop_idx],
                 expected[start_idx:stop_idx],
                 err_msg=f"subprotocol_idx: {subprotocol_idx}",
             )
     else:
-        assert_subprotocol_bytes_are_expected(actual[1:], expected[1:])
+        assert actual[1] == expected[1], "Invalid subprotocol idx"
+        assert_subprotocol_pulse_bytes_are_expected(actual[2:], expected[2:])
