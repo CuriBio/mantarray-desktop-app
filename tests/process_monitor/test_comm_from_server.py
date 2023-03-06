@@ -666,15 +666,48 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 
     fw_process = test_process_manager.file_writer_process
     da_process = test_process_manager.data_analyzer_process
+    okc_process = test_process_manager.instrument_comm_process
     expected_okc_item = {
-        "board_0": {"file_writer_to_data_analyzer": [], "outgoing_data": []},
-        "from_main_to_data_analyzer": [],
-        "from_data_analyzer_to_main": [],
-        "fatal_error_reporter": [],
+        "board_0": {
+            "outgoing_data": [
+                {
+                    "communication_type": "log",
+                    "log_level": 20,
+                    "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
+                },
+            ]
+        },
+        "from_main_to_data_analyzer": [
+            {
+                "communication_type": "log",
+                "log_level": 20,
+                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
+            },
+        ],
+        "from_data_analyzer_to_main": [
+            {
+                "communication_type": "log",
+                "log_level": 20,
+                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
+            },
+        ],
+        "fatal_error_reporter": [
+            {
+                "communication_type": "log",
+                "log_level": 20,
+                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
+            },
+        ],
     }
     expected_fw_item = {
         "board_0": {"instrument_comm_to_file_writer": [], "file_writer_to_data_analyzer": []},
-        "from_main_to_file_writer": [],
+        "from_main_to_file_writer": [
+            {
+                "communication_type": "log",
+                "log_level": 20,
+                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
+            },
+        ],
         "from_file_writer_to_main": [
             {
                 "communication_type": "log",
@@ -683,21 +716,63 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
             },
             {
                 "communication_type": "update_user_settings",
-                "content": {"user_password": "password", "user_name": "username"},
+                "content": {"user_password": "****", "user_name": "****"},
             },
         ],
-        "fatal_error_reporter": [],
+        "fatal_error_reporter": [
+            {
+                "communication_type": "log",
+                "log_level": 20,
+                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
+            },
+        ],
     }
     expected_da_item = {
-        "board_0": {"file_writer_to_data_analyzer": [], "outgoing_data": []},
-        "from_main_to_data_analyzer": [],
-        "from_data_analyzer_to_main": [],
-        "fatal_error_reporter": [],
+        "board_0": {
+            "file_writer_to_data_analyzer": [
+                {
+                    "communication_type": "log",
+                    "log_level": 20,
+                    "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
+                },
+            ],
+            "outgoing_data": [
+                {
+                    "communication_type": "log",
+                    "log_level": 20,
+                    "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
+                },
+            ],
+        },
+        "from_main_to_data_analyzer": [
+            {
+                "communication_type": "log",
+                "log_level": 20,
+                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
+            },
+        ],
+        "from_data_analyzer_to_main": [
+            {
+                "communication_type": "log",
+                "log_level": 20,
+                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
+            },
+        ],
+        "fatal_error_reporter": [
+            {
+                "communication_type": "log",
+                "log_level": 20,
+                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
+            },
+        ],
     }
+    expected_okc_item_copy = copy.deepcopy(expected_okc_item)
+    expected_fw_item_copy = copy.deepcopy(expected_fw_item)
+    expected_da_item_copy = copy.deepcopy(expected_da_item)
 
-    mocker.patch.object(fw_process, "hard_stop", autospec=True, return_value=expected_fw_item)
-    mocker.patch.object(da_process, "hard_stop", autospec=True, return_value=expected_da_item)
-    mocker.patch.object(da_process, "hard_stop", autospec=True, return_value=expected_okc_item)
+    mocker.patch.object(fw_process, "hard_stop", autospec=True, return_value=expected_fw_item_copy)
+    mocker.patch.object(da_process, "hard_stop", autospec=True, return_value=expected_da_item_copy)
+    mocker.patch.object(okc_process, "hard_stop", autospec=True, return_value=expected_okc_item_copy)
 
     communication = {"communication_type": "shutdown", "command": "hard_stop"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
@@ -717,8 +792,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     assert str(expected_okc_item) in actual_log_message
     assert str(expected_fw_item) in actual_log_message
     assert str(expected_da_item) in actual_log_message
-    assert expected_fw_item["from_file_writer_to_main"][1]["content"]["user_password"] == "****"
-    assert expected_fw_item["from_file_writer_to_main"][1]["content"]["user_name"] == "****"
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_shutdown_hard_stop_by__uploading_files_after_hard_stopping_and_joining_subprocesses(
