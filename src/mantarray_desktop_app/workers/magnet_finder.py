@@ -10,7 +10,13 @@ from typing import Union
 
 from pulse3D.plate_recording import PlateRecording
 
+from ..constants import GENERIC_24_WELL_DEFINITION
 from ..constants import MICRO_TO_BASE_CONVERSION
+
+
+ALL_VALID_WELL_NAMES = {
+    GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx) for well_idx in range(24)
+}
 
 
 def run_magnet_finding_alg(
@@ -47,8 +53,8 @@ def run_magnet_finding_alg(
                 pr = PlateRecording(recording_copy_path, end_time=end_time)
                 df = pr.to_dataframe()
 
-                # remove __raw columns from df
-                columns_to_drop = [c for c in df.columns if "__raw" in c]
+                # remove unnecessary columns from df
+                columns_to_drop = [c for c in df.columns if c not in ("Time (s)", *ALL_VALID_WELL_NAMES)]
                 df.drop(columns_to_drop, inplace=True, axis=1)
 
                 # to_dataframe sends µs, convert to seconds
