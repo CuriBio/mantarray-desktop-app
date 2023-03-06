@@ -96,7 +96,7 @@ def chunk_protocols_in_stim_info(
                     continue
 
                 chunked_idx_to_original_idx[curr_chunked_idx] = original_idx
-                # for loop chunk need to count the num iterations, leftover chunk is always 1
+                # for loop chunk, need to count the num iterations, leftover chunk is always 1
                 original_idx_count += chunk.get("num_iterations", 1)
                 new_subprotocols.append(chunk)
 

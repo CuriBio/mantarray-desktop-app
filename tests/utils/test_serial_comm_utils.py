@@ -20,7 +20,6 @@ from mantarray_desktop_app import SERIAL_COMM_METADATA_BYTES_LENGTH
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_EPOCH
 from mantarray_desktop_app import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-from mantarray_desktop_app import STIM_NO_PROTOCOL_ASSIGNED
 from mantarray_desktop_app import validate_checksum
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_PACKET_BASE_LENGTH_BYTES
@@ -34,6 +33,7 @@ from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_impe
 from mantarray_desktop_app.utils.serial_comm import convert_stim_bytes_to_dict
 from mantarray_desktop_app.utils.serial_comm import convert_subprotocol_node_bytes_to_dict
 from mantarray_desktop_app.utils.serial_comm import convert_subprotocol_node_dict_to_bytes
+from mantarray_desktop_app.utils.serial_comm import convert_well_name_to_module_id
 import numpy as np
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
@@ -732,8 +732,6 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
             not in protocol_assignments_dict
         }
     )
-    expected_module_id_protocol_pairs = [0, 1]
-    expected_module_id_protocol_pairs.extend([STIM_NO_PROTOCOL_ASSIGNED] * 22)
 
     stim_info_dict = {
         "protocols": [
@@ -771,7 +769,6 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
 
     expected_bytes = (
         bytes([2])  # num unique protocols
-        + bytes([2])  # num subprotocols in at top level in protocol A
         + bytes([0])  # control method
         + bytes([1])  # schedule mode
         + bytes([0])  # data type
@@ -782,8 +779,11 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
         + convert_subprotocol_node_dict_to_bytes(
             stim_info_dict["protocols"][0]["subprotocols"][1], is_voltage=False
         )
+        + bytes([1])  # num wells that protocol A is assigned to
+        + bytes(
+            [convert_well_name_to_module_id(list(protocol_assignments_dict.keys())[0], use_stim_mapping=True)]
+        )  # module ID(s) that protocol A is assigned to
         # bytes for protocol D
-        + bytes([2])  # num subprotocols in at top level in protocol D
         + bytes([1])  # control method
         + bytes([0])  # schedule mode
         + bytes([0])  # data type
@@ -793,8 +793,10 @@ def test_convert_stim_dict_to_bytes__return_expected_bytes():
         + convert_subprotocol_node_dict_to_bytes(
             stim_info_dict["protocols"][1]["subprotocols"][1], is_voltage=True
         )
-        # module/protocol pairs
-        + bytes(expected_module_id_protocol_pairs)
+        + bytes([1])  # num wells that protocol D is assigned to
+        + bytes(
+            [convert_well_name_to_module_id(list(protocol_assignments_dict.keys())[1], use_stim_mapping=True)]
+        )  # module ID(s) that protocol A is assigned to
     )
 
     actual = convert_stim_dict_to_bytes(stim_info_dict)
@@ -828,16 +830,22 @@ def test_convert_stim_bytes_to_dict__can_correctly_recreate_stim_dict__except_fo
                                 "num_iterations": randint(1, 10),
                                 "subprotocols": [get_random_subprotocol() for _ in range(randint(1, 3))],
                             },
+                            get_random_biphasic_pulse(),
                         ],
                     },
-                    get_random_biphasic_pulse(),
                 ],
             },
             {
                 "protocol_id": 1,
                 "stimulation_type": "C",
                 "run_until_stopped": True,
-                "subprotocols": [get_random_subprotocol() for _ in range(randint(1, 3))],
+                "subprotocols": [
+                    {
+                        "type": "loop",
+                        "num_iterations": randint(1, 10),
+                        "subprotocols": [get_random_subprotocol() for _ in range(randint(1, 3))],
+                    }
+                ],
             },
         ],
         "protocol_assignments": protocol_assignments_dict,
