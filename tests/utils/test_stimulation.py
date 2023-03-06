@@ -245,15 +245,27 @@ def test_chunk_protocols_in_stim_info__returns_correct_values(mocker):
 
     expected_chunked_stim_info = copy.deepcopy(test_stim_info)
     expected_chunked_stim_info["protocols"][0]["subprotocols"] = [
-        mocked_chunk_subprotocol_returns[0][0],
-        mocked_chunk_subprotocol_returns[0][1],
-        mocked_chunk_subprotocol_returns[1][1],
+        {
+            "type": "loop",
+            "num_iterations": 1,
+            "subprotocols": [
+                mocked_chunk_subprotocol_returns[0][0],
+                mocked_chunk_subprotocol_returns[0][1],
+                mocked_chunk_subprotocol_returns[1][1],
+            ],
+        }
     ]
     expected_chunked_stim_info["protocols"][1]["subprotocols"] = [
-        mocked_chunk_subprotocol_returns[2][1],
-        mocked_chunk_subprotocol_returns[3][1],
-        mocked_chunk_subprotocol_returns[4][0],
-        mocked_chunk_subprotocol_returns[4][1],
+        {
+            "type": "loop",
+            "num_iterations": 1,
+            "subprotocols": [
+                mocked_chunk_subprotocol_returns[2][1],
+                mocked_chunk_subprotocol_returns[3][1],
+                mocked_chunk_subprotocol_returns[4][0],
+                mocked_chunk_subprotocol_returns[4][1],
+            ],
+        }
     ]
 
     actual_stim_info, subprotocol_idx_mappings, max_subprotocol_idx_counts = chunk_protocols_in_stim_info(
