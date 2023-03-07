@@ -417,12 +417,12 @@ SERIAL_COMM_WELL_IDX_TO_MODULE_ID: immutabledict[int, int] = immutabledict(
         well_idx: module_id
         for well_idx, module_id in enumerate(
             [
-                4, 3, 2, 1,      # A1 - D1
-                8, 7, 6, 5,      # A2 - D2
-                12, 11, 10, 9,   # A3 - D3
-                16, 15, 14, 13,  # A4 - D4
-                20, 19, 18, 17,  # A5 - D5
-                24, 23, 22, 21   # A6 - D6
+                3, 2, 1, 0,  # A1 - D1
+                7, 6, 5, 4,  # A2 - D2
+                11, 10, 9, 8,  # A3 - D3
+                15, 14, 13, 12,  # A4 - D4
+                19, 18, 17, 16,  # A5 - D5
+                23, 22, 21, 20   # A6 - D6
             ]
         )
     }
@@ -442,8 +442,7 @@ STIM_MODULE_ID_TO_WELL_IDX: immutabledict[int, int] = immutabledict(
                 2, 6, 10, 14, 18, 22,  # C wells
                 1, 5, 9, 13, 17, 21,   # B wells
                 0, 4, 8, 12, 16, 20    # A wells
-            ],
-            1  # module ID numbering starts at 1
+            ]
         )
     }
 )

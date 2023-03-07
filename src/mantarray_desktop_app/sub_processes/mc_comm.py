@@ -561,7 +561,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     f"<{self._num_wells}?",
                     *[
                         STIM_MODULE_ID_TO_WELL_IDX[module_id] in comm_from_main["well_indices"]
-                        for module_id in range(1, self._num_wells + 1)
+                        for module_id in range(self._num_wells)
                     ],
                 )
             elif comm_from_main["command"] == "set_protocols":
@@ -815,7 +815,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 stimulator_circuit_statuses: Dict[int, str] = {}
                 adc_readings: Dict[int, Tuple[int, int]] = {}
 
-                for module_id, (adc8, adc9, status_int) in enumerate(zip(*stimulator_check_dict.values()), 1):
+                for module_id, (adc8, adc9, status_int) in enumerate(zip(*stimulator_check_dict.values())):
                     well_idx = STIM_MODULE_ID_TO_WELL_IDX[module_id]
                     if well_idx not in prev_command["well_indices"]:
                         continue
@@ -1082,13 +1082,13 @@ class McCommunicationProcess(InstrumentCommProcess):
         }
 
         time_offset_idx = 0
-        for module_id in range(1, self._num_wells + 1):
+        for module_id in range(self._num_wells):
             time_offset_slice = slice(time_offset_idx, time_offset_idx + SERIAL_COMM_NUM_SENSORS_PER_WELL)
             time_offset_idx += SERIAL_COMM_NUM_SENSORS_PER_WELL
 
             well_dict: Dict[Any, Any] = {"time_offsets": time_offsets[time_offset_slice, data_slice]}
 
-            data_idx = (module_id - 1) * SERIAL_COMM_NUM_DATA_CHANNELS
+            data_idx = module_id * SERIAL_COMM_NUM_DATA_CHANNELS
             for channel_idx in range(SERIAL_COMM_NUM_DATA_CHANNELS):
                 well_dict[channel_idx] = data[data_idx + channel_idx, data_slice]
 

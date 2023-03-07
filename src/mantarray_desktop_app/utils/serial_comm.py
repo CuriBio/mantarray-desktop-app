@@ -167,7 +167,7 @@ def convert_status_code_bytes_to_dict(status_code_bytes: bytes) -> Dict[str, int
     status_code_labels = (
         "main_status",
         "index_of_thread_with_error",
-        *[f"module_{i}_status" for i in range(1, 25)],
+        *[f"module_{i}_status" for i in range(24)],
     )
     return {label: status_code_bytes[i] for i, label in enumerate(status_code_labels)}
 

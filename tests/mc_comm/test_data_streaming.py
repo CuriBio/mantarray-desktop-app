@@ -543,7 +543,7 @@ def test_McCommunicationProcess__handles_one_second_read_with_two_interrupting_p
         "data_type": "mangetometer",
         "time_indices": np.array(expected_time_indices, np.uint64),
     }
-    for module_id in range(1, 25):
+    for module_id in range(24):
         well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
         channel_data = np.concatenate(
             (simulated_data[NUM_INITIAL_PACKETS_TO_DROP:], simulated_data[: test_num_packets // 3])

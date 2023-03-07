@@ -59,7 +59,7 @@ def create_data_stream_body(time_index_us, num_wells_on_plate=24):
     data_packet_payload = time_index_us.to_bytes(SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little")
     data_values = []
     offset_values = []
-    for _ in range(1, num_wells_on_plate + 1):
+    for _ in range(num_wells_on_plate):
         for _ in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_SENSORS_PER_WELL):
             # create and add offset value
             offset = random_time_offset()

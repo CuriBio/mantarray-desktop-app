@@ -16,7 +16,6 @@ from mantarray_desktop_app import SERIAL_COMM_START_STIM_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STIM_STATUS_PACKET_TYPE
 from mantarray_desktop_app import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
-from mantarray_desktop_app import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from mantarray_desktop_app import StimProtocolStatuses
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import MICROS_PER_MILLI
@@ -50,7 +49,7 @@ def test_MantarrayMcSimulator__processes_start_stimulator_checks_command(mantarr
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     num_wells = 24
 
-    test_module_ids = [i for i in range(1, num_wells + 1) if random_bool()]
+    test_module_ids = [i for i in range(num_wells) if random_bool()]
     if not test_module_ids:
         # guard against unlikely case where no module IDs were selected
         test_module_ids = [1]
@@ -59,7 +58,7 @@ def test_MantarrayMcSimulator__processes_start_stimulator_checks_command(mantarr
     start_checks_command = create_data_packet(
         expected_pc_timestamp,
         SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE,
-        struct.pack("<24?", *[module_id in test_module_ids for module_id in range(1, num_wells + 1)]),
+        struct.pack("<24?", *[module_id in test_module_ids for module_id in range(num_wells)]),
     )
     simulator.write(start_checks_command)
 
@@ -91,8 +90,14 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
                 "stimulation_type": random_stim_type(),
                 "run_until_stopped": choice([True, False]),
                 "subprotocols": [
-                    choice([get_random_stim_pulse(num_cycles=10), get_random_stim_delay()])
-                    for _ in range(randint(1, 3))
+                    {
+                        "type": "loop",
+                        "num_iterations": 1,
+                        "subprotocols": [
+                            choice([get_random_stim_pulse(num_cycles=10), get_random_stim_delay()])
+                            for _ in range(randint(1, 3))
+                        ],
+                    }
                 ],
             }
             for protocol_id in test_protocol_ids[:-1]
@@ -175,105 +180,13 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
     )
 
 
-@pytest.mark.parametrize(
-    "test_num_module_assignments,test_description",
-    [
-        (23, "returns command failure response when 23 module assignments given"),
-        (25, "returns command failure response when 25 module assignments given"),
-    ],
-)
-def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_an_incorrect_amount_of_module_assignments_are_given(
-    mantarray_mc_simulator_no_beacon, test_num_module_assignments, test_description
-):
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
-
-    stim_info_dict = {
-        "protocols": [
-            {
-                "protocol_id": "V",
-                "stimulation_type": random_stim_type(),
-                "run_until_stopped": choice([True, False]),
-                "subprotocols": [get_random_stim_pulse(num_cycles=10)],
-            }
-        ],
-        "protocol_assignments": {
-            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "V" for well_idx in range(24)
-        },
-    }
-    stim_info_bytes = convert_stim_dict_to_bytes(stim_info_dict)
-    # add or remove an assignment
-    if test_num_module_assignments > 24:
-        stim_info_bytes += bytes([0])
-    else:
-        stim_info_bytes = stim_info_bytes[:-1]
-
-    expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
-    set_protocols_command = create_data_packet(
-        expected_pc_timestamp, SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE, stim_info_bytes
-    )
-    simulator.write(set_protocols_command)
-
-    invoke_process_run_and_check_errors(simulator)
-    # assert stim info was not updated
-    assert simulator._stim_info == {}
-    # assert command response is correct
-    stim_command_response = simulator.read(size=get_full_packet_size_from_payload_len(1))
-    assert_serial_packet_is_expected(
-        stim_command_response,
-        SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
-        additional_bytes=bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
-    )
-
-
-def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_too_many_subprotocols_given_in_a_single_protocol(
-    mantarray_mc_simulator_no_beacon,
-):
-    simulator = mantarray_mc_simulator_no_beacon["simulator"]
-
-    stim_info_dict = {
-        "protocols": [
-            {
-                "protocol_id": "O",
-                "stimulation_type": random_stim_type(),
-                "run_until_stopped": choice([True, False]),
-                "subprotocols": [
-                    choice([get_random_stim_pulse(num_cycles=10), get_random_stim_delay()])
-                    for _ in range(STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL + 1)
-                ],
-            }
-        ],
-        "protocol_assignments": {
-            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "O" for well_idx in range(24)
-        },
-    }
-
-    expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
-    set_protocols_command = create_data_packet(
-        expected_pc_timestamp,
-        SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
-        convert_stim_dict_to_bytes(stim_info_dict),
-    )
-    simulator.write(set_protocols_command)
-
-    invoke_process_run_and_check_errors(simulator)
-    # assert stim info was not updated
-    assert simulator._stim_info == {}
-    # assert command response is correct
-    stim_command_response = simulator.read(size=get_full_packet_size_from_payload_len(1))
-    assert_serial_packet_is_expected(
-        stim_command_response,
-        SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE,
-        additional_bytes=bytes([SERIAL_COMM_COMMAND_FAILURE_BYTE]),
-    )
-
-
 def test_MantarrayMcSimulator__processes_start_stimulation_command__before_protocols_have_been_set(
     mantarray_mc_simulator_no_beacon,
 ):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     expected_stim_running_statuses = {
-        convert_module_id_to_well_name(module_id): False for module_id in range(1, 25)
+        convert_module_id_to_well_name(module_id): False for module_id in range(24)
     }
 
     # send start stim command
@@ -406,7 +319,7 @@ def test_MantarrayMcSimulator__processes_stop_stimulation_command(mantarray_mc_s
             )
         # assert that stimulation was stopped on all wells
         assert simulator._stim_running_statuses == {
-            convert_module_id_to_well_name(module_id): False for module_id in range(1, 25)
+            convert_module_id_to_well_name(module_id): False for module_id in range(24)
         }
         # assert command response is correct
         additional_bytes = bytes([response_byte_value])

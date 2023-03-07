@@ -83,7 +83,6 @@ from ..constants import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from ..constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from ..constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from ..constants import STIM_COMPLETE_SUBPROTOCOL_IDX
-from ..constants import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from ..constants import STIM_WELL_IDX_TO_MODULE_ID
 from ..constants import StimProtocolStatuses
 from ..exceptions import SerialCommInvalidSamplingPeriodError
@@ -359,7 +358,7 @@ class MantarrayMcSimulator(InfiniteProcess):
     def _reset_stim_running_statuses(self) -> None:
         self._stim_running_statuses = {
             convert_module_id_to_well_name(module_id, use_stim_mapping=True): False
-            for module_id in range(1, self._num_wells + 1)
+            for module_id in range(self._num_wells)
         }
 
     def _update_stim_statuses_for_completed_protocol(self, completed_protocol_idx: int) -> None:
@@ -374,9 +373,6 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     def is_rebooting(self) -> bool:
         return self._reboot_time_secs is not None
-
-    def get_num_wells(self) -> int:
-        return self._num_wells
 
     def _get_absolute_timer(self) -> int:
         absolute_time: int = self.get_cms_since_init() * MICROSECONDS_PER_CENTIMILLISECOND
@@ -482,15 +478,8 @@ class MantarrayMcSimulator(InfiniteProcess):
             stim_info_dict = convert_stim_bytes_to_dict(
                 comm_from_pc[SERIAL_COMM_PAYLOAD_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
             )
-            command_failed = (
-                self._is_stimulating
-                or len(stim_info_dict["protocols"]) > self._num_wells
-                or len(stim_info_dict["protocol_assignments"]) != self._num_wells
-                or any(
-                    len(protocol_dict["subprotocols"]) > STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
-                    for protocol_dict in stim_info_dict["protocols"]
-                )
-            )
+            # TODO handle too many subprotocols?
+            command_failed = self._is_stimulating or len(stim_info_dict["protocols"]) > self._num_wells
             if not command_failed:
                 self._stim_info = stim_info_dict
             response_body += bytes([command_failed])
@@ -680,7 +669,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         elif command == "set_adc_readings":
             for well_idx, adc_readings in enumerate(test_comm["adc_readings"]):
                 module_id = STIM_WELL_IDX_TO_MODULE_ID[well_idx]
-                self._adc_readings[module_id - 1] = adc_readings
+                self._adc_readings[module_id] = adc_readings
         elif command == "set_stim_info":
             self._stim_info = test_comm["stim_info"]
         elif command == "set_stim_status":
@@ -724,7 +713,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         magnetometer_data_payload = self._time_index_us.to_bytes(
             SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little"
         )
-        for module_id in range(1, self._num_wells + 1):
+        for module_id in range(self._num_wells):
             # add offset of 0 since this is simulated data
             time_offset = bytes(SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES)
             # create data point value

@@ -7,7 +7,6 @@ import struct
 from freezegun import freeze_time
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
-from mantarray_desktop_app import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from mantarray_desktop_app import StimulationProtocolUpdateFailedError
 from mantarray_desktop_app import StimulationProtocolUpdateWhileStimulatingError
 from mantarray_desktop_app import StimulationStatusUpdateFailedError
@@ -34,7 +33,6 @@ from ..fixtures_mc_comm import start_data_stream
 from ..fixtures_mc_comm import stop_data_stream
 from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
-from ..fixtures_mc_simulator import get_random_stim_delay
 from ..fixtures_mc_simulator import get_random_stim_pulse
 from ..fixtures_mc_simulator import get_random_subprotocol
 from ..helpers import confirm_queue_is_eventually_empty
@@ -111,7 +109,7 @@ def test_McCommunicationProcess__processes_start_stim_checks_command__and_sends_
     # make sure each well's value is set based on if a protocol is assigned correctly
     bytes_sent = spied_write.call_args[0][0]
     well_val_bytes = bytes_sent[SERIAL_COMM_PAYLOAD_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
-    for module_id, well_val in enumerate(struct.unpack(f"<{num_wells}?", well_val_bytes), 1):
+    for module_id, well_val in enumerate(struct.unpack(f"<{num_wells}?", well_val_bytes)):
         well_idx = STIM_MODULE_ID_TO_WELL_IDX[module_id]
         assert well_val is (well_idx in test_well_indices), well_idx
 
@@ -241,13 +239,13 @@ def test_McCommunicationProcess__raises_error_if_set_protocols_command_fails(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
-    # send set_protocols command with too many subprotocols in one protocol and confirm error is raised
-    bad_stim_info = create_random_stim_info()
-    bad_stim_info["protocols"][0]["subprotocols"] = [get_random_stim_delay()] * (
-        STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL + 1
-    )
+    # send command with too many protocols so it fails
+    stim_info = create_random_stim_info()
+    stim_info["protocols"] += [stim_info["protocols"][0]] * 25
+
+    # send set_protocols command again now that stimulation is running and make sure errors is raised
     with pytest.raises(StimulationProtocolUpdateFailedError):
-        set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, bad_stim_info)
+        set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, stim_info)
 
 
 def test_McCommunicationProcess__raises_error_if_start_stim_command_fails(
@@ -310,7 +308,13 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
                 "protocol_id": "A",
                 "stimulation_type": "C",
                 "run_until_stopped": False,
-                "subprotocols": [test_subprotocol],
+                "subprotocols": [
+                    {
+                        "type": "loop",
+                        "num_iterations": 1,
+                        "subprotocols": [test_subprotocol],
+                    }
+                ],
             }
         ],
         "protocol_assignments": {
@@ -388,7 +392,13 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
                 "protocol_id": "A",
                 "stimulation_type": "V",
                 "run_until_stopped": False,
-                "subprotocols": [test_subprotocol] * 2,
+                "subprotocols": [
+                    {
+                        "type": "loop",
+                        "num_iterations": 1,
+                        "subprotocols": [test_subprotocol] * 2,
+                    }
+                ],
             }
         ],
         "protocol_assignments": {
@@ -495,7 +505,13 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
                 "protocol_id": "A",
                 "stimulation_type": "C",
                 "run_until_stopped": False,
-                "subprotocols": [test_subprotocol],
+                "subprotocols": [
+                    {
+                        "type": "loop",
+                        "num_iterations": 1,
+                        "subprotocols": [test_subprotocol],
+                    }
+                ],
             }
         ],
         "protocol_assignments": {
@@ -597,7 +613,13 @@ def test_McCommunicationProcess__protocols_can_be_updated_and_stimulation_can_be
                 "protocol_id": "A",
                 "stimulation_type": "C",
                 "run_until_stopped": False,
-                "subprotocols": [test_first_subprotocol],
+                "subprotocols": [
+                    {
+                        "type": "loop",
+                        "num_iterations": 1,
+                        "subprotocols": [test_first_subprotocol],
+                    }
+                ],
             }
         ],
         "protocol_assignments": {
@@ -673,7 +695,13 @@ def test_McCommunicationProcess__stim_packets_sent_to_file_writer_after_restarti
                 "protocol_id": "A",
                 "stimulation_type": "C",
                 "run_until_stopped": True,
-                "subprotocols": [test_subprotocol],
+                "subprotocols": [
+                    {
+                        "type": "loop",
+                        "num_iterations": 1,
+                        "subprotocols": [test_subprotocol],
+                    }
+                ],
             }
         ],
         "protocol_assignments": {

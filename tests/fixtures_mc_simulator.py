@@ -202,11 +202,12 @@ def get_random_stim_pulse(*, pulse_type=None, total_subprotocol_dur_us=None, fre
             )
             pulse_dur_us = randint(min_pulse_dur, max_pulse_dur)
     else:
-        # create random pulse dur and num cycles
         if freq:
             pulse_dur_us = MICRO_TO_BASE_CONVERSION // freq
         else:
+            # create random pulse dur
             pulse_dur_us = randint(MIN_PULSE_DUR_MICROSECONDS, MAX_PULSE_DUR_MICROSECONDS)
+        # create random num cycles
         num_cycles = _get_rand_num_cycles_from_pulse_dur(pulse_dur_us)
 
     # set up randomizer for duty cycle components
@@ -241,7 +242,8 @@ def get_random_stim_pulse(*, pulse_type=None, total_subprotocol_dur_us=None, fre
 
 def _get_rand_num_cycles_from_pulse_dur(pulse_dur_us):
     max_num_cycles = math.floor(STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS / pulse_dur_us)
-    min_num_cycles = math.floor(STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS / pulse_dur_us)
+    # make sure there is at least 1 cycle
+    min_num_cycles = max(1, math.floor(STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS / pulse_dur_us))
     num_cycles = randint(min_num_cycles, max_num_cycles)
     return num_cycles
 
@@ -267,8 +269,19 @@ def create_random_stim_info():
                 "stimulation_type": random_stim_type(),
                 "run_until_stopped": choice([True, False]),
                 "subprotocols": [
-                    choice([get_random_stim_pulse(), get_random_stim_delay(50 * MICRO_TO_BASE_CONVERSION)])
-                    for _ in range(randint(1, 2))
+                    {
+                        "type": "loop",
+                        "num_iterations": 1,
+                        "subprotocols": [
+                            choice(
+                                [
+                                    get_random_stim_pulse(),
+                                    get_random_stim_delay(50 * MICRO_TO_BASE_CONVERSION),
+                                ]
+                            )
+                            for _ in range(randint(1, 2))
+                        ],
+                    },
                 ],
             }
             for pid in protocol_ids[1:]
