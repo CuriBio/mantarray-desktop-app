@@ -318,13 +318,7 @@ def set_stim_info_and_start_stimulating(simulator_fixture, stim_info):
 
 
 def create_converted_stim_info(stim_info):
-    protocol_ids = set()
-    for protocol in stim_info["protocols"]:
-        if protocol["protocol_id"] not in protocol_ids:
-            protocol_ids.add(protocol["protocol_id"])
-        del protocol["protocol_id"]
-
-    protocol_ids = sorted(list(protocol_ids))
+    protocol_ids = sorted(list({protocol.pop("protocol_id") for protocol in stim_info["protocols"]}))
     converted_protocol_assignments = {
         well_name: (None if protocol_id is None else protocol_ids.index(protocol_id))
         for well_name, protocol_id in stim_info["protocol_assignments"].items()

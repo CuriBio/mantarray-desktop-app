@@ -157,6 +157,7 @@ class StimulationProtocolManager:
         # otherwise, return the current node stored at this level since it is not a loop
         return self._subprotocols[self._node_idx]
 
+    # TODO update this now that the subprotocol idx is included in the subprotocol?
     def idx(self) -> int:
         # if there is a loop, the current idx must be retrieved from it as it is invalid at this level
         if self._loop:
