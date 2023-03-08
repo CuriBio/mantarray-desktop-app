@@ -13,7 +13,6 @@ from time import sleep
 import traceback
 from typing import Any
 from typing import Dict
-from typing import FrozenSet
 from typing import List
 from typing import Optional
 from typing import Set
@@ -253,7 +252,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._mag_data_cache_dict: Dict[str, Union[bytearray, int]]
         self._reset_mag_data_cache()
         # stimulation values
-        self._wells_assigned_a_protocol: FrozenSet[int] = frozenset()
+        self._well_stim_assignments: Dict[int, int] = {}
         self._wells_actively_stimulating: Set[int] = set()
         self._stim_status_buffers: Dict[int, Any]
         self._reset_stim_status_buffers()
@@ -279,7 +278,7 @@ class McCommunicationProcess(InstrumentCommProcess):
     @_is_stimulating.setter
     def _is_stimulating(self, value: bool) -> None:
         if value:
-            self._wells_actively_stimulating = set(well for well in self._wells_assigned_a_protocol)
+            self._wells_actively_stimulating = set(well for well in self._well_stim_assignments)
         else:
             self._wells_actively_stimulating = set()
 
@@ -567,14 +566,21 @@ class McCommunicationProcess(InstrumentCommProcess):
             elif comm_from_main["command"] == "set_protocols":
                 packet_type = SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
                 bytes_to_send = convert_stim_dict_to_bytes(comm_from_main["stim_info"])
+
                 if self._is_stimulating and not self._hardware_test_mode:
                     raise StimulationProtocolUpdateWhileStimulatingError()
+
+                protocols = comm_from_main["stim_info"]["protocols"]
                 protocol_assignments = comm_from_main["stim_info"]["protocol_assignments"]
-                self._wells_assigned_a_protocol = frozenset(
-                    GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
+
+                protocol_id_to_idx = {protocol["protocol_id"]: idx for idx, protocol in enumerate(protocols)}
+                self._well_stim_assignments = {
+                    GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name): protocol_id_to_idx[
+                        protocol_id
+                    ]
                     for well_name, protocol_id in protocol_assignments.items()
                     if protocol_id is not None
-                )
+                }
             elif comm_from_main["command"] == "start_stimulation":
                 packet_type = SERIAL_COMM_START_STIM_PACKET_TYPE
             elif comm_from_main["command"] == "stop_stimulation":
@@ -1108,14 +1114,20 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._has_data_packet_been_sent = True
 
     def _handle_stim_packets(self, stim_stream_info: Dict[str, Union[bytes, int]]) -> None:
-        # TODO Tanner (10/22/21): add stim packet parsing to metrics once real stream is implemented, could also clean up the performance tracking
         if not stim_stream_info["num_packets"]:
             return
 
-        well_statuses: Dict[int, Any] = parse_stim_data(*stim_stream_info.values())
+        protocol_statuses: Dict[int, Any] = parse_stim_data(*stim_stream_info.values())
+
+        well_statuses: Dict[int, Any] = {}
 
         for well_idx in range(self._num_wells):
-            stim_statuses = well_statuses.get(well_idx, [[], []])
+            protocol_idx = self._well_stim_assignments.get(well_idx)
+            if protocol_idx is None:
+                continue
+
+            stim_statuses = protocol_statuses[protocol_idx]
+            well_statuses[well_idx] = stim_statuses.copy()
             for i in range(2):
                 self._stim_status_buffers[well_idx][i] = self._stim_status_buffers[well_idx][i][-1:]
                 self._stim_status_buffers[well_idx][i].extend(stim_statuses[i])

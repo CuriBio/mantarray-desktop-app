@@ -148,20 +148,10 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
 
     expected_stim_info = create_random_stim_info()
     set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, expected_stim_info)
-    expected_stim_running_statuses = (
-        {
-            well_name: bool(protocol_id)
-            for well_name, protocol_id in expected_stim_info["protocol_assignments"].items()
-        },
-        {well_name: False for well_name in expected_stim_info["protocol_assignments"].keys()},
-    )
 
     spied_reset_stim_buffers = mocker.spy(mc_process, "_reset_stim_status_buffers")
 
-    for command, stim_running_statuses in (
-        ("start_stimulation", expected_stim_running_statuses[0]),
-        ("stop_stimulation", expected_stim_running_statuses[1]),
-    ):
+    for command in ("start_stimulation", "stop_stimulation"):
         # send command to mc_process
         expected_response = {"communication_type": "stimulation", "command": command}
         put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -171,8 +161,6 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
         invoke_process_run_and_check_errors(mc_process)
         # run simulator to process command and send response
         invoke_process_run_and_check_errors(simulator)
-        # assert that stim statuses were updated correctly
-        assert simulator._stim_running_statuses == stim_running_statuses
         # run mc_process to process command response and send message back to main
         invoke_process_run_and_check_errors(mc_process)
         # confirm correct message sent to main
@@ -192,8 +180,8 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
             assert stim_status_update_msg["command"] == "status_update"
             assert set(stim_status_update_msg["wells_done_stimulating"]) == set(
                 GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
-                for well_name, stim_running_status in expected_stim_running_statuses[0].items()
-                if stim_running_status
+                for well_name, protocol_id in expected_stim_info["protocol_assignments"].items()
+                if protocol_id
             )
         assert message_to_main == expected_response
 

@@ -398,9 +398,8 @@ class StimulatorCircuitStatuses(IntEnum):
 class StimProtocolStatuses(IntEnum):
     ACTIVE = 0
     NULL = 1
-    RESTARTING = 2
-    FINISHED = 3
-    ERROR = 4
+    FINISHED = 2
+    ERROR = 3
 
 
 # Metadata
