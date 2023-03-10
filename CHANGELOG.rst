@@ -1,8 +1,23 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+1.1.0 (unreleased)
+------------------
+
+Added:
+^^^^^^
+- More accurate reporting of stimulation subprotocol start times.
+
+
+Changed:
+^^^^^^^^
+- Beta 2 H5 file format version is now 1.3.0. The format itself hasn't actually changed,
+  but this version will mark the lowest file version that has accurate enough stim data
+  in order to be displayed in Pulse3D.
+
+
 1.0.9 (unreleased)
--------------------
+------------------
 
 Added:
 ^^^^^^
@@ -58,6 +73,7 @@ Fixed:
 ^^^^^^
 - Errors in Local Analysis not being reported, leading to it running indefinitely.
 - Importing multiple stimulation protocols in one file will now populate dropdown correctly.
+- All log timestamps now in UTC+0.
 
 
 1.0.6 (2022-12-14)

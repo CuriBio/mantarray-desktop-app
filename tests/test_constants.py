@@ -55,7 +55,7 @@ from mantarray_desktop_app import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
 from mantarray_desktop_app import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from mantarray_desktop_app import MAX_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app import MAX_POSSIBLE_CONNECTED_BOARDS
-from mantarray_desktop_app import MICROS_PER_MILLIS
+from mantarray_desktop_app import MICROS_PER_MILLI
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIDSCALE_CODE
 from mantarray_desktop_app import MILLIVOLTS_PER_VOLT
@@ -142,7 +142,7 @@ from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
 from mantarray_desktop_app import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from mantarray_desktop_app import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
-from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
+from mantarray_desktop_app import STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS
 from mantarray_desktop_app import STIM_NO_PROTOCOL_ASSIGNED
 from mantarray_desktop_app import StimProtocolStatuses
 from mantarray_desktop_app import STM_VID
@@ -169,6 +169,9 @@ from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_SERIAL_NUMBER_BYTES_LENGTH
 from mantarray_desktop_app.constants import SERIAL_COMM_STIM_IMPEDANCE_CHECK_PACKET_TYPE
 from mantarray_desktop_app.constants import SOFTWARE_RELEASE_CHANNEL
+from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
+from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MINS
+from mantarray_desktop_app.constants import STIM_MAX_DUTY_CYCLE_PERCENTAGE
 from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
@@ -243,7 +246,7 @@ def test_time_conversions():
 
 def test_generic_conversions():
     assert MICRO_TO_BASE_CONVERSION == int(1e6)
-    assert MICROS_PER_MILLIS == int(1e3)
+    assert MICROS_PER_MILLI == int(1e3)
 
 
 def test_adc_reading_constants():
@@ -286,7 +289,7 @@ def test_sensors_and_mappings():
 
 def test_current_file_versions():
     assert CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION == "0.4.2"
-    assert CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION == "1.2.1"
+    assert CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION == "1.3.0"
 
 
 def test_COMPILED_EXE_BUILD_TIMESTAMP():
@@ -528,7 +531,15 @@ def test_serial_comm():
 
     assert STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS == int(100e3)
     assert STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS == int(1.2e3)
-    assert STIM_MAX_PULSE_DURATION_MICROSECONDS == int(50e3)
+    assert STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS == int(50e3)
+
+    assert STIM_MAX_DUTY_CYCLE_PERCENTAGE == 0.8
+
+    assert STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MINS == 1
+    assert (
+        STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
+        == STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MINS * 60 * MICRO_TO_BASE_CONVERSION
+    )
 
     assert STIM_COMPLETE_SUBPROTOCOL_IDX == 255
 
@@ -550,9 +561,8 @@ def test_serial_comm():
     assert issubclass(StimProtocolStatuses, IntEnum) is True
     assert StimProtocolStatuses.ACTIVE == 0
     assert StimProtocolStatuses.NULL == 1
-    assert StimProtocolStatuses.RESTARTING == 2
-    assert StimProtocolStatuses.FINISHED == 3
-    assert StimProtocolStatuses.ERROR == 4
+    assert StimProtocolStatuses.FINISHED == 2
+    assert StimProtocolStatuses.ERROR == 3
 
 
 def test_cython_constants():
@@ -569,7 +579,7 @@ def test_beta_2_mappings():
     assert SERIAL_COMM_WELL_IDX_TO_MODULE_ID == {
         module_id: well_idx
         for module_id, well_idx in enumerate(
-            [4, 3, 2, 1, 8, 7, 6, 5, 12, 11, 10, 9, 16, 15, 14, 13, 20, 19, 18, 17, 24, 23, 22, 21]
+            [3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12, 19, 18, 17, 16, 23, 22, 21, 20]
         )
     }
     assert SERIAL_COMM_MODULE_ID_TO_WELL_IDX == {

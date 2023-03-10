@@ -72,7 +72,7 @@ def test_MantarrayMcSimulator__sends_correct_time_index_and_data_points_in_first
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
-    num_wells = simulator.get_num_wells()
+    num_wells = simulator._num_wells
     test_sampling_period = 1000
     test_counter_us = [
         0,  # 0 first so that no packets are created on the iteration that starts the data stream
@@ -126,7 +126,7 @@ def test_MantarrayMcSimulator__sends_correct_time_index_and_data_points_in_first
         assert time_index == expected_time_index, f"Incorrect time index in packet {packet_num + 1}"
 
         idx += SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
-        for module_id in range(1, num_wells + 1):
+        for module_id in range(num_wells):
             well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
             expected_sensor_value = expected_waveform[packet_num] * (well_idx + 1)
             for sensor_num in range(1, SERIAL_COMM_NUM_CHANNELS_PER_SENSOR + 1):

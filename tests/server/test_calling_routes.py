@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 import itertools
 import json
+import math
 import os
+from random import choice
 from random import randint
 import tempfile
 import urllib
@@ -19,20 +21,25 @@ from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from mantarray_desktop_app import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
-from mantarray_desktop_app import STIM_MAX_PULSE_DURATION_MICROSECONDS
+from mantarray_desktop_app import STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS
 from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
+from mantarray_desktop_app.constants import STIM_MAX_DUTY_CYCLE_PERCENTAGE
 from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.exceptions import LoginFailedError
 from mantarray_desktop_app.main_process import server
+from mantarray_desktop_app.utils.stimulation import get_pulse_duty_cycle_dur_us
+from mantarray_desktop_app.utils.stimulation import SUBPROTOCOL_DUTY_CYCLE_DUR_COMPONENTS
 import pytest
 from tests.fixtures_file_writer import GENERIC_STIM_INFO
 
 from ..fixtures import fixture_generic_queue_container
 from ..fixtures_mc_simulator import create_random_stim_info
+from ..fixtures_mc_simulator import get_random_biphasic_pulse
+from ..fixtures_mc_simulator import get_random_monophasic_pulse
 from ..fixtures_mc_simulator import get_random_stim_pulse
 from ..fixtures_mc_simulator import random_stim_type
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
@@ -1325,7 +1332,7 @@ def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value
     else:
         test_subprotocol.update(
             {
-                "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS,
+                "phase_one_duration": STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS,
                 "phase_one_charge": test_base_charge,
                 "postphase_interval": 0,
                 "num_cycles": 1,
@@ -1334,9 +1341,9 @@ def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value
         if test_subprotocol_type == "biphasic":
             test_subprotocol.update(
                 {
-                    "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 3,
-                    "interphase_interval": STIM_MAX_PULSE_DURATION_MICROSECONDS // 3,
-                    "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 3,
+                    "phase_one_duration": STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS // 3,
+                    "interphase_interval": STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS // 3,
+                    "phase_two_duration": STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS // 3,
                     "phase_two_charge": -test_base_charge,
                 }
             )
@@ -1387,23 +1394,26 @@ def test_set_protocol__returns_error_code_with_invalid_subprotocol_duration_for_
         STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS if test_stim_type == "V" else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
     )
 
-    test_pulse_dur = STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS // 4
+    test_num_cycles = 2
+
+    test_subprotocol_comp_dur = STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS // (2 * test_num_cycles)
     test_subprotocol = {
         "type": test_subprotocol_type,
         "phase_one_charge": test_base_charge,
-        "phase_one_duration": test_pulse_dur,
-        "postphase_interval": test_pulse_dur,
-        "num_cycles": 2,
+        "phase_one_duration": test_subprotocol_comp_dur,
+        "postphase_interval": test_subprotocol_comp_dur,
+        "num_cycles": test_num_cycles,
     }
     if test_subprotocol_type == "biphasic":
-        test_pulse_dur = 3 * (STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS // 8)
+        # the number of duration components doubled, so cut this value in half
+        test_subprotocol_comp_dur //= 2
         test_subprotocol.update(
             {
                 "phase_two_charge": -test_base_charge,
-                "phase_one_duration": test_pulse_dur // 3,
-                "interphase_interval": test_pulse_dur // 3,
-                "phase_two_duration": test_pulse_dur // 3,
-                "postphase_interval": test_pulse_dur // 3,
+                "phase_one_duration": test_subprotocol_comp_dur,
+                "interphase_interval": test_subprotocol_comp_dur,
+                "phase_two_duration": test_subprotocol_comp_dur,
+                "postphase_interval": test_subprotocol_comp_dur,
             }
         )
 
@@ -1416,8 +1426,8 @@ def test_set_protocol__returns_error_code_with_invalid_subprotocol_duration_for_
             False: 1,
         },
         "postphase_interval": {
-            True: (STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS // 2 - test_pulse_dur + 1),
-            False: 0,
+            True: (STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS // 2 - test_subprotocol_comp_dur + 1),
+            False: test_subprotocol_comp_dur - 1,
         },
     }
     test_subprotocol[test_subprotocol_component] = bad_values[test_subprotocol_component][is_too_long]
@@ -1444,13 +1454,21 @@ def test_set_protocol__returns_error_code_with_invalid_subprotocol_duration_for_
     assert f"Protocol {test_protocol_id}, Subprotocol 0, {expected_error_message}" in response.status
 
 
-def test_set_protocols__returns_error_code_when_pulse_duration_is_too_long(
-    client_and_server_manager_and_shared_values,
+@pytest.mark.parametrize("test_pulse_fn", [get_random_biphasic_pulse, get_random_monophasic_pulse])
+def test_set_protocols__returns_error_code_when_duty_cycle_exceeds_the_max_duration_limit(
+    test_pulse_fn, client_and_server_manager_and_shared_values
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
+
+    test_pulse = test_pulse_fn()
+
+    comp_to_lengthen = choice([comp for comp in SUBPROTOCOL_DUTY_CYCLE_DUR_COMPONENTS if comp in test_pulse])
+    test_pulse[comp_to_lengthen] += (
+        STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS + 1 - get_pulse_duty_cycle_dur_us(test_pulse)
+    )
 
     test_protocol_id = random_protocol_id()
     test_stim_info_dict = {
@@ -1459,22 +1477,56 @@ def test_set_protocols__returns_error_code_when_pulse_duration_is_too_long(
                 "stimulation_type": "V",
                 "protocol_id": test_protocol_id,
                 "run_until_stopped": True,
-                "subprotocols": [
-                    get_random_stim_pulse(
-                        allow_errors=True,
-                        **{
-                            "phase_one_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
-                            "interphase_interval": 1,
-                            "phase_two_duration": STIM_MAX_PULSE_DURATION_MICROSECONDS // 2,
-                        },
-                    )
-                ],
+                "subprotocols": [test_pulse],
             }
         ]
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
-    assert f"Protocol {test_protocol_id}, Subprotocol 0, Pulse duration too long" in response.status
+    assert f"Protocol {test_protocol_id}, Subprotocol 0, Duty cycle duration too long" in response.status
+
+
+@pytest.mark.parametrize("test_pulse_fn", [get_random_biphasic_pulse, get_random_monophasic_pulse])
+def test_set_protocols__returns_error_code_when_duty_cycle_exceeds_max_percentage_limit(
+    test_pulse_fn, client_and_server_manager_and_shared_values
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    shared_values_dict["stimulation_running"] = [False] * 24
+
+    # set up pulse so that it is short enough for the 80% duty cycle limit to be lower than the max duty cycle duration limit
+    test_pulse_duration_us = (
+        math.floor(STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS / STIM_MAX_DUTY_CYCLE_PERCENTAGE) - 1
+    )
+    test_num_cycles = randint(10, 20)
+    test_subprotocol_dur = test_pulse_duration_us * test_num_cycles
+    test_pulse = test_pulse_fn(total_subprotocol_dur_us=test_subprotocol_dur, num_cycles=test_num_cycles)
+
+    max_duty_cycle_dur_us = STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS - 1
+    dur_us_to_move_to_duty_cycle = max_duty_cycle_dur_us + 1 - get_pulse_duty_cycle_dur_us(test_pulse)
+
+    comp_to_lengthen = choice([comp for comp in SUBPROTOCOL_DUTY_CYCLE_DUR_COMPONENTS if comp in test_pulse])
+    test_pulse[comp_to_lengthen] += dur_us_to_move_to_duty_cycle
+    test_pulse["postphase_interval"] -= dur_us_to_move_to_duty_cycle
+
+    test_protocol_id = random_protocol_id()
+    test_stim_info_dict = {
+        "protocols": [
+            {
+                "stimulation_type": "V",
+                "protocol_id": test_protocol_id,
+                "run_until_stopped": True,
+                "subprotocols": [test_pulse],
+            }
+        ]
+    }
+    response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
+    assert response.status_code == 400
+    assert (
+        f"Protocol {test_protocol_id}, Subprotocol 0, Duty cycle exceeds {int(STIM_MAX_DUTY_CYCLE_PERCENTAGE * 100)}%"
+        in response.status
+    )
 
 
 @pytest.mark.parametrize("test_missing_wells", [{"A1"}, {"C4", "D6"}])

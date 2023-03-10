@@ -7,7 +7,6 @@ import struct
 from freezegun import freeze_time
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
-from mantarray_desktop_app import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
 from mantarray_desktop_app import StimulationProtocolUpdateFailedError
 from mantarray_desktop_app import StimulationProtocolUpdateWhileStimulatingError
 from mantarray_desktop_app import StimulationStatusUpdateFailedError
@@ -18,7 +17,7 @@ from mantarray_desktop_app.constants import STIM_MODULE_ID_TO_WELL_IDX
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.simulators import mc_simulator
 from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_circuit_status
-from mantarray_desktop_app.utils.serial_comm import get_subprotocol_duration_us
+from mantarray_desktop_app.utils.stimulation import get_subprotocol_dur_us
 import numpy as np
 import pytest
 from stdlib_utils import drain_queue
@@ -34,7 +33,6 @@ from ..fixtures_mc_comm import start_data_stream
 from ..fixtures_mc_comm import stop_data_stream
 from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
-from ..fixtures_mc_simulator import get_random_stim_delay
 from ..fixtures_mc_simulator import get_random_stim_pulse
 from ..fixtures_mc_simulator import get_random_subprotocol
 from ..helpers import confirm_queue_is_eventually_empty
@@ -111,7 +109,7 @@ def test_McCommunicationProcess__processes_start_stim_checks_command__and_sends_
     # make sure each well's value is set based on if a protocol is assigned correctly
     bytes_sent = spied_write.call_args[0][0]
     well_val_bytes = bytes_sent[SERIAL_COMM_PAYLOAD_INDEX:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES]
-    for module_id, well_val in enumerate(struct.unpack(f"<{num_wells}?", well_val_bytes), 1):
+    for module_id, well_val in enumerate(struct.unpack(f"<{num_wells}?", well_val_bytes)):
         well_idx = STIM_MODULE_ID_TO_WELL_IDX[module_id]
         assert well_val is (well_idx in test_well_indices), well_idx
 
@@ -150,20 +148,10 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
 
     expected_stim_info = create_random_stim_info()
     set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, expected_stim_info)
-    expected_stim_running_statuses = (
-        {
-            well_name: bool(protocol_id)
-            for well_name, protocol_id in expected_stim_info["protocol_assignments"].items()
-        },
-        {well_name: False for well_name in expected_stim_info["protocol_assignments"].keys()},
-    )
 
     spied_reset_stim_buffers = mocker.spy(mc_process, "_reset_stim_status_buffers")
 
-    for command, stim_running_statuses in (
-        ("start_stimulation", expected_stim_running_statuses[0]),
-        ("stop_stimulation", expected_stim_running_statuses[1]),
-    ):
+    for command in ("start_stimulation", "stop_stimulation"):
         # send command to mc_process
         expected_response = {"communication_type": "stimulation", "command": command}
         put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -173,8 +161,6 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
         invoke_process_run_and_check_errors(mc_process)
         # run simulator to process command and send response
         invoke_process_run_and_check_errors(simulator)
-        # assert that stim statuses were updated correctly
-        assert simulator._stim_running_statuses == stim_running_statuses
         # run mc_process to process command response and send message back to main
         invoke_process_run_and_check_errors(mc_process)
         # confirm correct message sent to main
@@ -194,8 +180,8 @@ def test_McCommunicationProcess__processes_start_and_stop_stimulation_commands__
             assert stim_status_update_msg["command"] == "status_update"
             assert set(stim_status_update_msg["wells_done_stimulating"]) == set(
                 GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
-                for well_name, stim_running_status in expected_stim_running_statuses[0].items()
-                if stim_running_status
+                for well_name, protocol_id in expected_stim_info["protocol_assignments"].items()
+                if protocol_id
             )
         assert message_to_main == expected_response
 
@@ -241,13 +227,13 @@ def test_McCommunicationProcess__raises_error_if_set_protocols_command_fails(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
-    # send set_protocols command with too many subprotocols in one protocol and confirm error is raised
-    bad_stim_info = create_random_stim_info()
-    bad_stim_info["protocols"][0]["subprotocols"] = [get_random_stim_delay()] * (
-        STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL + 1
-    )
+    # send command with too many protocols so it fails
+    stim_info = create_random_stim_info()
+    stim_info["protocols"] += [stim_info["protocols"][0]] * 25
+
+    # send set_protocols command again now that stimulation is running and make sure errors is raised
     with pytest.raises(StimulationProtocolUpdateFailedError):
-        set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, bad_stim_info)
+        set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, stim_info)
 
 
 def test_McCommunicationProcess__raises_error_if_start_stim_command_fails(
@@ -310,7 +296,13 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
                 "protocol_id": "A",
                 "stimulation_type": "C",
                 "run_until_stopped": False,
-                "subprotocols": [test_subprotocol],
+                "subprotocols": [
+                    {
+                        "type": "loop",
+                        "num_iterations": 1,
+                        "subprotocols": [test_subprotocol],
+                    }
+                ],
             }
         ],
         "protocol_assignments": {
@@ -334,7 +326,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     # remove message to main
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
-    test_duration_us = get_subprotocol_duration_us(test_subprotocol)
+    test_duration_us = get_subprotocol_dur_us(test_subprotocol)
     # mock so protocol will complete in first iteration
     mocker.patch.object(
         mc_simulator, "_get_us_since_subprotocol_start", autospec=True, return_value=test_duration_us
@@ -388,7 +380,13 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
                 "protocol_id": "A",
                 "stimulation_type": "V",
                 "run_until_stopped": False,
-                "subprotocols": [test_subprotocol] * 2,
+                "subprotocols": [
+                    {
+                        "type": "loop",
+                        "num_iterations": 1,
+                        "subprotocols": [test_subprotocol] * 2,
+                    }
+                ],
             }
         ],
         "protocol_assignments": {
@@ -415,7 +413,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     # mock so no mag data is produced
     mocker.patch.object(mc_simulator, "_get_us_since_last_data_packet", autospec=True, return_value=0)
 
-    test_duration_us = get_subprotocol_duration_us(test_subprotocol)
+    test_duration_us = get_subprotocol_dur_us(test_subprotocol)
     # mock so one status update is produced
     mocked_get_us_subprotocol = mocker.patch.object(
         mc_simulator, "_get_us_since_subprotocol_start", autospec=True, return_value=test_duration_us
@@ -495,7 +493,13 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
                 "protocol_id": "A",
                 "stimulation_type": "C",
                 "run_until_stopped": False,
-                "subprotocols": [test_subprotocol],
+                "subprotocols": [
+                    {
+                        "type": "loop",
+                        "num_iterations": 1,
+                        "subprotocols": [test_subprotocol],
+                    }
+                ],
             }
         ],
         "protocol_assignments": {
@@ -529,7 +533,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
 
     expected_global_time_data_start = spied_global_timer.spy_return
 
-    test_duration_us = get_subprotocol_duration_us(test_subprotocol)
+    test_duration_us = get_subprotocol_dur_us(test_subprotocol)
     # mock so protocol will complete in first iteration
     mocker.patch.object(
         mc_simulator, "_get_us_since_subprotocol_start", autospec=True, return_value=test_duration_us
@@ -597,7 +601,13 @@ def test_McCommunicationProcess__protocols_can_be_updated_and_stimulation_can_be
                 "protocol_id": "A",
                 "stimulation_type": "C",
                 "run_until_stopped": False,
-                "subprotocols": [test_first_subprotocol],
+                "subprotocols": [
+                    {
+                        "type": "loop",
+                        "num_iterations": 1,
+                        "subprotocols": [test_first_subprotocol],
+                    }
+                ],
             }
         ],
         "protocol_assignments": {
@@ -609,7 +619,7 @@ def test_McCommunicationProcess__protocols_can_be_updated_and_stimulation_can_be
     }
     set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, test_stim_info)
 
-    test_duration_us = get_subprotocol_duration_us(test_first_subprotocol)
+    test_duration_us = get_subprotocol_dur_us(test_first_subprotocol)
     # mock so protocol will complete in first iteration
     mocked_get_us_sss = mocker.patch.object(mc_simulator, "_get_us_since_subprotocol_start", autospec=True)
     mocked_get_us_sss.return_value = test_duration_us
@@ -673,19 +683,40 @@ def test_McCommunicationProcess__stim_packets_sent_to_file_writer_after_restarti
                 "protocol_id": "A",
                 "stimulation_type": "C",
                 "run_until_stopped": True,
-                "subprotocols": [test_subprotocol],
-            }
+                "subprotocols": [
+                    {
+                        "type": "loop",
+                        "num_iterations": 1,
+                        "subprotocols": [test_subprotocol],
+                    }
+                ],
+            },
+            {
+                "protocol_id": "B",
+                "stimulation_type": "C",
+                "run_until_stopped": True,
+                "subprotocols": [
+                    {
+                        "type": "loop",
+                        "num_iterations": 1,
+                        "subprotocols": [get_random_stim_pulse()],
+                    }
+                ],
+            },
         ],
         "protocol_assignments": {
             GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): (
-                "A" if well_idx == test_well_idx else None
+                # assign B to other protocols to make sure McComm can handle multiple protocols
+                "A"
+                if well_idx == test_well_idx
+                else "B"
             )
             for well_idx in range(24)
         },
     }
     set_stimulation_protocols(four_board_mc_comm_process_no_handshake, simulator, test_stim_info)
 
-    test_duration_us = get_subprotocol_duration_us(test_subprotocol)
+    test_duration_us = get_subprotocol_dur_us(test_subprotocol)
     # mock so status update will be sent each iteration
     mocked_us_since_subprotocol_start = mocker.patch.object(
         mc_simulator, "_get_us_since_subprotocol_start", autospec=True, return_value=test_duration_us

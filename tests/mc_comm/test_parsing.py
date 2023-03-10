@@ -23,7 +23,6 @@ from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_TIME_INDEX_LENGTH_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_TIME_OFFSET_LENGTH_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
-from mantarray_desktop_app.constants import STIM_WELL_IDX_TO_MODULE_ID
 from mantarray_desktop_app.exceptions import SerialCommIncorrectChecksumFromInstrumentError
 from mantarray_desktop_app.exceptions import SerialCommIncorrectMagicWordFromMantarrayError
 import numpy as np
@@ -59,7 +58,7 @@ def create_data_stream_body(time_index_us, num_wells_on_plate=24):
     data_packet_payload = time_index_us.to_bytes(SERIAL_COMM_TIME_INDEX_LENGTH_BYTES, byteorder="little")
     data_values = []
     offset_values = []
-    for _ in range(1, num_wells_on_plate + 1):
+    for _ in range(num_wells_on_plate):
         for _ in range(0, SERIAL_COMM_NUM_DATA_CHANNELS, SERIAL_COMM_NUM_SENSORS_PER_WELL):
             # create and add offset value
             offset = random_time_offset()
@@ -217,102 +216,100 @@ def test_parse_stim_data__parses_single_stim_data_packet_with_a_single_status_co
     test_num_stim_packets = 1
 
     test_time_index = random_time_index()
-    test_well_idx = randint(0, 23)
+    test_protocol_idx = randint(0, 5)
     test_subprotocol_idx = randint(0, 5)
 
     stim_packet_payload = bytearray(
         bytes([1])  # num status updates in packet
-        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
-        + bytes([StimProtocolStatuses.ACTIVE])
+        + bytes([test_protocol_idx])
         + test_time_index.to_bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little")
+        + bytes([StimProtocolStatuses.ACTIVE])
         + bytes([test_subprotocol_idx])
     )
 
     actual_stim_data = parse_stim_data(stim_packet_payload, test_num_stim_packets)
-    assert list(actual_stim_data.keys()) == [test_well_idx]
-    assert actual_stim_data[test_well_idx].dtype == np.int64
+    assert list(actual_stim_data.keys()) == [test_protocol_idx]
+    assert actual_stim_data[test_protocol_idx].dtype == np.int64
     np.testing.assert_array_equal(
-        actual_stim_data[test_well_idx], [[test_time_index], [test_subprotocol_idx]]
+        actual_stim_data[test_protocol_idx], [[test_time_index], [test_subprotocol_idx]]
     )
 
 
 def test_parse_stim_data__parses_single_stim_data_packet_with_multiple_statuses_correctly():
     test_num_stim_packets = 1
 
-    test_well_idx = randint(0, 23)
+    test_protocol_idx = randint(0, 5)
 
-    test_statuses = [StimProtocolStatuses.ACTIVE, StimProtocolStatuses.NULL, StimProtocolStatuses.RESTARTING]
+    test_statuses = [StimProtocolStatuses.ACTIVE, StimProtocolStatuses.NULL, StimProtocolStatuses.FINISHED]
     test_time_indices = [random_time_index() for _ in range(len(test_statuses))]
     test_subprotocol_indices = [randint(0, 5), randint(0, 5), 0]
 
     stim_packet_payload = bytearray([len(test_statuses)])  # num status updates in packet
     for status, time_idx, subprotocol_idx in zip(test_statuses, test_time_indices, test_subprotocol_indices):
         stim_packet_payload += (
-            bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_idx]])
-            + bytes([status])
+            bytes([test_protocol_idx])
             + time_idx.to_bytes(SERIAL_COMM_TIMESTAMP_LENGTH_BYTES, byteorder="little")
+            + bytes([status])
             + bytes([subprotocol_idx])
         )
 
     actual_stim_data = parse_stim_data(stim_packet_payload, test_num_stim_packets)
-    assert list(actual_stim_data.keys()) == [test_well_idx]
+    assert list(actual_stim_data.keys()) == [test_protocol_idx]
     np.testing.assert_array_equal(
-        actual_stim_data[test_well_idx],
-        # removing last item in these lists since restarting status info is not included
-        [np.array(test_time_indices[:-1]), test_subprotocol_indices[:-1]],
+        actual_stim_data[test_protocol_idx],
+        [np.array(test_time_indices), test_subprotocol_indices],
     )
 
 
-def test_parse_stim_data__parses_multiple_stim_data_packet_with_multiple_wells_and_statuses_correctly():
+def test_parse_stim_data__parses_multiple_stim_data_packet_with_multiple_protocols_and_statuses_correctly():
     test_num_stim_packets = 2
 
-    test_well_indices = [randint(0, 11), randint(12, 23)]
+    test_protocol_indices = [randint(0, 11), randint(12, 23)]
     test_subprotocol_indices = [
         [0, randint(1, 5)],
         [randint(0, 5), randint(0, 5), STIM_COMPLETE_SUBPROTOCOL_IDX],
     ]
     test_statuses = [
-        [StimProtocolStatuses.RESTARTING, StimProtocolStatuses.NULL],
+        [StimProtocolStatuses.NULL, StimProtocolStatuses.ACTIVE],
         [StimProtocolStatuses.ACTIVE, StimProtocolStatuses.NULL, StimProtocolStatuses.FINISHED],
     ]
     test_time_indices = [[random_time_index() for _ in range(len(statuses))] for statuses in test_statuses]
 
     stim_packet_payload_1 = bytearray(
         bytes([2])  # num status updates in packet
-        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_indices[0]]])
-        + bytes([test_statuses[0][0]])
+        + bytes([test_protocol_indices[0]])
         + test_time_indices[0][0].to_bytes(8, byteorder="little")
+        + bytes([test_statuses[0][0]])
         + bytes([test_subprotocol_indices[0][0]])
-        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_indices[1]]])
-        + bytes([test_statuses[1][0]])
+        + bytes([test_protocol_indices[1]])
         + test_time_indices[1][0].to_bytes(8, byteorder="little")
+        + bytes([test_statuses[1][0]])
         + bytes([test_subprotocol_indices[1][0]])
     )
     stim_packet_payload_2 = bytearray(
         bytes([3])  # num status updates in packet
-        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_indices[1]]])
-        + bytes([test_statuses[1][1]])
+        + bytes([test_protocol_indices[1]])
         + test_time_indices[1][1].to_bytes(8, byteorder="little")
+        + bytes([test_statuses[1][1]])
         + bytes([test_subprotocol_indices[1][1]])
-        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_indices[0]]])
-        + bytes([test_statuses[0][1]])
+        + bytes([test_protocol_indices[0]])
         + test_time_indices[0][1].to_bytes(8, byteorder="little")
+        + bytes([test_statuses[0][1]])
         + bytes([test_subprotocol_indices[0][1]])
-        + bytes([STIM_WELL_IDX_TO_MODULE_ID[test_well_indices[1]]])
-        + bytes([test_statuses[1][2]])
+        + bytes([test_protocol_indices[1]])
         + test_time_indices[1][2].to_bytes(8, byteorder="little")
+        + bytes([test_statuses[1][2]])
         + bytes([test_subprotocol_indices[1][2]])
     )
 
     actual_stim_data = parse_stim_data(stim_packet_payload_1 + stim_packet_payload_2, test_num_stim_packets)
-    assert set(actual_stim_data.keys()) == set(test_well_indices)
+    assert set(actual_stim_data.keys()) == set(test_protocol_indices)
     np.testing.assert_array_equal(
-        actual_stim_data[test_well_indices[0]],
-        # removing first item in these lists since restarting status info is not needed
-        [np.array(test_time_indices[0][1:]), test_subprotocol_indices[0][1:]],
+        actual_stim_data[test_protocol_indices[0]],
+        [np.array(test_time_indices[0]), test_subprotocol_indices[0]],
     )
     np.testing.assert_array_equal(
-        actual_stim_data[test_well_indices[1]],
+        actual_stim_data[test_protocol_indices[1]],
         [np.array(test_time_indices[1]), test_subprotocol_indices[1]],
     )
 

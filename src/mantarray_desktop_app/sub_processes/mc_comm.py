@@ -13,7 +13,6 @@ from time import sleep
 import traceback
 from typing import Any
 from typing import Dict
-from typing import FrozenSet
 from typing import List
 from typing import Optional
 from typing import Set
@@ -253,7 +252,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._mag_data_cache_dict: Dict[str, Union[bytearray, int]]
         self._reset_mag_data_cache()
         # stimulation values
-        self._wells_assigned_a_protocol: FrozenSet[int] = frozenset()
+        self._well_stim_assignments: Dict[int, int] = {}
         self._wells_actively_stimulating: Set[int] = set()
         self._stim_status_buffers: Dict[int, Any]
         self._reset_stim_status_buffers()
@@ -279,7 +278,7 @@ class McCommunicationProcess(InstrumentCommProcess):
     @_is_stimulating.setter
     def _is_stimulating(self, value: bool) -> None:
         if value:
-            self._wells_actively_stimulating = set(well for well in self._wells_assigned_a_protocol)
+            self._wells_actively_stimulating = set(well for well in self._well_stim_assignments)
         else:
             self._wells_actively_stimulating = set()
 
@@ -342,15 +341,16 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         super()._teardown_after_loop()
 
-    def _report_fatal_error(self, the_err: Exception) -> None:
+    def _report_fatal_error(self, err: Exception, formatted_stack_trace: Optional[str] = None) -> None:
         self._error = (
-            the_err if not isinstance(the_err, SerialCommCommandProcessingError) else the_err.__cause__  # type: ignore
+            err if not isinstance(err, SerialCommCommandProcessingError) else err.__cause__  # type: ignore
         )
         # TODO put the following code into InfiniteProcess._report_fatal_error in stdlib_utils
-        formatted_stack_trace = "".join(traceback.format_exception(None, the_err, the_err.__traceback__))
+        if not formatted_stack_trace:
+            formatted_stack_trace = "".join(traceback.format_exception(None, err, err.__traceback__))
         if isinstance(self._fatal_error_reporter, queue.Queue):
             raise NotImplementedError("The error reporter for InfiniteProcess cannot be a threading queue")
-        self._fatal_error_reporter.put_nowait((the_err, formatted_stack_trace))
+        self._fatal_error_reporter.put_nowait((err, formatted_stack_trace))
 
     def _reset_mag_data_cache(self) -> None:
         self._mag_data_cache_dict = {"raw_bytes": bytearray(0), "num_packets": 0}
@@ -560,20 +560,27 @@ class McCommunicationProcess(InstrumentCommProcess):
                     f"<{self._num_wells}?",
                     *[
                         STIM_MODULE_ID_TO_WELL_IDX[module_id] in comm_from_main["well_indices"]
-                        for module_id in range(1, self._num_wells + 1)
+                        for module_id in range(self._num_wells)
                     ],
                 )
             elif comm_from_main["command"] == "set_protocols":
                 packet_type = SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE
                 bytes_to_send = convert_stim_dict_to_bytes(comm_from_main["stim_info"])
+
                 if self._is_stimulating and not self._hardware_test_mode:
                     raise StimulationProtocolUpdateWhileStimulatingError()
+
+                protocols = comm_from_main["stim_info"]["protocols"]
                 protocol_assignments = comm_from_main["stim_info"]["protocol_assignments"]
-                self._wells_assigned_a_protocol = frozenset(
-                    GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
+
+                protocol_id_to_idx = {protocol["protocol_id"]: idx for idx, protocol in enumerate(protocols)}
+                self._well_stim_assignments = {
+                    GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name): protocol_id_to_idx[
+                        protocol_id
+                    ]
                     for well_name, protocol_id in protocol_assignments.items()
                     if protocol_id is not None
-                )
+                }
             elif comm_from_main["command"] == "start_stimulation":
                 packet_type = SERIAL_COMM_START_STIM_PACKET_TYPE
             elif comm_from_main["command"] == "stop_stimulation":
@@ -814,7 +821,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 stimulator_circuit_statuses: Dict[int, str] = {}
                 adc_readings: Dict[int, Tuple[int, int]] = {}
 
-                for module_id, (adc8, adc9, status_int) in enumerate(zip(*stimulator_check_dict.values()), 1):
+                for module_id, (adc8, adc9, status_int) in enumerate(zip(*stimulator_check_dict.values())):
                     well_idx = STIM_MODULE_ID_TO_WELL_IDX[module_id]
                     if well_idx not in prev_command["well_indices"]:
                         continue
@@ -1081,13 +1088,13 @@ class McCommunicationProcess(InstrumentCommProcess):
         }
 
         time_offset_idx = 0
-        for module_id in range(1, self._num_wells + 1):
+        for module_id in range(self._num_wells):
             time_offset_slice = slice(time_offset_idx, time_offset_idx + SERIAL_COMM_NUM_SENSORS_PER_WELL)
             time_offset_idx += SERIAL_COMM_NUM_SENSORS_PER_WELL
 
             well_dict: Dict[Any, Any] = {"time_offsets": time_offsets[time_offset_slice, data_slice]}
 
-            data_idx = (module_id - 1) * SERIAL_COMM_NUM_DATA_CHANNELS
+            data_idx = module_id * SERIAL_COMM_NUM_DATA_CHANNELS
             for channel_idx in range(SERIAL_COMM_NUM_DATA_CHANNELS):
                 well_dict[channel_idx] = data[data_idx + channel_idx, data_slice]
 
@@ -1107,14 +1114,21 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._has_data_packet_been_sent = True
 
     def _handle_stim_packets(self, stim_stream_info: Dict[str, Union[bytes, int]]) -> None:
-        # TODO Tanner (10/22/21): add stim packet parsing to metrics once real stream is implemented, could also clean up the performance tracking
         if not stim_stream_info["num_packets"]:
             return
 
-        well_statuses: Dict[int, Any] = parse_stim_data(*stim_stream_info.values())
+        protocol_statuses: Dict[int, Any] = parse_stim_data(*stim_stream_info.values())
+
+        well_statuses: Dict[int, Any] = {}
 
         for well_idx in range(self._num_wells):
-            stim_statuses = well_statuses.get(well_idx, [[], []])
+            protocol_idx = self._well_stim_assignments.get(well_idx)
+
+            if protocol_idx not in protocol_statuses:
+                continue
+
+            stim_statuses = protocol_statuses[protocol_idx]
+            well_statuses[well_idx] = stim_statuses.copy()
             for i in range(2):
                 self._stim_status_buffers[well_idx][i] = self._stim_status_buffers[well_idx][i][-1:]
                 self._stim_status_buffers[well_idx][i].extend(stim_statuses[i])
@@ -1229,8 +1243,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         simulator_has_error = not simulator_error_queue.empty()
         if simulator_has_error:
             # Tanner (4/22/21): setting an arbitrary, very high timeout value here to prevent possible hanging, even though if the queue is not empty it should not hang indefinitely
-            simulator_error_tuple = simulator_error_queue.get(timeout=5)
-            self._report_fatal_error(simulator_error_tuple[0])
+            self._report_fatal_error(*simulator_error_queue.get(timeout=5))
         return simulator_has_error
 
     def _check_worker_thread(self) -> None:

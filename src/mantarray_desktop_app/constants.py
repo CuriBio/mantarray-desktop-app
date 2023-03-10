@@ -36,7 +36,7 @@ CLOUD_PULSE3D_ENDPOINT = f"pulse3d.{CLOUD_DOMAIN}.com"
 
 # File Versions
 CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION = "0.4.2"
-CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION = "1.2.1"
+CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION = "1.3.0"
 
 # General
 DEFAULT_SERVER_PORT_NUMBER = 4567
@@ -63,7 +63,7 @@ ALL_VALID_BARCODE_HEADERS = frozenset(BARCODE_HEADERS.values())
 
 MICROSECONDS_PER_CENTIMILLISECOND = 10
 
-MICROS_PER_MILLIS = int(1e3)
+MICROS_PER_MILLI = int(1e3)
 MICRO_TO_BASE_CONVERSION = int(1e6)
 
 
@@ -356,9 +356,17 @@ DEFAULT_SAMPLING_PERIOD = 10000  # valid as of 4/12/22
 STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS = int(100e3)
 STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS = int(1.2e3)
 
-STIM_MAX_PULSE_DURATION_MICROSECONDS = int(50e3)
+STIM_MAX_DUTY_CYCLE_PERCENTAGE = 0.8
+STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS = int(50e3)
+
 STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS = int(100e3)
 STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS = 24 * 60 * 60 * MICRO_TO_BASE_CONVERSION  # 24hrs
+
+# Protocol Chunking
+STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MINS = 1
+STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS = (
+    STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MINS * 60 * MICRO_TO_BASE_CONVERSION
+)
 
 STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL = 50
 
@@ -374,6 +382,9 @@ STIM_SHORT_CIRCUIT_THRESHOLD_OHMS = 10
 VALID_STIMULATION_TYPES = frozenset(["C", "V"])
 VALID_SUBPROTOCOL_TYPES = frozenset(["delay", "monophasic", "biphasic"])
 
+# does not include subprotocol idx
+STIM_PULSE_BYTES_LEN = 29
+
 
 # Stim Checks
 class StimulatorCircuitStatuses(IntEnum):
@@ -387,9 +398,8 @@ class StimulatorCircuitStatuses(IntEnum):
 class StimProtocolStatuses(IntEnum):
     ACTIVE = 0
     NULL = 1
-    RESTARTING = 2
-    FINISHED = 3
-    ERROR = 4
+    FINISHED = 2
+    ERROR = 3
 
 
 # Metadata
@@ -406,12 +416,12 @@ SERIAL_COMM_WELL_IDX_TO_MODULE_ID: immutabledict[int, int] = immutabledict(
         well_idx: module_id
         for well_idx, module_id in enumerate(
             [
-                4, 3, 2, 1,      # A1 - D1
-                8, 7, 6, 5,      # A2 - D2
-                12, 11, 10, 9,   # A3 - D3
-                16, 15, 14, 13,  # A4 - D4
-                20, 19, 18, 17,  # A5 - D5
-                24, 23, 22, 21   # A6 - D6
+                3, 2, 1, 0,  # A1 - D1
+                7, 6, 5, 4,  # A2 - D2
+                11, 10, 9, 8,  # A3 - D3
+                15, 14, 13, 12,  # A4 - D4
+                19, 18, 17, 16,  # A5 - D5
+                23, 22, 21, 20   # A6 - D6
             ]
         )
     }
@@ -431,8 +441,7 @@ STIM_MODULE_ID_TO_WELL_IDX: immutabledict[int, int] = immutabledict(
                 2, 6, 10, 14, 18, 22,  # C wells
                 1, 5, 9, 13, 17, 21,   # B wells
                 0, 4, 8, 12, 16, 20    # A wells
-            ],
-            1  # module ID numbering starts at 1
+            ]
         )
     }
 )

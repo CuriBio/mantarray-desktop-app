@@ -52,10 +52,9 @@ from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_ok_comm import fixture_four_board_comm_process
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
 from ..fixtures_ok_comm import fixture_running_process_with_simulated_board
+from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
-from ..helpers import is_queue_eventually_empty
 from ..helpers import is_queue_eventually_not_empty
-from ..helpers import is_queue_eventually_of_size
 
 __fixtures__ = [
     fixture_four_board_comm_process,
@@ -860,16 +859,16 @@ def test_OkCommunicationProcess__hard_stop__drains_all_queues_and_returns__all_i
             queue.put_nowait(item)
     assert is_queue_eventually_not_empty(board_queues[3][2]) is True
     error_queue.put_nowait(expected_error)
-    assert is_queue_eventually_of_size(error_queue, 1) is True
+    confirm_queue_is_eventually_of_size(error_queue, 1)
 
     actual = ok_process.hard_stop()
     assert actual["fatal_error_reporter"] == [expected_error]
 
-    assert is_queue_eventually_empty(board_queues[0][0]) is True
-    assert is_queue_eventually_empty(board_queues[0][2]) is True
-    assert is_queue_eventually_empty(board_queues[1][0]) is True
-    assert is_queue_eventually_empty(board_queues[2][0]) is True
-    assert is_queue_eventually_empty(board_queues[3][0]) is True
+    confirm_queue_is_eventually_empty(board_queues[0][0])
+    confirm_queue_is_eventually_empty(board_queues[0][2])
+    confirm_queue_is_eventually_empty(board_queues[1][0])
+    confirm_queue_is_eventually_empty(board_queues[2][0])
+    confirm_queue_is_eventually_empty(board_queues[3][0])
 
     assert actual["board_0"]["main_to_instrument_comm"] == [expected[0][0]]
     assert expected[0][1] in actual["board_0"]["instrument_comm_to_main"]

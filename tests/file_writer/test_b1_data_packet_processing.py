@@ -27,7 +27,7 @@ from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
 from ..fixtures_file_writer import open_the_generic_h5_file
 from ..fixtures_file_writer import open_the_generic_h5_file_as_WellFile
-from ..helpers import assert_queue_is_eventually_empty
+from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from ..parsed_channel_data_packets import SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0
 
@@ -56,7 +56,7 @@ def test_FileWriterProcess__passes_data_packet_through_to_output_queue(
     fw_process.soft_stop()
     confirm_parallelism_is_stopped(fw_process, timeout_seconds=15)
 
-    assert_queue_is_eventually_empty(error_queue)
+    confirm_queue_is_eventually_empty(error_queue)
 
     out_data = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     np.testing.assert_array_equal(out_data["data"], SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0["data"])

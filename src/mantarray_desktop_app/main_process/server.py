@@ -50,6 +50,8 @@ from flask_cors import CORS
 from flask_socketio import SocketIO
 from immutabledict import immutabledict
 from mantarray_desktop_app.main_process.shared_values import SharedValues
+from mantarray_desktop_app.utils.stimulation import get_pulse_dur_us
+from mantarray_desktop_app.utils.stimulation import get_pulse_duty_cycle_dur_us
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
@@ -73,7 +75,8 @@ from ..constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from ..constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from ..constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from ..constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
-from ..constants import STIM_MAX_PULSE_DURATION_MICROSECONDS
+from ..constants import STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS
+from ..constants import STIM_MAX_DUTY_CYCLE_PERCENTAGE
 from ..constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
 from ..constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from ..constants import StimulatorCircuitStatuses
@@ -529,22 +532,25 @@ def set_protocols() -> Response:
                             status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Invalid {component_name}: {component_value}"
                         )
 
-                # TODO make a function for this
-                # make sure subprotocol duration (not including period after pulse) is not too large unless it is a delay
-                single_pulse_dur_us = sum(
-                    subprotocol.get(component_name, 0)
-                    for component_name in ("phase_one_duration", "phase_two_duration", "interphase_interval")
-                )
+                duty_cycle_dur_us = get_pulse_duty_cycle_dur_us(subprotocol)
 
-                if single_pulse_dur_us > STIM_MAX_PULSE_DURATION_MICROSECONDS:
+                # make sure duty cycle duration is not too long
+                if duty_cycle_dur_us > STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS:
                     return Response(
-                        status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Pulse duration too long"
+                        status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Duty cycle duration too long"
                     )
 
                 total_subprotocol_duration_us = (
-                    single_pulse_dur_us + subprotocol["postphase_interval"]
+                    duty_cycle_dur_us + subprotocol["postphase_interval"]
                 ) * subprotocol["num_cycles"]
 
+                # make sure duty cycle percentage is not too high
+                if duty_cycle_dur_us > get_pulse_dur_us(subprotocol) * STIM_MAX_DUTY_CYCLE_PERCENTAGE:
+                    return Response(
+                        status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Duty cycle exceeds {int(STIM_MAX_DUTY_CYCLE_PERCENTAGE * 100)}%"
+                    )
+
+            # make sure subprotocol duration is within the acceptable limits
             if total_subprotocol_duration_us < STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS:
                 return Response(
                     status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Subprotocol duration not long enough"

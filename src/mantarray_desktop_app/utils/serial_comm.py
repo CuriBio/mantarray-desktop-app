@@ -8,6 +8,7 @@ import struct
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Tuple
 from typing import Union
 from uuid import UUID
 from zlib import crc32
@@ -26,7 +27,7 @@ from pulse3D.constants import TAMPER_FLAG_UUID
 from pulse3D.constants import TOTAL_WORKING_HOURS_UUID
 
 from ..constants import GENERIC_24_WELL_DEFINITION
-from ..constants import MICROS_PER_MILLIS
+from ..constants import MICROS_PER_MILLI
 from ..constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from ..constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from ..constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
@@ -37,8 +38,8 @@ from ..constants import SERIAL_COMM_TIMESTAMP_EPOCH
 from ..constants import SERIAL_COMM_TIMESTAMP_LENGTH_BYTES
 from ..constants import SERIAL_COMM_WELL_IDX_TO_MODULE_ID
 from ..constants import STIM_MODULE_ID_TO_WELL_IDX
-from ..constants import STIM_NO_PROTOCOL_ASSIGNED
 from ..constants import STIM_OPEN_CIRCUIT_THRESHOLD_OHMS
+from ..constants import STIM_PULSE_BYTES_LEN
 from ..constants import STIM_SHORT_CIRCUIT_THRESHOLD_OHMS
 from ..constants import STIM_WELL_IDX_TO_MODULE_ID
 from ..constants import StimulatorCircuitStatuses
@@ -64,9 +65,18 @@ METADATA_TYPES: immutabledict[UUID, str] = immutabledict(
 SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS = frozenset(
     ["interphase_interval", "phase_two_duration", "phase_two_charge"]
 )
-SUBPROTOCOL_DUR_COMPONENTS = frozenset(
-    ["phase_one_duration", "interphase_interval", "phase_two_duration", "postphase_interval"]
-)
+
+
+def convert_module_id_to_well_name(module_id: int, use_stim_mapping: bool = False) -> str:
+    mapping = STIM_MODULE_ID_TO_WELL_IDX if use_stim_mapping else SERIAL_COMM_MODULE_ID_TO_WELL_IDX
+    well_name: str = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(mapping[module_id])
+    return well_name
+
+
+def convert_well_name_to_module_id(well_name: str, use_stim_mapping: bool = False) -> int:
+    mapping = STIM_WELL_IDX_TO_MODULE_ID if use_stim_mapping else SERIAL_COMM_WELL_IDX_TO_MODULE_ID
+    module_id: int = mapping[GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)]
+    return module_id
 
 
 def _get_checksum_bytes(packet: bytes) -> bytes:
@@ -157,7 +167,7 @@ def convert_status_code_bytes_to_dict(status_code_bytes: bytes) -> Dict[str, int
     status_code_labels = (
         "main_status",
         "index_of_thread_with_error",
-        *[f"module_{i}_status" for i in range(1, 25)],
+        *[f"module_{i}_status" for i in range(24)],
     )
     return {label: status_code_bytes[i] for i, label in enumerate(status_code_labels)}
 
@@ -215,7 +225,7 @@ def is_null_subprotocol(subprotocol_dict: Dict[str, Union[int, str]]) -> bool:
     return subprotocol_dict["type"] == "delay"
 
 
-def convert_subprotocol_dict_to_bytes(
+def convert_subprotocol_pulse_dict_to_bytes(
     subprotocol_dict: Dict[str, Union[int, str]], is_voltage: bool = False
 ) -> bytes:
     conversion_factor = 1 if is_voltage else 10
@@ -225,14 +235,13 @@ def convert_subprotocol_dict_to_bytes(
     subprotocol_components: Dict[str, int] = {k: v for k, v in subprotocol_dict.items() if isinstance(v, int)}
 
     if is_null:
-        subprotocol_bytes = bytes(24) + (subprotocol_components["duration"] // MICROS_PER_MILLIS).to_bytes(
+        subprotocol_bytes = bytes(24) + (subprotocol_components["duration"] // MICROS_PER_MILLI).to_bytes(
             4, byteorder="little"
         )
     else:
         subprotocol_bytes = subprotocol_components["phase_one_duration"].to_bytes(4, byteorder="little") + (
             subprotocol_components["phase_one_charge"] // conversion_factor
         ).to_bytes(2, byteorder="little", signed=True)
-        duration = subprotocol_components["phase_one_duration"]
 
         if subprotocol_dict["type"] == "monophasic":
             subprotocol_bytes += bytes(12)
@@ -245,32 +254,27 @@ def convert_subprotocol_dict_to_bytes(
                     2, byteorder="little", signed=True
                 )
             )
-            duration += (
-                subprotocol_components["interphase_interval"] + subprotocol_components["phase_two_duration"]
-            )
 
-        subprotocol_bytes += subprotocol_components["postphase_interval"].to_bytes(
-            4, byteorder="little"
-        ) + bytes(
-            2  # postphase_interval amplitude (always 0)
+        subprotocol_bytes += (
+            subprotocol_components["postphase_interval"].to_bytes(4, byteorder="little")
+            + bytes(2)  # postphase_interval amplitude (always 0)
+            + subprotocol_components["num_cycles"].to_bytes(4, byteorder="little")
         )
-        duration += subprotocol_components["postphase_interval"]
-        duration *= subprotocol_components["num_cycles"]
-        duration //= MICROS_PER_MILLIS  # convert from µs from ms
-        subprotocol_bytes += duration.to_bytes(4, byteorder="little")
 
     subprotocol_bytes += bytes([is_null])
     return subprotocol_bytes
 
 
-def convert_bytes_to_subprotocol_dict(
+def convert_subprotocol_pulse_bytes_to_dict(
     subprotocol_bytes: bytes, is_voltage: bool = False
 ) -> Dict[str, Union[int, str]]:
-    duration_ms = int.from_bytes(subprotocol_bytes[24:28], byteorder="little")
+    # duration_ms if subprotocols is a delay (null subprotocol), num_cycles o/w
+    num_cycles_or_duration_ms = int.from_bytes(subprotocol_bytes[24:28], byteorder="little")
 
+    # the final byte is a flag indicating whether or not this subprotocol is a delay
     if subprotocol_bytes[-1]:
-        # the final byte is a flag indicating whether or not this subprotocol is a delay
-        return {"type": "delay", "duration": duration_ms * MICROS_PER_MILLIS}
+        duration_us = num_cycles_or_duration_ms * MICROS_PER_MILLI
+        return {"type": "delay", "duration": duration_us}
 
     conversion_factor = 1 if is_voltage else 10
     subprotocol_dict: Dict[str, Union[int, str]] = {
@@ -290,34 +294,65 @@ def convert_bytes_to_subprotocol_dict(
         for k in SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS:
             subprotocol_dict.pop(k)
 
-    subprotocol_dict["num_cycles"] = math.ceil(
-        duration_ms * MICROS_PER_MILLIS / get_subprotocol_cycle_duration_us(subprotocol_dict)
-    )
+    num_cycles = num_cycles_or_duration_ms
+    subprotocol_dict["num_cycles"] = num_cycles
 
     return subprotocol_dict
 
 
-# TODO move these to a stim utils file
-def get_subprotocol_cycle_duration_us(subprotocol: Dict[str, Union[str, int]]) -> int:
-    dur_components = set(SUBPROTOCOL_DUR_COMPONENTS)
-    if subprotocol["type"] == "monophasic":
-        dur_components -= SUBPROTOCOL_BIPHASIC_ONLY_COMPONENTS
-    return sum(subprotocol[comp] for comp in dur_components)  # type: ignore
+def convert_subprotocol_node_dict_to_bytes(
+    subprotocol_node_dict: Dict[str, Any], start_idx: int, is_voltage: bool = False
+) -> Tuple[bytes, int]:
+    is_loop = subprotocol_node_dict["type"] == "loop"
+
+    subprotocol_node_bytes = bytes([is_loop])
+
+    curr_idx = start_idx
+
+    if is_loop:
+        subprotocol_node_bytes += bytes([len(subprotocol_node_dict["subprotocols"])])
+        subprotocol_node_bytes += subprotocol_node_dict["num_iterations"].to_bytes(4, byteorder="little")
+        for inner_subprotocol_node_dict in subprotocol_node_dict["subprotocols"]:
+            new_bytes, curr_idx = convert_subprotocol_node_dict_to_bytes(
+                inner_subprotocol_node_dict, curr_idx, is_voltage
+            )
+            subprotocol_node_bytes += new_bytes
+    else:
+        subprotocol_node_bytes += bytes([curr_idx])
+        subprotocol_node_bytes += convert_subprotocol_pulse_dict_to_bytes(subprotocol_node_dict, is_voltage)
+        curr_idx += 1
+
+    return subprotocol_node_bytes, curr_idx
 
 
-def get_subprotocol_duration_us(subprotocol: Dict[str, Union[str, int]]) -> int:
-    duration = (
-        subprotocol["duration"]
-        if subprotocol["type"] == "delay"
-        else get_subprotocol_cycle_duration_us(subprotocol) * subprotocol["num_cycles"]
-    )
-    return duration  # type: ignore
+def _convert_subprotocol_node_bytes_to_dict(
+    subprotocol_node_bytes: bytes, is_voltage: bool = False
+) -> Tuple[Dict[str, Any], int]:
+    is_loop = bool(subprotocol_node_bytes[0])
 
+    if not is_loop:
+        stop_idx = STIM_PULSE_BYTES_LEN + 2
+        pulse_dict = convert_subprotocol_pulse_bytes_to_dict(subprotocol_node_bytes[2:stop_idx], is_voltage)
+        return pulse_dict, stop_idx
 
-def convert_well_name_to_module_id(well_name: str, use_stim_mapping: bool = False) -> int:
-    mapping = STIM_WELL_IDX_TO_MODULE_ID if use_stim_mapping else SERIAL_COMM_WELL_IDX_TO_MODULE_ID
-    module_id: int = mapping[GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)]
-    return module_id
+    num_subprotocol_nodes = subprotocol_node_bytes[1]
+    subprotocol_nodes = []  # type: ignore
+
+    loop_dict = {
+        "type": "loop",
+        "num_iterations": int.from_bytes(subprotocol_node_bytes[2:6], byteorder="little"),
+        "subprotocols": subprotocol_nodes,
+    }
+
+    curr_idx = 6
+    for _ in range(num_subprotocol_nodes):
+        subprotocol_node_dict, num_bytes_processed = _convert_subprotocol_node_bytes_to_dict(
+            subprotocol_node_bytes[curr_idx:], is_voltage
+        )
+        subprotocol_nodes.append(subprotocol_node_dict)
+        curr_idx += num_bytes_processed
+
+    return loop_dict, curr_idx
 
 
 def convert_stim_dict_to_bytes(stim_dict: Dict[str, Any]) -> bytes:
@@ -327,77 +362,72 @@ def convert_stim_dict_to_bytes(stim_dict: Dict[str, Any]) -> bytes:
     """
     # add bytes for protocol definitions
     stim_bytes = bytes([len(stim_dict["protocols"])])  # number of unique protocols
-    protocol_ids = list()
     for protocol_dict in stim_dict["protocols"]:
         is_voltage_controlled = protocol_dict["stimulation_type"] == "V"
-        protocol_ids.append(protocol_dict["protocol_id"])
-        stim_bytes += bytes([len(protocol_dict["subprotocols"])])  # num subprotocols
+
+        # data type is always 0 as of 12/23/22
+        stim_bytes += bytes([is_voltage_controlled, protocol_dict["run_until_stopped"], 0])
+
+        # TODO remove this since the top level should always be a loop
+
+        curr_idx = 0
         for subprotocol_dict in protocol_dict["subprotocols"]:
-            stim_bytes += convert_subprotocol_dict_to_bytes(
-                subprotocol_dict, is_voltage=is_voltage_controlled
+            subprotocol_bytes, curr_idx = convert_subprotocol_node_dict_to_bytes(
+                subprotocol_dict, curr_idx, is_voltage=is_voltage_controlled
             )
-        stim_bytes += bytes(
-            # control method, schedule mode, data type (always 0 as of 9/29/21)
-            [is_voltage_controlled, protocol_dict["run_until_stopped"], 0]
-        )
-    # add bytes for module ID / protocol ID pairs
-    protocol_assignment_list = [-1] * 24
-    for well_name, protocol_id in stim_dict["protocol_assignments"].items():
-        module_id = convert_well_name_to_module_id(well_name, use_stim_mapping=True)
-        protocol_assignment_list[module_id - 1] = (
-            STIM_NO_PROTOCOL_ASSIGNED if protocol_id is None else protocol_ids.index(protocol_id)
-        )
-    stim_bytes += bytes(protocol_assignment_list)
+            stim_bytes += subprotocol_bytes
+
+        module_ids_assigned = [
+            convert_well_name_to_module_id(well_name, use_stim_mapping=True)
+            for well_name, assigned_protocol_id in stim_dict["protocol_assignments"].items()
+            if assigned_protocol_id == protocol_dict["protocol_id"]
+        ]
+        stim_bytes += bytes([len(module_ids_assigned)] + sorted(module_ids_assigned))
+
     return stim_bytes
-
-
-def convert_module_id_to_well_name(module_id: int, use_stim_mapping: bool = False) -> str:
-    mapping = STIM_MODULE_ID_TO_WELL_IDX if use_stim_mapping else SERIAL_COMM_MODULE_ID_TO_WELL_IDX
-    well_name: str = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(mapping[module_id])
-    return well_name
 
 
 def convert_stim_bytes_to_dict(stim_bytes: bytes) -> Dict[str, Any]:
     """Convert a stimulation info bytes to dictionary."""
-    stim_info_dict: Dict[str, Any] = {"protocols": [], "protocol_assignments": {}}
+    stim_info_dict: Dict[str, Any] = {
+        "protocols": [],
+        "protocol_assignments": {
+            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): None for well_idx in range(24)
+        },
+    }
 
-    # convert protocol definition bytes
+    # convert protocol bytes
     num_protocols = stim_bytes[0]
+
     curr_byte_idx = 1
-    for _ in range(num_protocols):
-        num_subprotocols = stim_bytes[curr_byte_idx]
-        curr_byte_idx += 1
+    for protocol_idx in range(num_protocols):
+        is_voltage_controlled, run_until_stopped = stim_bytes[curr_byte_idx : curr_byte_idx + 2]
+        # Tanner (1/17/23): data_type is not used at the moment, so skipping one extra byte
+        curr_byte_idx += 2 + 1
 
-        subprotocol_bytes_list = []
-        for _ in range(num_subprotocols):
-            subprotocol_bytes_list.append(stim_bytes[curr_byte_idx : curr_byte_idx + 29])
-            curr_byte_idx += 29
+        subprotocol_nodes, num_bytes_processed = _convert_subprotocol_node_bytes_to_dict(
+            stim_bytes[curr_byte_idx:], bool(is_voltage_controlled)
+        )
+        curr_byte_idx += num_bytes_processed
 
-        stimulation_type = "V" if stim_bytes[curr_byte_idx] else "C"
-        run_until_stopped = bool(stim_bytes[curr_byte_idx + 1])
-
-        subprotocol_list = [
-            convert_bytes_to_subprotocol_dict(subprotocol_bytes, is_voltage=stimulation_type == "V")
-            for subprotocol_bytes in subprotocol_bytes_list
-        ]
         stim_info_dict["protocols"].append(
             {
-                "stimulation_type": stimulation_type,
-                "run_until_stopped": run_until_stopped,
-                "subprotocols": subprotocol_list,
+                "stimulation_type": "V" if is_voltage_controlled else "C",
+                "run_until_stopped": bool(run_until_stopped),
+                "subprotocols": [subprotocol_nodes],
             }
         )
-        curr_byte_idx += 3
 
-    # convert module ID / protocol idx pair bytes
-    num_assignments = len(stim_bytes[curr_byte_idx:])
-    for module_id in range(1, num_assignments + 1):
-        well_name = (
-            convert_module_id_to_well_name(module_id, use_stim_mapping=True) if module_id <= 24 else ""
-        )
-        protocol_id_idx = (
-            None if stim_bytes[curr_byte_idx] == STIM_NO_PROTOCOL_ASSIGNED else stim_bytes[curr_byte_idx]
-        )
-        stim_info_dict["protocol_assignments"][well_name] = protocol_id_idx
+        num_wells_assigned = stim_bytes[curr_byte_idx]
         curr_byte_idx += 1
+
+        stim_info_dict["protocol_assignments"].update(
+            {
+                convert_module_id_to_well_name(module_id, use_stim_mapping=True): protocol_idx
+                for module_id in stim_bytes[curr_byte_idx : curr_byte_idx + num_wells_assigned]
+            }
+        )
+
+        curr_byte_idx += num_wells_assigned
+
     return stim_info_dict

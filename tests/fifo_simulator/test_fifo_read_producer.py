@@ -21,7 +21,7 @@ from xem_wrapper import build_header_magic_number_bytes
 from xem_wrapper import HEADER_MAGIC_NUMBER
 
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
-from ..helpers import is_queue_eventually_empty
+from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 
@@ -154,7 +154,7 @@ def test_FIFOReadProducter_hard_stop__drains_the_fifo_queue():
     producer_thread = FIFOReadProducer(data_out_queue, error_queue, threading.Lock())
     put_object_into_queue_and_raise_error_if_eventually_still_empty("blah", data_out_queue)
     actual_stop_results = producer_thread.hard_stop()
-    assert is_queue_eventually_empty(data_out_queue)
+    confirm_queue_is_eventually_empty(data_out_queue)
 
     assert "data_out" in actual_stop_results
     assert actual_stop_results["data_out"] == ["blah"]

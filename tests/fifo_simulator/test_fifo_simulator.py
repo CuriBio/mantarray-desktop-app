@@ -18,9 +18,9 @@ from xem_wrapper import OpalKellyBoardNotInitializedError
 from xem_wrapper import OpalKellyFileNotFoundError
 from xem_wrapper import PIPE_OUT_FIFO
 
-from ..helpers import is_queue_eventually_empty
+from ..helpers import confirm_queue_is_eventually_empty
+from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_not_empty
-from ..helpers import is_queue_eventually_of_size
 
 
 @pytest.fixture(scope="function", name="fifo_simulator")
@@ -164,7 +164,7 @@ def test_RunningFIFOSimulator__queue_from_read_producer_gets_populated_after_sta
     fifo_simulator.initialize_board()
     queue_from_read_producer = fifo_simulator._producer_data_queue
 
-    assert is_queue_eventually_empty(queue_from_read_producer) is True
+    confirm_queue_is_eventually_empty(queue_from_read_producer)
     fifo_simulator.start_acquisition()
     assert is_queue_eventually_not_empty(queue_from_read_producer) is True
 
@@ -207,7 +207,7 @@ def test_RunningFIFOSimulator__read_from_fifo__reads_all_data_from_input_data_qu
     fifo_simulator.read_from_fifo()
 
     queue_from_read_producer = fifo_simulator._producer_data_queue
-    assert is_queue_eventually_empty(queue_from_read_producer) is True
+    confirm_queue_is_eventually_empty(queue_from_read_producer)
 
 
 @pytest.mark.parametrize(
@@ -332,14 +332,14 @@ def test_RunningFIFOSimulator__read_wire_out__returns_expected_values_from_popul
     expected_first_read = 1
     wire_out_queue = TestingQueue()
     wire_out_queue.put_nowait(expected_first_read)
-    assert is_queue_eventually_of_size(wire_out_queue, 1) is True
+    confirm_queue_is_eventually_of_size(wire_out_queue, 1)
     wire_outs = {0: wire_out_queue}
     fifo_simulator = RunningFIFOSimulator({"wire_outs": wire_outs})
     fifo_simulator.initialize_board()
 
     actual_1 = fifo_simulator.read_wire_out(0x00)
     assert actual_1 == expected_first_read
-    assert is_queue_eventually_empty(wire_out_queue) is True
+    confirm_queue_is_eventually_empty(wire_out_queue)
     actual_2 = fifo_simulator.read_wire_out(0x00)
     assert actual_2 == FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 
@@ -418,17 +418,17 @@ def test_RunningFIFOSimulator_hard_stop__drains_wire_out_queues(mocker):
 
     wire_out_queue = TestingQueue()
     wire_out_queue.put_nowait(1)
-    assert is_queue_eventually_of_size(wire_out_queue, 1) is True
+    confirm_queue_is_eventually_of_size(wire_out_queue, 1)
     wire_out_queue_2 = TestingQueue()
     wire_out_queue_2.put_nowait(2)
-    assert is_queue_eventually_of_size(wire_out_queue_2, 1) is True
+    confirm_queue_is_eventually_of_size(wire_out_queue_2, 1)
     wire_outs = {0: wire_out_queue, 7: wire_out_queue_2}
     fifo_simulator = RunningFIFOSimulator({"wire_outs": wire_outs})
 
     fifo_simulator.hard_stop()
 
-    assert is_queue_eventually_empty(wire_out_queue) is True
-    assert is_queue_eventually_empty(wire_out_queue_2) is True
+    confirm_queue_is_eventually_empty(wire_out_queue)
+    confirm_queue_is_eventually_empty(wire_out_queue_2)
 
 
 def test_RunningFIFOSimulator__get_barcode__raises_error_if_board_not_initialized():
