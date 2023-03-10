@@ -561,9 +561,8 @@ def test_serial_comm():
     assert issubclass(StimProtocolStatuses, IntEnum) is True
     assert StimProtocolStatuses.ACTIVE == 0
     assert StimProtocolStatuses.NULL == 1
-    assert StimProtocolStatuses.RESTARTING == 2
-    assert StimProtocolStatuses.FINISHED == 3
-    assert StimProtocolStatuses.ERROR == 4
+    assert StimProtocolStatuses.FINISHED == 2
+    assert StimProtocolStatuses.ERROR == 3
 
 
 def test_cython_constants():
@@ -580,7 +579,7 @@ def test_beta_2_mappings():
     assert SERIAL_COMM_WELL_IDX_TO_MODULE_ID == {
         module_id: well_idx
         for module_id, well_idx in enumerate(
-            [4, 3, 2, 1, 8, 7, 6, 5, 12, 11, 10, 9, 16, 15, 14, 13, 20, 19, 18, 17, 24, 23, 22, 21]
+            [3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12, 19, 18, 17, 16, 23, 22, 21, 20]
         )
     }
     assert SERIAL_COMM_MODULE_ID_TO_WELL_IDX == {
