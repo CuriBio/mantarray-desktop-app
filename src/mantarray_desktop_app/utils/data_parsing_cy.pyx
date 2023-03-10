@@ -231,7 +231,7 @@ cpdef dict sort_serial_packets(unsigned char [:] read_bytes):
             packet_end_idx = bytes_idx + PACKET_HEADER_LEN + p.packet_len
             full_data_packet = bytearray(read_bytes[bytes_idx : packet_end_idx])
             raise SerialCommIncorrectChecksumFromInstrumentError(
-                f"Checksum Received: {original_crc}, Checksum Calculated: {crc}, Full Data Packet (bytes {bytes_idx} to {packet_end_idx}): {str(full_data_packet)}"
+                f"Checksum Received: {original_crc}, Checksum Calculated: {crc}, Full Data Packet (bytes {bytes_idx} to {packet_end_idx}): {list(full_data_packet)}"
             )
 
         payload_start_idx = bytes_idx + SERIAL_COMM_PAYLOAD_INDEX_C_INT

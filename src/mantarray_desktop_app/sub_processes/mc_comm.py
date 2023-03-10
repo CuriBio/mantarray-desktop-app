@@ -948,7 +948,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             sleep(1)
         if len(magic_word_test_bytes) != magic_word_len:
             # if the entire period has passed and no more bytes are available an error has occurred with the Mantarray that is considered fatal
-            raise SerialCommPacketRegistrationTimeoutError(magic_word_test_bytes)
+            raise SerialCommPacketRegistrationTimeoutError(list(magic_word_test_bytes))
 
         # read more bytes until the magic word is registered, the timeout value is reached, or the maximum number of bytes are read
         num_bytes_checked = 0
