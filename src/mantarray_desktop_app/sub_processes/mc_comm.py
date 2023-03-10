@@ -1123,7 +1123,8 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         for well_idx in range(self._num_wells):
             protocol_idx = self._well_stim_assignments.get(well_idx)
-            if protocol_idx is None:
+
+            if protocol_idx not in protocol_statuses:
                 continue
 
             stim_statuses = protocol_statuses[protocol_idx]

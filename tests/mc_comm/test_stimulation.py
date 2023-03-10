@@ -690,11 +690,26 @@ def test_McCommunicationProcess__stim_packets_sent_to_file_writer_after_restarti
                         "subprotocols": [test_subprotocol],
                     }
                 ],
-            }
+            },
+            {
+                "protocol_id": "B",
+                "stimulation_type": "C",
+                "run_until_stopped": True,
+                "subprotocols": [
+                    {
+                        "type": "loop",
+                        "num_iterations": 1,
+                        "subprotocols": [get_random_stim_pulse()],
+                    }
+                ],
+            },
         ],
         "protocol_assignments": {
             GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): (
-                "A" if well_idx == test_well_idx else None
+                # assign B to other protocols to make sure McComm can handle multiple protocols
+                "A"
+                if well_idx == test_well_idx
+                else "B"
             )
             for well_idx in range(24)
         },
