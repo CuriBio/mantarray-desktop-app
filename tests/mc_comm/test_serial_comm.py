@@ -136,7 +136,7 @@ def test_McCommunicationProcess__raises_error_if_checksum_in_data_packet_sent_fr
 
     assert str(bad_checksum) in exc_info.value.args[0]
     assert str(expected_checksum) in exc_info.value.args[0]
-    assert str(bytearray(test_bytes)) in exc_info.value.args[0]
+    assert str(list(test_bytes)) in exc_info.value.args[0]
 
 
 def test_McCommunicationProcess__raises_error_if_unrecognized_packet_type_sent_from_instrument(
