@@ -121,12 +121,13 @@ def validate_user_credentials(request_args: Dict[str, Any]) -> Optional[Tuple[Au
         request_args: dictionary containing the new user configuration settings.
         shared_values_dict: dictionary containing stored customer settings.
     """
+    cloud_response = None
     if customer_id := request_args.get("customer_id"):
         user_name = request_args["user_name"]
         user_password = request_args["user_password"]
-        return get_cloud_api_tokens(customer_id, user_name, user_password)
+        cloud_response = get_cloud_api_tokens(customer_id, user_name, user_password)
 
-    return None
+    return cloud_response
 
 
 def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[str, Any]:
