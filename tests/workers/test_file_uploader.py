@@ -129,16 +129,21 @@ def test_upload_file_to_s3__raises_error_if_upload_fails(mocker):
         upload_file_to_s3(TEST_FILEPATH, TEST_FILENAME, test_upload_details)
 
 
-def test_start_analysis__starts_analysis_job_correctly__and_returns_job_id(mocker):
+def test_start_analysis__starts_analysis_job_correctly__and_returns_job_id_and_usage(mocker):
     mocked_post = mocker.patch.object(requests, "post", autospec=True)
+    mocked_post.return_value.json.return_value = {
+        "id": "test_id",
+        "usage_quota": {"jobs_reached": False},
+    }
 
     test_access_token = "token"
     test_id = "id"
     test_version = "1.2.3"
 
-    job_id = start_analysis(test_access_token, test_id, test_version)
+    job_details = start_analysis(test_access_token, test_id, test_version)
 
-    assert job_id == mocked_post.return_value.json()["id"]
+    assert job_details["id"] == mocked_post.return_value.json()["id"]
+    assert job_details["usage_quota"] == mocked_post.return_value.json()["usage_quota"]
     mocked_post.assert_called_once_with(
         f"https://{CLOUD_PULSE3D_ENDPOINT}/jobs",
         json={"upload_id": test_id, "version": test_version},
@@ -242,6 +247,25 @@ def test_FileUploader_get_analysis_status__raises_error_if_job_route_errored(moc
         test_file_uploader.get_analysis_status("job_id")
 
 
+def test_FileUploader__raises_error_if_start_analysis_returns_error_from_post(mocker, create_file_uploader):
+    mocker.patch.object(file_uploader, "get_file_md5", autospec=True)
+    mocker.patch.object(file_uploader, "get_upload_details", autospec=True)
+    mocker.patch.object(file_uploader, "upload_file_to_s3", autospec=True)
+    mocker.patch.object(file_uploader, "download_analysis_from_s3", autospec=True)
+
+    mocked_get_tokens = mocker.patch.object(web_api, "get_cloud_api_tokens", autospec=True)
+    mocked_get_tokens.return_value = (AuthTokens(access="", refresh=""), {"jobs_reached": False})
+
+    mocked_start_analysis = mocker.patch.object(file_uploader, "start_analysis", autospec=True)
+    mocked_start_analysis.return_value = {"error": "UsageError"}
+
+    test_file_uploader = create_file_uploader(create_tokens=True)
+
+    with pytest.raises(CloudAnalysisJobFailedError, match="UsageError"):
+        test_file_uploader = create_file_uploader()
+        test_file_uploader()
+
+
 def test_FileUploader_get_analysis_status__raises_error_if_analysis_job_errored(mocker, create_file_uploader):
     expected_error_msg = "err_msg"
     expected_status_dict = {"error_info": expected_error_msg}
@@ -258,15 +282,17 @@ def test_FileUploader_get_analysis_status__raises_error_if_analysis_job_errored(
 def test_FileUploader_job__does_not_create_new_zip_file_if_file_to_upload_is_a_zip_file(
     create_file_uploader, mocker
 ):
-    mocker.patch.object(web_api, "get_cloud_api_tokens", autospec=True)
+    mocked_get_tokens = mocker.patch.object(web_api, "get_cloud_api_tokens", autospec=True)
+    mocked_get_tokens.return_value = (AuthTokens(access="", refresh=""), {"jobs_reached": False})
     mocker.patch.object(file_uploader, "get_file_md5", autospec=True)
     mocker.patch.object(file_uploader, "get_upload_details", autospec=True)
     mocker.patch.object(file_uploader, "upload_file_to_s3", autospec=True)
-    mocker.patch.object(file_uploader, "start_analysis", autospec=True)
     mocker.patch.object(file_uploader, "download_analysis_from_s3", autospec=True)
     mocker.patch.object(file_uploader.FileUploader, "get_analysis_status", autospec=True)
-
     mocked_create_zip_file = mocker.patch.object(file_uploader, "create_zip_file", autospec=True)
+
+    mocked_start_analysis = mocker.patch.object(file_uploader, "start_analysis", autospec=True)
+    mocked_start_analysis.return_value = {"id": "test_id"}
 
     test_file_uploader = create_file_uploader()
     test_file_uploader()
@@ -277,12 +303,15 @@ def test_FileUploader_job__does_not_create_new_zip_file_if_file_to_upload_is_a_z
 def test_FileUploader__sleeps_in_between_polling_analysis_status_until_analysis_completes(
     create_file_uploader, mocker
 ):
-    mocker.patch.object(web_api, "get_cloud_api_tokens", autospec=True)
+    mocked_get_tokens = mocker.patch.object(web_api, "get_cloud_api_tokens", autospec=True)
+    mocked_get_tokens.return_value = (AuthTokens(access="", refresh=""), {"jobs_reached": False})
     mocker.patch.object(file_uploader, "get_file_md5", autospec=True)
     mocker.patch.object(file_uploader, "get_upload_details", autospec=True)
     mocker.patch.object(file_uploader, "upload_file_to_s3", autospec=True)
-    mocker.patch.object(file_uploader, "start_analysis", autospec=True)
     mocker.patch.object(file_uploader, "download_analysis_from_s3", autospec=True)
+
+    mocked_start_analysis = mocker.patch.object(file_uploader, "start_analysis", autospec=True)
+    mocked_start_analysis.return_value = {"id": "test_id"}
 
     # set up so analysis status is only polled twice
     test_status_dicts = [{"status": "pending"}, {"status": "finished", "url": None}]
@@ -307,17 +336,20 @@ def test_FileUploader__runs_upload_procedure_correctly_for_recording(
     mocked_makedirs = mocker.patch.object(os, "makedirs", autospec=True)
 
     mocked_get_tokens = mocker.patch.object(web_api, "get_cloud_api_tokens", autospec=True)
+    mocked_get_tokens.return_value = (AuthTokens(access="", refresh=""), {"jobs_reached": False})
     mocked_create_zip_file = mocker.patch.object(file_uploader, "create_zip_file", autospec=True)
     mocked_get_file_md5 = mocker.patch.object(file_uploader, "get_file_md5", autospec=True)
     mocked_get_upload_details = mocker.patch.object(file_uploader, "get_upload_details", autospec=True)
     mocked_upload_file = mocker.patch.object(file_uploader, "upload_file_to_s3", autospec=True)
     mocked_start_analysis = mocker.patch.object(file_uploader, "start_analysis", autospec=True)
     mocked_download_analaysis = mocker.patch.object(file_uploader, "download_analysis_from_s3", autospec=True)
+    mocked_get_tokens.return_value = (AuthTokens(access="", refresh=""), {"jobs_reached": False})
 
     expected_upload_details = mocked_get_upload_details.return_value
-    expected_access_token = mocked_get_tokens.return_value.access
+    expected_access_token = mocked_get_tokens.return_value[0].access
     expected_md5 = mocked_get_file_md5.return_value
     expected_zipped_file_path = mocked_create_zip_file.return_value
+    mocked_start_analysis.return_value = {"id": "test_id"}
 
     with tempfile.TemporaryDirectory(prefix=RECORDING_UPLOAD_TYPE) as tmp_dir:
         expected_zipped_file_name = f"{tmp_dir}.zip"
@@ -353,7 +385,7 @@ def test_FileUploader__runs_upload_procedure_correctly_for_recording(
     mocked_start_analysis.assert_called_once_with(
         expected_access_token, expected_upload_details["id"], TEST_PULSE3D_VERSION
     )
-    mocked_get_analysis_status.assert_called_once_with(mocked_start_analysis.return_value)
+    mocked_get_analysis_status.assert_called_once_with(mocked_start_analysis.return_value["id"])
     mocked_download_analaysis.assert_called_once_with(
         mocked_get_analysis_status.return_value["url"], expected_zipped_file_name
     )
@@ -361,17 +393,18 @@ def test_FileUploader__runs_upload_procedure_correctly_for_recording(
 
 def test_FileUploader__runs_upload_procedure_correctly_for_log_files(mocker, create_file_uploader):
     mocked_get_tokens = mocker.patch.object(web_api, "get_cloud_api_tokens", autospec=True)
+    mocked_get_tokens.return_value = (AuthTokens(access="", refresh=""), {"jobs_reached": False})
     mocked_create_zip_file = mocker.patch.object(file_uploader, "create_zip_file", autospec=True)
     mocked_get_file_md5 = mocker.patch.object(file_uploader, "get_file_md5", autospec=True)
     mocked_get_upload_details = mocker.patch.object(file_uploader, "get_upload_details", autospec=True)
     mocked_upload_file = mocker.patch.object(file_uploader, "upload_file_to_s3", autospec=True)
     spied_start_analysis = mocker.spy(file_uploader, "start_analysis")
     spied_download_analaysis = mocker.spy(file_uploader, "download_analysis_from_s3")
-
     mocker.patch.object(os.path, "exists", autospec=True, return_value=True)
 
+    spied_start_analysis.return_value = {"id": "test_id"}
     expected_upload_details = mocked_get_upload_details.return_value
-    expected_access_token = mocked_get_tokens.return_value.access
+    expected_access_token = mocked_get_tokens.return_value[0].access
     expected_md5 = mocked_get_file_md5.return_value
     expected_zipped_file_path = mocked_create_zip_file.return_value
 

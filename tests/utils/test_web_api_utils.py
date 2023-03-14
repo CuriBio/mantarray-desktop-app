@@ -26,12 +26,13 @@ def test_get_cloud_api_tokens__return_tokens_if_login_successful(mocker):
         "tokens": {
             "access": {"token": expected_tokens.access},
             "refresh": {"token": expected_tokens.refresh},
-        }
+        },
+        "usage_quota": {"jobs_reached": False},
     }
 
     test_creds = {"customer_id": "cid", "username": "user", "password": "pw"}
 
-    tokens = get_cloud_api_tokens(*test_creds.values())
+    tokens, _ = get_cloud_api_tokens(*test_creds.values())
     assert tokens == expected_tokens
 
     mocked_post.assert_called_once_with(
@@ -98,6 +99,7 @@ def test_WebWorker__does_not_run_when_created(mocker):
 
 def test_WebWorker__runs_correctly_when_called(mocker):
     mocked_get_tokens = mocker.patch.object(web_api, "get_cloud_api_tokens", autospec=True)
+    mocked_get_tokens.return_value = (AuthTokens(access="", refresh=""), {"jobs_reached": False})
     spied_job = mocker.spy(TestWebWorker, "job")
 
     test_creds = {"customer_id": "cid", "user_name": "user", "password": "pw"}

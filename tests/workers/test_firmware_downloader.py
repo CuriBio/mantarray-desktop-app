@@ -7,6 +7,7 @@ from mantarray_desktop_app.exceptions import FirmwareAndSoftwareNotCompatibleErr
 from mantarray_desktop_app.exceptions import FirmwareDownloadError
 from mantarray_desktop_app.simulators.mc_simulator import MantarrayMcSimulator
 from mantarray_desktop_app.sub_processes.mc_comm import download_firmware_updates
+from mantarray_desktop_app.utils.web_api import AuthTokens
 from mantarray_desktop_app.workers import firmware_downloader
 from mantarray_desktop_app.workers.firmware_downloader import call_firmware_download_route
 from mantarray_desktop_app.workers.firmware_downloader import check_versions
@@ -208,7 +209,10 @@ def test_download_firmware_updates__get_access_token_then_downloads_specified_fi
     }
 
     mocked_get_token = mocker.patch.object(firmware_downloader, "get_cloud_api_tokens", autospec=True)
-    mocked_get_token.return_value.access = test_access_token
+    mocked_get_token.return_value = (
+        AuthTokens(access=test_access_token, refresh=""),
+        {"jobs_reached": False},
+    )
 
     def call_se(url, *args, params=None, **kwargs):
         if params is None:

@@ -112,7 +112,7 @@ def validate_settings(settings_dict: Dict[str, Any]) -> None:
             raise RecordingFolderDoesNotExistError(recording_directory)
 
 
-def validate_user_credentials(request_args: Dict[str, Any]) -> None:
+def validate_user_credentials(request_args: Dict[str, Any]) -> Any:
     """Validate users creds using cloud login.
 
     Args:
@@ -122,7 +122,7 @@ def validate_user_credentials(request_args: Dict[str, Any]) -> None:
     if customer_id := request_args.get("customer_id"):
         user_name = request_args["user_name"]
         user_password = request_args["user_password"]
-        get_cloud_api_tokens(customer_id, user_name, user_password)
+        return get_cloud_api_tokens(customer_id, user_name, user_password)
 
 
 def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[str, Any]:

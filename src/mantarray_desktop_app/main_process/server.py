@@ -402,7 +402,7 @@ def update_settings() -> Response:
         return Response(status=f"400 {repr(e)}")
 
     try:
-        validate_user_credentials(request.args)
+        auth_response = validate_user_credentials(request.args)
     except LoginFailedError as e:
         return Response(status=f"401 {repr(e)}")
 
@@ -413,8 +413,8 @@ def update_settings() -> Response:
         }
     )
 
-    response = Response(json.dumps(request.args), mimetype="application/json")
-    return response
+    response = auth_response[1] if auth_response is not None else auth_response
+    return Response(json.dumps(response), mimetype="application/json")
 
 
 def _is_recording() -> bool:
