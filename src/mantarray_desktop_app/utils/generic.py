@@ -16,6 +16,7 @@ from typing import Deque
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Tuple
 from typing import Union
 from uuid import UUID
 
@@ -50,6 +51,7 @@ from semver import VersionInfo
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_frozen_as_exe
 
+from .web_api import AuthTokens
 from .web_api import get_cloud_api_tokens
 from ..constants import ALL_VALID_BARCODE_HEADERS
 from ..constants import BARCODE_HEADERS
@@ -112,7 +114,7 @@ def validate_settings(settings_dict: Dict[str, Any]) -> None:
             raise RecordingFolderDoesNotExistError(recording_directory)
 
 
-def validate_user_credentials(request_args: Dict[str, Any]) -> Any:
+def validate_user_credentials(request_args: Dict[str, Any]) -> Optional[Tuple[AuthTokens, Dict[str, Any]]]:
     """Validate users creds using cloud login.
 
     Args:
@@ -123,6 +125,8 @@ def validate_user_credentials(request_args: Dict[str, Any]) -> Any:
         user_name = request_args["user_name"]
         user_password = request_args["user_password"]
         return get_cloud_api_tokens(customer_id, user_name, user_password)
+
+    return None
 
 
 def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[str, Any]:

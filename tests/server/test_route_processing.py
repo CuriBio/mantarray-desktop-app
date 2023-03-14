@@ -873,9 +873,7 @@ def test_update_settings__stores_values_in_shared_values_dict__and_recordings_fo
     spied_monitor_logger = mocker.spy(process_monitor.logger, "info")
 
     # mock so test doesn't hit cloud API
-    mocked_get_tokens = mocked_get_tokens = mocker.patch.object(
-        server, "validate_user_credentials", autospec=True
-    )
+    mocked_get_tokens = mocker.patch.object(server, "validate_user_credentials", autospec=True)
     mocked_get_tokens.return_value = (AuthTokens(access="", refresh=""), {"jobs_reached": False})
 
     expected_customer_uuid = "test_id"
@@ -910,9 +908,7 @@ def test_update_settings__replaces_only_new_values_in_shared_values_dict(
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     # mock so test doesn't hit cloud API
-    mocked_get_tokens = mocked_get_tokens = mocker.patch.object(
-        server, "validate_user_credentials", autospec=True
-    )
+    mocked_get_tokens = mocker.patch.object(server, "validate_user_credentials", autospec=True)
     mocked_get_tokens.return_value = (AuthTokens(access="", refresh=""), {"jobs_reached": False})
 
     expected_customer_uuid = "test_id"
@@ -941,9 +937,7 @@ def test_update_settings__returns_boolean_values_for_auto_upload_delete_values(
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
     # mock so test doesn't hit cloud API
-    mocked_get_tokens = mocked_get_tokens = mocker.patch.object(
-        server, "validate_user_credentials", autospec=True
-    )
+    mocked_get_tokens = mocker.patch.object(server, "validate_user_credentials", autospec=True)
     mocked_get_tokens.return_value = (AuthTokens(access="", refresh=""), {"jobs_reached": False})
 
     shared_values_dict["config_settings"] = {
@@ -963,9 +957,7 @@ def test_single_update_settings_command_with_recording_dir__gets_processed_by_Fi
     test_process_manager_creator, test_client, test_monitor, mocker
 ):
     # mock so test doesn't hit cloud API
-    mocked_get_tokens = mocked_get_tokens = mocker.patch.object(
-        server, "validate_user_credentials", autospec=True
-    )
+    mocked_get_tokens = mocker.patch.object(server, "validate_user_credentials", autospec=True)
     mocked_get_tokens.return_value = (AuthTokens(access="", refresh=""), {"jobs_reached": False})
 
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
