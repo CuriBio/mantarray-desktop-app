@@ -104,7 +104,7 @@ def upload_file_to_s3(file_path: str, file_name: str, upload_details: Dict[Any, 
         raise PresignedUploadFailedError(f"{response.status_code} {response.reason}")
 
 
-def start_analysis(access_token: str, upload_id: str, version: str) -> str:
+def start_analysis(access_token: str, upload_id: str, version: str) -> Dict[str, Any]:
     """Post to start cloud analysis of an uploaded file.
 
     Args:
@@ -120,8 +120,9 @@ def start_analysis(access_token: str, upload_id: str, version: str) -> str:
         json={"upload_id": upload_id, "version": version},
         headers={"Authorization": f"Bearer {access_token}"},
     )
-    jobs_id: str = response.json()["id"]
-    return jobs_id
+
+    job_details: Dict[str, Any] = response.json()
+    return job_details
 
 
 def download_analysis_from_s3(presigned_url: str, file_name: str) -> None:
@@ -185,6 +186,7 @@ class FileUploader(WebWorker):
                 user_recordings_dir = os.path.join(self.zipped_recordings_dir, self.user_name)
                 if not os.path.exists(user_recordings_dir):
                     os.makedirs(user_recordings_dir)
+
                 dir_to_store_zips = user_recordings_dir
             else:
                 # store zipped files in whatever dir was given
@@ -198,6 +200,7 @@ class FileUploader(WebWorker):
         # upload file
         file_md5 = get_file_md5(zipped_file_path)
         upload_details = get_upload_details(self.tokens.access, self.file_name, file_md5, self.upload_type)
+
         upload_file_to_s3(zipped_file_path, self.file_name, upload_details)
 
         # nothing else to do if just uploading a log file
@@ -205,9 +208,13 @@ class FileUploader(WebWorker):
             return
 
         # start analysis and wait for analysis to complete
-        analysis_job_id = start_analysis(self.tokens.access, upload_details["id"], self.pulse3d_version)
+        job_details = start_analysis(self.tokens.access, upload_details["id"], self.pulse3d_version)
 
-        while (status_dict := self.get_analysis_status(analysis_job_id))["status"] == "pending":
+        if error_type := job_details.get("error"):
+            # if job fails because job limit has been reached, error will be returned and needs to be raised
+            raise CloudAnalysisJobFailedError(error_type)
+
+        while (status_dict := self.get_analysis_status(job_details["id"]))["status"] == "pending":
             sleep(5)
 
         # download analysis of file
