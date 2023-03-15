@@ -677,20 +677,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
                 },
             ]
         },
-        "from_main_to_data_analyzer": [
-            {
-                "communication_type": "log",
-                "log_level": 20,
-                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-            },
-        ],
-        "from_data_analyzer_to_main": [
-            {
-                "communication_type": "log",
-                "log_level": 20,
-                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-            },
-        ],
         "fatal_error_reporter": [
             {
                 "communication_type": "log",

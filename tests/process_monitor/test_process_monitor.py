@@ -534,20 +534,6 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
                 },
             ]
         },
-        "from_main_to_data_analyzer": [
-            {
-                "communication_type": "log",
-                "log_level": 20,
-                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-            },
-        ],
-        "from_data_analyzer_to_main": [
-            {
-                "communication_type": "log",
-                "log_level": 20,
-                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-            },
-        ],
         "fatal_error_reporter": [
             {
                 "communication_type": "log",
@@ -648,20 +634,6 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
                 },
             ]
         },
-        "from_main_to_data_analyzer": [
-            {
-                "communication_type": "log",
-                "log_level": 20,
-                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-            },
-        ],
-        "from_data_analyzer_to_main": [
-            {
-                "communication_type": "log",
-                "log_level": 20,
-                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-            },
-        ],
         "fatal_error_reporter": [
             {
                 "communication_type": "log",
