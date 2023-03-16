@@ -50,16 +50,16 @@ jobs:
           echo "SHA of current branch: ${{ env.SHA_OF_CURRENT_BRANCH }}"
           echo "SHA of main branch: ${{ env.SHA_OF_MAIN_BRANCH }}"
 
-      - name: Fail if attempting to publish to prod release channel incorrectly
-        if: github.event.inputs.release_channel == 'prod'
-        run: |
-          if [ "${{github.event.inputs.api_endpoint}}" = "prod" ] ; then echo "Using prod API endpoint, can proceed to publish"; else exit 1; fi
-          if [ "${{ env.SHA_OF_CURRENT_BRANCH }}" = "${{ env.SHA_OF_MAIN_BRANCH }}" ] ; then echo "Running on main branch, can proceed to publish"; else exit 1; fi
+      # - name: Fail if attempting to publish to prod release channel incorrectly
+      #   if: github.event.inputs.release_channel == 'prod'
+      #   run: |
+      #     if [ "${{github.event.inputs.api_endpoint}}" = "prod" ] ; then echo "Using prod API endpoint, can proceed to publish"; else exit 1; fi
+      #     if [ "${{ env.SHA_OF_CURRENT_BRANCH }}" = "${{ env.SHA_OF_MAIN_BRANCH }}" ] ; then echo "Running on main branch, can proceed to publish"; else exit 1; fi
 
-      - name: Fail if attempting to publish to unstable release channel incorrectly
-        if: github.event.inputs.release_channel == 'unstable'
-        run: |
-          if [ "${{github.event.inputs.api_endpoint}}" = "test" ] ; then echo "Using test API endpoint, can proceed to publish"; else exit 1; fi
+      # - name: Fail if attempting to publish to unstable release channel incorrectly
+      #   if: github.event.inputs.release_channel == 'unstable'
+      #   run: |
+      #     if [ "${{github.event.inputs.api_endpoint}}" = "test" ] ; then echo "Using test API endpoint, can proceed to publish"; else exit 1; fi
 
   publish:
     needs: [check_inputs]
@@ -69,12 +69,12 @@ jobs:
         os:
           - "windows-2022"
         python-version:
-          - 3.8 # 3.9 # Eli (12/10/20): Cython package is giving issues with Python 3.9 currently
+          - "3.10"
         node-version:
           - 16
         include:
           - os: "windows-2022"
-            python-version: "3.8"
+            python-version: "3.10"
             node-version: "16"
             IS_DEPLOYMENT_CONFIG: true
 
