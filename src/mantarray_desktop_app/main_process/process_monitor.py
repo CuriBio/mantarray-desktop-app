@@ -70,6 +70,7 @@ from ..utils.generic import _trim_barcode
 from ..utils.generic import redact_sensitive_info
 from ..utils.generic import redact_sensitive_info_from_path
 from ..utils.generic import upload_log_files_to_s3
+from ..utils.stimulation import chunk_protocols_in_stim_info
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +120,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
     def _report_fatal_error(self, the_err: Exception) -> None:
         super()._report_fatal_error(the_err)
         stack_trace = get_formatted_stack_trace(the_err)
-        msg = f"Error raised by Process Monitor\n{stack_trace}\n{the_err}"
+        msg = f"Error raised by Process Monitor\n{stack_trace}"
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.error(msg)
@@ -271,9 +272,24 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     }
                 )
             elif command == "set_protocols":
-                self._values_to_share_to_server["stimulation_info"] = communication["stim_info"]
-                self._put_communication_into_instrument_comm_queue(communication)
-                self._process_manager.queue_container.to_file_writer.put_nowait(communication)
+                stim_info = communication["stim_info"]
+                self._values_to_share_to_server["stimulation_info"] = stim_info
+
+                (
+                    chunked_stim_info,
+                    subprotocol_idx_mappings,
+                    max_subprotocol_idx_counts,
+                ) = chunk_protocols_in_stim_info(stim_info)
+                self._put_communication_into_instrument_comm_queue(
+                    {**communication, "stim_info": chunked_stim_info}
+                )
+                self._process_manager.queue_container.to_file_writer.put_nowait(
+                    {
+                        **communication,
+                        "subprotocol_idx_mappings": subprotocol_idx_mappings,
+                        "max_subprotocol_idx_counts": max_subprotocol_idx_counts,
+                    }
+                )
             elif command == "start_stim_checks":
                 self._values_to_share_to_server["stimulator_circuit_statuses"] = {
                     well_idx: StimulatorCircuitStatuses.CALCULATING.name.lower()
@@ -808,7 +824,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         error_communication: Tuple[Exception, str],
     ) -> None:
         this_err, this_stack_trace = error_communication
-        msg = f"Error raised by subprocess {process}\n{this_stack_trace}\n{this_err}"
+        msg = f"Error raised by subprocess {process}\n{this_stack_trace}"
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:
             logger.error(msg)

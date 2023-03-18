@@ -64,7 +64,6 @@ from ..fixtures_server import put_generic_beta_1_start_recording_info_in_dict
 from ..fixtures_server import put_generic_beta_2_start_recording_info_in_dict
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import is_queue_eventually_not_empty
-from ..helpers import is_queue_eventually_of_size
 from ..helpers import random_bool
 
 __fixtures__ = [
@@ -534,7 +533,7 @@ def test_send_single_read_wire_out_command__populates_queue__and_logs_response(
     assert response.status_code == 200
 
     comm_queue = test_server.queue_container.to_instrument_comm(board_idx)
-    assert is_queue_eventually_of_size(comm_queue, 1) is True
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
     assert communication["command"] == "read_wire_out"
@@ -560,7 +559,7 @@ def test_send_single_read_wire_out_command_with_hex_notation__populates_queue(
     assert response.status_code == 200
 
     comm_queue = test_server.queue_container.to_instrument_comm(board_idx)
-    assert is_queue_eventually_of_size(comm_queue, 1) is True
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
     assert communication["command"] == "read_wire_out"
@@ -586,7 +585,7 @@ def test_send_single_read_wire_out_command_with_description__populates_queue(
     assert response.status_code == 200
 
     comm_queue = test_server.queue_container.to_instrument_comm(board_idx)
-    assert is_queue_eventually_of_size(comm_queue, 1) is True
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "debug_console"
     assert communication["command"] == "read_wire_out"
@@ -609,7 +608,7 @@ def test_send_single_stop_managed_acquisition_command__populates_queues(
     assert response.status_code == 200
 
     server_to_main_queue = test_server.get_queue_to_main()
-    assert is_queue_eventually_of_size(server_to_main_queue, 1) is True
+    confirm_queue_is_eventually_of_size(server_to_main_queue, 1)
     comm_to_main = server_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert comm_to_main == STOP_MANAGED_ACQUISITION_COMMUNICATION
     response_json = response.get_json()
@@ -629,7 +628,7 @@ def test_send_single_set_mantarray_serial_number_command__populates_queue(
     assert response.status_code == 200
 
     server_to_main_queue = test_server.get_queue_to_main()
-    assert is_queue_eventually_of_size(server_to_main_queue, 1) is True
+    confirm_queue_is_eventually_of_size(server_to_main_queue, 1)
     communication = server_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "mantarray_naming"
     assert communication["command"] == "set_mantarray_serial_number"
@@ -649,7 +648,7 @@ def test_send_single_boot_up_command__populates_queue(
 
     to_main_queue = test_server.get_queue_to_main()
 
-    assert is_queue_eventually_of_size(to_main_queue, 1)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
     communication = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "to_instrument"
     assert communication["command"] == "boot_up"
@@ -679,7 +678,7 @@ def test_send_single_start_managed_acquisition_command__populates_queues(
     assert response_json == expected_command
 
     to_main_queue = test_server.get_queue_to_main()
-    assert is_queue_eventually_of_size(to_main_queue, 1)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
     communication = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication == expected_command
 
@@ -1330,7 +1329,7 @@ def test_shutdown__sends_hard_stop_command__waits_for_subprocesses_to_stop__then
 
     mocked_wait.assert_called_once()
 
-    assert is_queue_eventually_of_size(server_to_main_queue, 2) is True
+    confirm_queue_is_eventually_of_size(server_to_main_queue, 2)
     hard_stop_command = server_to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert hard_stop_command["communication_type"] == "shutdown"
     assert hard_stop_command["command"] == "hard_stop"

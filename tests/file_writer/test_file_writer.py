@@ -44,7 +44,6 @@ from ..fixtures_file_writer import GENERIC_UPDATE_USER_SETTINGS
 from ..fixtures_file_writer import populate_calibration_folder
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
-from ..helpers import is_queue_eventually_empty
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from ..parsed_channel_data_packets import SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0
 from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
@@ -314,9 +313,7 @@ def test_FileWriterProcess__drain_all_queues__drains_all_queues_except_error_que
             to_main_queue,
         )
     ):
-        assert (
-            is_queue_eventually_empty(iter_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS) is True
-        ), f"Queue at index {iter_queue_idx} was not empty"
+        confirm_queue_is_eventually_empty(iter_queue, err_msg=f"Queue {iter_queue_idx}")
 
     assert actual["board_0"]["instrument_comm_to_file_writer"] == [expected[0][0]]
     assert actual["board_0"]["file_writer_to_data_analyzer"] == [expected[0][1]]

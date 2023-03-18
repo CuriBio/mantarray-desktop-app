@@ -395,7 +395,13 @@ def test_McCommunicationProcess__processes_set_protocols_command__and_breaks_up_
                 "stimulation_type": choice(["V", "C"]),
                 "run_until_stopped": choice([False, True]),
                 "subprotocols": [
-                    choice([get_random_stim_pulse(), get_random_stim_delay()]) for _ in range(2)
+                    {
+                        "type": "loop",
+                        "num_iterations": 1,
+                        "subprotocols": [
+                            choice([get_random_stim_pulse(), get_random_stim_delay()]) for _ in range(2)
+                        ],
+                    }
                 ],
             }
             for protocol_id in expected_protocol_ids[1:]

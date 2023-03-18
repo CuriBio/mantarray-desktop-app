@@ -19,7 +19,7 @@ from stdlib_utils import InfiniteProcess
 from .fixtures import fixture_patch_subprocess_is_stopped_to_false
 from .fixtures import fixture_patched_firmware_folder
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
-from .helpers import is_queue_eventually_of_size
+from .helpers import confirm_queue_is_eventually_of_size
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 __fixtures__ = [
@@ -398,7 +398,7 @@ def test_MantarrayProcessesManager__boot_up_instrument__populates_ok_comm_queue_
     generic_manager.create_processes()
     generic_manager.boot_up_instrument(load_firmware_file=load_firmware_file)
     main_to_instrument_comm_queue = generic_manager.queue_container.to_instrument_comm(0)
-    assert is_queue_eventually_of_size(main_to_instrument_comm_queue, 2) is True
+    confirm_queue_is_eventually_of_size(main_to_instrument_comm_queue, 2)
     assert generic_manager.values_to_share_to_server["system_status"] == INSTRUMENT_INITIALIZING_STATE
 
     actual_communication_1 = main_to_instrument_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)

@@ -71,6 +71,7 @@ from ..constants import REFERENCE_SENSOR_SAMPLING_PERIOD
 from ..constants import ROUND_ROBIN_PERIOD
 from ..constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from ..constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
+from ..constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from ..exceptions import CalibrationFilesMissingError
 from ..exceptions import InvalidStopRecordingTimepointError
 from ..exceptions import UnrecognizedCommandFromMainToFileWriterError
@@ -272,6 +273,11 @@ class FileWriterProcess(InfiniteProcess):
             {well_idx: (deque(), deque()) for well_idx in range(self._num_wells)}
             for _ in range(len(self._board_queues))
         )
+        self._subprotocol_idx_mappings: Dict[str, Dict[int, int]] = {}
+        self._max_original_subprotocol_idx_counts: Dict[str, Tuple[int, ...]] = {}
+        self._curr_original_subprotocol_idx_for_wells: List[Optional[int]]
+        self._curr_original_subprotocol_count_for_wells: List[Optional[int]]
+        self._reset_stim_idx_counters()
         # performance tracking values
         self._iterations_per_logging_cycle = int(
             PERFOMANCE_LOGGING_PERIOD_SECS / self._minimum_iteration_duration_seconds
@@ -285,6 +291,10 @@ class FileWriterProcess(InfiniteProcess):
         self._reset_performance_measurements()
         self._num_recorded_points = list()
         self._recording_durations = list()
+
+    def _reset_stim_idx_counters(self) -> None:
+        self._curr_original_subprotocol_idx_for_wells = [None] * self._num_wells
+        self._curr_original_subprotocol_count_for_wells = [None] * self._num_wells
 
     @property
     def _file_directory(self) -> str:
@@ -497,6 +507,8 @@ class FileWriterProcess(InfiniteProcess):
             to_main.put_nowait({"communication_type": "command_receipt", "command": "update_user_settings"})
         elif command == "set_protocols":
             self._stim_info = communication["stim_info"]
+            self._subprotocol_idx_mappings = communication["subprotocol_idx_mappings"]
+            self._max_original_subprotocol_idx_counts = communication["max_subprotocol_idx_counts"]
             self._add_protocols_to_recording_files()
         else:
             raise UnrecognizedCommandFromMainToFileWriterError(command)
@@ -853,10 +865,9 @@ class FileWriterProcess(InfiniteProcess):
 
         # Tanner (5/17/21): This code was not previously guarded by this if statement. If issues start occurring with recorded data or performance metrics, check here first
         if self._is_recording or self._board_has_open_files(board_idx):
-            if self._beta_2_mode:
-                self._num_recorded_points.append(data_packet["time_indices"].shape[0])
-            else:
-                self._num_recorded_points.append(data_packet["data"].shape[1])
+            self._num_recorded_points.append(
+                data_packet["time_indices"].shape[0] if self._beta_2_mode else data_packet["data"].shape[1]
+            )
 
             start = time.perf_counter()
             self._handle_recording_of_data_packet(data_packet)
@@ -1006,15 +1017,53 @@ class FileWriterProcess(InfiniteProcess):
         if stim_packet["is_first_packet_of_stream"]:
             self._end_of_stim_stream_reached[board_idx] = False
             self._clear_stim_data_buffers()
+            self._reset_stim_idx_counters()
         if not self._end_of_stim_stream_reached[board_idx]:
             self.append_to_stim_data_buffers(stim_packet["well_statuses"])
             output_queue = self._board_queues[board_idx][1]
-            output_queue.put_nowait(stim_packet)
+            if reduced_well_statuses := self._reduce_subprotocol_chunks(stim_packet["well_statuses"]):
+                output_queue.put_nowait({**stim_packet, "well_statuses": reduced_well_statuses})
 
         if self._is_recording or self._board_has_open_files(board_idx):
             # TODO Tanner (10/21/21): once real stim traces are sent from instrument, add performance metrics
             for well_idx, well_statuses in stim_packet["well_statuses"].items():
                 self._handle_recording_of_stim_statuses(well_idx, well_statuses)
+
+    def _reduce_subprotocol_chunks(self, well_statuses: Dict[int, Any]) -> Dict[int, Any]:
+        reduced_well_statuses = {}
+        for well_idx, well_status_arr in well_statuses.items():
+            well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
+            assigned_protocol_id = self._stim_info["protocol_assignments"][well_name]
+
+            timepoint_well_status_pairs = []
+            for timepoint, chunked_subprotocol_idx in well_status_arr.T:
+                original_subprotocol_idx = self._convert_subprotocol_idx(
+                    assigned_protocol_id, chunked_subprotocol_idx
+                )
+
+                if original_subprotocol_idx == STIM_COMPLETE_SUBPROTOCOL_IDX:
+                    timepoint_well_status_pairs.append((timepoint, original_subprotocol_idx))
+                    continue
+
+                # update idx and reset count if subprotocol idx changed
+                if original_subprotocol_idx != self._curr_original_subprotocol_idx_for_wells[well_idx]:
+                    self._curr_original_subprotocol_idx_for_wells[well_idx] = original_subprotocol_idx
+                    self._curr_original_subprotocol_count_for_wells[well_idx] = -1
+
+                curr_count = self._curr_original_subprotocol_count_for_wells[well_idx]
+                max_count = self._max_original_subprotocol_idx_counts[assigned_protocol_id][
+                    original_subprotocol_idx
+                ]
+                self._curr_original_subprotocol_count_for_wells[well_idx] = (curr_count + 1) % max_count  # type: ignore
+
+                # filter out intermediate idxs
+                if self._curr_original_subprotocol_count_for_wells[well_idx] == 0:
+                    timepoint_well_status_pairs.append((timepoint, original_subprotocol_idx))
+
+            if timepoint_well_status_pairs:
+                reduced_well_statuses[well_idx] = np.array(timepoint_well_status_pairs, dtype=int).T
+
+        return reduced_well_statuses
 
     def _handle_recording_of_stim_statuses(
         self, well_idx: int, stim_data_arr: NDArray[(2, Any), int]
@@ -1022,6 +1071,16 @@ class FileWriterProcess(InfiniteProcess):
         board_idx = 0
         if well_idx not in self._open_files[board_idx]:
             return
+
+        well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
+        assigned_protocol_id = self._stim_info["protocol_assignments"][well_name]
+
+        stim_data_arr[1] = np.array(
+            [
+                self._convert_subprotocol_idx(assigned_protocol_id, chunked_subprotocol_idx)
+                for chunked_subprotocol_idx in stim_data_arr[1]
+            ]
+        )
 
         this_start_recording_timestamps = self._start_recording_timestamps[board_idx]
         if this_start_recording_timestamps is None:  # check needed for mypy to be happy
@@ -1043,6 +1102,13 @@ class FileWriterProcess(InfiniteProcess):
         previous_data_size = stimulation_dataset.shape[1]
         stimulation_dataset.resize((2, previous_data_size + stim_data_arr.shape[1]))
         stimulation_dataset[:, previous_data_size:] = stim_data_arr
+
+    def _convert_subprotocol_idx(self, protocol_id: str, chunked_subprotocol_idx: int) -> int:
+        return (
+            chunked_subprotocol_idx
+            if chunked_subprotocol_idx == STIM_COMPLETE_SUBPROTOCOL_IDX
+            else self._subprotocol_idx_mappings[protocol_id][chunked_subprotocol_idx]
+        )
 
     def _update_buffers(self) -> None:
         board_idx = 0

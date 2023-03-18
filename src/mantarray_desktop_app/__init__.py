@@ -57,7 +57,7 @@ from .constants import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from .constants import MAX_MC_REBOOT_DURATION_SECONDS
 from .constants import MAX_POSSIBLE_CONNECTED_BOARDS
 from .constants import MICRO_TO_BASE_CONVERSION
-from .constants import MICROS_PER_MILLIS
+from .constants import MICROS_PER_MILLI
 from .constants import MICROSECONDS_PER_CENTIMILLISECOND
 from .constants import MIDSCALE_CODE
 from .constants import MILLIVOLTS_PER_VOLT
@@ -142,8 +142,8 @@ from .constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from .constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from .constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from .constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+from .constants import STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS
 from .constants import STIM_MAX_NUM_SUBPROTOCOLS_PER_PROTOCOL
-from .constants import STIM_MAX_PULSE_DURATION_MICROSECONDS
 from .constants import STIM_NO_PROTOCOL_ASSIGNED
 from .constants import StimProtocolStatuses
 from .constants import STM_VID
@@ -282,11 +282,11 @@ from .utils.generic import upload_log_files_to_s3
 from .utils.log_formatter import SensitiveFormatter
 from .utils.mantarray_front_panel import MantarrayFrontPanel
 from .utils.mantarray_front_panel import MantarrayFrontPanelMixIn
-from .utils.serial_comm import convert_bytes_to_subprotocol_dict
 from .utils.serial_comm import convert_module_id_to_well_name
 from .utils.serial_comm import convert_status_code_bytes_to_dict
 from .utils.serial_comm import convert_stim_dict_to_bytes
-from .utils.serial_comm import convert_subprotocol_dict_to_bytes
+from .utils.serial_comm import convert_subprotocol_pulse_bytes_to_dict
+from .utils.serial_comm import convert_subprotocol_pulse_dict_to_bytes
 from .utils.serial_comm import convert_to_timestamp_bytes
 from .utils.serial_comm import convert_well_name_to_module_id
 from .utils.serial_comm import create_data_packet
@@ -511,7 +511,7 @@ __all__ = [
     "InstrumentDataStreamingAlreadyStoppedError",
     "SERIAL_COMM_SET_SAMPLING_PERIOD_PACKET_TYPE",
     "SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE",
-    "MICROS_PER_MILLIS",
+    "MICROS_PER_MILLI",
     "SerialCommInvalidSamplingPeriodError",
     "InvalidBeta2FlagOptionError",
     "SERIAL_COMM_PLATE_EVENT_PACKET_TYPE",
@@ -543,14 +543,14 @@ __all__ = [
     "DEFAULT_SAMPLING_PERIOD",
     "STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS",
     "STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS",
-    "STIM_MAX_PULSE_DURATION_MICROSECONDS",
+    "STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS",
     "queue_container",
     "get_redacted_string",
     "UnrecognizedCommandFromServerToMainError",
     "file_uploader",
     "ErrorCatchingThread",
-    "convert_bytes_to_subprotocol_dict",
-    "convert_subprotocol_dict_to_bytes",
+    "convert_subprotocol_pulse_bytes_to_dict",
+    "convert_subprotocol_pulse_dict_to_bytes",
     "convert_stim_dict_to_bytes",
     "SERIAL_COMM_SET_STIM_PROTOCOL_PACKET_TYPE",
     "SERIAL_COMM_START_STIM_PACKET_TYPE",

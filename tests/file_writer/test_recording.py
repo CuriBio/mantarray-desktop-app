@@ -4,6 +4,7 @@ import glob
 import json
 import os
 from random import choice
+from random import randint
 
 import h5py
 from mantarray_desktop_app import CalibrationFilesMissingError
@@ -33,6 +34,7 @@ from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from mantarray_desktop_app import SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.utils.stimulation import chunk_protocols_in_stim_info
 import numpy as np
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import ADC_REF_OFFSET_UUID
@@ -94,8 +96,6 @@ from ..fixtures_file_writer import TEST_CUSTOMER_ID
 from ..fixtures_file_writer import TEST_USER_NAME
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
-from ..helpers import is_queue_eventually_empty
-from ..helpers import is_queue_eventually_of_size
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from ..parsed_channel_data_packets import SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0
 from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
@@ -452,11 +452,13 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
     from_main_queue = four_board_file_writer_process["from_main_queue"]
     file_dir = four_board_file_writer_process["file_dir"]
 
-    expected_stim_info = dict(copy.deepcopy(GENERIC_STIM_INFO))
+    expected_stim_info, *chunk_info = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
         "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": chunk_info[0],
+        "max_subprotocol_idx_counts": chunk_info[1],
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
@@ -524,11 +526,13 @@ def test_FileWriterProcess__beta_2_mode__creates_files_with_correct_stimulation_
     start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
     # send set_protocols command
-    expected_stim_info = dict(copy.deepcopy(GENERIC_STIM_INFO))
+    expected_stim_info, *chunk_info = chunk_protocols_in_stim_info(GENERIC_STIM_INFO)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
         "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": chunk_info[0],
+        "max_subprotocol_idx_counts": chunk_info[1],
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     # process both commands
@@ -755,7 +759,7 @@ def test_FileWriterProcess__stop_recording__sets_stop_recording_timestamp_to_tim
 
     assert stop_timestamps[0] == stop_timepoint
 
-    confirm_queue_is_eventually_of_size(to_main_queue, 2, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS)
+    confirm_queue_is_eventually_of_size(to_main_queue, 2)
     to_main_queue.get(
         timeout=QUEUE_CHECK_TIMEOUT_SECONDS
     )  # pop off the initial receipt of start command message
@@ -801,41 +805,44 @@ def test_FileWriterProcess__closes_the_files_and_sends_communication_to_main_whe
 ):
     file_dir = four_board_file_writer_process["file_dir"]
 
-    test_num_data_points = 10
+    spied_h5_close = mocker.spy(h5py.File, "close")
 
-    spied_h5_close = mocker.spy(h5py._hl.files.File, "close")
+    test_num_data_points = 10
+    test_well_index = randint(0, 23)
+    test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
 
     update_user_settings_command = copy.deepcopy(GENERIC_UPDATE_USER_SETTINGS)
     update_user_settings_command["config_settings"]["auto_delete_local_files"] = False
     update_user_settings_command["config_settings"]["auto_upload_on_completion"] = False
+
     msgs_to_main = create_and_close_beta_1_h5_files(
         four_board_file_writer_process,
         update_user_settings_command,
         num_data_points=test_num_data_points,
-        active_well_indices=[0],
+        active_well_indices=[test_well_index],
     )
 
-    with open_the_generic_h5_file(file_dir, well_name="A1", timestamp_str="2020_02_09_190322") as actual_file:
-        # confirm some data already recorded to file
-        actual_data = get_reference_dataset_from_file(actual_file)
-        assert actual_data.shape == (test_num_data_points,)
-        assert actual_data[4] == 8
-        assert actual_data[8] == 16
+    finalization_msg = msgs_to_main[0]
+    assert finalization_msg["communication_type"] == "file_finalized"
+    assert f"_{test_well_name}" in finalization_msg["file_path"]
 
-        actual_data = get_tissue_dataset_from_file(actual_file)
-        assert actual_data.shape == (test_num_data_points,)
-        assert actual_data[3] == 6
-        assert actual_data[9] == 18
+    # corruption check closes file for a second time
+    assert spied_h5_close.call_count == 2
 
-        # corruption check closes file for a second time
-        assert spied_h5_close.call_count == 2
+    with open_the_generic_h5_file(
+        file_dir, well_name=test_well_name, timestamp_str="2020_02_09_190322"
+    ) as actual_file:
+        actual_tissue_data = get_tissue_dataset_from_file(actual_file)[:]
+        actual_ref_data = get_reference_dataset_from_file(actual_file)[:]
+    assert actual_tissue_data.shape == (test_num_data_points,)
+    assert actual_tissue_data[3] == 6
+    assert actual_tissue_data[9] == 18
+    assert actual_ref_data.shape == (test_num_data_points,)
+    assert actual_ref_data[4] == 8
+    assert actual_ref_data[8] == 16
 
-        finalization_msg = msgs_to_main[0]
-        assert finalization_msg["communication_type"] == "file_finalized"
-        assert "_A1" in finalization_msg["file_path"]
 
-
-def test_FileWriterProcess__sends_message_to_main_if_a_corrupt_file_is_found(
+def test_FileWriterProcess__sends_message_to_main_if_a_corrupt_file_is_found_after_a_recording(
     four_board_file_writer_process, mocker
 ):
     file_dir = four_board_file_writer_process["file_dir"]
@@ -866,7 +873,7 @@ def test_FileWriterProcess__sends_message_to_main_if_a_corrupt_file_is_found(
     }
 
 
-def test_FileWriterProcess__does_not_send_message_to_main_if_no_corrupt_files_found(
+def test_FileWriterProcess__does_not_send_message_to_main_if_no_corrupt_files_found_after_a_recording(
     four_board_file_writer_process,
 ):
     to_main_queue = four_board_file_writer_process["to_main_queue"]
@@ -1207,10 +1214,13 @@ def test_FileWriterProcess__adds_incoming_stim_data_to_internal_buffers(
         for well_idx in range(24)
     }
 
+    expected_stim_info, *chunk_info = chunk_protocols_in_stim_info(test_stim_info)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
-        "stim_info": test_stim_info,
+        "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": chunk_info[0],
+        "max_subprotocol_idx_counts": chunk_info[1],
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
@@ -1277,10 +1287,13 @@ def test_FileWriterProcess__does_not_add_incoming_stim_data_to_internal_buffer_i
         for well_idx in range(24)
     }
 
+    expected_stim_info, *chunk_info = chunk_protocols_in_stim_info(test_stim_info)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
-        "stim_info": test_stim_info,
+        "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": chunk_info[0],
+        "max_subprotocol_idx_counts": chunk_info[1],
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
@@ -1335,10 +1348,13 @@ def test_FileWriterProcess__clears_leftover_stim_data_of_previous_stream_from_bu
         for well_idx in range(24)
     }
 
+    expected_stim_info, *chunk_info = chunk_protocols_in_stim_info(test_stim_info)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
-        "stim_info": test_stim_info,
+        "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": chunk_info[0],
+        "max_subprotocol_idx_counts": chunk_info[1],
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
@@ -1425,10 +1441,13 @@ def test_FileWriterProcess__records_all_relevant_stim_statuses_in_buffer_when_st
         for well_idx in range(24)
     }
 
+    expected_stim_info, *chunk_info = chunk_protocols_in_stim_info(test_stim_info)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
-        "stim_info": test_stim_info,
+        "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": chunk_info[0],
+        "max_subprotocol_idx_counts": chunk_info[1],
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(set_protocols_command, from_main_queue)
     invoke_process_run_and_check_errors(file_writer_process)
@@ -1456,7 +1475,7 @@ def test_FileWriterProcess__records_all_relevant_stim_statuses_in_buffer_when_st
         test_data = np.array(
             [
                 expected_time_indices[curr_idx : curr_idx + num_data_points_per_packet],
-                np.ones(num_data_points_per_packet, dtype=np.int64),
+                np.zeros(num_data_points_per_packet, dtype=np.int64),
             ],
             dtype=np.int64,
         )
@@ -1469,7 +1488,8 @@ def test_FileWriterProcess__records_all_relevant_stim_statuses_in_buffer_when_st
     invoke_process_run_and_check_errors(file_writer_process)
 
     expected_stim_data = np.array(
-        [expected_time_indices, np.ones(expected_total_num_data_points, dtype=np.int64)], dtype=np.int64
+        [expected_time_indices, np.zeros(expected_total_num_data_points, dtype=np.int64)],
+        dtype=np.int64,
     )
 
     expected_plate_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
@@ -1752,7 +1772,7 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
             ),
         }
         instrument_board_queues[0][0].put_nowait(data_packet)
-    assert is_queue_eventually_of_size(
+    confirm_queue_is_eventually_of_size(
         instrument_board_queues[0][0],
         expected_remaining_packets_recorded + dummy_packets,
         timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
@@ -1765,7 +1785,7 @@ def test_FileWriterProcess__deletes_recorded_reference_data_after_stop_time(
     stop_recording_command = dict(GENERIC_STOP_RECORDING_COMMAND)
     stop_recording_command["timepoint_to_stop_recording_at"] = expected_stop_timepoint
     # confirm the queue is empty before adding another command
-    assert is_queue_eventually_empty(comm_from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS)
+    confirm_queue_is_eventually_empty(comm_from_main_queue)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         stop_recording_command, comm_from_main_queue
     )
@@ -1853,10 +1873,13 @@ def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
         for well_idx in range(24)
     }
 
+    expected_stim_info, *chunk_info = chunk_protocols_in_stim_info(test_stim_info)
     set_protocols_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
-        "stim_info": test_stim_info,
+        "stim_info": expected_stim_info,
+        "subprotocol_idx_mappings": chunk_info[0],
+        "max_subprotocol_idx_counts": chunk_info[1],
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         set_protocols_command, comm_from_main_queue
@@ -1883,7 +1906,7 @@ def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
         test_data = np.array(
             [
                 expected_time_indices[curr_idx : curr_idx + num_data_points_per_packet],
-                np.ones(num_data_points_per_packet, dtype=np.int64),
+                np.zeros(num_data_points_per_packet, dtype=np.int64),
             ],
             dtype=np.int64,
         )
@@ -1934,7 +1957,8 @@ def test_FileWriterProcess__deletes_recorded_stim_data_after_stop_time(
     invoke_process_run_and_check_errors(file_writer_process)
 
     expected_stim_data = np.array(
-        [expected_time_indices, np.ones(expected_total_num_data_points, dtype=np.int64)], dtype=np.int64
+        [expected_time_indices, np.zeros(expected_total_num_data_points, dtype=np.int64)],
+        dtype=np.int64,
     )
 
     expected_plate_barcode = start_recording_command["metadata_to_copy_onto_main_file_attributes"][

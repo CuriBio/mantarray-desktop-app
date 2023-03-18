@@ -32,7 +32,6 @@ from ..fixtures_mc_simulator import DEFAULT_SIMULATOR_STATUS_CODES
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator
 from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import random_timestamp
-from ..helpers import assert_queue_is_eventually_not_empty
 from ..helpers import assert_serial_packet_is_expected
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
@@ -79,7 +78,7 @@ def test_McCommunicationProcess_setup_before_loop__connects_to_boards__and_sends
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
     mocked_create_connections.assert_called_once()
 
-    assert_queue_is_eventually_not_empty(board_queues[0][1])
+    confirm_queue_is_eventually_of_size(board_queues[0][1], 1)
     process_initiated_msg = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert process_initiated_msg["communication_type"] == "log"
     assert (
@@ -412,7 +411,7 @@ def test_McCommunicationProcess__logs_status_codes_from_handshake_responses_corr
 
 
 def test_McCommunicationProcess__handles_error_status_code_found_in_status_beacon(
-    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker, patch_print
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
@@ -450,7 +449,7 @@ def test_McCommunicationProcess__handles_error_status_code_found_in_status_beaco
 
 
 def test_McCommunicationProcess__handles_error_status_code_found_in_handshake_response(
-    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker, patch_print
 ):
     mc_process = four_board_mc_comm_process["mc_process"]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]

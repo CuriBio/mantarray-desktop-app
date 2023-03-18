@@ -646,7 +646,7 @@ def test_MantarrayMcSimulator__processes_successful_firmware_update_packet(
             command_response,
             SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE,
             additional_bytes=bytes([SERIAL_COMM_COMMAND_SUCCESS_BYTE]),
-            error_msg=f"packet {packet_idx}",
+            err_msg=f"packet {packet_idx}",
         )
 
 

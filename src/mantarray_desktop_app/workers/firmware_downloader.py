@@ -70,7 +70,8 @@ def download_firmware_updates(
         raise FirmwareDownloadError("No firmware types specified")
 
     # get access token
-    access_token = get_cloud_api_tokens(customer_id, username, password).access
+    tokens, _ = get_cloud_api_tokens(customer_id, username, password)
+    access_token = tokens.access
 
     # get presigned download URL(s)
     presigned_urls: Dict[str, Optional[str]] = {"main": None, "channel": None}

@@ -48,6 +48,7 @@ from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.main_process import process_monitor
 from mantarray_desktop_app.main_process import server
 from mantarray_desktop_app.utils import generic
+from mantarray_desktop_app.utils.web_api import AuthTokens
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
 from pulse3D.constants import ADC_REF_OFFSET_UUID
 from pulse3D.constants import ADC_TISSUE_OFFSET_UUID
@@ -147,7 +148,8 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
     mocker,
 ):
     # mock this so test doesn't actually try to hit cloud API
-    mocker.patch.object(server, "validate_user_credentials", autospec=True)
+    mocked_get_tokens = mocker.patch.object(server, "validate_user_credentials", autospec=True)
+    mocked_get_tokens.return_value = (AuthTokens(access="", refresh=""), {"jobs_reached": False})
 
     expected_time = datetime.datetime.now()
     # Tanner (12/29/20): mock these in order to make assertions on timestamps in the metadata
@@ -465,7 +467,8 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         )
 
     # mock this so test doesn't actually try to hit cloud API
-    mocker.patch.object(server, "validate_user_credentials", autospec=True)
+    mocked_get_tokens = mocker.patch.object(server, "validate_user_credentials", autospec=True)
+    mocked_get_tokens.return_value = (AuthTokens(access="", refresh=""), {"jobs_reached": False})
 
     test_protocol_assignments = {
         GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): (
@@ -908,7 +911,8 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
     mocker,
 ):
     # mock this so test doesn't actually try to hit cloud API
-    mocker.patch.object(server, "validate_user_credentials", autospec=True)
+    mocked_get_tokens = mocker.patch.object(server, "validate_user_credentials", autospec=True)
+    mocked_get_tokens.return_value = (AuthTokens(access="", refresh=""), {"jobs_reached": False})
 
     spied_logger = mocker.spy(main.logger, "info")
     # Tanner (12/29/20): Not making assertions on files, but still need a TemporaryDirectory to hold them

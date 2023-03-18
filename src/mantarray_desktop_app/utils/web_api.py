@@ -5,6 +5,7 @@ from collections import namedtuple
 from typing import Any
 from typing import Callable
 from typing import Dict
+from typing import Tuple
 
 from mantarray_desktop_app.constants import CLOUD_API_ENDPOINT
 import requests
@@ -21,7 +22,9 @@ def _get_tokens(response_json: Dict[str, Any]) -> AuthTokens:
     return AuthTokens(access=response_json["access"]["token"], refresh=response_json["refresh"]["token"])
 
 
-def get_cloud_api_tokens(customer_id: str, user_name: str, password: str) -> AuthTokens:
+def get_cloud_api_tokens(
+    customer_id: str, user_name: str, password: str
+) -> Tuple[AuthTokens, Dict[str, Any]]:
     """Login and get tokens.
 
     Args:
@@ -37,7 +40,7 @@ def get_cloud_api_tokens(customer_id: str, user_name: str, password: str) -> Aut
         raise LoginFailedError(response.status_code)
 
     response_json = response.json()
-    return _get_tokens(response_json["tokens"])
+    return _get_tokens(response_json["tokens"]), response_json["usage_quota"]
 
 
 def refresh_cloud_api_tokens(refresh_token: str) -> AuthTokens:
@@ -77,7 +80,8 @@ class WebWorker(ABC):
 
     def __call__(self) -> None:
         """Login and then do the job."""
-        self.tokens = get_cloud_api_tokens(self.customer_id, self.user_name, self.password)
+        tokens, _ = get_cloud_api_tokens(self.customer_id, self.user_name, self.password)
+        self.tokens = tokens
         self.job()
 
     @abstractmethod
