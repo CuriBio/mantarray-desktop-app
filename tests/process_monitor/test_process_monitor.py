@@ -70,7 +70,6 @@ from ..fixtures_process_monitor import fixture_test_monitor
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
-from ..helpers import is_queue_eventually_empty
 from ..helpers import is_queue_eventually_not_empty
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
@@ -140,7 +139,7 @@ def test_MantarrayProcessesMonitor__logs_errors_raised_in_own_thread_correctly(
     expected_stack_trace = "expected stack trace"
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
-    mocker.patch.object(
+    mocked_get_trace = mocker.patch.object(
         process_monitor, "get_formatted_stack_trace", autospec=True, return_value=expected_stack_trace
     )
 
@@ -149,12 +148,14 @@ def test_MantarrayProcessesMonitor__logs_errors_raised_in_own_thread_correctly(
     test_pm = MantarrayProcessesMonitorThatRaisesError(
         {}, test_process_manager, error_queue, threading.Lock()
     )
+
     test_pm.run(num_iterations=1)
 
-    expected_error = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    expected_msg = f"Error raised by Process Monitor\n{expected_stack_trace}\n{expected_error}"
-
+    expected_msg = f"Error raised by Process Monitor\n{expected_stack_trace}"
     mocked_logger.assert_called_once_with(expected_msg)
+
+    expected_error = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    mocked_get_trace.assert_called_once_with(expected_error)
 
 
 def test_MantarrayProcessesMonitor__when_error_raised_in_own_thread__hard_stops_and_joins_subprocesses_if_running_and_shutsdown_server(
@@ -220,7 +221,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_instrument_comm(
     instrument_comm_to_main.put_nowait(expected_comm)
     assert is_queue_eventually_not_empty(instrument_comm_to_main) is True
     invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(instrument_comm_to_main) is True
+    confirm_queue_is_eventually_empty(instrument_comm_to_main)
     mocked_logger.assert_called_once_with(f"Communication from the Instrument Controller: {expected_comm}")
 
 
@@ -242,7 +243,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_file_writer__and_redacts_
     file_writer_to_main.put_nowait(copy.deepcopy(expected_comm))
     assert is_queue_eventually_not_empty(file_writer_to_main) is True
     invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(file_writer_to_main) is True
+    confirm_queue_is_eventually_empty(file_writer_to_main)
 
     for sensitive_key in sensitive_keys:
         expected_comm[sensitive_key] = redact_sensitive_info_from_path(expected_comm[sensitive_key])
@@ -268,7 +269,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_data_analyzer(
     data_analyzer_to_main.put_nowait(expected_comm)
     assert is_queue_eventually_not_empty(data_analyzer_to_main) is True
     invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(data_analyzer_to_main) is True
+    confirm_queue_is_eventually_empty(data_analyzer_to_main)
     mocked_logger.assert_called_once_with(f"Communication from the Data Analyzer: {expected_comm}")
 
 
@@ -294,7 +295,7 @@ def test_MantarrayProcessesMonitor__handled_completed_mag_analysis_command_corre
     assert is_queue_eventually_not_empty(data_analyzer_to_main) is True
 
     invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(data_analyzer_to_main) is True
+    confirm_queue_is_eventually_empty(data_analyzer_to_main)
 
     ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert ws_message == {"data_type": test_data_type, "data_json": expected_data_json}
@@ -457,191 +458,48 @@ def test_MantarrayProcessesMonitor__handles_non_instrument_related_errors_from_i
     mocked_hard_stop_and_join.assert_called_once_with(shutdown_server=not is_fw_update_error)
 
 
-def test_MantarrayProcessesMonitor__logs_errors_from_instrument_comm_process(
-    mocker, test_process_manager_creator, test_monitor
+@pytest.mark.parametrize(
+    "test_subprocess_name,test_error_queue_name",
+    [
+        ("instrument_comm_process", "instrument_comm_error"),
+        ("file_writer_process", "file_writer_error"),
+        ("data_analyzer_process", "data_analyzer_error"),
+    ],
+)
+def test_MantarrayProcessesMonitor__logs_errors_from_subprocesses(
+    test_subprocess_name, test_error_queue_name, mocker, test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
-    mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
-    mocker.patch.object(test_process_manager, "hard_stop_and_join_processes", autospec=True)
-
-    instrument_comm_error_queue = test_process_manager.queue_container.instrument_comm_error
-    expected_error = ValueError("something wrong")
-    expected_stack_trace = "my stack trace"
-    expected_message = f"Error raised by subprocess {test_process_manager.instrument_comm_process}\n{expected_stack_trace}\n{expected_error}"
-    instrument_comm_error_queue.put_nowait((expected_error, expected_stack_trace))
-    assert is_queue_eventually_not_empty(instrument_comm_error_queue) is True
-    invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(instrument_comm_error_queue) is True
-    mocked_logger.assert_any_call(expected_message)
-
-
-def test_MantarrayProcessesMonitor__logs_errors_from_file_writer(
-    mocker, test_process_manager_creator, test_monitor
-):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, *_ = test_monitor(test_process_manager)
+    test_subprocess = getattr(test_process_manager, test_subprocess_name)
+    test_error_queue = getattr(test_process_manager.queue_container, test_error_queue_name)
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
     mocker.patch.object(test_process_manager, "hard_stop_and_join_processes", autospec=True)
 
-    file_writer_error_queue = test_process_manager.queue_container.file_writer_error
-    expected_error = ValueError("something wrong when writing file")
-    expected_stack_trace = "my stack trace from writing a file"
-    expected_message = f"Error raised by subprocess {test_process_manager.file_writer_process}\n{expected_stack_trace}\n{expected_error}"
-    file_writer_error_queue.put_nowait((expected_error, expected_stack_trace))
-    assert is_queue_eventually_not_empty(file_writer_error_queue) is True
-    invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(file_writer_error_queue) is True
-    mocked_logger.assert_any_call(expected_message)
+    expected_error = ValueError("msg")
+    expected_stack_trace = f"stack\ntrace\n{expected_error}"
+    expected_message = f"Error raised by subprocess {test_subprocess}\n{expected_stack_trace}"
 
-
-def test_MantarrayProcessesMonitor__logs_errors_from_data_analyzer(
-    mocker, test_process_manager_creator, test_monitor
-):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, *_ = test_monitor(test_process_manager)
-
-    mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
-    mocker.patch.object(test_process_manager, "hard_stop_and_join_processes", autospec=True)
-
-    data_analyzer_error_queue = test_process_manager.queue_container.data_analyzer_error
-    expected_error = ValueError("something wrong when analyzing data")
-    expected_stack_trace = "my stack trace from analyzing some data"
-    expected_message = f"Error raised by subprocess {test_process_manager.data_analyzer_process}\n{expected_stack_trace}\n{expected_error}"
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        (expected_error, expected_stack_trace), data_analyzer_error_queue
+        (expected_error, expected_stack_trace), test_error_queue
     )
     invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(data_analyzer_error_queue) is True
+    confirm_queue_is_eventually_empty(test_error_queue)
     mocked_logger.assert_any_call(expected_message)
 
 
 def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queue_items_when_error_is_raised_in_ok_comm_subprocess(
     mocker, test_process_manager_creator, test_monitor
 ):
+    expected_ok_comm_item = f"ok_comm_queue_item, {str(bytes(4))}"
+    expected_file_writer_item = "file_writer_queue_item"
+    expected_da_item = "data_analyzer_queue_item"
+    expected_server_item = "server_manager_queue_item"
+
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
-
-    expected_ok_comm_item = {
-        "board_0": {
-            "outgoing_data": [
-                {
-                    "communication_type": "log",
-                    "log_level": 20,
-                    "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-                },
-            ]
-        },
-        "fatal_error_reporter": [
-            {
-                "communication_type": "log",
-                "log_level": 20,
-                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-            },
-        ],
-    }
-    expected_file_writer_item = {
-        "board_0": {
-            "instrument_comm_to_file_writer": [
-                {
-                    "communication_type": "log",
-                    "log_level": 20,
-                    "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-                },
-            ],
-            "file_writer_to_data_analyzer": [
-                {
-                    "communication_type": "log",
-                    "log_level": 20,
-                    "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-                },
-            ],
-        },
-        "from_main_to_file_writer": [
-            {
-                "communication_type": "log",
-                "log_level": 20,
-                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-            },
-        ],
-        "from_file_writer_to_main": [
-            {
-                "communication_type": "log",
-                "log_level": 20,
-                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-            },
-            {
-                "communication_type": "update_user_settings",
-                "content": {"user_password": "password", "user_name": "username"},
-            },
-        ],
-        "fatal_error_reporter": [
-            {
-                "communication_type": "log",
-                "log_level": 20,
-                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-            },
-        ],
-    }
-    expected_da_item = {
-        "board_0": {
-            "file_writer_to_data_analyzer": [
-                {
-                    "communication_type": "log",
-                    "log_level": 20,
-                    "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-                },
-            ],
-            "outgoing_data": [
-                {
-                    "communication_type": "log",
-                    "log_level": 20,
-                    "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-                },
-            ],
-        },
-        "from_main_to_data_analyzer": [
-            {
-                "communication_type": "log",
-                "log_level": 20,
-                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-            },
-        ],
-        "from_data_analyzer_to_main": [
-            {
-                "communication_type": "log",
-                "log_level": 20,
-                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-            },
-        ],
-        "fatal_error_reporter": [
-            {
-                "communication_type": "log",
-                "log_level": 20,
-                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-            },
-        ],
-    }
-    expected_server_item = {
-        "board_0": {
-            "outgoing_data": [
-                {
-                    "communication_type": "log",
-                    "log_level": 20,
-                    "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-                },
-            ]
-        },
-        "fatal_error_reporter": [
-            {
-                "communication_type": "log",
-                "log_level": 20,
-                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-            },
-        ],
-    }
 
     # mock since processes aren't actually started
     mocker.patch.object(process_manager, "_process_can_be_joined", autospec=True, return_value=True)
@@ -680,10 +538,10 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
 
     actual = mocked_logger.call_args_list[1][0][0]
     assert "Remaining items in process queues: {" in actual
-    assert str(expected_file_writer_item) in actual
-    assert str(expected_da_item) in actual
-    assert str(expected_server_item) in actual
-    assert str(expected_ok_comm_item) in actual
+    assert expected_ok_comm_item in actual
+    assert expected_file_writer_item in actual
+    assert expected_da_item in actual
+    assert expected_server_item in actual
 
 
 @freeze_time(datetime.datetime(year=2020, month=2, day=27, hour=12, minute=14, second=22, microsecond=336597))
