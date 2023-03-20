@@ -599,9 +599,10 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
     assert "Remaining items in process queues: {" in actual
     assert str(expected_file_writer_item) in actual
     assert str(expected_da_item) in actual
+    assert str(expected_file_writer_item) in actual
+    assert str(expected_da_item) in actual
 
     process_monitor._redact_from_queue_items(expected_file_writer_item)
-  
 
 
 @freeze_time(datetime.datetime(year=2020, month=2, day=27, hour=12, minute=14, second=22, microsecond=336597))
