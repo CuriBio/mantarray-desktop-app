@@ -25,7 +25,7 @@ Fixed:
 - Importing multiple stimulation protocols in one file will now populate dropdown correctly.
 
 
-1.0.9 (unreleased)
+1.0.9 (2023-03-15)
 ------------------
 
 Added:
