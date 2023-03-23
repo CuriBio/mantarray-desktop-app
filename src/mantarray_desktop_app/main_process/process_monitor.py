@@ -417,7 +417,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 # make a shallow copy so all the data isn't copied
                 "content": copy.copy(communication["content"]),
             }
-            if data_type == "recording_snapshot_data":
+            if data_type == "recording_snapshot_data" and logger.getEffectiveLevel() > logging.DEBUG:
                 comm_copy["content"].pop("data_json")
             comm_str = str(comm_copy)
         else:

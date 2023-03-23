@@ -90,6 +90,32 @@ def test_run_magnet_finding_alg__removes_unnecessary_columns_from_returned_dataf
         assert list(df.columns) == ["Time (s)", "A1"], i
 
 
+def test_run_magnet_finding_alg__removes_NaN_values_from_returned_dataframe(mocker):
+    mocker.patch.object(magnet_finder.shutil, "copytree", autospec=True)
+    mocked_pr = mocker.patch.object(magnet_finder, "PlateRecording", autospec=True)
+
+    mocked_df = mocker.MagicMock()
+
+    # dropna must be called after drop
+    def dropna_se(*args, **kwargs):
+        mocked_df.drop.assert_called()
+
+    mocked_df.dropna.side_effect = dropna_se
+
+    def to_dataframe_se(*args):
+        return mocked_df
+
+    mocked_pr.return_value.to_dataframe.side_effect = to_dataframe_se
+
+    result_dict = {}
+    run_magnet_finding_alg(result_dict, ["path/to/rec"])
+
+    if failed_recordings := result_dict.get("failed_recordings"):
+        assert False, failed_recordings[0]["error"]
+
+    mocked_df.dropna.assert_called_once_with(inplace=True)
+
+
 @pytest.mark.parametrize("failure", [True, False])
 def test_run_magnet_finding_alg__handles_failed_recordings_correctly(failure, mocker):
     mocker.patch.object(magnet_finder.shutil, "copytree", autospec=True)

@@ -23,6 +23,7 @@ Changed:
 Fixed:
 ^^^^^^
 - Importing multiple stimulation protocols in one file will now populate dropdown correctly.
+- Issue with recording snapshot failing to complete.
 
 
 1.0.9 (2023-03-15)
