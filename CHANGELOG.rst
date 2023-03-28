@@ -7,16 +7,26 @@ Changelog for Mantarray Desktop App
 Added:
 ^^^^^^
 - More accurate reporting of stimulation subprotocol start times.
-
+- Notifications to let users know when their customer account has reached their analysis limit, if applicable.
 
 Changed:
 ^^^^^^^^
 - Beta 2 H5 file format version is now 1.3.0. The format itself hasn't actually changed,
   but this version will mark the lowest file version that has accurate enough stim data
   in order to be displayed in Pulse3D.
+- Stim pulse requirements:
+
+  - Minimum current is now 1 mA.
+  - Minimum phase one/two duration is now 0.02 ms.
+  - Minimum non-zero interphase interval is now 0.02 ms (0 is still allowed).
+
+Fixed:
+^^^^^^
+- Importing multiple stimulation protocols in one file will now populate dropdown correctly.
+- Issue with recording snapshot failing to complete.
 
 
-1.0.9 (unreleased)
+1.0.9 (2023-03-15)
 ------------------
 
 Added:

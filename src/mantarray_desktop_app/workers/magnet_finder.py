@@ -57,6 +57,9 @@ def run_magnet_finding_alg(
                 columns_to_drop = [c for c in df.columns if c not in ("Time (s)", *ALL_VALID_WELL_NAMES)]
                 df.drop(columns_to_drop, inplace=True, axis=1)
 
+                # Tanner (3/22/23): dropping NaN values just to be safe, although to_dataframe should handle this
+                df.dropna(inplace=True)
+
                 # to_dataframe sends µs, convert to seconds
                 df["Time (s)"] /= MICRO_TO_BASE_CONVERSION
 

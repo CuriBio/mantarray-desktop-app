@@ -273,7 +273,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_data_analyzer(
 
 
 @pytest.mark.parametrize("test_data_type", ["recording_snapshot_data", "local_analysis"])
-def test_MantarrayProcessesMonitor__handled_completed_mag_analysis_command_correctly_from_data_analyzer__and_logs_correctly(
+def test_MantarrayProcessesMonitor__handles_completed_mag_analysis_command_correctly_from_data_analyzer__and_logs_correctly(
     test_data_type, mocker, test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
