@@ -70,7 +70,6 @@ from ..fixtures_process_monitor import fixture_test_monitor
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
-from ..helpers import is_queue_eventually_empty
 from ..helpers import is_queue_eventually_not_empty
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
@@ -601,7 +600,6 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
     assert str(expected_da_item) in actual
 
     process_monitor._redact_from_queue_items(expected_file_writer_item)
-  
 
 
 @freeze_time(datetime.datetime(year=2020, month=2, day=27, hour=12, minute=14, second=22, microsecond=336597))
