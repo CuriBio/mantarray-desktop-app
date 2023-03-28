@@ -416,7 +416,7 @@ def update_settings() -> Response:
         }
     )
 
-    response = auth_response[1] if auth_response is not None else auth_response
+    response = {"usage_quota": auth_response[1]} if auth_response is not None else auth_response
     return Response(json.dumps(response), mimetype="application/json")
 
 
