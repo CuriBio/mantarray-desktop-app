@@ -70,7 +70,6 @@ from ..fixtures_process_monitor import fixture_test_monitor
 from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
-from ..helpers import is_queue_eventually_empty
 from ..helpers import is_queue_eventually_not_empty
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
