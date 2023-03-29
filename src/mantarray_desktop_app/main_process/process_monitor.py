@@ -404,23 +404,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         communication_type = communication["communication_type"]
 
-
         comm_copy_with_redactions = redact_sensitive_info(communication)
-
-
-        if communication_type == "mag_analysis_complete":
-            data_type = communication["content"]["data_type"]
-            comm_copy = {
-                "communication_type": "mag_analysis_complete",
-                # make a shallow copy so all the data isn't copied
-                "content": copy.copy(communication["content"]),
-            }
-            if data_type == "recording_snapshot_data" and logger.getEffectiveLevel() > logging.DEBUG:
-                comm_copy["content"].pop("data_json")
-            comm_str = str(comm_copy)
-        else:
-            comm_str = str(communication)
-        msg = f"Communication from the Data Analyzer: {comm_str}"
 
         # Tanner (3/9/22): not sure the lock is necessary or even doing anything here as nothing else acquires this lock before logging
         with self._lock:

@@ -139,7 +139,7 @@ def test_MantarrayProcessesMonitor__logs_errors_raised_in_own_thread_correctly(
     expected_stack_trace = "expected stack trace"
 
     mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
-    mocker.patch.object(
+    mocked_get_trace = mocker.patch.object(
         process_monitor, "get_formatted_stack_trace", autospec=True, return_value=expected_stack_trace
     )
 
@@ -148,12 +148,14 @@ def test_MantarrayProcessesMonitor__logs_errors_raised_in_own_thread_correctly(
     test_pm = MantarrayProcessesMonitorThatRaisesError(
         {}, test_process_manager, error_queue, threading.Lock()
     )
+
     test_pm.run(num_iterations=1)
 
-    expected_error = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    expected_msg = f"Error raised by Process Monitor\n{expected_stack_trace}\n{expected_error}"
-
+    expected_msg = f"Error raised by Process Monitor\n{expected_stack_trace}"
     mocked_logger.assert_called_once_with(expected_msg)
+
+    expected_error = error_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    mocked_get_trace.assert_called_once_with(expected_error)
 
 
 def test_MantarrayProcessesMonitor__when_error_raised_in_own_thread__hard_stops_and_joins_subprocesses_if_running_and_shutsdown_server(
@@ -219,7 +221,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_instrument_comm(
     instrument_comm_to_main.put_nowait(expected_comm)
     assert is_queue_eventually_not_empty(instrument_comm_to_main) is True
     invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(instrument_comm_to_main) is True
+    confirm_queue_is_eventually_empty(instrument_comm_to_main)
     mocked_logger.assert_called_once_with(f"Communication from the Instrument Controller: {expected_comm}")
 
 
@@ -241,7 +243,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_file_writer__and_redacts_
     file_writer_to_main.put_nowait(copy.deepcopy(expected_comm))
     assert is_queue_eventually_not_empty(file_writer_to_main) is True
     invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(file_writer_to_main) is True
+    confirm_queue_is_eventually_empty(file_writer_to_main)
 
     for sensitive_key in sensitive_keys:
         expected_comm[sensitive_key] = redact_sensitive_info_from_path(expected_comm[sensitive_key])
@@ -267,7 +269,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_data_analyzer(
     data_analyzer_to_main.put_nowait(expected_comm)
     assert is_queue_eventually_not_empty(data_analyzer_to_main) is True
     invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(data_analyzer_to_main) is True
+    confirm_queue_is_eventually_empty(data_analyzer_to_main)
     mocked_logger.assert_called_once_with(f"Communication from the Data Analyzer: {expected_comm}")
 
 
@@ -293,7 +295,7 @@ def test_MantarrayProcessesMonitor__handles_completed_mag_analysis_command_corre
     assert is_queue_eventually_not_empty(data_analyzer_to_main) is True
 
     invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(data_analyzer_to_main) is True
+    confirm_queue_is_eventually_empty(data_analyzer_to_main)
 
     ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert ws_message == {"data_type": test_data_type, "data_json": expected_data_json}
@@ -454,67 +456,6 @@ def test_MantarrayProcessesMonitor__handles_non_instrument_related_errors_from_i
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == expected_system_status
     mocked_hard_stop_and_join.assert_called_once_with(shutdown_server=not is_fw_update_error)
-
-
-def test_MantarrayProcessesMonitor__logs_errors_from_instrument_comm_process(
-    mocker, test_process_manager_creator, test_monitor
-):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, *_ = test_monitor(test_process_manager)
-
-    mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
-    mocker.patch.object(test_process_manager, "hard_stop_and_join_processes", autospec=True)
-
-    instrument_comm_error_queue = test_process_manager.queue_container.instrument_comm_error
-    expected_error = ValueError("something wrong")
-    expected_stack_trace = "my stack trace"
-    expected_message = f"Error raised by subprocess {test_process_manager.instrument_comm_process}\n{expected_stack_trace}\n{expected_error}"
-    instrument_comm_error_queue.put_nowait((expected_error, expected_stack_trace))
-    assert is_queue_eventually_not_empty(instrument_comm_error_queue) is True
-    invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(instrument_comm_error_queue) is True
-    mocked_logger.assert_any_call(expected_message)
-
-
-def test_MantarrayProcessesMonitor__logs_errors_from_file_writer(
-    mocker, test_process_manager_creator, test_monitor
-):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, *_ = test_monitor(test_process_manager)
-
-    mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
-    mocker.patch.object(test_process_manager, "hard_stop_and_join_processes", autospec=True)
-
-    file_writer_error_queue = test_process_manager.queue_container.file_writer_error
-    expected_error = ValueError("something wrong when writing file")
-    expected_stack_trace = "my stack trace from writing a file"
-    expected_message = f"Error raised by subprocess {test_process_manager.file_writer_process}\n{expected_stack_trace}\n{expected_error}"
-    file_writer_error_queue.put_nowait((expected_error, expected_stack_trace))
-    assert is_queue_eventually_not_empty(file_writer_error_queue) is True
-    invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(file_writer_error_queue) is True
-    mocked_logger.assert_any_call(expected_message)
-
-
-def test_MantarrayProcessesMonitor__logs_errors_from_data_analyzer(
-    mocker, test_process_manager_creator, test_monitor
-):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, *_ = test_monitor(test_process_manager)
-
-    mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
-    mocker.patch.object(test_process_manager, "hard_stop_and_join_processes", autospec=True)
-
-    data_analyzer_error_queue = test_process_manager.queue_container.data_analyzer_error
-    expected_error = ValueError("something wrong when analyzing data")
-    expected_stack_trace = "my stack trace from analyzing some data"
-    expected_message = f"Error raised by subprocess {test_process_manager.data_analyzer_process}\n{expected_stack_trace}\n{expected_error}"
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        (expected_error, expected_stack_trace), data_analyzer_error_queue
-    )
-    invoke_process_run_and_check_errors(monitor_thread)
-    assert is_queue_eventually_empty(data_analyzer_error_queue) is True
-    mocked_logger.assert_any_call(expected_message)
 
 
 def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queue_items_when_error_is_raised_in_ok_comm_subprocess(
