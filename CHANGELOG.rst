@@ -8,6 +8,7 @@ Added:
 ^^^^^^
 - More accurate reporting of stimulation subprotocol start times.
 - Notifications to let users know when their customer account has reached their analysis limit, if applicable.
+- User password and username redacted from logs.
 
 Changed:
 ^^^^^^^^
@@ -32,7 +33,6 @@ Fixed:
 Added:
 ^^^^^^
 - PlateMap Editor page for creating labelled groupings of wells.
-- User password and username redacted from logs
 
 
 Changed:
