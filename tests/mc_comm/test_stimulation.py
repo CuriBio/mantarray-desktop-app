@@ -5,6 +5,7 @@ from random import randint
 import struct
 
 from freezegun import freeze_time
+from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
 from mantarray_desktop_app import StimulationProtocolUpdateFailedError
@@ -97,6 +98,10 @@ def test_McCommunicationProcess__processes_start_stim_checks_command__and_sends_
         "communication_type": "stimulation",
         "command": "start_stim_checks",
         "well_indices": test_well_indices,
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
+        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
+        "stim_barcode_is_from_scanner": True,
+        "plate_barcode_is_from_scanner": True,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         copy.deepcopy(start_stim_checks_command), input_queue
