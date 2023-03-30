@@ -458,6 +458,38 @@ def test_MantarrayProcessesMonitor__handles_non_instrument_related_errors_from_i
     mocked_hard_stop_and_join.assert_called_once_with(shutdown_server=not is_fw_update_error)
 
 
+@pytest.mark.parametrize(
+    "test_subprocess_name,test_error_queue_name",
+    [
+        ("instrument_comm_process", "instrument_comm_error"),
+        ("file_writer_process", "file_writer_error"),
+        ("data_analyzer_process", "data_analyzer_error"),
+    ],
+)
+def test_MantarrayProcessesMonitor__logs_errors_from_subprocesses(
+    test_subprocess_name, test_error_queue_name, mocker, test_process_manager_creator, test_monitor
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
+
+    test_subprocess = getattr(test_process_manager, test_subprocess_name)
+    test_error_queue = getattr(test_process_manager.queue_container, test_error_queue_name)
+
+    mocked_logger = mocker.patch.object(process_monitor.logger, "error", autospec=True)
+    mocker.patch.object(test_process_manager, "hard_stop_and_join_processes", autospec=True)
+
+    expected_error = ValueError("msg")
+    expected_stack_trace = f"stack\ntrace\n{expected_error}"
+    expected_message = f"Error raised by subprocess {test_subprocess}\n{expected_stack_trace}"
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        (expected_error, expected_stack_trace), test_error_queue
+    )
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_empty(test_error_queue)
+    mocked_logger.assert_any_call(expected_message)
+
+
 def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queue_items_when_error_is_raised_in_ok_comm_subprocess(
     mocker, test_process_manager_creator, test_monitor
 ):
