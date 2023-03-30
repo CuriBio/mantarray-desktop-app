@@ -546,9 +546,18 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         response = requests.get(f"{get_api_endpoint()}update_settings", params=settings_dict)
         assert response.status_code == 200
 
+        expected_plate_barcode_1 = GENERIC_BETA_2_START_RECORDING_COMMAND[
+            "metadata_to_copy_onto_main_file_attributes"
+        ][PLATE_BARCODE_UUID]
+
         # run stimulator checks
         response = requests.post(
-            f"{get_api_endpoint()}start_stim_checks", json={"well_indices": list(range(24))}
+            f"{get_api_endpoint()}start_stim_checks",
+            json={
+                "well_indices": list(range(24)),
+                "plate_barcode": expected_plate_barcode_1,
+                "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
+            },
         )
         assert response.status_code == 200
         # wait for checks to complete
@@ -567,10 +576,6 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert stimulation_running_status_eventually_equals(True, 4) is True
         # sleep to let protocol B complete before starting live view
         time.sleep(5)
-
-        expected_plate_barcode_1 = GENERIC_BETA_2_START_RECORDING_COMMAND[
-            "metadata_to_copy_onto_main_file_attributes"
-        ][PLATE_BARCODE_UUID]
 
         # Tanner (6/1/21): Start managed_acquisition in order to start recording
         response = requests.get(

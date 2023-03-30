@@ -324,16 +324,17 @@ def start_stim_checks() -> Response:
     if not well_indices:
         return Response(status="400 No well indices given")
 
+    # check if barcodes were manually entered and match
     barcode_dict: Dict[str, Any] = {}
     for barcode_type in ("plate_barcode", "stim_barcode"):
         barcode = request_body.get(barcode_type)
         barcode_dict.update({barcode_type: barcode})
         if isinstance(barcode, str):
-            barcode_dict[f"{barcode_type}_values_match"] = _check_scanned_barcode_vs_user_value(
+            barcode_dict[f"{barcode_type}_is_from_scanner"] = _check_scanned_barcode_vs_user_value(
                 barcode, barcode_type, shared_values_dict
             )
         else:
-            barcode_dict[f"{barcode_type}_values_match"] = False
+            barcode_dict[f"{barcode_type}_is_from_scanner"] = False
 
     response = queue_command_to_main(
         {
