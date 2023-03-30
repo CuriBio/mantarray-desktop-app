@@ -1934,6 +1934,10 @@ def test_MantarrayProcessesMonitor__passes_stim_status_check_results_from_mc_com
         "command": "start_stim_checks",
         "stimulator_circuit_statuses": stim_check_results,
         "adc_readings": adc_readings,
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
+        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
+        "stim_barcode_is_from_scanner": True,
+        "plate_barcode_is_from_scanner": True,
     }
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(

@@ -366,9 +366,19 @@ def test_start_stim_checks__returns_correct_response(
         well_idx: StimulatorCircuitStatuses.MEDIA.name.lower() for well_idx in range(test_num_wells)
     }
 
+    test_stim_barcode = MantarrayMcSimulator.default_stim_barcode
+    test_plate_barcode = MantarrayMcSimulator.default_plate_barcode
+
     expected_status_code = 200 if test_system_status == CALIBRATED_STATE else 403
 
-    response = test_client.post("/start_stim_checks", json={"well_indices": [0]})
+    response = test_client.post(
+        "/start_stim_checks",
+        json={
+            "well_indices": [0],
+            "plate_barcode": test_plate_barcode,
+            "stim_barcode": test_stim_barcode,
+        },
+    )
     assert response.status_code == expected_status_code
     if expected_status_code == 403:
         assert response.status.endswith("Route cannot be called unless in calibrated state")
@@ -441,7 +451,17 @@ def test_start_stim_checks__returns_error_code_and_message_if_called_with_empty_
     shared_values_dict["stimulation_running"] = [False] * test_num_wells
     shared_values_dict["stimulator_circuit_statuses"] = {}
 
-    response = test_client.post("/start_stim_checks", json={"well_indices": []})
+    test_stim_barcode = MantarrayMcSimulator.default_stim_barcode
+    test_plate_barcode = MantarrayMcSimulator.default_plate_barcode
+
+    response = test_client.post(
+        "/start_stim_checks",
+        json={
+            "well_indices": [],
+            "plate_barcode": test_plate_barcode,
+            "stim_barcode": test_stim_barcode,
+        },
+    )
     assert response.status_code == 400
     assert response.status.endswith("No well indices given")
 

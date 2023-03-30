@@ -65,6 +65,7 @@ from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import convert_after_request_log_msg_to_json
 from ..helpers import is_queue_eventually_not_empty
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
+from ..helpers import random_bool
 
 __fixtures__ = [
     fixture_client_and_server_manager_and_shared_values,
@@ -1382,3 +1383,54 @@ def test_after_request__redacts_recording_folder_path_from_get_recordings_log_me
         "recordings_list": test_recording_info_list,
         "root_recording_path": redact_sensitive_info_from_path(test_recording_dir),
     }
+
+
+@pytest.mark.parametrize(
+    "test_plate_barcode,test_stim_barcode,expected_is_from_scanner",
+    [
+        (MantarrayMcSimulator.default_plate_barcode, MantarrayMcSimulator.default_stim_barcode, True),
+        (None, None, False),
+        ("ML22001001-2", "ML22001001-2", False),
+    ],
+)
+def test_start_stim_checks__correctly_checks_if_barcodes_are_from_scanner_or_manually_entered(
+    client_and_server_manager_and_shared_values,
+    test_plate_barcode,
+    test_stim_barcode,
+    expected_is_from_scanner,
+):
+    test_client, (server_manager, _), shared_values_dict = client_and_server_manager_and_shared_values
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+
+    test_num_wells = 24
+
+    test_well_indices = [i for i in range(test_num_wells) if random_bool()]
+    if not test_well_indices:
+        # guard against unlikely case where no wells were selected
+        test_well_indices = [0]
+
+    expected_comm_dict = {
+        "communication_type": "stimulation",
+        "command": "start_stim_checks",
+        "well_indices": test_well_indices,
+        "plate_barcode": test_plate_barcode,
+        "stim_barcode": test_stim_barcode,
+        "plate_barcode_is_from_scanner": expected_is_from_scanner,
+        "stim_barcode_is_from_scanner": expected_is_from_scanner,
+    }
+
+    response = test_client.post(
+        "/start_stim_checks",
+        json={
+            "well_indices": [str(well_idx) for well_idx in test_well_indices],
+            "plate_barcode": test_plate_barcode,
+            "stim_barcode": test_stim_barcode,
+        },
+    )
+    assert response.status_code == 200
+
+    comm_queue = server_manager.get_queue_to_main()
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
+    communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert communication == expected_comm_dict

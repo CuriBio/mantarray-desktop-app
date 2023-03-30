@@ -10,6 +10,7 @@ from mantarray_desktop_app import CALIBRATING_STATE
 from mantarray_desktop_app import CALIBRATION_RECORDING_DUR_SECONDS
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
+from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
@@ -295,6 +296,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__passe
         "communication_type": "stimulation",
         "command": "start_stim_checks",
         "well_indices": test_wells,
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
+        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
+        "stim_barcode_is_from_scanner": True,
+        "plate_barcode_is_from_scanner": True,
     }
 
     server_to_main_queue = test_process_manager.queue_container.from_flask

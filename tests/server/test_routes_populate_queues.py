@@ -1463,14 +1463,26 @@ def test_start_stim_checks__populates_queue_to_process_monitor_with_correct_comm
         # guard against unlikely case where no wells were selected
         test_well_indices = [0]
 
+    test_stim_barcode = MantarrayMcSimulator.default_stim_barcode
+    test_plate_barcode = MantarrayMcSimulator.default_plate_barcode
+
     expected_comm_dict = {
         "communication_type": "stimulation",
         "command": "start_stim_checks",
         "well_indices": test_well_indices,
+        "plate_barcode": test_plate_barcode,
+        "stim_barcode": test_stim_barcode,
+        "plate_barcode_is_from_scanner": False,
+        "stim_barcode_is_from_scanner": False,
     }
 
     response = test_client.post(
-        "/start_stim_checks", json={"well_indices": [str(well_idx) for well_idx in test_well_indices]}
+        "/start_stim_checks",
+        json={
+            "well_indices": [str(well_idx) for well_idx in test_well_indices],
+            "plate_barcode": test_plate_barcode,
+            "stim_barcode": test_stim_barcode,
+        },
     )
     assert response.status_code == 200
 

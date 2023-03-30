@@ -92,6 +92,7 @@ from ..exceptions import RecordingFolderDoesNotExistError
 from ..exceptions import ServerManagerNotInitializedError
 from ..exceptions import ServerManagerSingletonAlreadySetError
 from ..sub_processes.ok_comm import check_mantarray_serial_number
+from ..utils.generic import _check_scanned_barcode_vs_user_value
 from ..utils.generic import _create_start_recording_command
 from ..utils.generic import _get_timestamp_of_acquisition_sample_index_zero
 from ..utils.generic import check_barcode_for_errors
@@ -314,18 +315,33 @@ def start_stim_checks() -> Response:
         return Response(status="403 Cannot perform stimulator checks while stimulation is running")
     if _are_stimulator_checks_running():
         return Response(status="304 Stimulator checks already running")
+
+    request_body = request.get_json()
     try:
-        well_indices = request.get_json()["well_indices"]
+        well_indices = request_body["well_indices"]
     except Exception:
         return Response(status="400 Request body missing 'well_indices'")
     if not well_indices:
         return Response(status="400 No well indices given")
+
+    # check if barcodes were manually entered and match
+    barcode_dict: Dict[str, Any] = {}
+    for barcode_type in ("plate_barcode", "stim_barcode"):
+        barcode = request_body.get(barcode_type)
+        barcode_dict.update({barcode_type: barcode})
+        if isinstance(barcode, str):
+            barcode_dict[f"{barcode_type}_is_from_scanner"] = _check_scanned_barcode_vs_user_value(
+                barcode, barcode_type, shared_values_dict
+            )
+        else:
+            barcode_dict[f"{barcode_type}_is_from_scanner"] = False
 
     response = queue_command_to_main(
         {
             "communication_type": "stimulation",
             "command": "start_stim_checks",
             "well_indices": [int(well_idx) for well_idx in well_indices],
+            **barcode_dict,
         }
     )
     return response
