@@ -8,7 +8,7 @@ Added:
 ^^^^^^
 - More accurate reporting of stimulation subprotocol start times.
 - Notifications to let users know when their customer account has reached their analysis limit, if applicable.
-- User password and username redacted from logs.
+
 
 Changed:
 ^^^^^^^^
@@ -20,6 +20,7 @@ Changed:
   - Minimum current is now 1 mA.
   - Minimum phase one/two duration is now 0.02 ms.
   - Minimum non-zero interphase interval is now 0.02 ms (0 is still allowed).
+- User password and username redacted from logs. This improves security by censoring user data in logs.
 
 Fixed:
 ^^^^^^

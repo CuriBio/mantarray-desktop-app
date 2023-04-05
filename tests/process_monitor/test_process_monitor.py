@@ -495,7 +495,7 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
 ):
 
     expected_ok_comm_item = {
-        "board_0": {"file_writer_to_data_analyzer": [], "outgoing_data": []},
+        "board_0": {"outgoing_data": []},
         "from_main_to_data_analyzer": [],
         "from_data_analyzer_to_main": [],
         "fatal_error_reporter": [],
@@ -511,7 +511,7 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
             },
             {
                 "communication_type": "update_user_settings",
-                "content": {"user_password": "password", "user_name": "username"},
+                "content": {"user_password": "passwordToRedact", "user_name": "usernameToRedact"},
             },
         ],
         "fatal_error_reporter": [],
@@ -523,7 +523,7 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
         "fatal_error_reporter": [],
     }
     expected_server_item = {
-        "board_0": {"file_writer_to_data_analyzer": [], "outgoing_data": []},
+        "board_0": {"outgoing_data": []},
         "from_main_to_data_analyzer": [],
         "from_data_analyzer_to_main": [],
         "fatal_error_reporter": [],
@@ -573,8 +573,6 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
     assert str(expected_da_item) in actual
     assert str(expected_file_writer_item) in actual
     assert str(expected_da_item) in actual
-
-    process_monitor._redact_from_queue_items(expected_file_writer_item)
 
 
 @freeze_time(datetime.datetime(year=2020, month=2, day=27, hour=12, minute=14, second=22, microsecond=336597))
