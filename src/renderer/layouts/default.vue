@@ -135,6 +135,7 @@
       </span>
     </div>
     <div class="div__top-bar-above-waveforms">
+      <StimulationRunningWidget />
       <div class="div__recording-top-bar-container">
         <UploadFilesWidget />
         <RecordingTime />
@@ -157,6 +158,7 @@ import {
   UploadFilesWidget,
   DataAnalysisControl,
   PlateMapEditorButton,
+  StimulationRunningWidget,
 } from "@curi-bio/mantarray-frontend-components";
 import { ipcRenderer } from "electron";
 import { mapState } from "vuex";
@@ -181,6 +183,7 @@ export default {
     UploadFilesWidget,
     DataAnalysisControl,
     BCollapse,
+    StimulationRunningWidget,
     PlateMapEditorButton,
   },
   data: function () {
@@ -425,6 +428,9 @@ body {
   background-color: #111111;
   height: 45px;
   width: 1629px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 .div__recording-top-bar-container {

@@ -1,7 +1,20 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.1.0 (unreleased)
+1.1.1 (unreleased)
+------------------
+
+Added:
+^^^^^^
+- When stimulation is active a flashing alert will appear in the top right corner of the UI.
+- A modal will popup when stimulation ends to inform the user in the case they left the device running without supervision.
+
+Fixed:
+^^^^^^
+- Userinfo (username, password) is redacted from logs to improve security and prevent user data from being leaked.
+
+
+1.1.0 (2023-04-10)
 ------------------
 
 Added:
