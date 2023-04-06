@@ -493,41 +493,27 @@ def test_MantarrayProcessesMonitor__logs_errors_from_subprocesses(
 def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queue_items_when_error_is_raised_in_ok_comm_subprocess(
     mocker, test_process_manager_creator, test_monitor
 ):
-
     expected_ok_comm_item = {
-        "board_0": {"outgoing_data": []},
-        "from_main_to_data_analyzer": [],
-        "from_data_analyzer_to_main": [],
+        "board_0": {
+            "main_to_instrument_comm": [],
+            "instrument_comm_to_main": [],
+            "instrument_comm_to_file_writer": [],
+        },
         "fatal_error_reporter": [],
     }
     expected_file_writer_item = {
         "board_0": {"instrument_comm_to_file_writer": [], "file_writer_to_data_analyzer": []},
         "from_main_to_file_writer": [],
-        "from_file_writer_to_main": [
-            {
-                "communication_type": "log",
-                "log_level": 20,
-                "message": "File Writer Process beginning teardown at 2023-02-06 23:25:38.365941",
-            },
-            {
-                "communication_type": "update_user_settings",
-                "content": {"user_password": "passwordToRedact", "user_name": "usernameToRedact"},
-            },
-        ],
+        "from_file_writer_to_main": [],
         "fatal_error_reporter": [],
     }
-    expected_da_item = {
+    expected_data_analzyer_item = {
         "board_0": {"file_writer_to_data_analyzer": [], "outgoing_data": []},
         "from_main_to_data_analyzer": [],
         "from_data_analyzer_to_main": [],
         "fatal_error_reporter": [],
     }
-    expected_server_item = {
-        "board_0": {"outgoing_data": []},
-        "from_main_to_data_analyzer": [],
-        "from_data_analyzer_to_main": [],
-        "fatal_error_reporter": [],
-    }
+    expected_server_item = {"to_main": [], "outgoing_data": []}
 
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
@@ -556,7 +542,9 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
     to_file_writer = test_process_manager.queue_container.to_file_writer
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_file_writer_item, to_file_writer)
     to_data_analyzer = test_process_manager.queue_container.to_data_analyzer
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_da_item, to_data_analyzer)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        expected_data_analzyer_item, to_data_analyzer
+    )
     server_to_main = test_process_manager.queue_container.from_flask
     put_object_into_queue_and_raise_error_if_eventually_still_empty(expected_server_item, server_to_main)
 
@@ -569,10 +557,10 @@ def test_MantarrayProcessesMonitor__hard_stops_and_joins_processes_and_logs_queu
 
     actual = mocked_logger.call_args_list[1][0][0]
     assert "Remaining items in process queues: {" in actual
+    assert str(expected_ok_comm_item) in actual
     assert str(expected_file_writer_item) in actual
-    assert str(expected_da_item) in actual
-    assert str(expected_file_writer_item) in actual
-    assert str(expected_da_item) in actual
+    assert str(expected_data_analzyer_item) in actual
+    assert str(expected_server_item) in actual
 
 
 @freeze_time(datetime.datetime(year=2020, month=2, day=27, hour=12, minute=14, second=22, microsecond=336597))

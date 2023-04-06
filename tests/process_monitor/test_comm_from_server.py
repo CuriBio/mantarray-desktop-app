@@ -23,6 +23,7 @@ from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.constants import UPDATES_NEEDED_STATE
 from mantarray_desktop_app.main_process import process_manager
 from mantarray_desktop_app.main_process import process_monitor
+from mantarray_desktop_app.main_process.process_monitor import _redact_from_queue_items
 from mantarray_desktop_app.utils.generic import redact_sensitive_info_from_path
 from pulse3D.constants import CUSTOMER_ACCOUNT_ID_UUID
 from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
@@ -663,39 +664,38 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
     server_to_main_queue = test_process_manager.queue_container.from_flask
+
     fw_process = test_process_manager.file_writer_process
     da_process = test_process_manager.data_analyzer_process
     okc_process = test_process_manager.instrument_comm_process
 
     expected_okc_item = {
         "board_0": {
-            "outgoing_data": [
+            "main_to_instrument_comm": [],
+            "instrument_comm_to_main": [
                 {
                     "communication_type": "log",
                     "log_level": 20,
-                    "message": "TestMessage",
+                    "message": "Remaining serial data in cache: [], in buffer: []",
                 },
-            ]
+            ],
+            "instrument_comm_to_file_writer": [],
         },
+        "fatal_error_reporter": [],
     }
     expected_fw_item = {
         "board_0": {"instrument_comm_to_file_writer": [], "file_writer_to_data_analyzer": []},
+        # put same message in both queues to make sure both get redacted
         "from_main_to_file_writer": [
             {
-                "communication_type": "log",
-                "log_level": 20,
-                "message": "TestMessage",
+                "communication_type": "update_user_settings",
+                "content": {"user_password": "password_to_redact", "user_name": "username_to_redact"},
             },
         ],
         "from_file_writer_to_main": [
             {
-                "communication_type": "log",
-                "log_level": 20,
-                "message": "TestMessage",
-            },
-            {
                 "communication_type": "update_user_settings",
-                "content": {"user_password": "passwordToRedact", "user_name": "usernameToRedact"},
+                "content": {"user_password": "password_to_redact", "user_name": "username_to_redact"},
             },
         ],
     }
@@ -724,25 +724,22 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
             },
         ],
     }
-    expected_okc_item_copy = copy.deepcopy(expected_okc_item)
-    expected_fw_item_copy = copy.deepcopy(expected_fw_item)
-    expected_da_item_copy = copy.deepcopy(expected_da_item)
-    process_monitor._redact_from_queue_items(expected_okc_item)
-    process_monitor._redact_from_queue_items(expected_fw_item)
-    process_monitor._redact_from_queue_items(expected_da_item)
 
-    mocker.patch.object(fw_process, "hard_stop", autospec=True, return_value=expected_fw_item_copy)
-    mocker.patch.object(da_process, "hard_stop", autospec=True, return_value=expected_da_item_copy)
-    mocker.patch.object(okc_process, "hard_stop", autospec=True, return_value=expected_okc_item_copy)
+    # setup hard_stop functions to return unredacted copies of the teardown message
+    mocker.patch.object(fw_process, "hard_stop", autospec=True, return_value=copy.deepcopy(expected_okc_item))
+    mocker.patch.object(da_process, "hard_stop", autospec=True, return_value=copy.deepcopy(expected_fw_item))
+    mocker.patch.object(okc_process, "hard_stop", autospec=True, return_value=copy.deepcopy(expected_da_item))
+
+    # make redactions on original teardown messages
+    _redact_from_queue_items(expected_okc_item)
+    _redact_from_queue_items(expected_fw_item)
+    _redact_from_queue_items(expected_da_item)
 
     communication = {"communication_type": "shutdown", "command": "hard_stop"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(communication, server_to_main_queue)
 
     mocker.patch.object(
-        process_manager,
-        "perf_counter",
-        autospec=True,
-        side_effect=[0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS],
+        process_manager, "perf_counter", autospec=True, side_effect=[0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS]
     )
 
     mocked_monitor_logger_info = mocker.patch.object(process_monitor.logger, "info", autospec=True)
