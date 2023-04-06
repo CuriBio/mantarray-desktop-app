@@ -9,6 +9,7 @@ Added:
 - More accurate reporting of stimulation subprotocol start times.
 - Notifications to let users know when their customer account has reached their analysis limit, if applicable.
 
+
 Changed:
 ^^^^^^^^
 - Beta 2 H5 file format version is now 1.3.0. The format itself hasn't actually changed,
@@ -19,6 +20,7 @@ Changed:
   - Minimum current is now 1 mA.
   - Minimum phase one/two duration is now 0.02 ms.
   - Minimum non-zero interphase interval is now 0.02 ms (0 is still allowed).
+- User password and username redacted from logs. This improves security by censoring user data in logs.
 
 Fixed:
 ^^^^^^

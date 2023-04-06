@@ -372,6 +372,7 @@ __all__ = [
     "get_latest_firmware",
     "get_latest_firmware_version",
     "redact_sensitive_info_from_path",
+    "redact_sensitive_info",
     "ADC_GAIN_DESCRIPTION_TAG",
     "parse_gain",
     "system_state_eventually_equals",

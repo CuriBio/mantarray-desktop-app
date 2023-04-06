@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections import deque
+import copy
 import datetime
 import glob
 import json
@@ -60,6 +61,7 @@ from ..constants import CENTIMILLISECONDS_PER_SECOND
 from ..constants import COMPILED_EXE_BUILD_TIMESTAMP
 from ..constants import CURRENT_SOFTWARE_VERSION
 from ..constants import DEFAULT_SAMPLING_PERIOD
+from ..constants import GENERIC_24_WELL_DEFINITION
 from ..constants import MICRO_TO_BASE_CONVERSION
 from ..constants import MICROSECONDS_PER_CENTIMILLISECOND
 from ..constants import REFERENCE_VOLTAGE
@@ -151,6 +153,50 @@ def convert_request_args_to_config_dict(request_args: Dict[str, Any]) -> Dict[st
             config_dict[new_arg_name] = arg_bool_str.lower() == "true"
 
     return config_dict
+
+
+def redact_sensitive_info(communication: Dict[str, Any]) -> Dict[str, Any]:
+    communication_type = communication.get("communication_type")
+    command = communication.get("command")
+
+    if "mantarray_nickname" in communication:
+        # Tanner (1/20/21): items in communication dict are used after this log message is generated, so need to create a copy of the dict when redacting info
+        comm_copy = copy.deepcopy(communication)
+        comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
+    elif communication_type == "update_user_settings":
+        comm_copy = copy.deepcopy(communication)
+        comm_copy["content"]["user_password"] = get_redacted_string(4)
+        comm_copy["content"]["user_name"] = get_redacted_string(4)
+    elif communication_type == "mag_finding_analysis":
+        comm_copy = copy.deepcopy(communication)
+        comm_copy["recordings"] = [
+            redact_sensitive_info_from_path(recording_path) for recording_path in comm_copy["recordings"]
+        ]
+    elif communication_type == "mag_analysis_complete":
+        data_type = communication["content"]["data_type"]
+        comm_copy = {
+            "communication_type": "mag_analysis_complete",
+            # make a shallow copy so all the data isn't copied
+            "content": copy.copy(communication["content"]),
+        }
+        if data_type == "recording_snapshot_data":
+            comm_copy["content"].pop("data_json")
+    elif communication_type == "metadata_comm":
+        comm_copy = copy.deepcopy(communication)
+        comm_copy["metadata"][MANTARRAY_NICKNAME_UUID] = get_redacted_string(
+            len(comm_copy["metadata"][MANTARRAY_NICKNAME_UUID])
+        )
+    elif communication_type == "stimulation" and command == "start_stim_checks":
+        comm_copy = copy.deepcopy(communication)
+        for sub_dict_name in ("stimulator_circuit_statuses", "adc_readings"):
+            if sub_dict := comm_copy.get(sub_dict_name):
+                for well_idx in sorted(sub_dict):
+                    well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
+                    sub_dict[well_name] = sub_dict.pop(well_idx)
+    else:
+        comm_copy = copy.copy(communication)
+
+    return comm_copy
 
 
 def redact_sensitive_info_from_path(file_path: Optional[str]) -> Optional[str]:
