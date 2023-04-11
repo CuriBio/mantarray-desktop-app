@@ -6,12 +6,12 @@ Changelog for Mantarray Desktop App
 
 Added:
 ^^^^^^
-- When stimulation is active a flashing alert will appear in the top right corner of the UI.
-- A modal will popup when stimulation ends to inform the user in the case they left the device running without supervision.
+- Flashing icon to indicate that stim is active.
+- Alert when stimulation ends automatically.
 
 Fixed:
 ^^^^^^
-- Userinfo (username, password) is redacted from logs to improve security and prevent user data from being leaked.
+- Issue where sensitive information is logged during app teardown.
 
 
 1.1.0 (2023-04-10)
@@ -22,7 +22,6 @@ Added:
 - More accurate reporting of stimulation subprotocol start times.
 - Notifications to let users know when their customer account has reached their analysis limit, if applicable.
 
-
 Changed:
 ^^^^^^^^
 - Beta 2 H5 file format version is now 1.3.0. The format itself hasn't actually changed,
@@ -30,10 +29,9 @@ Changed:
   in order to be displayed in Pulse3D.
 - Stim pulse requirements:
 
-  - Minimum current is now 1 mA.
+  - Minimum absolute magnitude of current is now 1 mA.
   - Minimum phase one/two duration is now 0.02 ms.
   - Minimum non-zero interphase interval is now 0.02 ms (0 is still allowed).
-- User password and username redacted from logs. This improves security by censoring user data in logs.
 
 Fixed:
 ^^^^^^
