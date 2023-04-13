@@ -148,7 +148,12 @@ def test_main__logs_system_info__and_software_version_at_very_start(mocker):
     with tempfile.TemporaryDirectory() as tmp:
         spied_info_logger = mocker.spy(main.logger, "info")
         expected_uuid = "c7d3e956-cfc3-42df-94d9-b3a19cf1529c"
-        test_dict = {"log_file_id": expected_uuid, "recording_directory": tmp, "mag_analysis_output_dir": tmp}
+        test_dict = {
+            "log_file_id": expected_uuid,
+            "recording_directory": tmp,
+            "mag_analysis_output_dir": tmp,
+            "fw_update_directory": tmp,
+        }
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
         main.main(
@@ -381,6 +386,7 @@ def test_main__stores_values_from_command_line_arguments(mocker, fully_running_a
     with tempfile.TemporaryDirectory() as tmp_dir:
         expected_recordings_dir = os.path.join(tmp_dir, "recordings")
         expected_analysis_output_dir = os.path.join(tmp_dir, "recordings")
+        expected_fw_update_dir = os.path.join(tmp_dir, "firmware_updates")
         test_dict = {
             "user_name": "455b93eb-c78f-4494-9f73-d3291130f126",
             "recording_directory": expected_recordings_dir,
@@ -402,6 +408,7 @@ def test_main__stores_values_from_command_line_arguments(mocker, fully_running_a
         assert shared_values_dict["beta_2_mode"] is False
         actual_config_settings = shared_values_dict["config_settings"]
 
+        assert actual_config_settings["fw_update_directory"] == expected_fw_update_dir
         assert actual_config_settings["recording_directory"] == expected_recordings_dir
         assert shared_values_dict["log_file_id"] == "91dbb151-0867-44da-a595-bd303f91927d"
         assert (

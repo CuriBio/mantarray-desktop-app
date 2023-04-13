@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 import copy
-from random import randint
+import os
 
 from mantarray_desktop_app import CLOUD_API_ENDPOINT
+from mantarray_desktop_app.constants import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app.exceptions import FirmwareAndSoftwareNotCompatibleError
 from mantarray_desktop_app.exceptions import FirmwareDownloadError
 from mantarray_desktop_app.simulators.mc_simulator import MantarrayMcSimulator
@@ -10,6 +11,7 @@ from mantarray_desktop_app.sub_processes.mc_comm import download_firmware_update
 from mantarray_desktop_app.utils.web_api import AuthTokens
 from mantarray_desktop_app.workers import firmware_downloader
 from mantarray_desktop_app.workers.firmware_downloader import call_firmware_download_route
+from mantarray_desktop_app.workers.firmware_downloader import check_for_local_firmware_versions
 from mantarray_desktop_app.workers.firmware_downloader import check_versions
 from mantarray_desktop_app.workers.firmware_downloader import get_latest_firmware_versions
 from mantarray_desktop_app.workers.firmware_downloader import verify_software_firmware_compatibility
@@ -17,9 +19,7 @@ import pytest
 import requests
 from requests.exceptions import ConnectionError
 
-
-def random_semver():
-    return f"{randint(0,1000)}.{randint(0,1000)}.{randint(0,1000)}"
+from ..fixtures import random_semver
 
 
 def test_call_firmware_download_route__calls_requests_get_correctly(mocker):
@@ -92,6 +92,62 @@ def test_call_firmware_download_route__handles_response_error_code_correctly__wi
         call_firmware_download_route("url", error_message=test_error_message)
 
 
+def test_check_for_local_firmware_versions__return_correctly_if_fw_update_path_is_not_a_directory(mocker):
+    mocked_is_dir = mocker.patch.object(
+        firmware_downloader.os.path, "isdir", autospec=True, return_value=False
+    )
+    mocked_listdir = mocker.patch.object(firmware_downloader.os, "listdir", autospec=True, return_value=[])
+
+    test_fw_update_dir_path = "some/dir"
+    assert check_for_local_firmware_versions(test_fw_update_dir_path) is None
+
+    mocked_is_dir.assert_called_once_with(test_fw_update_dir_path)
+    mocked_listdir.assert_not_called()
+
+
+def test_check_for_local_firmware_versions__return_correctly_if_fw_update_directory_is_empty(mocker):
+    mocked_is_dir = mocker.patch.object(
+        firmware_downloader.os.path, "isdir", autospec=True, return_value=True
+    )
+    mocked_listdir = mocker.patch.object(firmware_downloader.os, "listdir", autospec=True, return_value=[])
+
+    test_fw_update_dir_path = "some/dir"
+    assert check_for_local_firmware_versions(test_fw_update_dir_path) is None
+
+    mocked_is_dir.assert_called_once_with(test_fw_update_dir_path)
+    mocked_listdir.assert_called_once_with(test_fw_update_dir_path)
+
+
+@pytest.mark.parametrize("main_fw_update,channel_fw_update", [(False, True), (True, False), (True, True)])
+def test_check_for_local_firmware_versions__return_correctly_if_fw_update_directory_contains_files(
+    main_fw_update, channel_fw_update, mocker
+):
+    mocked_is_dir = mocker.patch.object(
+        firmware_downloader.os.path, "isdir", autospec=True, return_value=True
+    )
+    mocked_listdir = mocker.patch.object(firmware_downloader.os, "listdir", autospec=True)
+
+    expected_fw_versions = {
+        "main-fw": "1.1.1" if main_fw_update else "0.0.0",
+        "channel-fw": "2.2.2" if channel_fw_update else "0.0.0",
+    }
+
+    mocked_listdir.return_value = [
+        f"{fw_type.split('-')[0]}-{version}.bin"
+        for fw_type, version in expected_fw_versions.items()
+        if version != "0.0.0"
+    ] + [".DS_Store"]
+
+    test_fw_update_dir_path = "some/dir"
+    assert check_for_local_firmware_versions(test_fw_update_dir_path) == {
+        "latest_versions": {"sw": CURRENT_SOFTWARE_VERSION, **expected_fw_versions},
+        "download": False,
+    }
+
+    mocked_is_dir.assert_called_once_with(test_fw_update_dir_path)
+    mocked_listdir.assert_called_once_with(test_fw_update_dir_path)
+
+
 def test_get_latest_firmware_versions__calls_api_endpoint_correctly_and_returns_values_correctly(mocker):
     expected_latest_main_fw_version = "1.0.0"
     expected_latest_channel_fw_version = "1.0.1"
@@ -101,7 +157,8 @@ def test_get_latest_firmware_versions__calls_api_endpoint_correctly_and_returns_
             "main-fw": expected_latest_main_fw_version,
             "channel-fw": expected_latest_channel_fw_version,
             "sw": expected_latest_sw_version,
-        }
+        },
+        "download": True,
     }
 
     mocked_call = mocker.patch.object(firmware_downloader, "call_firmware_download_route", autospec=True)
@@ -162,10 +219,50 @@ def test_verify_software_firmware_compatibility__raises_error_if_current_sw_vers
         verify_software_firmware_compatibility(test_main_fw)
 
 
-def test_check_versions__verifies_current_versions_before_checking_for_new_versions(mocker):
+def test_check_versions__does_not_ping_cloud_at_all_if_local_firmware_files_found(mocker):
     test_result_dict = {}
     test_serial_number = MantarrayMcSimulator.default_mantarray_serial_number
     test_main_fw_version = MantarrayMcSimulator.default_main_firmware_version
+    test_fw_update_dir_path = "some/path"
+
+    local_latest_versions = {"latest_versions": "Anything"}
+    mocked_check_local = mocker.patch.object(
+        firmware_downloader,
+        "check_for_local_firmware_versions",
+        autospec=True,
+        return_value=local_latest_versions,
+    )
+
+    mocked_verify = mocker.patch.object(
+        firmware_downloader, "verify_software_firmware_compatibility", autospec=True
+    )
+    mocked_get_latest = mocker.patch.object(
+        firmware_downloader, "get_latest_firmware_versions", autospec=True
+    )
+
+    check_versions(test_result_dict, test_serial_number, test_main_fw_version, test_fw_update_dir_path)
+    assert test_result_dict == local_latest_versions
+
+    mocked_check_local.assert_called_once_with(test_fw_update_dir_path)
+    mocked_verify.assert_not_called()
+    mocked_get_latest.assert_not_called()
+
+
+@pytest.mark.parametrize("local_check_result", [None, Exception()])
+def test_check_versions__verifies_current_versions_before_checking_for_new_versions(
+    local_check_result, mocker
+):
+    test_result_dict = {}
+    test_serial_number = MantarrayMcSimulator.default_mantarray_serial_number
+    test_main_fw_version = MantarrayMcSimulator.default_main_firmware_version
+    test_fw_update_dir_path = "some/path"
+
+    mocker.patch.object(
+        firmware_downloader,
+        "check_for_local_firmware_versions",
+        autospec=True,
+        side_effect=[local_check_result],
+    )
 
     mocked_verify = mocker.patch.object(
         firmware_downloader, "verify_software_firmware_compatibility", autospec=True
@@ -176,19 +273,67 @@ def test_check_versions__verifies_current_versions_before_checking_for_new_versi
     )
     mocked_get_latest.side_effect = lambda *args: mocked_verify.assert_called_once()
 
-    check_versions(test_result_dict, test_serial_number, test_main_fw_version)
+    check_versions(test_result_dict, test_serial_number, test_main_fw_version, test_fw_update_dir_path)
 
     mocked_verify.assert_called_once_with(test_main_fw_version)
     mocked_get_latest.assert_called_once_with(test_result_dict, test_serial_number)
 
 
 @pytest.mark.parametrize("main_fw_update,channel_fw_update", [(False, True), (True, False), (True, True)])
-def test_download_firmware_updates__get_access_token_then_downloads_specified_firmware_files_and_returns_values_correctly(
+def test_download_firmware_updates__loads_local_files_correctly__when_download_is_not_required(
+    main_fw_update, channel_fw_update, mocker
+):
+    test_customer_id = None
+    test_username = None
+    test_password = None
+    test_fw_update_dir_path = "fw/dir"
+
+    test_update_versions = {
+        "main": "1.1.1" if main_fw_update else None,
+        "channel": "2.2.2" if channel_fw_update else None,
+    }
+    expected_file_contents = {
+        fw_type: f"{fw_type}-{version}-data" for fw_type, version in test_update_versions.items() if version
+    }
+
+    mocked_open = mocker.patch("builtins.open", autospec=True)
+    mocked_file_obj = mocked_open.return_value.__enter__.return_value
+    mocked_file_obj.read.side_effect = list(expected_file_contents.values())
+
+    test_result_dict = {
+        "communication_type": "firmware_update",
+        "command": "download_firmware_updates",
+        "main": None,
+        "channel": None,
+    }
+
+    download_firmware_updates(
+        test_result_dict,
+        test_update_versions["main"],
+        test_update_versions["channel"],
+        test_customer_id,
+        test_username,
+        test_password,
+        test_fw_update_dir_path,
+    )
+
+    assert mocked_open.call_args_list == [
+        mocker.call(os.path.join(test_fw_update_dir_path, f"{fw_type}-{version}.bin"), "rb")
+        for fw_type, version in test_update_versions.items()
+        if version
+    ]
+    assert test_result_dict == {**test_result_dict, **expected_file_contents}
+
+
+@pytest.mark.parametrize("main_fw_update,channel_fw_update", [(False, True), (True, False), (True, True)])
+def test_download_firmware_updates__get_access_token_then_downloads_specified_firmware_files_and_returns_values_correctly__when_download_is_required(
     main_fw_update, channel_fw_update, mocker
 ):
     test_customer_id = "id"
     test_username = "user"
     test_password = "pw"
+    test_fw_update_dir_path = None
+
     test_access_token = "at"
 
     test_main_presigned_url = "main_url"
@@ -247,6 +392,7 @@ def test_download_firmware_updates__get_access_token_then_downloads_specified_fi
         test_customer_id,
         test_username,
         test_password,
+        test_fw_update_dir_path,
     )
 
     mocked_get_token.assert_called_once_with(test_customer_id, test_username, test_password)
@@ -274,4 +420,4 @@ def test_download_firmware_updates__get_access_token_then_downloads_specified_fi
 
 def test_download_firmware_updates__raises_error_if_no_updates_needed():
     with pytest.raises(FirmwareDownloadError, match="No firmware types specified"):
-        download_firmware_updates({}, None, None, "any customer id", "any user", "any pw")
+        download_firmware_updates({}, None, None, "any customer id", "any user", "any pw", "any/dir")

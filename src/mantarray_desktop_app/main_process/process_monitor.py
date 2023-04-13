@@ -659,6 +659,8 @@ class MantarrayProcessesMonitor(InfiniteThread):
                             )
             elif command == "update_completed":
                 firmware_type = communication["firmware_type"]
+                firmware_version = self._values_to_share_to_server["firmware_updates_needed"][firmware_type]
+
                 self._values_to_share_to_server["firmware_updates_needed"][firmware_type] = None
                 if all(
                     val is None for val in self._values_to_share_to_server["firmware_updates_needed"].values()
@@ -668,8 +670,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 # also delete the local files if necessary
                 if not self._values_to_share_to_server["firmware_updates_require_download"]:
                     fw_update_dir = self._values_to_share_to_server["config_settings"]["fw_update_directory"]
-                    for fw_file_name in os.listdir(fw_update_dir):
-                        os.remove(os.path.join(fw_update_dir, fw_file_name))
+                    os.remove(os.path.join(fw_update_dir, f"{firmware_type}-{firmware_version}.bin"))
 
     def _start_firmware_update(self) -> None:
         self._values_to_share_to_server["system_status"] = DOWNLOADING_UPDATES_STATE

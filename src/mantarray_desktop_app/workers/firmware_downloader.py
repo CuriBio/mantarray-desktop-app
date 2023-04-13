@@ -97,9 +97,9 @@ def download_firmware_updates(
     result_dict: Dict[str, Any],
     main_fw_version: Optional[str],
     channel_fw_version: Optional[str],
-    customer_id: str,
-    username: str,
-    password: str,
+    customer_id: Optional[str],
+    username: Optional[str],
+    password: Optional[str],
     fw_update_dir_path: Optional[str],
 ) -> None:
     if not main_fw_version and not channel_fw_version:
@@ -112,8 +112,13 @@ def download_firmware_updates(
             with open(os.path.join(fw_update_dir_path, f"{fw_type}-{version}.bin"), "rb") as fw_file:
                 result_dict[fw_type] = fw_file.read()
     else:
+        user_creds = {"customer_id": customer_id, "username": username, "password": password}
+        if missing_creds := [cred_name for cred_name, cred_value in user_creds.items() if cred_value is None]:
+            raise NotImplementedError(
+                f"User creds should never be None here, however {missing_creds} are None"
+            )
         # get access token
-        tokens, _ = get_cloud_api_tokens(customer_id, username, password)
+        tokens, _ = get_cloud_api_tokens(customer_id, username, password)  # type: ignore[arg-type]
         access_token = tokens.access
 
         # get presigned download URL(s)

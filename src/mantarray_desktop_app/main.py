@@ -267,12 +267,8 @@ def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[
             "recording_directory": settings_dict["recording_directory"],
             "log_directory": path_to_log_folder,
             "mag_analysis_output_dir": settings_dict["mag_analysis_output_dir"],
-            # TODO make sure this is correct
-            # TODO unit test
             "fw_update_directory": fw_update_directory,
         }
-
-        logger.info(f"Firmware update directory: {redact_sensitive_info_from_path(fw_update_directory)}")
 
         if parsed_args.expected_software_version:
             if not parsed_args.skip_software_version_verification:
