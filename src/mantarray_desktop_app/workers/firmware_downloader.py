@@ -52,7 +52,6 @@ def check_for_local_firmware_versions(fw_update_dir_path: str) -> Optional[Dict[
 
     fw_versions = {}
 
-    # make sure no errors occur when the folder is empty
     for fw_file_name in os.listdir(fw_update_dir_path):
         if "main" in fw_file_name or "channel" in fw_file_name:
             fw_type, version = os.path.splitext(fw_file_name)[0].split("-")
@@ -65,7 +64,7 @@ def check_for_local_firmware_versions(fw_update_dir_path: str) -> Optional[Dict[
     fw_versions = {"main-fw": "0.0.0", "channel-fw": "0.0.0", **fw_versions}
 
     # set software version to whatever the current version is to ensure that the FW updates run
-    return {"latest_versions": {"sw": CURRENT_SOFTWARE_VERSION, **fw_versions}, "download": False}  #
+    return {"latest_versions": {"sw": CURRENT_SOFTWARE_VERSION, **fw_versions}, "download": False}
 
 
 def get_latest_firmware_versions(result_dict: Dict[str, Any], serial_number: str) -> None:

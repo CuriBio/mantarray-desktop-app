@@ -6,6 +6,7 @@ import copy
 import datetime
 import json
 import logging
+import os
 import queue
 import threading
 import time
@@ -657,7 +658,6 @@ class MantarrayProcessesMonitor(InfiniteThread):
                                 }
                             )
             elif command == "update_completed":
-                # TODO if the files were found locally make sure to delete them here
                 firmware_type = communication["firmware_type"]
                 self._values_to_share_to_server["firmware_updates_needed"][firmware_type] = None
                 if all(
@@ -665,6 +665,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 ):
                     self._send_enable_sw_auto_install_message()
                     self._values_to_share_to_server["system_status"] = UPDATES_COMPLETE_STATE
+                # also delete the local files if necessary
+                if not self._values_to_share_to_server["firmware_updates_require_download"]:
+                    fw_update_dir = self._values_to_share_to_server["config_settings"]["fw_update_directory"]
+                    for fw_file_name in os.listdir(fw_update_dir):
+                        os.remove(os.path.join(fw_update_dir, fw_file_name))
 
     def _start_firmware_update(self) -> None:
         self._values_to_share_to_server["system_status"] = DOWNLOADING_UPDATES_STATE
@@ -673,6 +678,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
         to_instrument_comm_queue = self._process_manager.queue_container.to_instrument_comm(board_idx)
 
         user_creds = self._values_to_share_to_server.get("user_creds", {})
+
+        fw_update_dir_path = None
+        if not self._values_to_share_to_server["firmware_updates_require_download"]:
+            fw_update_dir_path = self._values_to_share_to_server["config_settings"]["fw_update_directory"]
 
         to_instrument_comm_queue.put_nowait(
             {
@@ -683,10 +692,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 "customer_id": user_creds.get("customer_id"),
                 "username": user_creds.get("user_name"),
                 "password": user_creds.get("user_password"),
-                "fw_update_dir_path": self._values_to_share_to_server["config_settings"][
-                    "fw_update_directory"
-                ],
-                "download": self._values_to_share_to_server["firmware_updates_require_download"],
+                "fw_update_dir_path": fw_update_dir_path,
             }
         )
 
