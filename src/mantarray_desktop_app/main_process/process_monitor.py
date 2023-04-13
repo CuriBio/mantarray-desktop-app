@@ -592,6 +592,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 if "error" in communication:
                     self._values_to_share_to_server["system_status"] = CALIBRATION_NEEDED_STATE
                 else:
+                    self._values_to_share_to_server["firmware_updates_require_download"] = communication[
+                        "download"
+                    ]
+
                     required_sw_for_fw = communication["latest_versions"]["sw"]
                     latest_main_fw = communication["latest_versions"]["main-fw"]
                     latest_channel_fw = communication["latest_versions"]["channel-fw"]
@@ -653,6 +657,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                                 }
                             )
             elif command == "update_completed":
+                # TODO if the files were found locally make sure to delete them here
                 firmware_type = communication["firmware_type"]
                 self._values_to_share_to_server["firmware_updates_needed"][firmware_type] = None
                 if all(
@@ -663,17 +668,25 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
     def _start_firmware_update(self) -> None:
         self._values_to_share_to_server["system_status"] = DOWNLOADING_UPDATES_STATE
+
         board_idx = 0
         to_instrument_comm_queue = self._process_manager.queue_container.to_instrument_comm(board_idx)
+
+        user_creds = self._values_to_share_to_server.get("user_creds", {})
+
         to_instrument_comm_queue.put_nowait(
             {
                 "communication_type": "firmware_update",
                 "command": "download_firmware_updates",
                 "main": self._values_to_share_to_server["firmware_updates_needed"]["main"],
                 "channel": self._values_to_share_to_server["firmware_updates_needed"]["channel"],
-                "customer_id": self._values_to_share_to_server["user_creds"]["customer_id"],
-                "username": self._values_to_share_to_server["user_creds"]["user_name"],
-                "password": self._values_to_share_to_server["user_creds"]["user_password"],
+                "customer_id": user_creds.get("customer_id"),
+                "username": user_creds.get("user_name"),
+                "password": user_creds.get("user_password"),
+                "fw_update_dir_path": self._values_to_share_to_server["config_settings"][
+                    "fw_update_directory"
+                ],
+                "download": self._values_to_share_to_server["firmware_updates_require_download"],
             }
         )
 
@@ -734,13 +747,18 @@ class MantarrayProcessesMonitor(InfiniteThread):
                         "command": "check_versions",
                         "serial_number": instrument_metadata[MANTARRAY_SERIAL_NUMBER_UUID],
                         "main_fw_version": instrument_metadata[MAIN_FIRMWARE_VERSION_UUID],
+                        "fw_update_dir_path": self._values_to_share_to_server["config_settings"][
+                            "fw_update_directory"
+                        ],
                     }
                 )
         elif self._values_to_share_to_server["system_status"] == UPDATES_NEEDED_STATE:
             if "firmware_update_accepted" not in self._values_to_share_to_server:
                 pass  # need to wait for this value
             elif self._values_to_share_to_server["firmware_update_accepted"]:
-                if "user_creds" in self._values_to_share_to_server:
+                if not self._values_to_share_to_server["firmware_updates_require_download"]:
+                    self._start_firmware_update()
+                elif "user_creds" in self._values_to_share_to_server:
                     if "customer_id" in self._values_to_share_to_server["user_creds"]:
                         self._start_firmware_update()
                 else:

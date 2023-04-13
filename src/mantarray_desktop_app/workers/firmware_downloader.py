@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Handling firmware compatibility checking and downloading."""
+import os
 from typing import Any
 from typing import Dict
 from typing import Optional
@@ -45,15 +46,50 @@ def verify_software_firmware_compatibility(main_fw_version: str) -> None:
         raise FirmwareAndSoftwareNotCompatibleError(range["max_sw"])
 
 
-def get_latest_firmware_versions(result_dict: Dict[str, Dict[str, str]], serial_number: str) -> None:
+def check_for_local_firmware_versions(fw_update_dir_path: str) -> Optional[Dict[str, Any]]:
+    if not os.path.isdir(fw_update_dir_path):
+        return None
+
+    fw_versions = {}
+
+    # make sure no errors occur when the folder is empty
+    for fw_file_name in os.listdir(fw_update_dir_path):
+        if "main" in fw_file_name or "channel" in fw_file_name:
+            fw_type, version = os.path.splitext(fw_file_name)[0].split("-")
+            fw_versions[f"{fw_type}-fw"] = version
+
+    if not fw_versions:
+        return None
+
+    # A version must be returned for both FW types, so if a file for one isn't present just set it to 0.0.0 so no update will occur for it
+    fw_versions = {"main-fw": "0.0.0", "channel-fw": "0.0.0", **fw_versions}
+
+    # set software version to whatever the current version is to ensure that the FW updates run
+    return {"latest_versions": {"sw": CURRENT_SOFTWARE_VERSION, **fw_versions}, "download": False}  #
+
+
+def get_latest_firmware_versions(result_dict: Dict[str, Any], serial_number: str) -> None:
     get_versions_response = call_firmware_download_route(
         f"https://{CLOUD_API_ENDPOINT}/mantarray/versions/{serial_number}",
         error_message="Error getting latest firmware versions",
     )
-    result_dict["latest_versions"] = get_versions_response.json()["latest_versions"]
+    result_dict.update({"latest_versions": get_versions_response.json()["latest_versions"], "download": True})
 
 
-def check_versions(result_dict: Dict[str, Dict[str, str]], serial_number: str, main_fw_version: str) -> None:
+def check_versions(
+    result_dict: Dict[str, Dict[str, str]],
+    serial_number: str,
+    main_fw_version: str,
+    firmware_update_dir_path: str,
+) -> None:
+    try:
+        if local_firmware_versions := check_for_local_firmware_versions(firmware_update_dir_path):
+            result_dict.update(local_firmware_versions)
+            return
+    except Exception:  # nosec B110
+        # catch all errors here to avoid user error preventing the next checks
+        pass
+
     verify_software_firmware_compatibility(main_fw_version)
     get_latest_firmware_versions(result_dict, serial_number)
 
@@ -65,29 +101,37 @@ def download_firmware_updates(
     customer_id: str,
     username: str,
     password: str,
+    fw_update_dir_path: Optional[str],
 ) -> None:
     if not main_fw_version and not channel_fw_version:
         raise FirmwareDownloadError("No firmware types specified")
 
-    # get access token
-    tokens, _ = get_cloud_api_tokens(customer_id, username, password)
-    access_token = tokens.access
+    if fw_update_dir_path:
+        for version, fw_type in ((main_fw_version, "main"), (channel_fw_version, "channel")):
+            if not version:
+                continue
+            with open(os.path.join(fw_update_dir_path, f"{fw_type}-{version}.bin"), "rb") as fw_file:
+                result_dict[fw_type] = fw_file.read()
+    else:
+        # get access token
+        tokens, _ = get_cloud_api_tokens(customer_id, username, password)
+        access_token = tokens.access
 
-    # get presigned download URL(s)
-    presigned_urls: Dict[str, Optional[str]] = {"main": None, "channel": None}
-    for version, fw_type in ((main_fw_version, "main"), (channel_fw_version, "channel")):
-        if version:
-            download_details = call_firmware_download_route(
-                f"https://{CLOUD_API_ENDPOINT}/mantarray/firmware/{fw_type}/{version}",
-                headers={"Authorization": f"Bearer {access_token}"},
-                error_message=f"Error getting presigned URL for {fw_type} firmware",
-            )
-            presigned_urls[fw_type] = download_details.json()["presigned_url"]
+        # get presigned download URL(s)
+        presigned_urls: Dict[str, Optional[str]] = {"main": None, "channel": None}
+        for version, fw_type in ((main_fw_version, "main"), (channel_fw_version, "channel")):
+            if version:
+                download_details = call_firmware_download_route(
+                    f"https://{CLOUD_API_ENDPOINT}/mantarray/firmware/{fw_type}/{version}",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    error_message=f"Error getting presigned URL for {fw_type} firmware",
+                )
+                presigned_urls[fw_type] = download_details.json()["presigned_url"]
 
-    # download firmware file(s)
-    for fw_type, presigned_url in presigned_urls.items():
-        if presigned_url:
-            download_response = call_firmware_download_route(
-                presigned_url, error_message=f"Error during download of {fw_type} firmware"
-            )
-            result_dict[fw_type] = download_response.content
+        # download firmware file(s)
+        for fw_type, presigned_url in presigned_urls.items():
+            if presigned_url:
+                download_response = call_firmware_download_route(
+                    presigned_url, error_message=f"Error during download of {fw_type} firmware"
+                )
+                result_dict[fw_type] = download_response.content

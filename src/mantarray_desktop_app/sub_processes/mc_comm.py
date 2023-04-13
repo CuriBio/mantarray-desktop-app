@@ -597,7 +597,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._fw_update_thread_dict = {
                     "communication_type": "firmware_update",
                     "command": comm_from_main["command"],
-                    "latest_versions": {},
                 }
                 self._fw_update_worker_thread = ErrorCatchingThread(
                     target=check_versions,
@@ -605,6 +604,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                         self._fw_update_thread_dict,
                         comm_from_main["serial_number"],
                         comm_from_main["main_fw_version"],
+                        comm_from_main["fw_update_dir_path"],
                     ),
                     use_error_repr=False,
                 )
@@ -630,6 +630,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                         comm_from_main["customer_id"],
                         comm_from_main["username"],
                         comm_from_main["password"],
+                        comm_from_main["fw_update_dir_path"],
                     ),
                 )
                 self._fw_update_worker_thread.start()
