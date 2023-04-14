@@ -456,12 +456,15 @@ def test_McCommunicationProcess__processes_check_versions_command(
     test_serial_number = MantarrayMcSimulator.default_mantarray_serial_number
     test_main_fw_version = MantarrayMcSimulator.default_mantarray_serial_number
 
+    test_fw_update_dir_path = "fw/dir"
+
     # send command to mc_process
     test_command = {
         "communication_type": "firmware_update",
         "command": "check_versions",
         "serial_number": test_serial_number,
         "main_fw_version": test_main_fw_version,
+        "fw_update_dir_path": test_fw_update_dir_path,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(copy.deepcopy(test_command), input_queue)
 
@@ -471,12 +474,16 @@ def test_McCommunicationProcess__processes_check_versions_command(
     assert mc_process._fw_update_thread_dict == {
         "communication_type": "firmware_update",
         "command": "check_versions",
-        "latest_versions": {},
     }
     spied_thread_init.assert_called_once_with(
         mocker.ANY,  # this is the actual thread instance
         target=check_versions,
-        args=(mc_process._fw_update_thread_dict, test_serial_number, test_main_fw_version),
+        args=(
+            mc_process._fw_update_thread_dict,
+            test_serial_number,
+            test_main_fw_version,
+            test_fw_update_dir_path,
+        ),
         use_error_repr=False,
     )
     mocked_thread_start.assert_called_once()
@@ -502,6 +509,8 @@ def test_McCommunicationProcess__handles_download_firmware_updates_command(
     test_username = "user"
     test_password = "pw"
 
+    test_fw_update_dir_path = "fw/dir"
+
     test_command = {
         "communication_type": "firmware_update",
         "command": "download_firmware_updates",
@@ -510,6 +519,7 @@ def test_McCommunicationProcess__handles_download_firmware_updates_command(
         "customer_id": test_customer_id,
         "username": test_username,
         "password": test_password,
+        "fw_update_dir_path": test_fw_update_dir_path,
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(copy.deepcopy(test_command), input_queue)
 
@@ -533,6 +543,7 @@ def test_McCommunicationProcess__handles_download_firmware_updates_command(
                 test_customer_id,
                 test_username,
                 test_password,
+                test_fw_update_dir_path,
             ),
         )
         mocked_thread_start.assert_called_once()

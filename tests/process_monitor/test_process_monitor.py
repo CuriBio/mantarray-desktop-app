@@ -64,6 +64,7 @@ from xem_wrapper import FrontPanelSimulator
 from ..fixtures import fixture_patch_print
 from ..fixtures import fixture_test_process_manager_creator
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures import random_semver
 from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
 from ..fixtures_process_monitor import fixture_test_monitor
@@ -72,6 +73,7 @@ from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
 from ..helpers import is_queue_eventually_not_empty
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
+from ..helpers import random_bool
 
 __fixtures__ = [
     fixture_test_process_manager_creator,
@@ -961,6 +963,9 @@ def test_MantarrayProcessesMonitor__handles_switch_from_INSTRUMENT_INITIALIZING_
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     shared_values_dict["system_status"] = INSTRUMENT_INITIALIZING_STATE
 
+    test_fw_update_dir = "test/fw/dir"
+    shared_values_dict["config_settings"] = {"fw_update_directory": test_fw_update_dir}
+
     shared_values_dict["in_simulation_mode"] = test_simulation_mode
     board_idx = 0
 
@@ -992,6 +997,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_INSTRUMENT_INITIALIZING_
             "command": "check_versions",
             "serial_number": test_serial_number,
             "main_fw_version": test_main_fw_version,
+            "fw_update_dir_path": test_fw_update_dir,
         }
 
 
@@ -1031,6 +1037,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
 
     test_current_version = "0.0.0"
     test_new_version = "1.0.0"
+    test_download_status = random_bool()
 
     new_main_fw_version = test_new_version if main_fw_update else None
     new_channel_fw_version = test_new_version if channel_fw_update else None
@@ -1056,6 +1063,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
             "channel-fw": test_new_version if channel_fw_update else test_current_version,
             "sw": test_new_version,
         }
+        test_command_response["download"] = test_download_status
     # process command response
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command_response, from_ic_queue)
     invoke_process_run_and_check_errors(monitor_thread)
@@ -1129,14 +1137,19 @@ def test_MantarrayProcessesMonitor__handles_recording_name_receipt_from_fw_corre
         confirm_queue_is_eventually_empty(to_data_analyzer)
 
 
+@pytest.mark.parametrize("download_required", [True, False])
 @pytest.mark.parametrize("user_creds_already_stored", [True, False])
 @pytest.mark.parametrize("update_accepted", [True, False])
 def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_beta_2_mode_correctly(
-    update_accepted, user_creds_already_stored, test_monitor, test_process_manager_creator
+    update_accepted, user_creds_already_stored, download_required, test_monitor, test_process_manager_creator
 ):
     test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     shared_values_dict["system_status"] = UPDATES_NEEDED_STATE
+    shared_values_dict["firmware_updates_require_download"] = download_required
+
+    test_fw_update_dir = "test/fw/dir"
+    shared_values_dict["config_settings"] = {"fw_update_directory": test_fw_update_dir}
 
     test_customer_id = "id"
     test_user_name = "un"
@@ -1154,7 +1167,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
         "main": new_main_fw_version,
         "channel": new_channel_fw_version,
     }
-    if user_creds_already_stored:
+    if user_creds_already_stored and download_required:
         shared_values_dict["user_creds"] = user_creds
 
     board_idx = 0
@@ -1174,7 +1187,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
 
     assert shared_values_dict["system_status"] == UPDATES_NEEDED_STATE
     # store customer creds and run one more iteration
-    if not user_creds_already_stored:
+    if not user_creds_already_stored and download_required:
         # confirm precondition
         assert "user_creds" not in shared_values_dict
         # make sure user input prompt message is sent only once
@@ -1189,7 +1202,9 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
         invoke_process_run_and_check_errors(monitor_thread)
         assert shared_values_dict["system_status"] == UPDATES_NEEDED_STATE
         shared_values_dict["user_creds"] = user_creds
+
     invoke_process_run_and_check_errors(monitor_thread)
+
     assert shared_values_dict["system_status"] == DOWNLOADING_UPDATES_STATE
     confirm_queue_is_eventually_of_size(to_ic_queue, 1)
     start_firmware_download_command = to_ic_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
@@ -1198,9 +1213,10 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
         "command": "download_firmware_updates",
         "main": new_main_fw_version,
         "channel": new_channel_fw_version,
-        "customer_id": test_customer_id,
-        "username": test_user_name,
-        "password": test_user_password,
+        "customer_id": shared_values_dict.get("user_creds", {}).get("customer_id"),
+        "username": shared_values_dict.get("user_creds", {}).get("user_name"),
+        "password": shared_values_dict.get("user_creds", {}).get("user_password"),
+        "fw_update_dir_path": None if download_required else test_fw_update_dir,
     }
 
 
@@ -1263,20 +1279,34 @@ def test_MantarrayProcessesMonitor__handles_switch_from_DOWNLOADING_UPDATES_STAT
         assert actual_commands == expected_commands
 
 
+@pytest.mark.parametrize("download_required", [True, False])
 @pytest.mark.parametrize(
     "main_fw_update,channel_fw_update",
     [(False, True), (True, False), (True, True)],
 )
 def test_MantarrayProcessesMonitor__handles_firmware_update_completed_commands_correctly(
-    main_fw_update, channel_fw_update, test_monitor, test_process_manager_creator
+    main_fw_update, channel_fw_update, download_required, test_monitor, test_process_manager_creator, mocker
 ):
     test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     shared_values_dict["system_status"] = INSTALLING_UPDATES_STATE
     shared_values_dict["firmware_updates_needed"] = {
-        "main": "1.0.0" if main_fw_update else None,
-        "channel": "1.0.0" if channel_fw_update else None,
+        # need to put channel first for the purpose of this test
+        "channel": random_semver() if channel_fw_update else None,
+        "main": random_semver() if main_fw_update else None,
     }
+    shared_values_dict["firmware_updates_require_download"] = download_required
+
+    test_fw_update_dir = "test/fw/dir"
+    shared_values_dict["config_settings"] = {"fw_update_directory": test_fw_update_dir}
+
+    expected_fw_file_names = [
+        f"{fw_type}-{version}.bin"
+        for fw_type, version in shared_values_dict["firmware_updates_needed"].items()
+        if version
+    ]
+
+    mocked_remove = mocker.patch.object(process_monitor.os, "remove", autospec=True)
 
     board_idx = 0
     from_ic_queue = test_process_manager.queue_container.from_instrument_comm(board_idx)
@@ -1309,6 +1339,15 @@ def test_MantarrayProcessesMonitor__handles_firmware_update_completed_commands_c
         "data_type": "sw_update",
         "data_json": json.dumps({"allow_software_update": True}),
     }
+
+    if download_required:
+        mocked_remove.assert_not_called()
+    else:
+        # make sure that local fw files were deleted
+        assert mocked_remove.call_args_list == [
+            mocker.call(os.path.join(test_fw_update_dir, fw_file_name))
+            for fw_file_name in expected_fw_file_names
+        ]
 
 
 def test_MantarrayProcessesMonitor__ignores_start_firmware_update_command_response(

@@ -259,10 +259,15 @@ def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[
                 "log_file_id": uuid.uuid4(),
             }
 
+        fw_update_directory = os.path.join(
+            os.path.dirname(settings_dict["recording_directory"]), "firmware_updates"
+        )
+
         shared_values_dict["config_settings"] = {
             "recording_directory": settings_dict["recording_directory"],
             "log_directory": path_to_log_folder,
             "mag_analysis_output_dir": settings_dict["mag_analysis_output_dir"],
+            "fw_update_directory": fw_update_directory,
         }
 
         if parsed_args.expected_software_version:
