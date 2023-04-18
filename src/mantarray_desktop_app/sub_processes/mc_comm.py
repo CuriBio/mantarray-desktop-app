@@ -86,6 +86,7 @@ from ..exceptions import FirmwareAndSoftwareNotCompatibleError
 from ..exceptions import FirmwareGoingDormantError
 from ..exceptions import FirmwareUpdateCommandFailedError
 from ..exceptions import FirmwareUpdateTimeoutError
+from ..exceptions import IncorrectInstrumentConnectedError
 from ..exceptions import InstrumentDataStreamingAlreadyStartedError
 from ..exceptions import InstrumentDataStreamingAlreadyStoppedError
 from ..exceptions import InstrumentFirmwareError
@@ -772,7 +773,9 @@ class McCommunicationProcess(InstrumentCommProcess):
             response_data = packet_payload
             if prev_command["command"] == "get_metadata":
                 prev_command["board_index"] = board_idx
-                prev_command["metadata"] = parse_metadata_bytes(response_data)
+                prev_command["metadata"] = metadata = parse_metadata_bytes(response_data)
+                if metadata.pop("is_stingray"):
+                    raise IncorrectInstrumentConnectedError()
             elif prev_command["command"] == "reboot":
                 prev_command["message"] = "Instrument beginning reboot"
                 self._time_of_reboot_start = perf_counter()
@@ -1024,6 +1027,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             try:
                 self._process_comm_from_instrument(packet_type, packet_payload)
             except (
+                IncorrectInstrumentConnectedError,
                 InstrumentFirmwareError,
                 FirmwareGoingDormantError,
                 SerialCommUntrackedCommandResponseError,
