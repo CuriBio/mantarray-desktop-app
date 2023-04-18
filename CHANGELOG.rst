@@ -7,7 +7,6 @@ Changelog for Mantarray Desktop App
 Added:
 ^^^^^^
 - Flashing icon to indicate that stim is active.
-- Alert when stimulation ends automatically.
 
 Fixed:
 ^^^^^^
