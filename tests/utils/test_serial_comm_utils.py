@@ -105,6 +105,8 @@ def test_validate_checksum__returns_false_when_checksum_is_incorrect():
 def test_parse_metadata_bytes__returns_expected_value():
     test_status_codes = list(range(SERIAL_COMM_STATUS_CODE_LENGTH_BYTES))
 
+    is_stingray = random_bool()
+
     metadata_bytes = (
         bytes([0b10101010])  # boot flags
         + bytes("マンタレ1", encoding="utf-8")  # nickname
@@ -118,6 +120,7 @@ def test_parse_metadata_bytes__returns_expected_value():
         + MantarrayMcSimulator.initial_magnet_finding_params["REMN"].to_bytes(
             2, byteorder="little", signed=True
         )
+        + bytes([is_stingray])
     )
 
     metadata_bytes += bytes(SERIAL_COMM_METADATA_BYTES_LENGTH - len(metadata_bytes))
@@ -133,6 +136,7 @@ def test_parse_metadata_bytes__returns_expected_value():
         CHANNEL_FIRMWARE_VERSION_UUID: "255.255.255",
         "status_codes_prior_to_reboot": convert_status_code_bytes_to_dict(bytes(test_status_codes)),
         INITIAL_MAGNET_FINDING_PARAMS_UUID: MantarrayMcSimulator.initial_magnet_finding_params,
+        "is_stingray": is_stingray,
     }
 
 
