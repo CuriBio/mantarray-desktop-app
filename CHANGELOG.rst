@@ -7,6 +7,7 @@ Changelog for Mantarray Desktop App
 Added:
 ^^^^^^
 - Flashing icon to indicate that stim is active.
+- Prevention from connecting to a stingray instrument
 
 Fixed:
 ^^^^^^
