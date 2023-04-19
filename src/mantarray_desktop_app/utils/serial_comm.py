@@ -126,6 +126,7 @@ def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[Any, Any]:
             "Z": int.from_bytes(metadata_bytes[60:61], byteorder="little", signed=True),
             "REMN": int.from_bytes(metadata_bytes[61:63], byteorder="little", signed=True),
         },
+        "is_stingray": bool(metadata_bytes[63]),
     }
 
 

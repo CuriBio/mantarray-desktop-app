@@ -21,6 +21,6 @@ win:
 publish:
   provider: "s3"
   bucket: "downloads.curibio.com"
-  path: "software"
+  path: "software/mantarray"
   channel: "prod"
   region: "us-east-1"
