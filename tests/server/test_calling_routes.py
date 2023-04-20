@@ -1623,7 +1623,7 @@ def test_set_protocols__returns_error_code_with_invalid_well_name(
         assert f"'{well}'" in response.status
 
 
-@pytest.mark.parametrize("test_invalid_ids", [{"B"}, {"B", "C"}])
+@pytest.mark.parametrize("test_invalid_ids", [{"B"}, {"C", "B"}])
 def test_set_protocols__returns_error_code_if_protocol_assignments_contains_any_invalid_protocol_ids(
     client_and_server_manager_and_shared_values, test_invalid_ids
 ):

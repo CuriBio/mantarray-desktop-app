@@ -225,7 +225,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
             else:
                 raise NotImplementedError(f"Unrecognized shutdown command from Server: {command}")
         elif communication_type == "update_user_settings":
-            new_values = communication["content"]
+            # if content does not exist then check config_settings
+            new_values = (
+                communication["content"] if "content" in communication else communication["config_settings"]
+            )
             if new_recording_directory := new_values.get("recording_directory"):
                 to_file_writer_queue = process_manager.queue_container.to_file_writer
                 to_file_writer_queue.put_nowait(

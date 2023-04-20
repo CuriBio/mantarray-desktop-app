@@ -165,8 +165,9 @@ def redact_sensitive_info(communication: Dict[str, Any]) -> Dict[str, Any]:
         comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
     elif communication_type == "update_user_settings":
         comm_copy = copy.deepcopy(communication)
-        comm_copy["content"]["user_password"] = get_redacted_string(4)
-        comm_copy["content"]["user_name"] = get_redacted_string(4)
+        key = "content" if "content" in communication else "config_settings"
+        comm_copy[key]["user_password"] = get_redacted_string(4)
+        comm_copy[key]["user_name"] = get_redacted_string(4)
     elif communication_type == "mag_finding_analysis":
         comm_copy = copy.deepcopy(communication)
         comm_copy["recordings"] = [
@@ -450,7 +451,6 @@ def set_this_process_high_priority() -> None:  # pragma: no cover
 
 
 def upload_log_files_to_s3(config_settings: Dict[str, str]) -> None:
-
     if not config_settings.get("auto_upload_on_completion", False):
         logger.info("Auto-upload is not turned on, skipping upload of log files.")
         return

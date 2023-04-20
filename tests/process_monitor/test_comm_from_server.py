@@ -347,7 +347,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raises_error_if_unrecognized_command(
     test_comm_type, test_description, test_process_manager_creator, test_monitor, mocker, patch_print
 ):
-
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 
@@ -700,7 +699,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
         "from_file_writer_to_main": [
             {
                 "communication_type": "update_user_settings",
-                "content": {"user_password": "password_to_redact", "user_name": "username_to_redact"},
+                "config_settings": {"user_password": "password_to_redact", "user_name": "username_to_redact"},
             },
         ],
     }
