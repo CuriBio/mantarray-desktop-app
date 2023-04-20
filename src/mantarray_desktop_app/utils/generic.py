@@ -165,8 +165,10 @@ def redact_sensitive_info(communication: Dict[str, Any]) -> Dict[str, Any]:
         comm_copy["mantarray_nickname"] = get_redacted_string(len(comm_copy["mantarray_nickname"]))
     elif communication_type == "update_user_settings":
         comm_copy = copy.deepcopy(communication)
-        comm_copy["content"]["user_password"] = get_redacted_string(4)
-        comm_copy["content"]["user_name"] = get_redacted_string(4)
+        _redact_user_creds(comm_copy["content"])
+    elif command == "update_user_settings":
+        comm_copy = copy.deepcopy(communication)
+        _redact_user_creds(comm_copy["config_settings"])
     elif communication_type == "mag_finding_analysis":
         comm_copy = copy.deepcopy(communication)
         comm_copy["recordings"] = [
@@ -197,6 +199,12 @@ def redact_sensitive_info(communication: Dict[str, Any]) -> Dict[str, Any]:
         comm_copy = copy.copy(communication)
 
     return comm_copy
+
+
+def _redact_user_creds(comm: Dict[str, Any]) -> None:
+    for setting_name in comm:
+        if setting_name in ("user_password", "user_name"):
+            comm[setting_name] = get_redacted_string(4)
 
 
 def redact_sensitive_info_from_path(file_path: Optional[str]) -> Optional[str]:
