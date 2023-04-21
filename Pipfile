@@ -36,7 +36,7 @@ jsonschema = "==4.1.0"  # Tanner (11/8/21): latest version is having issues in c
 nptyping = "==1.4.4"  # Tanner (4/7/22): pinned for pulse3D
 numpy = "==1.23.4"
 psutil = "==5.8.0"
-pulse3d = "==0.30.0"
+pulse3d = "==0.32.4"
 pyserial = "==3.5"
 scipy = "==1.9.3"
 semver = "==2.13.0"
