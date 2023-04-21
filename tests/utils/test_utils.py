@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import copy
 import json
 import os
 
@@ -7,7 +8,9 @@ from mantarray_desktop_app import get_current_software_version
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import redact_sensitive_info_from_path
 from mantarray_desktop_app.utils import generic
+from mantarray_desktop_app.utils.generic import redact_sensitive_info
 from mantarray_desktop_app.utils.generic import validate_user_credentials
+from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 import pytest
 from stdlib_utils import get_current_file_abs_directory
 
@@ -124,6 +127,52 @@ def test_redact_sensitive_info_from_path__scrubs_everything_if_does_not_match_pa
 ):
     actual = redact_sensitive_info_from_path(test_path)
     assert actual == get_redacted_string(len(test_path))
+
+
+@pytest.mark.parametrize(
+    "test_dict,use_orignal_len",
+    [
+        ({"mantarray_nickname": "some nickname"}, True),
+        (
+            {
+                "communication_type": "update_user_settings",
+                "content": {"user_name": "some name", "user_password": "pw"},
+            },
+            False,
+        ),
+        (
+            {
+                "command": "update_user_settings",
+                "config_settings": {"user_name": "name", "user_password": "pw"},
+            },
+            False,
+        ),
+        (
+            {"communication_type": "metadata_comm", "metadata": {MANTARRAY_NICKNAME_UUID: "some nickname"}},
+            True,
+        ),
+        (
+            {"communication_type": "mag_finding_analysis", "recordings": ["some path", "some other path"]},
+            None,
+        ),
+    ],
+)
+def test_redact_sensitive_info__scrubs_sensitive_info_from_dicts(test_dict, use_orignal_len):
+    def redact(d):
+        for k, v in d.items():
+            if k in ("command", "communication_type"):
+                continue
+            if isinstance(v, str):
+                d[k] = get_redacted_string(len(v) if use_orignal_len else 4)
+            elif isinstance(v, list):
+                d[k] = [redact_sensitive_info_from_path(recording_path) for recording_path in v]
+            elif isinstance(v, dict):
+                redact(v)
+
+    expected_dict = copy.deepcopy(test_dict)
+    redact(expected_dict)
+
+    assert redact_sensitive_info(test_dict) == expected_dict
 
 
 def test_upload_log_files_to_s3__auto_upload_is_not_enabled(mocker):
