@@ -15,7 +15,7 @@ const argv = require("yargs").argv;
 
 const buildDir = argv.buildDir || "./dist/";
 const channel = argv.channel || "unstable";
-const bucket = argv.bucket || "downloads.curibio.com//software";
+const bucket = argv.bucket || "downloads.curibio.com//software//mantarray";
 
 const publisherContext = {
   cancellationToken: new CancellationToken(),
