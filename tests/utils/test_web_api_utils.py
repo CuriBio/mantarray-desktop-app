@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from mantarray_desktop_app.constants import CLOUD_API_ENDPOINT
+from mantarray_desktop_app.constants import CURRENT_SOFTWARE_VERSION
 from mantarray_desktop_app.exceptions import LoginFailedError
 from mantarray_desktop_app.exceptions import RefreshFailedError
 from mantarray_desktop_app.utils import web_api
@@ -36,7 +37,12 @@ def test_get_cloud_api_tokens__return_tokens_if_login_successful(mocker):
     assert tokens == expected_tokens
 
     mocked_post.assert_called_once_with(
-        f"https://{CLOUD_API_ENDPOINT}/users/login", json={**test_creds, "service": "pulse3d"}
+        f"https://{CLOUD_API_ENDPOINT}/users/login",
+        json={
+            **test_creds,
+            "service": "pulse3d",
+            "client_type": f"mantarray:{CURRENT_SOFTWARE_VERSION}",
+        },
     )
 
 

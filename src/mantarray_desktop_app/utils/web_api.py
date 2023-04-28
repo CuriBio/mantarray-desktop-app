@@ -8,6 +8,7 @@ from typing import Dict
 from typing import Tuple
 
 from mantarray_desktop_app.constants import CLOUD_API_ENDPOINT
+from mantarray_desktop_app.constants import CURRENT_SOFTWARE_VERSION
 import requests
 from requests import Response
 
@@ -34,7 +35,13 @@ def get_cloud_api_tokens(
     """
     response = requests.post(
         f"https://{CLOUD_API_ENDPOINT}/users/login",
-        json={"customer_id": customer_id, "username": user_name, "password": password, "service": "pulse3d"},
+        json={
+            "customer_id": customer_id,
+            "username": user_name,
+            "password": password,
+            "service": "pulse3d",
+            "client_type": f"mantarray:{CURRENT_SOFTWARE_VERSION}",
+        },
     )
     if response.status_code != 200:
         raise LoginFailedError(response.status_code)
