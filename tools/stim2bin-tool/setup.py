@@ -7,7 +7,7 @@ setup(
     packages=["stim2bin"],
     install_requires=[
         "eventlet==0.31.0",
-        "flask==1.1.2",
+        "flask==2.3.2",
         "flask-cors==3.0.10",
         "Flask-SocketIO==5.1.1",
         "h5py==3.7.0",
