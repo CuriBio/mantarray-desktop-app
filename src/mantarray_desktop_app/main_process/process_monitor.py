@@ -241,10 +241,13 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     "user_name": new_values["user_name"],
                     "user_password": new_values["user_password"],
                 }
+
+            if "customer_id" in new_values or "auto_upload_on_completion" in new_values:
                 to_file_writer_queue = process_manager.queue_container.to_file_writer
                 to_file_writer_queue.put_nowait(
                     {"command": "update_user_settings", "config_settings": new_values}
                 )
+
             shared_values_dict["config_settings"].update(new_values)
         elif communication_type == "set_latest_software_version":
             shared_values_dict["latest_software_version"] = communication["version"]
@@ -704,18 +707,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
 
         # check for errors first
         for iter_error_queue, iter_process in (
-            (
-                process_manager.queue_container.instrument_comm_error,
-                process_manager.instrument_comm_process,
-            ),
-            (
-                process_manager.queue_container.file_writer_error,
-                process_manager.file_writer_process,
-            ),
-            (
-                process_manager.queue_container.data_analyzer_error,
-                process_manager.data_analyzer_process,
-            ),
+            (process_manager.queue_container.instrument_comm_error, process_manager.instrument_comm_process),
+            (process_manager.queue_container.file_writer_error, process_manager.file_writer_process),
+            (process_manager.queue_container.data_analyzer_error, process_manager.data_analyzer_process),
         ):
             try:
                 communication = iter_error_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
@@ -844,9 +838,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         data_to_websocket_queue.put_nowait(message_dict)
 
     def _handle_error_in_subprocess(
-        self,
-        process: Union[InfiniteProcess, ServerManager],
-        error_communication: Tuple[Exception, str],
+        self, process: Union[InfiniteProcess, ServerManager], error_communication: Tuple[Exception, str]
     ) -> None:
         this_err, this_stack_trace = error_communication
         msg = f"Error raised by subprocess {process}\n{this_stack_trace}"

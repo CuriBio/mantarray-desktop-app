@@ -152,7 +152,9 @@ ipcMain.once("pulse3d_versions_request", (event) => {
   axios
     .get(`https://${CLOUD_PULSE3D_ENDPOINT}/versions`)
     .then((response) => {
-      const versions = response.data.map(({ version }) => version);
+      const versions = response.data
+        .filter(({ state }) => state === "external")
+        .map(({ version }) => version);
       console.log(`Found pulse3d versions: ${versions}`); // allow-log
       event.reply("pulse3d_versions_response", versions);
     })
