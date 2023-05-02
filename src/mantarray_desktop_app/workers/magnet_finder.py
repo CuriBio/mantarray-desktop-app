@@ -51,7 +51,8 @@ def run_magnet_finding_alg(
                 shutil.copytree(rec_path, recording_copy_path)
 
                 pr = PlateRecording(recording_copy_path, end_time=end_time)
-                df = pr.to_dataframe()
+                # TODO remove this once pulse3d fixes this bug
+                df = pr.to_dataframe(include_stim_data=False)
 
                 # remove unnecessary columns from df
                 columns_to_drop = [c for c in df.columns if c not in ("Time (s)", *ALL_VALID_WELL_NAMES)]
