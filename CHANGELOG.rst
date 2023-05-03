@@ -6,7 +6,8 @@ Changelog for Mantarray Desktop App
 
 Fixed:
 ^^^^^^
-- Issue with recording snapshot not working for recordings that do no contain stim data
+- Issue with recording snapshot not working for recordings that do not contain stim data
+- Stim incorrectly being allowed to start without a plate barcode present
 
 
 1.1.1 (2023-04-26)
