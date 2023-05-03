@@ -4,7 +4,9 @@ Changelog for Mantarray Desktop App
 1.1.2 (unreleased)
 ------------------
 
-
+Fixed:
+^^^^^^
+- Issue with recording snapshot not working for recordings that do no contain stim data
 
 
 1.1.1 (2023-04-26)
