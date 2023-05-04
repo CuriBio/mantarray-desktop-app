@@ -68,10 +68,7 @@ def random_protocol_id():
     ],
 )
 def test_system_status__returns_correct_state_and_simulation_values(
-    expected_status,
-    expected_in_simulation,
-    test_description,
-    client_and_server_manager_and_shared_values,
+    expected_status, expected_in_simulation, test_description, client_and_server_manager_and_shared_values
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = expected_status
@@ -141,10 +138,7 @@ def test_system_status__returns_in_simulator_mode_False_as_default_value(
     ],
 )
 def test_system_status__returns_correct_serial_number_and_nickname_in_dict_with_empty_string_as_default(
-    expected_serial,
-    expected_nickname,
-    test_description,
-    client_and_server_manager_and_shared_values,
+    expected_serial, expected_nickname, test_description, client_and_server_manager_and_shared_values
 ):
     board_idx = 0
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
@@ -216,9 +210,7 @@ def test_system_status_handles_expected_software_version_correctly(
     ],
 )
 def test_set_mantarray_nickname__returns_error_code_and_message_if_nickname_is_too_many_bytes__in_beta_1_mode(
-    test_nickname,
-    test_description,
-    client_and_server_manager_and_shared_values,
+    test_nickname, test_description, client_and_server_manager_and_shared_values
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
 
@@ -233,17 +225,12 @@ def test_set_mantarray_nickname__returns_error_code_and_message_if_nickname_is_t
 @pytest.mark.parametrize(
     ",".join(("test_nickname", "test_description")),
     [
-        (
-            "123456789012345678901234567890123",
-            "returns error with no unicode characters",
-        ),
+        ("123456789012345678901234567890123", "returns error with no unicode characters"),
         ("1234567890123456789012345678901à", "returns error with unicode character"),
     ],
 )
 def test_set_mantarray_nickname__returns_error_code_and_message_if_nickname_is_too_many_bytes__in_beta_2_mode(
-    test_nickname,
-    test_description,
-    client_and_server_manager_and_shared_values,
+    test_nickname, test_description, client_and_server_manager_and_shared_values
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
 
@@ -270,8 +257,7 @@ def test_set_mantarray_nickname__returns_error_code_and_message_if_nickname_is_t
     ],
 )
 def test_send_single_start_calibration_command__returns_correct_response(
-    test_system_status,
-    client_and_server_manager_and_shared_values,
+    test_system_status, client_and_server_manager_and_shared_values
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = test_system_status
@@ -353,8 +339,7 @@ def test_start_stim_checks__returns_error_code_and_message_if_called_in_beta_1_m
     ],
 )
 def test_start_stim_checks__returns_correct_response(
-    test_system_status,
-    client_and_server_manager_and_shared_values,
+    test_system_status, client_and_server_manager_and_shared_values
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
@@ -373,11 +358,7 @@ def test_start_stim_checks__returns_correct_response(
 
     response = test_client.post(
         "/start_stim_checks",
-        json={
-            "well_indices": [0],
-            "plate_barcode": test_plate_barcode,
-            "stim_barcode": test_stim_barcode,
-        },
+        json={"well_indices": [0], "plate_barcode": test_plate_barcode, "stim_barcode": test_stim_barcode},
     )
     assert response.status_code == expected_status_code
     if expected_status_code == 403:
@@ -456,11 +437,7 @@ def test_start_stim_checks__returns_error_code_and_message_if_called_with_empty_
 
     response = test_client.post(
         "/start_stim_checks",
-        json={
-            "well_indices": [],
-            "plate_barcode": test_plate_barcode,
-            "stim_barcode": test_stim_barcode,
-        },
+        json={"well_indices": [], "plate_barcode": test_plate_barcode, "stim_barcode": test_stim_barcode},
     )
     assert response.status_code == 400
     assert response.status.endswith("No well indices given")
@@ -624,9 +601,7 @@ def test_get_recordings__returns_error_code_and_message_when_recording_directory
     assert response.status.endswith("No root recording directory was found")
 
 
-def test_get_recordings__returns_200_with_list_of_directories(
-    client_and_server_manager_and_shared_values,
-):
+def test_get_recordings__returns_200_with_list_of_directories(client_and_server_manager_and_shared_values):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     with tempfile.TemporaryDirectory() as tmp_recording_dir:
         shared_values_dict["config_settings"]["recording_directory"] = tmp_recording_dir
@@ -661,24 +636,41 @@ def test_start_data_analysis__returns_empty_204_response_if_successful(
 
 
 def test_update_settings__returns_error_message_when_recording_directory_does_not_exist(
-    test_client,
+    client_and_server_manager_and_shared_values,
 ):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    #  mock a user being logged in
+    shared_values_dict["user_creds"] = {}
     test_dir = "fake_dir/fake_sub_dir"
+
     response = test_client.get(f"/update_settings?recording_directory={test_dir}")
     assert response.status_code == 400
     assert response.status.endswith(f"{repr(RecordingFolderDoesNotExistError(test_dir))}")
 
 
-def test_update_settings__returns_error_message_when_unexpected_argument_is_given(
-    test_client,
+def test_update_settings__returns_error_message_when_user_is_not_logged_in(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, *_ = client_and_server_manager_and_shared_values
+    #  mock a user being logged in
+    test_dir = "fake_dir/fake_sub_dir"
+    response = test_client.get(f"/update_settings?recording_directory={test_dir}")
+
+    assert response.status_code == 400
+    assert response.status.endswith("400 User is not logged in")
+
+
+@pytest.mark.parametrize("endpoint", ["update_settings", "login"])
+def test_update_settings_login__returns_error_message_when_unexpected_argument_is_given(
+    test_client, endpoint
 ):
     test_arg = "bad_arg"
-    response = test_client.get(f"/update_settings?{test_arg}=True")
+    response = test_client.get(f"/{endpoint}?{test_arg}=True")
     assert response.status_code == 400
     assert response.status.endswith(f"Invalid argument given: {test_arg}")
 
 
-def test_update_settings__returns_correct_error_code_when_user_auth_fails(test_client, mocker):
+def test_login__returns_correct_error_code_when_user_auth_fails(test_client, mocker):
     test_error = LoginFailedError(401)
 
     # mock so test doesn't hit cloud API
@@ -686,13 +678,9 @@ def test_update_settings__returns_correct_error_code_when_user_auth_fails(test_c
         server, "validate_user_credentials", autospec=True, side_effect=test_error
     )
 
-    test_user_creds = {
-        "customer_id": "cid",
-        "user_name": "user",
-        "user_password": "pw",
-    }
+    test_user_creds = {"customer_id": "cid", "user_name": "user", "user_password": "pw"}
 
-    response = test_client.get(f"/update_settings?{urllib.parse.urlencode(test_user_creds)}")
+    response = test_client.get(f"/login?{urllib.parse.urlencode(test_user_creds)}")
     assert response.status_code == 401
     assert repr(test_error) in response.status
 
@@ -771,10 +759,7 @@ def test_start_recording__returns_error_code_and_message_if_stim_barcode_is_not_
     ],
 )
 def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
-    test_barcode_type,
-    test_barcode,
-    expected_error_message,
-    client_and_server_manager_and_shared_values,
+    test_barcode_type, test_barcode, expected_error_message, client_and_server_manager_and_shared_values
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
@@ -808,9 +793,7 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
     ],
 )
 def test_start_recording__returns_error_code_and_message_if_new_barcode_beta_1_mode_scheme_is_invalid(
-    test_barcode,
-    expected_error_message,
-    client_and_server_manager_and_shared_values,
+    test_barcode, expected_error_message, client_and_server_manager_and_shared_values
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = False
@@ -839,10 +822,7 @@ def test_start_recording__returns_error_code_and_message_if_new_barcode_beta_1_m
     ],
 )
 def test_start_recording__returns_error_code_and_message_if_new_barcode_beta_2_mode_scheme_is_invalid(
-    test_barcode_type,
-    test_barcode,
-    expected_error_message,
-    client_and_server_manager_and_shared_values,
+    test_barcode_type, test_barcode, expected_error_message, client_and_server_manager_and_shared_values
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
@@ -991,8 +971,7 @@ def test_set_stim_status__returns_error_code_and_message_if_called_before_protoc
     - {CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE},
 )
 def test_set_stim_status__returns_error_code_and_message_if_called_with_true_during_invalid_state(
-    test_system_status,
-    client_and_server_manager_and_shared_values,
+    test_system_status, client_and_server_manager_and_shared_values
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
@@ -1094,12 +1073,10 @@ def test_set_stim_status__returns_code_and_message_if_new_status_is_the_same_as_
 
 
 @pytest.mark.parametrize(
-    "test_system_status",
-    {CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE},
+    "test_system_status", {CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE}
 )
 def test_set_stim_status__returns_no_error_code_if_called_correctly__with_true(
-    test_system_status,
-    client_and_server_manager_and_shared_values,
+    test_system_status, client_and_server_manager_and_shared_values
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
 
@@ -1147,8 +1124,7 @@ def test_set_protocols__returns_error_code_if_called_while_stimulation_is_runnin
     - {CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE},
 )
 def test_set_protocols__returns_error_code_if_called_during_invalid_system_status(
-    test_system_status,
-    client_and_server_manager_and_shared_values,
+    test_system_status, client_and_server_manager_and_shared_values
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
@@ -1191,7 +1167,7 @@ def test_set_protocols__returns_error_code_if_two_protocols_are_given_with_the_s
                 "subprotocols": [get_random_stim_pulse()],
             }
         ]
-        * 2,
+        * 2
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
@@ -1726,8 +1702,7 @@ def test_set_protocols__returns_success_code_if_protocols_would_not_be_updated(
 
 
 @pytest.mark.parametrize(
-    "test_system_status",
-    {CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE},
+    "test_system_status", {CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE}
 )
 def test_set_protocols__returns_no_error_code_if_called_correctly(
     test_system_status, client_and_server_manager_and_shared_values, mocker

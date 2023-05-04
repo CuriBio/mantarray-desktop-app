@@ -410,9 +410,9 @@ def update_settings() -> Response:
     for arg in request.args:
         if arg not in VALID_CONFIG_SETTINGS:
             return Response(status=f"400 Invalid argument given: {arg}")
-
-    config_setting = _get_values_from_process_monitor().get("user_creds")
-    if config_setting is None:
+    try:
+        _get_values_from_process_monitor()["user_creds"]
+    except KeyError:
         return Response(status="400 User is not logged in")
 
     try:
@@ -1246,7 +1246,7 @@ def after_request(response: Response) -> Response:
             response_json["metadata_to_copy_onto_main_file_attributes"][
                 str(MANTARRAY_NICKNAME_UUID)
             ] = get_redacted_string(len(mantarray_nickname))
-        elif "update_settings" in rule.rule:
+        elif "login" in rule.rule:
             response_json["user_password"] = get_redacted_string(4)
         elif "get_recordings" in rule.rule:
             response_json["root_recording_path"] = redact_sensitive_info_from_path(
