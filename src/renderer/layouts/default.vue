@@ -30,45 +30,49 @@
           accordion="controls-accordion"
           role="tabpanel"
         >
-          <div class="div__plate-barcode-container">
-            <BarcodeViewer />
-          </div>
-          <div class="div__plate-navigator-container">
-            <PlateNavigator />
-          </div>
-          <NuxtLink to="/platemapeditor">
-            <PlateMapEditorButton />
-          </NuxtLink>
-          <div class="div__status-bar-container">
-            <StatusBar
-              :da_check="da_check"
-              @close_da_check_modal="close_da_check_modal"
-              @send_confirmation="send_confirmation"
-            />
-          </div>
-          <div class="div__player-controls-container">
-            <DesktopPlayerControls @save_account_info="save_account_info" />
-          </div>
-          <div class="div__screen-view-options-text">Screen View Options</div>
-          <div class="div__screen-view-container">
-            <div class="div__waveform-screen-view">
-              <!-- Default view is waveform screen -->
-              <NuxtLink to="/">
-                <img
-                  v-b-popover.hover.bottom="'Click to view Live View'"
-                  :title="'Live View'"
-                  src="../assets/img/waveform-screen-view.png"
-                />
+          <div v-b-popover.hover.right="disabled_tool_tip" :style="is_disabled_styles">
+            <div :style="prevent_interaction">
+              <div class="div__plate-barcode-container">
+                <BarcodeViewer />
+              </div>
+              <div class="div__plate-navigator-container">
+                <PlateNavigator />
+              </div>
+              <NuxtLink to="/platemapeditor">
+                <PlateMapEditorButton />
               </NuxtLink>
-            </div>
-            <div class="div__heatmap-screen-view">
-              <NuxtLink to="/heatmap">
-                <img
-                  v-b-popover.hover.bottom="'Click to view Heat Map'"
-                  :title="'Heat Map'"
-                  src="../assets/img/heatmap-screen-view.png"
+              <div class="div__status-bar-container">
+                <StatusBar
+                  :da_check="da_check"
+                  @close_da_check_modal="close_da_check_modal"
+                  @send_confirmation="send_confirmation"
                 />
-              </NuxtLink>
+              </div>
+              <div class="div__player-controls-container">
+                <DesktopPlayerControls @save_account_info="save_account_info" />
+              </div>
+              <div class="div__screen-view-options-text">Screen View Options</div>
+              <div class="div__screen-view-container">
+                <div class="div__waveform-screen-view">
+                  <!-- Default view is waveform screen -->
+                  <NuxtLink to="/">
+                    <img
+                      v-b-popover.hover.bottom="'Click to view Live View'"
+                      :title="'Live View'"
+                      src="../assets/img/waveform-screen-view.png"
+                    />
+                  </NuxtLink>
+                </div>
+                <div class="div__heatmap-screen-view">
+                  <NuxtLink to="/heatmap">
+                    <img
+                      v-b-popover.hover.bottom="'Click to view Heat Map'"
+                      :title="'Heat Map'"
+                      src="../assets/img/heatmap-screen-view.png"
+                    />
+                  </NuxtLink>
+                </div>
+              </div>
             </div>
           </div>
         </b-collapse>
@@ -91,14 +95,18 @@
           </div>
         </NuxtLink>
         <b-collapse v-model="stim_studio_visibility" accordion="controls-accordion" role="tabpanel">
-          <div class="div__stim-barcode-container">
-            <BarcodeViewer :barcode_type="'stim_barcode'" />
-          </div>
-          <div class="div__stim-status-container">
-            <StatusBar :stim_specific="true" @send_confirmation="send_confirmation" />
-          </div>
-          <div class="div__stimulation_controls-controls-icon-container">
-            <StimulationControls />
+          <div v-b-popover.hover.right="disabled_tool_tip" :style="is_disabled_styles">
+            <div :style="prevent_interaction">
+              <div class="div__stim-barcode-container">
+                <BarcodeViewer :barcode_type="'stim_barcode'" />
+              </div>
+              <div class="div__stim-status-container">
+                <StatusBar :stim_specific="true" @send_confirmation="send_confirmation" />
+              </div>
+              <div class="div__stimulation_controls-controls-icon-container">
+                <StimulationControls />
+              </div>
+            </div>
           </div>
         </b-collapse>
         <div
@@ -122,8 +130,11 @@
           v-model="data_analysis_visibility"
           accordion="controls-accordion"
           role="tabpanel"
-        >
-          <DataAnalysisControl @send_confirmation="send_confirmation" />
+          ><div v-b-popover.hover.right="disabled_tool_tip" :style="is_disabled_styles">
+            <div :style="prevent_interaction">
+              <DataAnalysisControl @send_confirmation="send_confirmation" />
+            </div>
+          </div>
         </b-collapse>
       </div>
       <div class="div__simulation-mode-container">
@@ -161,7 +172,7 @@ import {
   StimulationRunningWidget,
 } from "@curi-bio/mantarray-frontend-components";
 import { ipcRenderer } from "electron";
-import { mapState } from "vuex";
+import { mapState, mapGetters } from "vuex";
 const log = require("electron-log");
 import path from "path";
 import Vue from "vue";
@@ -202,6 +213,9 @@ export default {
       request_stored_accounts: true,
       da_check: false,
       stored_accounts: {},
+      disabled: true,
+      disabled_tool_tip: "Controlls disabled while connecting to instrument.",
+      connection_complete_message: "009301eb-625c-4dc4-9e92-1a4d0762465f",
     };
   },
   computed: {
@@ -213,6 +227,7 @@ export default {
       "recordings_list",
       "root_recording_path",
     ]),
+    ...mapGetters({ status_uuid: "flask/status_id" }),
     ...mapState("playback", ["data_analysis_state", "playback_state", "start_recording_from_stim"]),
     ...mapState("stimulation", ["stim_play_state"]),
     ...mapState("flask", ["status_uuid"]),
@@ -225,6 +240,16 @@ export default {
     data_analysis_dynamic_class: function () {
       return this.data_analysis_visibility ? "div__accordian-tabs-visible" : "div__accordian-tabs";
     },
+    is_disabled_styles: function () {
+      return {
+        opacity: this.disabled ? 0.5 : 1,
+      };
+    },
+    prevent_interaction: function () {
+      return {
+        pointerEvents: this.disabled ? "none" : "auto",
+      };
+    },
   },
   watch: {
     allow_sw_update_install: function () {
@@ -236,6 +261,13 @@ export default {
         // if recording has been started from stim studio, redirect to live view page
         this.$router.push({ path: "/" });
         this.handle_tab_visibility(0);
+      }
+    },
+    status_uuid: function (new_status) {
+      console.log(new_status, this.connection_complete_message);
+      if (new_status == this.connection_complete_message) {
+        this.disabled = false;
+        this.disabled_tool_tip = "";
       }
     },
   },
@@ -365,6 +397,9 @@ body {
 
 #data-acquisition-card {
   padding: 5px 0px 10px 0px;
+  display: absolute;
+  bottom: 0;
+  position: relative;
 }
 
 .div__accordian-container {
@@ -569,5 +604,14 @@ body {
   font-size: 9px;
   color: #ffffff;
   text-align: center;
+}
+.div__disable_while_connecting {
+  position: absolute;
+  top: 45px;
+  background-color: rgb(59, 58, 58);
+  opacity: 70%;
+  border-radius: 5px;
+  width: 100%;
+  height: 100px;
 }
 </style>
