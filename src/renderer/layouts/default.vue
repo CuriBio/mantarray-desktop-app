@@ -264,7 +264,6 @@ export default {
       }
     },
     status_uuid: function (new_status) {
-      console.log(new_status, this.connection_complete_message);
       if (new_status == this.connection_complete_message) {
         this.disabled = false;
         this.disabled_tool_tip = "";
