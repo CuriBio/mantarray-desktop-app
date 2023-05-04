@@ -324,9 +324,9 @@ export default {
     },
     save_account_info: function () {
       // this gets called before any vuex actions/muts to store account details so logic to username is in electron main process
-      const { customer_id, user } = this.user_account;
+      const { customer_id, username } = this.user_account;
 
-      ipcRenderer.invoke("save_account_info", { customer_id, username: user }).then((response) => {
+      ipcRenderer.invoke("save_account_info", { customer_id, username }).then((response) => {
         this.$store.commit("settings/set_stored_accounts", response);
       });
     },
