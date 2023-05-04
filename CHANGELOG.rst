@@ -1,12 +1,21 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.1.2 (unreleased)
+1.1.3 (unreleased)
 ------------------
 
 Changed:
 ^^^^^^^^
 - New user login flow
+
+
+1.1.2 (2023-05-03)
+------------------
+
+Fixed:
+^^^^^^
+- Issue with recording snapshot not working for recordings that do not contain stim data
+- Stim incorrectly being allowed to start without a plate barcode present
 
 
 1.1.1 (2023-04-26)

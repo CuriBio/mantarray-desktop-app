@@ -55,7 +55,7 @@ def test_run_magnet_finding_alg__only_returns_dataframes_if_no_output_dir_is_giv
     test_recording_paths = [f"path/to/rec{i}" for i in range(3)]
     mocked_df = mocker.MagicMock()
 
-    def to_dataframe_se(*args):
+    def to_dataframe_se(*args, **kwargs):
         return mocked_df
 
     mocked_pr.return_value.to_dataframe.side_effect = to_dataframe_se
@@ -69,6 +69,10 @@ def test_run_magnet_finding_alg__only_returns_dataframes_if_no_output_dir_is_giv
     expected_dfs = [] if output_dir else [mocked_df] * len(test_recording_paths)
     assert actual_dfs == expected_dfs
 
+    assert mocked_pr.return_value.to_dataframe.call_args_list == [mocker.call(include_stim_data=False)] * len(
+        test_recording_paths
+    )
+
 
 def test_run_magnet_finding_alg__removes_unnecessary_columns_from_returned_dataframe(mocker):
     mocker.patch.object(magnet_finder.shutil, "copytree", autospec=True)
@@ -77,7 +81,7 @@ def test_run_magnet_finding_alg__removes_unnecessary_columns_from_returned_dataf
     test_recording_paths = [f"path/to/rec{i}" for i in range(3)]
     mocked_df = pd.DataFrame({"Time (s)": [1], "Stim Time": [2], "A1": [3], "A1__raw": [4], "A1__stim": [5]})
 
-    def to_dataframe_se(*args):
+    def to_dataframe_se(*args, **kwargs):
         return mocked_df
 
     mocked_pr.return_value.to_dataframe.side_effect = to_dataframe_se
@@ -102,7 +106,7 @@ def test_run_magnet_finding_alg__removes_NaN_values_from_returned_dataframe(mock
 
     mocked_df.dropna.side_effect = dropna_se
 
-    def to_dataframe_se(*args):
+    def to_dataframe_se(*args, **kwargs):
         return mocked_df
 
     mocked_pr.return_value.to_dataframe.side_effect = to_dataframe_se
@@ -127,7 +131,7 @@ def test_run_magnet_finding_alg__handles_failed_recordings_correctly(failure, mo
 
     recording_iter = iter(test_recordings)
 
-    def to_dataframe_se(*args):
+    def to_dataframe_se(*args, **kwargs):
         # make the second recording error
         if "1" in next(recording_iter) and failure:
             raise test_error
