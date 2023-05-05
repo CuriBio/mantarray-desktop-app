@@ -1,13 +1,18 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.1.2 (unreleased)
+1.1.2 (2023-05-03)
 ------------------
+
+Added:
+^^^^^^
+- An exit button in the top right corner of the PlateMap Editor page which returns to the Live View
+  page. It was previously only possible to exit the page by using one of the view options on the sidebar.
 
 Fixed:
 ^^^^^^
-- Issue with recording snapshot not working for recordings that do not contain stim data
-- Stim incorrectly being allowed to start without a plate barcode present
+- Issue with recording snapshot displaying an empty graph for recordings that do not contain stim data.
+- Stim incorrectly being allowed to start without a plate barcode present.
 
 
 1.1.1 (2023-04-26)
@@ -16,8 +21,8 @@ Fixed:
 Added:
 ^^^^^^
 - Flashing icon to indicate that stim is active.
-- Prevention from connecting to a stingray instrument
-- Protocol validation checks on import in Stimulation Studio
+- Prevention from connecting to a stingray instrument.
+- Protocol validation checks on import in Stimulation Studio.
 
 Fixed:
 ^^^^^^
