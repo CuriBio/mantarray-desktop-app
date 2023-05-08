@@ -192,15 +192,8 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
 
-        # Tanner (9/15/22): set user creds
-        settings_dict = {
-            "customer_id": "test_id",
-            "user_password": "test_password",
-            "user_name": "test_user",
-            "auto_upload": False,
-            "auto_delete": False,
-        }
-        response = requests.get(f"{get_api_endpoint()}update_settings", params=settings_dict)
+        user_dict = {"customer_id": "test_id", "user_password": "test_password", "user_name": "test_user"}
+        response = requests.get(f"{get_api_endpoint()}login", params=user_dict)
         assert response.status_code == 200
 
         # Tanner (9/15/22): barcodes can take a while to be scanned in beta 1 mode
@@ -302,10 +295,7 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
         expected_timestamp_1 = "2020_07_16_141955"
         actual_set_of_files_1 = set(
             os.listdir(
-                os.path.join(
-                    expected_recordings_dir,
-                    f"{expected_plate_barcode_1}__{expected_timestamp_1}",
-                )
+                os.path.join(expected_recordings_dir, f"{expected_plate_barcode_1}__{expected_timestamp_1}")
             )
         )
         assert len(actual_set_of_files_1) == 24
@@ -423,10 +413,7 @@ def test_full_datapath_and_recorded_files_in_beta_1_mode(
         expected_timestamp_2 = "2020_07_16_141956"
         actual_set_of_files_2 = set(
             os.listdir(
-                os.path.join(
-                    expected_recordings_dir,
-                    f"{expected_plate_barcode_2}__{expected_timestamp_2}",
-                )
+                os.path.join(expected_recordings_dir, f"{expected_plate_barcode_2}__{expected_timestamp_2}")
             )
         )
         assert len(actual_set_of_files_2) == 24
@@ -535,15 +522,8 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         assert system_state_eventually_equals(CALIBRATED_STATE, CALIBRATED_WAIT_TIME) is True
 
-        # Tanner (9/15/22): set user creds
-        settings_dict = {
-            "customer_id": "test_id",
-            "user_password": "test_password",
-            "user_name": "test_user",
-            "auto_upload": False,
-            "auto_delete": False,
-        }
-        response = requests.get(f"{get_api_endpoint()}update_settings", params=settings_dict)
+        user_dict = {"customer_id": "test_id", "user_password": "test_password", "user_name": "test_user"}
+        response = requests.get(f"{get_api_endpoint()}login", params=user_dict)
         assert response.status_code == 200
 
         expected_plate_barcode_1 = GENERIC_BETA_2_START_RECORDING_COMMAND[
@@ -703,10 +683,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         expected_timestamp_1 = "2021_05_24_212304"
         actual_set_of_files_1 = set(
             os.listdir(
-                os.path.join(
-                    expected_recordings_dir,
-                    f"{expected_plate_barcode_1}__{expected_timestamp_1}",
-                )
+                os.path.join(expected_recordings_dir, f"{expected_plate_barcode_1}__{expected_timestamp_1}")
             )
         )
         assert len(actual_set_of_files_1) == 48
@@ -849,10 +826,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         expected_timestamp_2 = "2021_05_24_212306"
         actual_set_of_files_2 = set(
             os.listdir(
-                os.path.join(
-                    expected_recordings_dir,
-                    f"{expected_plate_barcode_2}__{expected_timestamp_2}",
-                )
+                os.path.join(expected_recordings_dir, f"{expected_plate_barcode_2}__{expected_timestamp_2}")
             )
         )
         assert len(actual_set_of_files_2) == 48
@@ -935,9 +909,7 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         }
         json_str = json.dumps(test_dict)
         b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
-        command_line_args = [
-            f"--initial-base64-settings={b64_encoded}",
-        ]
+        command_line_args = [f"--initial-base64-settings={b64_encoded}"]
 
         app_info = fully_running_app_from_main_entrypoint(command_line_args)
         assert system_state_eventually_equals(SERVER_INITIALIZING_STATE, 10) is True
@@ -951,15 +923,8 @@ def test_app_shutdown__in_worst_case_while_recording_is_running(
         fw_process = test_process_manager.file_writer_process
         da_process = test_process_manager.data_analyzer_process
 
-        # Tanner (9/15/22): set user creds
-        settings_dict = {
-            "customer_id": "test_id",
-            "user_password": "test_password",
-            "user_name": "test_user",
-            "auto_upload": False,
-            "auto_delete": False,
-        }
-        response = requests.get(f"{get_api_endpoint()}update_settings", params=settings_dict)
+        user_dict = {"customer_id": "test_id", "user_password": "test_password", "user_name": "test_user"}
+        response = requests.get(f"{get_api_endpoint()}login", params=user_dict)
         assert response.status_code == 200
 
         # Tanner (12/30/20): Start calibration in order to run managed_acquisition

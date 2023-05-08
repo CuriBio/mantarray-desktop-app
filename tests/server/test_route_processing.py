@@ -121,11 +121,7 @@ def test_send_single_set_mantarray_nickname_command__gets_processed_and_stores_n
 
 
 def test_send_single_start_calibration_command__gets_processed_and_sets_system_status_to_calibrating(
-    patched_short_calibration_script,
-    test_monitor,
-    test_client,
-    test_process_manager_creator,
-    mocker,
+    patched_short_calibration_script, test_monitor, test_client, test_process_manager_creator, mocker
 ):
     # patch to speed up test
     mocker.patch.object(ok_comm, "sleep", autospec=True)
@@ -492,11 +488,7 @@ def test_send_single_is_spi_running_command__gets_processed(test_process_manager
 
 @pytest.mark.parametrize(
     ",".join(("test_num_words_to_log", "test_description")),
-    [
-        (1, "logs 1 word"),
-        (72, "logs 72 words"),
-        (73, "logs 72 words given 73 num words to log"),
-    ],
+    [(1, "logs 1 word"), (72, "logs 72 words"), (73, "logs 72 words given 73 num words to log")],
 )
 def test_read_from_fifo_command__is_received_by_ok_comm__with_correct_num_words_to_log(
     test_num_words_to_log, test_description, test_process_manager_creator, test_client
@@ -534,8 +526,7 @@ def test_read_from_fifo_command__is_received_by_ok_comm__with_correct_num_words_
 
 # Tanner (12/30/20): This test was previously parametrized which is unnecessary since the same parametrization is done in test_OkCommunicationProcess_run__processes_read_from_fifo_debug_console_command in test_ok_comm_debug_console.py
 def test_send_single_read_from_fifo_command__gets_processed_with_correct_num_words(
-    test_process_manager_creator,
-    test_client,
+    test_process_manager_creator, test_client
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     ok_process = test_process_manager.instrument_comm_process
@@ -865,13 +856,11 @@ def test_send_single_start_managed_acquisition_command__sets_system_status_to_bu
     drain_queue(comm_from_ok_queue)
 
 
-def test_update_settings__stores_values_in_shared_values_dict__and_recordings_folder_in_file_writer_and_process_manager__and_logs_recording_folder_with_sensitive_info_redacted(
+def test_login__stores_values_in_shared_values_dict_and_in_file_writer_and_process_manager(
     test_process_manager_creator, test_client, test_monitor, mocker
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-
-    spied_monitor_logger = mocker.spy(process_monitor.logger, "info")
 
     # mock so test doesn't hit cloud API
     mocked_get_tokens = mocker.patch.object(server, "validate_user_credentials", autospec=True)
@@ -882,18 +871,12 @@ def test_update_settings__stores_values_in_shared_values_dict__and_recordings_fo
 
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         response = test_client.get(
-            f"/update_settings?customer_id={expected_customer_uuid}&user_password={expected_user_password}&user_name=test_user&recording_directory={expected_recordings_dir}"
+            f"/login?customer_id={expected_customer_uuid}&user_password={expected_user_password}&user_name=test_user&recording_directory={expected_recordings_dir}"
         )
         assert response.status_code == 200
         invoke_process_run_and_check_errors(monitor_thread)
 
         assert shared_values_dict["config_settings"]["customer_id"] == expected_customer_uuid
-        assert shared_values_dict["config_settings"]["recording_directory"] == expected_recordings_dir
-
-        scrubbed_recordings_dir = redact_sensitive_info_from_path(expected_recordings_dir)
-        spied_monitor_logger.assert_any_call(
-            f"Using directory for recording files: {scrubbed_recordings_dir}"
-        )
 
     queue_from_main_to_file_writer = test_process_manager.queue_container.to_file_writer
     confirm_queue_is_eventually_of_size(queue_from_main_to_file_writer, 2)
@@ -902,7 +885,34 @@ def test_update_settings__stores_values_in_shared_values_dict__and_recordings_fo
     drain_queue(queue_from_main_to_file_writer)
 
 
-def test_update_settings__replaces_only_new_values_in_shared_values_dict(
+def test_update_settings__stores_values_in_shared_values_dict__and_recordings_folder_in_file_writer_and_process_manager__and_logs_recording_folder_with_sensitive_info_redacted(
+    test_process_manager_creator, test_client, test_monitor, mocker
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+    shared_values_dict["user_creds"] = {}
+    spied_monitor_logger = mocker.spy(process_monitor.logger, "info")
+
+    with tempfile.TemporaryDirectory() as expected_recordings_dir:
+        response = test_client.get(f"/update_settings?recording_directory={expected_recordings_dir}")
+        assert response.status_code == 204
+        invoke_process_run_and_check_errors(monitor_thread)
+
+        assert shared_values_dict["config_settings"]["recording_directory"] == expected_recordings_dir
+
+        scrubbed_recordings_dir = redact_sensitive_info_from_path(expected_recordings_dir)
+        spied_monitor_logger.assert_any_call(
+            f"Using directory for recording files: {scrubbed_recordings_dir}"
+        )
+
+    queue_from_main_to_file_writer = test_process_manager.queue_container.to_file_writer
+    confirm_queue_is_eventually_of_size(queue_from_main_to_file_writer, 1)
+
+    # clean up the message that goes to file writer to update the recording directory
+    drain_queue(queue_from_main_to_file_writer)
+
+
+def test_login__replaces_only_new_values_in_shared_values_dict(
     test_process_manager_creator, test_client, test_monitor, mocker
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
@@ -922,7 +932,7 @@ def test_update_settings__replaces_only_new_values_in_shared_values_dict(
     }
 
     response = test_client.get(
-        f"/update_settings?customer_id={expected_customer_uuid}&user_password={expected_user_password}&user_name=test_user"
+        f"/login?customer_id={expected_customer_uuid}&user_password={expected_user_password}&user_name=test_user"
     )
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
@@ -940,14 +950,14 @@ def test_update_settings__returns_boolean_values_for_auto_upload_delete_values(
     # mock so test doesn't hit cloud API
     mocked_get_tokens = mocker.patch.object(server, "validate_user_credentials", autospec=True)
     mocked_get_tokens.return_value = (AuthTokens(access="", refresh=""), {"jobs_reached": False})
-
+    shared_values_dict["user_creds"] = {}
     shared_values_dict["config_settings"] = {
         "auto_upload_on_completion": True,
         "auto_delete_local_files": False,
     }
 
     response = test_client.get("/update_settings?auto_upload=false&auto_delete=true")
-    assert response.status_code == 200
+    assert response.status_code == 204
     invoke_process_run_and_check_errors(monitor_thread)
 
     assert shared_values_dict["config_settings"]["auto_upload_on_completion"] is False
@@ -957,19 +967,16 @@ def test_update_settings__returns_boolean_values_for_auto_upload_delete_values(
 def test_single_update_settings_command_with_recording_dir__gets_processed_by_FileWriter(
     test_process_manager_creator, test_client, test_monitor, mocker
 ):
-    # mock so test doesn't hit cloud API
-    mocked_get_tokens = mocker.patch.object(server, "validate_user_credentials", autospec=True)
-    mocked_get_tokens.return_value = (AuthTokens(access="", refresh=""), {"jobs_reached": False})
-
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, *_ = test_monitor(test_process_manager)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     fw_process = test_process_manager.file_writer_process
     to_fw_queue = test_process_manager.queue_container.to_file_writer
     from_fw_queue = test_process_manager.queue_container.from_file_writer
+    shared_values_dict["user_creds"] = {}
 
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         response = test_client.get(f"/update_settings?recording_directory={expected_recordings_dir}")
-        assert response.status_code == 200
+        assert response.status_code == 204
         invoke_process_run_and_check_errors(monitor_thread)
         confirm_queue_is_eventually_of_size(to_fw_queue, 1)
 
@@ -1042,9 +1049,7 @@ def test_stop_recording_command__is_received_by_file_writer__with_given_time_ind
 
 
 def test_start_recording__returns_error_code_and_message_if_called_with_is_hardware_test_mode_false_when_previously_true(
-    test_process_manager_creator,
-    test_client,
-    test_monitor,
+    test_process_manager_creator, test_client, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
@@ -1075,10 +1080,7 @@ def test_start_recording__returns_error_code_and_message_if_called_with_is_hardw
     ]
 )
 def test_start_recording_command__gets_processed_with_given_time_index_parameter(
-    test_process_manager_creator,
-    test_client,
-    mocker,
-    test_monitor,
+    test_process_manager_creator, test_client, mocker, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
@@ -1131,10 +1133,7 @@ def test_start_recording_command__gets_processed_with_given_time_index_parameter
     )
 )
 def test_start_recording_command__gets_processed_in_beta_1_mode__and_creates_a_file__and_updates_shared_values_dict(
-    test_process_manager_creator,
-    test_client,
-    mocker,
-    test_monitor,
+    test_process_manager_creator, test_client, mocker, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
@@ -1180,10 +1179,7 @@ def test_start_recording_command__gets_processed_in_beta_1_mode__and_creates_a_f
     ]
 )
 def test_start_recording_command__gets_processed_in_beta_2_mode__and_creates_all_files__and_updates_shared_values_dict(
-    test_process_manager_creator,
-    test_client,
-    mocker,
-    test_monitor,
+    test_process_manager_creator, test_client, mocker, test_monitor
 ):
     test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
@@ -1284,9 +1280,7 @@ def test_set_protocols__waits_for_stim_info_in_shared_values_dict_to_be_updated_
 
 
 def test_after_request__redacts_mantarray_nicknames_from_system_status_log_message(
-    client_and_server_manager_and_shared_values,
-    test_client,
-    mocker,
+    client_and_server_manager_and_shared_values, test_client, mocker
 ):
     *_, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = CALIBRATED_STATE
@@ -1311,8 +1305,7 @@ def test_after_request__redacts_mantarray_nicknames_from_system_status_log_messa
 
 
 def test_after_request__redacts_mantarray_nickname_from_set_mantarray_nickname_log_message(
-    client_and_server_manager_and_shared_values,
-    mocker,
+    client_and_server_manager_and_shared_values, mocker
 ):
     test_client, *_ = client_and_server_manager_and_shared_values
     spied_server_logger = mocker.spy(server.logger, "info")

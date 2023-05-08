@@ -146,11 +146,7 @@ def get_server_address_components() -> Tuple[str, str, int]:
         port_number = get_the_server_manager().get_port_number()
     except (NameError, ServerManagerNotInitializedError):
         port_number = DEFAULT_SERVER_PORT_NUMBER
-    return (
-        "http",
-        "127.0.0.1",
-        port_number,
-    )
+    return ("http", "127.0.0.1", port_number)
 
 
 def get_api_endpoint() -> str:
@@ -409,16 +405,40 @@ def update_settings() -> Response:
     """Update the customer/user settings.
 
     Can be invoked by: curl http://localhost:4567/update_settings?customer_id=<UUID>&user_name=<UUID>&recording_directory=<recording_dir>
-                       curl http://localhost:4567/update_settings?customer_id=<string>&user_password=<string>&user_name=<string>&auto_upload=<bool>&auto_delete=<bool>
+                       curl http://localhost:4567/update_settings?auto_upload=<bool>&auto_delete=<bool>&pulse3d_version=<str>
     """
     for arg in request.args:
         if arg not in VALID_CONFIG_SETTINGS:
             return Response(status=f"400 Invalid argument given: {arg}")
+    try:
+        _get_values_from_process_monitor()["user_creds"]
+    except KeyError:
+        return Response(status="400 User is not logged in")
 
     try:
         validate_settings(request.args)
     except RecordingFolderDoesNotExistError as e:
         return Response(status=f"400 {repr(e)}")
+
+    queue_command_to_main(
+        {
+            "communication_type": "update_user_settings",
+            "content": convert_request_args_to_config_dict(request.args),
+        }
+    )
+
+    return Response(status=204)
+
+
+@flask_app.route("/login", methods=["GET"])
+def login_user() -> Response:
+    """Login user.
+
+    curl http://localhost:4567/update_settings?customer_id=<string>&user_password=<string>&user_name=<string>
+    """
+    for arg in request.args:
+        if arg not in VALID_CONFIG_SETTINGS:
+            return Response(status=f"400 Invalid argument given: {arg}")
 
     try:
         auth_response = validate_user_credentials(request.args)
@@ -1226,7 +1246,7 @@ def after_request(response: Response) -> Response:
             response_json["metadata_to_copy_onto_main_file_attributes"][
                 str(MANTARRAY_NICKNAME_UUID)
             ] = get_redacted_string(len(mantarray_nickname))
-        elif "update_settings" in rule.rule:
+        elif "login" in rule.rule:
             response_json["user_password"] = get_redacted_string(4)
         elif "get_recordings" in rule.rule:
             response_json["root_recording_path"] = redact_sensitive_info_from_path(

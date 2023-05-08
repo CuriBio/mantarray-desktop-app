@@ -1,6 +1,14 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+1.1.3 (unreleased)
+------------------
+
+Changed:
+^^^^^^^^
+- New user login flow
+
+
 1.1.2 (2023-05-03)
 ------------------
 
