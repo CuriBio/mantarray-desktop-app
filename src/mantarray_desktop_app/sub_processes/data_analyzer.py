@@ -67,10 +67,7 @@ from ..workers.worker_thread import ErrorCatchingThread
 
 
 METRIC_CALCULATORS = immutabledict(
-    {
-        AMPLITUDE_UUID: TwitchAmplitude(rounded=False),
-        TWITCH_FREQUENCY_UUID: TwitchFrequency(rounded=False),
-    }
+    {AMPLITUDE_UUID: TwitchAmplitude(rounded=False), TWITCH_FREQUENCY_UUID: TwitchFrequency(rounded=False)}
 )
 
 
@@ -131,8 +128,7 @@ def get_force_signal(
 
 
 def live_data_metrics(
-    peak_and_valley_indices: Tuple[NDArray[int], NDArray[int]],
-    filtered_data: NDArray[(2, Any), int],
+    peak_and_valley_indices: Tuple[NDArray[int], NDArray[int]], filtered_data: NDArray[(2, Any), int]
 ) -> Dict[int, Dict[UUID, Any]]:
     """Find all data metrics for individual twitches and averages.
 
@@ -204,9 +200,7 @@ def _get_secs_since_data_analysis_start(start: float) -> float:
     return perf_counter() - start
 
 
-def _drain_board_queues(
-    board_queues: Tuple[Queue[Any], Queue[Any]],
-) -> Dict[str, List[Any]]:
+def _drain_board_queues(board_queues: Tuple[Queue[Any], Queue[Any]]) -> Dict[str, List[Any]]:
     board_dict = {
         "file_writer_to_data_analyzer": drain_queue(board_queues[0]),
         "outgoing_data": drain_queue(board_queues[1]),
@@ -499,10 +493,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 well_index = corresponding_well_indices[ref_data_index % CONSTRUCT_SENSORS_PER_REF_SENSOR]
                 if self._data_buffer[well_index]["ref_data"] is None:
                     # Tanner (9/1/20): Using lists here since it is faster to extend a list than concatenate two arrays
-                    self._data_buffer[well_index]["ref_data"] = (
-                        data_pair[0].tolist(),
-                        data_pair[1].tolist(),
-                    )
+                    self._data_buffer[well_index]["ref_data"] = (data_pair[0].tolist(), data_pair[1].tolist())
                 else:
                     self._data_buffer[well_index]["ref_data"][0].extend(data_pair[0])
                     self._data_buffer[well_index]["ref_data"][1].extend(data_pair[1])
@@ -663,12 +654,16 @@ class DataAnalyzerProcess(InfiniteProcess):
 
     def _start_recording_snapshot_analysis(self, recording_path: str) -> None:
         # TODO (9/16/22): this should be run in a thread so that this process is still responsive to main
-        # TODO (11/16/22): add error handling. If the analysis fails here, then snapshot_dfs[0] will raise a KeyError
-        snapshot_dfs = run_magnet_finding_alg({}, [recording_path], end_time=RECORDING_SNAPSHOT_DUR_SECS)
-        snapshot_dict = snapshot_dfs[0].to_dict()
-        snapshot_list = [list(snapshot_dict[key].values()) for key in snapshot_dict.keys()]
+        try:
+            snapshot_dfs = run_magnet_finding_alg({}, [recording_path], end_time=RECORDING_SNAPSHOT_DUR_SECS)
+            # KeyError gets raised when mag finding fails
+            snapshot_dict = snapshot_dfs[0].to_dict()
+            snapshot_list = [list(snapshot_dict[key].values()) for key in snapshot_dict.keys()]
+            mag_analysis_msg = {"time": snapshot_list[0], "force": snapshot_list[1:]}
 
-        mag_analysis_msg = {"time": snapshot_list[0], "force": snapshot_list[1:]}
+        except Exception:
+            mag_analysis_msg = {"error": "Unable to converge due to bad data"}  # type: ignore
+
         outgoing_msg = {"data_type": "recording_snapshot_data", "data_json": json.dumps(mag_analysis_msg)}
 
         self._comm_to_main_queue.put_nowait(
@@ -699,10 +694,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             for name, da_measurements in name_measurement_list:
                 performance_metrics[name] = create_metrics_stats(da_measurements)
             put_log_message_into_queue(
-                logging.INFO,
-                performance_metrics,
-                self._comm_to_main_queue,
-                self.get_logging_level(),
+                logging.INFO, performance_metrics, self._comm_to_main_queue, self.get_logging_level()
             )
             if len(self._outgoing_data_creation_durations) >= PERFOMANCE_LOGGING_PERIOD_SECS:
                 self._reset_performance_tracking_values()

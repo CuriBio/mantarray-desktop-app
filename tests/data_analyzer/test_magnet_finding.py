@@ -141,6 +141,28 @@ def test_DataAnalyzerProcess__correctly_handles_recording_snapshot_command(
     )
 
 
+def test_DataAnalyzerProcess__correctly_handles_recording_snapshot_error(
+    four_board_analyzer_process_beta_2_mode, mocker
+):
+    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
+    from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
+    to_main_queue = four_board_analyzer_process_beta_2_mode["to_main_queue"]
+
+    mocker.patch.object(data_analyzer, "run_magnet_finding_alg", autospec=True, side_effect=Exception())
+
+    test_command = dict(TEST_START_RECORDING_SNAPSHOT_COMMAND)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, from_main_queue)
+    invoke_process_run_and_check_errors(da_process)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+
+    msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert msg["communication_type"] == "mag_analysis_complete"
+    assert msg["content"]["data_type"] == "recording_snapshot_data"
+    parsed_data = json.loads(msg["content"]["data_json"])
+
+    assert "error" in parsed_data
+
+
 def test_DataAnalyzerProcess__raises_error_when_receiving_unrecognized_mag_finding_analysis_command(
     four_board_analyzer_process_beta_2_mode, patch_print
 ):
