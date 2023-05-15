@@ -16,6 +16,8 @@ from mantarray_desktop_app import REFERENCE_VOLTAGE
 from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import LIVE_VIEW_ACTIVE_STATE
+from mantarray_desktop_app.constants import RECORDING_STATE
 from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.main_process import server
@@ -602,7 +604,9 @@ def test_send_single_read_wire_out_command_with_description__populates_queue(
 def test_send_single_stop_managed_acquisition_command__populates_queues(
     client_and_server_manager_and_shared_values,
 ):
-    test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
+    test_client, (test_server, _), shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
+    shared_values_dict["system_action_transitions"] = {"live_view": None}
 
     response = test_client.get("/stop_managed_acquisition")
     assert response.status_code == 200
@@ -699,6 +703,7 @@ def test_stop_recording_command__is_received_by_main__with_default__utcnow_recor
         year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332597
     )
 
+    shared_values_dict["system_status"] = RECORDING_STATE
     shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [expected_acquisition_timestamp]
 
     server_to_main_queue = test_server.get_queue_to_main()
@@ -1356,6 +1361,7 @@ def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_statu
     test_client, (server_manager, _), shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = CALIBRATED_STATE
+    shared_values_dict["system_action_transitions"] = {"stimulation": None}
     shared_values_dict["stimulation_info"] = {"protocols": [None] * 4, "protocol_assignments": {}}
 
     expected_status_bool = test_status in ("true", "True")

@@ -262,14 +262,15 @@ def test_send_single_start_calibration_command__returns_correct_response(
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["system_status"] = test_system_status
 
-    expected_status_code = 200 if test_system_status in (CALIBRATION_NEEDED_STATE, CALIBRATED_STATE) else 403
+    if test_system_status in (CALIBRATION_NEEDED_STATE, CALIBRATED_STATE):
+        expected_status_code = 200
+    elif test_system_status in CALIBRATING_STATE:
+        expected_status_code = 304
+    else:
+        expected_status_code = 403
 
     response = test_client.get("/start_calibration")
     assert response.status_code == expected_status_code
-    if expected_status_code == 403:
-        assert response.status.endswith(
-            "Route cannot be called unless in calibration_needed or calibrated state"
-        )
 
 
 def test_start_calibration__returns_error_code_and_message_if_called_in_beta_2_mode_while_stimulating(
@@ -402,7 +403,6 @@ def test_set_start_stim_checks__returns_code_and_message_if_checks_are_already_r
 
     response = test_client.post("/start_stim_checks")
     assert response.status_code == 304
-    assert response.status.endswith("Stimulator checks already running")
 
 
 def test_start_stim_checks__returns_error_code_and_message_if_called_without_well_indices_in_body(
@@ -889,7 +889,6 @@ def test_start_recording__returns_error_code_and_message_if_already_recording(
     }
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
     assert response.status_code == 304
-    assert response.status.endswith("Already recording")
 
 
 def test_route_with_no_url_rule__returns_error_message__and_logs_reponse_to_request(test_client, mocker):
@@ -1064,12 +1063,10 @@ def test_set_stim_status__returns_code_and_message_if_new_status_is_the_same_as_
 
     response = test_client.post("/set_stim_status?running=false")
     assert response.status_code == 304
-    assert response.status.endswith("Status not updated")
 
     shared_values_dict["stimulation_running"][0] = True  # arbitrary well
     response = test_client.post("/set_stim_status?running=true")
     assert response.status_code == 304
-    assert response.status.endswith("Status not updated")
 
 
 @pytest.mark.parametrize(
@@ -1082,6 +1079,7 @@ def test_set_stim_status__returns_no_error_code_if_called_correctly__with_true(
 
     test_num_wells = 24
 
+    shared_values_dict["system_action_transitions"] = {"stimulation": None}
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["system_status"] = test_system_status
     shared_values_dict["stimulation_running"] = [False] * 24

@@ -160,7 +160,7 @@ def queue_command_to_main(comm_dict: Dict[str, Any]) -> Response:
 
 
 def _get_no_op_response() -> Response:
-    return Response(json.dumps({"result": "no-op"}), mimetype="application/json")
+    return Response(status="304 no-op")
 
 
 @flask_app.route("/system_status", methods=["GET"])
