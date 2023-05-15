@@ -8,6 +8,7 @@ Changed:
 ^^^^^^^^
 - Stimulation pulse editor now greys out disabled inputs.
 - New user login flow.
+- Return custom error when magnet finding fails to converge for recording snapshot.
 
 
 1.1.2 (2023-05-03)
