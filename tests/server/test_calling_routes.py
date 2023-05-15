@@ -29,6 +29,7 @@ from mantarray_desktop_app.constants import STIM_MAX_DUTY_CYCLE_PERCENTAGE
 from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
+from mantarray_desktop_app.constants import SystemActionTransitionStates
 from mantarray_desktop_app.exceptions import LoginFailedError
 from mantarray_desktop_app.main_process import server
 from mantarray_desktop_app.utils.stimulation import get_pulse_duty_cycle_dur_us
@@ -564,6 +565,25 @@ def test_start_managed_acquisition__returns_error_code_and_message_if_mantarray_
     assert response.status.endswith("Mantarray has not been assigned a Serial Number")
 
 
+@pytest.mark.parametrize("test_system_status", [BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE])
+def test_start_managed_acquisition__returns_error_code_if_already_running(
+    test_system_status,
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = test_system_status
+    shared_values_dict["mantarray_serial_number"] = {0: MantarrayMcSimulator.default_mantarray_serial_number}
+    shared_values_dict["stimulator_circuit_statuses"] = {
+        well_idx: StimulatorCircuitStatuses.MEDIA.name.lower() for well_idx in range(24)
+    }
+
+    response = test_client.get(
+        f"/start_managed_acquisition?plate_barcode={MantarrayMcSimulator.default_plate_barcode}"
+    )
+    assert response.status_code == 304
+
+
 def test_start_managed_acquisition__returns_error_code_and_message_called_while_stimulator_checks_are_running(
     client_and_server_manager_and_shared_values,
 ):
@@ -589,6 +609,42 @@ def test_start_managed_acquisition__returns_error_code_and_message_called_while_
     response = test_client.get(f"/start_managed_acquisition?plate_barcode={test_barcode}")
     assert response.status_code == 403
     assert response.status.endswith("Cannot start managed acquisition while stimulator checks are running")
+
+
+def test_stop_managed_acquisition__returns_error_code_if_called_in_incorrect_state(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = choice([RECORDING_STATE, CALIBRATING_STATE])
+    shared_values_dict["system_action_transitions"] = {"live_view": None}
+
+    response = test_client.get("/stop_managed_acquisition")
+    assert response.status_code == 403
+
+
+def test_stop_managed_acquisition__returns_error_code_if_not_running(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    shared_values_dict["system_action_transitions"] = {"live_view": None}
+
+    response = test_client.get("/stop_managed_acquisition")
+    assert response.status_code == 304
+
+
+def test_stop_managed_acquisition__returns_error_code_if_stopping(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
+    shared_values_dict["system_action_transitions"] = {"live_view": SystemActionTransitionStates.STOPPING}
+
+    response = test_client.get("/stop_managed_acquisition")
+    assert response.status_code == 304
 
 
 def test_get_recordings__returns_error_code_and_message_when_recording_directory_is_not_found(
@@ -876,7 +932,7 @@ def test_start_recording__allows_correct_barcode_headers__for_correct_barcode_ty
     assert response.status_code == 200
 
 
-def test_start_recording__returns_error_code_and_message_if_already_recording(
+def test_start_recording__returns_error_code_if_already_recording(
     client_and_server_manager_and_shared_values,
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
@@ -888,6 +944,17 @@ def test_start_recording__returns_error_code_and_message_if_already_recording(
         "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
     }
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(params)}")
+    assert response.status_code == 304
+
+
+def test_stop_recording__returns_error_code_if_not_recording(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
+    shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
+
+    response = test_client.get("/stop_recording")
     assert response.status_code == 304
 
 
