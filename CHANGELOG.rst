@@ -6,7 +6,8 @@ Changelog for Mantarray Desktop App
 
 Changed:
 ^^^^^^^^
-- New user login flow
+- Stimulation pulse editor now greys out disabled inputs.
+- New user login flow.
 
 
 1.1.2 (2023-05-03)
