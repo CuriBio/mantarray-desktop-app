@@ -57,6 +57,7 @@ from ..constants import SERVER_READY_STATE
 from ..constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from ..constants import StimulatorCircuitStatuses
 from ..constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
+from ..constants import SystemActionTransitionStates
 from ..constants import UPDATE_ERROR_STATE
 from ..constants import UPDATES_COMPLETE_STATE
 from ..constants import UPDATES_NEEDED_STATE
@@ -269,6 +270,11 @@ class MantarrayProcessesMonitor(InfiniteThread):
         elif communication_type == "stimulation":
             command = communication["command"]
             if command == "set_stim_status":
+                self._values_to_share_to_server["system_action_transitions"]["stimulation"] = (
+                    SystemActionTransitionStates.STARTING
+                    if communication["status"]
+                    else SystemActionTransitionStates.STOPPING
+                )
                 self._put_communication_into_instrument_comm_queue(
                     {
                         "communication_type": communication_type,
@@ -375,6 +381,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 main_to_ic_queue.put_nowait(communication)
                 main_to_da_queue.put_nowait(communication)
             elif command == "stop_managed_acquisition":
+                shared_values_dict["system_action_transitions"][
+                    "live_view"
+                ] = SystemActionTransitionStates.STOPPING
+
                 main_to_fw_queue = self._process_manager.queue_container.to_file_writer
                 # need to send stop command to the process the furthest downstream the data path first then move upstream
                 main_to_da_queue.put_nowait(communication)
@@ -477,6 +487,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     communication["timestamp"]
                 ]
             elif command == "stop_managed_acquisition":
+                self._values_to_share_to_server["system_action_transitions"]["live_view"] = None
                 if not communication.get("is_calibration_recording", False):
                     self._values_to_share_to_server["system_status"] = CALIBRATED_STATE
                     self._data_dump_buffer_size = 0
@@ -496,8 +507,10 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     well_idx = GENERIC_24_WELL_DEFINITION.get_well_index_from_well_name(well_name)
                     stim_running_list[well_idx] = True
                 self._values_to_share_to_server["stimulation_running"] = stim_running_list
+                self._values_to_share_to_server["system_action_transitions"]["stimulation"] = None
             elif command == "stop_stimulation":
                 self._values_to_share_to_server["stimulation_running"] = [False] * 24
+                self._values_to_share_to_server["system_action_transitions"]["stimulation"] = None
             elif command == "status_update":
                 # ignore stim status updates if stim was already stopped manually
                 for well_idx in communication["wells_done_stimulating"]:

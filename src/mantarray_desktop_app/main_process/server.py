@@ -1,30 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Python Flask Server controlling Mantarray.
-
-Custom HTTP Error Codes:
-
-* 304 - Call to /set_stim_status with the current stim status (no updates will be made to status)
-* 304 - Call to /start_recording while already recording
-* 400 - Call to /start_recording with invalid or missing barcode parameter
-* 400 - Call to /set_mantarray_nickname with invalid nickname parameter
-* 400 - Call to /update_settings with unexpected argument or a recording directory that doesn't exist
-* 400 - Call to /insert_xem_command_into_queue/set_mantarray_serial_number with invalid serial_number parameter
-* 400 - Call to /set_protocols with an invalid protocol or protocol assignments
-* 400 - Call to /set_stim_status with missing 'running' status
-* 401 - Call to /update_settings with invalid user credentials
-* 403 - Call to /start_recording with is_hardware_test_recording=False after calling route with is_hardware_test_recording=True (default value)
-* 403 - Call to any /insert_xem_command_into_queue/* route when in Beta 2 mode
-* 403 - Call to /boot_up when in Beta 2 mode
-* 403 - Call to /start_calibration when not in calibration_needed or calibrated state
-* 403 - Call to /set_protocols when in Beta 1 mode
-* 403 - Call to /set_protocols while stimulation is running
-* 403 - Call to /set_stim_status when in Beta 1 mode
-* 403 - Call to /set_stim_status with running set to True while recording
-* 404 - Route not implemented
-* 406 - Call to /set_stim_status before protocol is set or while recording
-* 406 - Call to /start_managed_acquisition when Mantarray device does not have a serial number assigned to it
-* 520 - Call to /system_status when Electron and Flask EXE versions don't match
-"""
+"""Python Flask Server controlling Mantarray."""
 from __future__ import annotations
 
 import copy
@@ -64,6 +39,7 @@ from stdlib_utils import is_port_in_use
 from .queue_container import MantarrayQueueContainer
 from ..constants import BUFFERING_STATE
 from ..constants import CALIBRATED_STATE
+from ..constants import CALIBRATING_STATE
 from ..constants import CALIBRATION_NEEDED_STATE
 from ..constants import DEFAULT_SERVER_PORT_NUMBER
 from ..constants import GENERIC_24_WELL_DEFINITION
@@ -83,6 +59,7 @@ from ..constants import StimulatorCircuitStatuses
 from ..constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from ..constants import SUBPROCESS_POLL_DELAY_SECONDS
 from ..constants import SYSTEM_STATUS_UUIDS
+from ..constants import SystemActionTransitionStates
 from ..constants import VALID_CONFIG_SETTINGS
 from ..constants import VALID_STIMULATION_TYPES
 from ..constants import VALID_SUBPROTOCOL_TYPES
@@ -182,6 +159,10 @@ def queue_command_to_main(comm_dict: Dict[str, Any]) -> Response:
     return response
 
 
+def _get_no_op_response() -> Response:
+    return Response(json.dumps({"result": "no-op"}), mimetype="application/json")
+
+
 @flask_app.route("/system_status", methods=["GET"])
 def system_status() -> Response:
     """Get the system status and other information.
@@ -189,8 +170,6 @@ def system_status() -> Response:
     in_simulation_mode is only accurate if ui_status_code is '009301eb-625c-4dc4-9e92-1a4d0762465f'
 
     mantarray_serial_number and mantarray_nickname are only accurate if ui_status_code is '8e24ef4d-2353-4e9d-aa32-4346126e73e3'
-
-    Can be invoked by: curl http://localhost:4567/system_status
     """
     shared_values_dict = _get_values_from_process_monitor()
     current_software_version = get_current_software_version()
@@ -250,8 +229,6 @@ def set_mantarray_nickname() -> Response:
     """Set the 'nickname' of the Mantarray device.
 
     This route will not overwrite an existing Mantarray Serial Number.
-
-    Can be invoked by: curl http://localhost:4567/set_mantarray_nickname?nickname=My%20Mantarray
     """
     shared_values_dict = _get_values_from_process_monitor()
     max_num_bytes = SERIAL_COMM_NICKNAME_BYTES_LENGTH if shared_values_dict["beta_2_mode"] else 23
@@ -272,11 +249,11 @@ def set_mantarray_nickname() -> Response:
 
 @flask_app.route("/start_calibration", methods=["GET"])
 def start_calibration() -> Response:
-    """Start the calibration procedure on the Mantarray.
-
-    Can be invoked by:  curl http://localhost:4567/start_calibration
-    """
+    """Start the calibration procedure on the Mantarray."""
     shared_values_dict = _get_values_from_process_monitor()
+    if shared_values_dict["system_status"] == CALIBRATING_STATE:
+        return _get_no_op_response()
+
     if shared_values_dict["system_status"] not in (CALIBRATION_NEEDED_STATE, CALIBRATED_STATE):
         return Response(status="403 Route cannot be called unless in calibration_needed or calibrated state")
     if shared_values_dict["beta_2_mode"]:
@@ -299,8 +276,6 @@ def start_stim_checks() -> Response:
     """Start the stimulator impedence checks on the Mantarray.
 
     Not available for Beta 1 instruments.
-
-    Can be invoked by:  curl http://localhost:4567/start_stim_checks
     """
     shared_values_dict = _get_values_from_process_monitor()
     if not shared_values_dict["beta_2_mode"]:
@@ -310,7 +285,7 @@ def start_stim_checks() -> Response:
     if _is_stimulating_on_any_well():
         return Response(status="403 Cannot perform stimulator checks while stimulation is running")
     if _are_stimulator_checks_running():
-        return Response(status="304 Stimulator checks already running")
+        return _get_no_op_response()
 
     request_body = request.get_json()
     try:
@@ -345,10 +320,7 @@ def start_stim_checks() -> Response:
 
 @flask_app.route("/boot_up", methods=["GET"])
 def boot_up() -> Response:
-    """Initialize XEM then run start up script.
-
-    Can be invoked by: curl http://localhost:4567/boot_up
-    """
+    """Initialize XEM then run start up script."""
     comm_dict = {"communication_type": "to_instrument", "command": "boot_up"}
 
     response = queue_command_to_main(comm_dict)
@@ -358,10 +330,7 @@ def boot_up() -> Response:
 
 @flask_app.route("/get_recordings", methods=["GET"])
 def get_recordings() -> Response:
-    """Get list of recordings from root recordings directory.
-
-    Can be invoked by: curl http://localhost:4567/get_recordings
-    """
+    """Get list of recordings from root recordings directory."""
     try:
         recording_dir = _get_values_from_process_monitor()["config_settings"]["recording_directory"]
     except KeyError:
@@ -375,10 +344,7 @@ def get_recordings() -> Response:
 
 @flask_app.route("/start_data_analysis", methods=["POST"])
 def run_mag_finding_analysis() -> Response:
-    """Route recieves list of recording paths to run analysis on locally.
-
-    Can be invoked by: curl http://localhost:4567/start_data_analysis
-    """
+    """Route recieves list of recording paths to run analysis on locally."""
     try:
         config_setting = _get_values_from_process_monitor()["config_settings"]
         recording_rootdir = config_setting["recording_directory"]
@@ -402,11 +368,7 @@ def run_mag_finding_analysis() -> Response:
 
 @flask_app.route("/update_settings", methods=["GET"])
 def update_settings() -> Response:
-    """Update the customer/user settings.
-
-    Can be invoked by: curl http://localhost:4567/update_settings?customer_id=<UUID>&user_name=<UUID>&recording_directory=<recording_dir>
-                       curl http://localhost:4567/update_settings?auto_upload=<bool>&auto_delete=<bool>&pulse3d_version=<str>
-    """
+    """Update the customer/user settings."""
     for arg in request.args:
         if arg not in VALID_CONFIG_SETTINGS:
             return Response(status=f"400 Invalid argument given: {arg}")
@@ -432,10 +394,7 @@ def update_settings() -> Response:
 
 @flask_app.route("/login", methods=["GET"])
 def login_user() -> Response:
-    """Login user.
-
-    curl http://localhost:4567/update_settings?customer_id=<string>&user_password=<string>&user_name=<string>
-    """
+    """Login user."""
     for arg in request.args:
         if arg not in VALID_CONFIG_SETTINGS:
             return Response(status=f"400 Invalid argument given: {arg}")
@@ -494,8 +453,6 @@ def set_protocols() -> Response:
     """Set the stimulation protocols in hardware memory.
 
     Not available for Beta 1 instruments.
-
-    Can be invoked by: curl -d '<stimulation protocol as json>' -H 'Content-Type: application/json' -X POST http://localhost:4567/set_protocols
     """
     if not _get_values_from_process_monitor()["beta_2_mode"]:
         return Response(status="403 Route cannot be called in beta 1 mode")
@@ -631,8 +588,6 @@ def set_stim_status() -> Response:
     """Start or stop stimulation on hardware.
 
     Not available for Beta 1 instruments.
-
-    Can be invoked by: curl -X POST http://localhost:4567/set_stim_status?running=true
     """
     shared_values_dict = _get_values_from_process_monitor()
     if not shared_values_dict["beta_2_mode"]:
@@ -657,8 +612,15 @@ def set_stim_status() -> Response:
             return Response(status="403 Cannot start stimulation while running stimulator circuit checks")
         if _are_any_stimulator_circuits_short():
             return Response(status="403 Cannot start stimulation when a stimulator has a short circuit")
-    if stim_status is _is_stimulating_on_any_well():
-        return Response(status="304 Status not updated")
+
+    action_transition = (
+        SystemActionTransitionStates.STARTING if stim_status else SystemActionTransitionStates.STOPPING
+    )
+    if (
+        stim_status is _is_stimulating_on_any_well()
+        or shared_values_dict["system_action_transitions"]["stimulation"] == action_transition
+    ):
+        return _get_no_op_response()
 
     response = queue_command_to_main(
         {"communication_type": "stimulation", "command": "set_stim_status", "status": stim_status}
@@ -697,7 +659,7 @@ def start_recording() -> Response:
     }
 
     if _is_recording():
-        return Response(status="304 Already recording")
+        return _get_no_op_response()
 
     # TODO remove this arg and don't store it in H5 files once Beta 1 is phased out
     is_hardware_test_recording = request.args.get("is_hardware_test_recording", True)
@@ -762,7 +724,6 @@ def stop_recording() -> Response:
 
     Supplies a specific time index that FileWriter should stop at, since there is a lag between what the user sees and what's actively streaming into FileWriter.
 
-    Can be invoked by: curl http://localhost:4567/stop_recording
 
     Args:
         time_index: [Optional, int] microseconds since acquisition began to end the recording at. defaults to when this command is received
@@ -770,6 +731,9 @@ def stop_recording() -> Response:
     shared_values_dict = _get_values_from_process_monitor()
 
     timestamp_of_sample_idx_zero = _get_timestamp_of_acquisition_sample_index_zero(shared_values_dict)
+
+    if not _is_recording():
+        return _get_no_op_response()
 
     stop_time_index: Union[int, float]
     if "time_index" in request.args:
@@ -793,10 +757,7 @@ def stop_recording() -> Response:
 
 @flask_app.route("/update_recording_name", methods=["POST"])
 def update_recording_name() -> Response:
-    """Route updates recording name after stop recording.
-
-    Can be invoked by: curl http://localhost:4567/update_recording_name
-    """
+    """Route updates recording name after stop recording."""
     shared_values_dict = _get_values_from_process_monitor()
     recording_dir = shared_values_dict["config_settings"]["recording_directory"]
 
@@ -827,8 +788,6 @@ def start_managed_acquisition() -> Response:
     """Begin "managed" data acquisition (AKA data streaming) on the Mantarray.
 
     Can be invoked by:
-
-    `curl http://localhost:4567/start_managed_acquisition`
     """
     shared_values_dict = _get_values_from_process_monitor()
 
@@ -846,6 +805,9 @@ def start_managed_acquisition() -> Response:
     if shared_values_dict["beta_2_mode"] and _are_stimulator_checks_running():
         return Response(status="403 Cannot start managed acquisition while stimulator checks are running")
 
+    if shared_values_dict["system_status"] in (BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE):
+        return _get_no_op_response()
+
     command = {**START_MANAGED_ACQUISITION_COMMUNICATION, "barcode": plate_barcode}
     response = queue_command_to_main(command)
 
@@ -854,12 +816,20 @@ def start_managed_acquisition() -> Response:
 
 @flask_app.route("/stop_managed_acquisition", methods=["GET"])
 def stop_managed_acquisition() -> Response:
-    """Stop "managed" data acquisition on the Mantarray.
+    """Stop "managed" data acquisition on the Mantarray."""
+    shared_values_dict = _get_values_from_process_monitor()
 
-    Can be invoked by:
+    status = shared_values_dict["system_status"]
 
-    `curl http://localhost:4567/stop_managed_acquisition`
-    """
+    if (
+        status == CALIBRATED_STATE
+        or shared_values_dict["system_action_transitions"]["live_view"]
+        == SystemActionTransitionStates.STOPPING
+    ):
+        return _get_no_op_response()
+    if status not in (BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE):
+        return Response(status=f"403 Cannot stop managed acquisition while in {status} state")
+
     response = queue_command_to_main(dict(STOP_MANAGED_ACQUISITION_COMMUNICATION))
     return response
 
@@ -871,9 +841,7 @@ def set_mantarray_serial_number() -> Response:
 
     This serial number pertains to the Mantarray instrument itself. This is different than the Opal Kelly serial number which pertains only to the XEM.
 
-    This route will overwrite an existing Mantarray Nickname if present
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/set_mantarray_serial_number?serial_number=M02001900
+    This route will overwrite an existing Mantarray Nickname if present.
     """
     serial_number = request.args["serial_number"]
     error_message = check_mantarray_serial_number(serial_number)
@@ -894,9 +862,8 @@ def set_mantarray_serial_number() -> Response:
 def queue_initialize_board() -> Response:
     """Queue up a command to initialize the XEM.
 
-    Specified bit files should be in same directory as mantarray-flask.exe
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/initialize_board?bit_file_name=main.bit&allow_board_reinitialization=False
+    Specified bit files should be in same directory as mantarray-
+    flask.exe
     """
     bit_file_name = request.args.get("bit_file_name", None)
     allow_board_reinitialization = request.args.get("allow_board_reinitialization", False)
@@ -915,10 +882,7 @@ def queue_initialize_board() -> Response:
 
 @flask_app.route("/insert_xem_command_into_queue/activate_trigger_in", methods=["GET"])
 def queue_activate_trigger_in() -> Response:
-    """Queue up a command to activate a given trigger-in bit on the XEM.
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/activate_trigger_in?ep_addr=0x08&bit=0x00000001"
-    """
+    """Queue up a command to activate a given trigger-in bit on the XEM."""
     ep_addr = int(request.args["ep_addr"], 0)
     bit = int(request.args["bit"], 0)
     comm_dict = {
@@ -936,9 +900,8 @@ def queue_activate_trigger_in() -> Response:
 def queue_comm_delay() -> Response:
     """Queue a command delay communication to the XEM for a period of time.
 
-    Mainly to be used in XEM scripting when delays between commands are necessary.
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/comm_delay?num_milliseconds=10"
+    Mainly to be used in XEM scripting when delays between commands are
+    necessary.
     """
     num_milliseconds = int(request.args["num_milliseconds"])
     comm_dict = {
@@ -953,28 +916,19 @@ def queue_comm_delay() -> Response:
 
 @flask_app.route("/development/begin_hardware_script", methods=["GET"])
 def dev_begin_hardware_script() -> Response:
-    """Designate the beginning of a hardware script in flask log.
-
-    Can be invoked by: curl "http://localhost:4567/development/begin_hardware_script?script_type=ENUM&version=integer"
-    """
+    """Designate the beginning of a hardware script in flask log."""
     return Response(json.dumps({}), mimetype="application/json")
 
 
 @flask_app.route("/development/end_hardware_script", methods=["GET"])
 def dev_end_hardware_script() -> Response:
-    """Designate the end of a hardware script in flask log.
-
-    Can be invoked by: curl http://localhost:4567/development/end_hardware_script
-    """
+    """Designate the end of a hardware script in flask log."""
     return Response(json.dumps({}), mimetype="application/json")
 
 
 @flask_app.route("/insert_xem_command_into_queue/get_num_words_fifo", methods=["GET"])
 def queue_get_num_words_fifo() -> Response:
-    """Queue up a command to set a wire-in value on the XEM.
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/get_num_words_fifo
-    """
+    """Queue up a command to set a wire-in value on the XEM."""
     comm_dict = {
         "communication_type": "debug_console",
         "command": "get_num_words_fifo",
@@ -991,8 +945,6 @@ def queue_set_device_id() -> Response:
     Do not use this route to set Mantarray Device Nicknames or Serial Numbers.
 
     This route should be used cautiously as it will overwrite an existing Mantarray serial number / ID stored in the XEM.
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/set_device_id?new_id=""
     """
     new_id = request.args["new_id"]
     comm_dict = {
@@ -1009,10 +961,7 @@ def queue_set_device_id() -> Response:
 
 @flask_app.route("/insert_xem_command_into_queue/stop_acquisition", methods=["GET"])
 def queue_stop_acquisition() -> Response:
-    """Queue up a command to stop running data acquisition on the XEM.
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/stop_acquisition
-    """
+    """Queue up a command to stop running data acquisition on the XEM."""
     comm_dict = {"communication_type": "debug_console", "command": "stop_acquisition", "suppress_error": True}
 
     response = queue_command_to_instrument_comm(comm_dict)
@@ -1022,10 +971,7 @@ def queue_stop_acquisition() -> Response:
 
 @flask_app.route("/insert_xem_command_into_queue/start_acquisition", methods=["GET"])
 def queue_start_acquisition() -> Response:
-    """Queue up a command to start running data acquisition on the XEM.
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/start_acquisition
-    """
+    """Queue up a command to start running data acquisition on the XEM."""
     comm_dict = {
         "communication_type": "debug_console",
         "command": "start_acquisition",
@@ -1039,10 +985,7 @@ def queue_start_acquisition() -> Response:
 
 @flask_app.route("/insert_xem_command_into_queue/get_serial_number", methods=["GET"])
 def queue_get_serial_number() -> Response:
-    """Queue up a command to stop running data acquisition on the XEM.
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/get_serial_number
-    """
+    """Queue up a command to stop running data acquisition on the XEM."""
     comm_dict = {
         "communication_type": "debug_console",
         "command": "get_serial_number",
@@ -1056,10 +999,7 @@ def queue_get_serial_number() -> Response:
 
 @flask_app.route("/insert_xem_command_into_queue/get_device_id", methods=["GET"])
 def queue_get_device_id() -> Response:
-    """Queue up a command to get the device ID from the XEM.
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/get_device_id
-    """
+    """Queue up a command to get the device ID from the XEM."""
     comm_dict = {"communication_type": "debug_console", "command": "get_device_id", "suppress_error": True}
 
     response = queue_command_to_instrument_comm(comm_dict)
@@ -1069,10 +1009,7 @@ def queue_get_device_id() -> Response:
 
 @flask_app.route("/insert_xem_command_into_queue/is_spi_running", methods=["GET"])
 def queue_is_spi_running() -> Response:
-    """Queue up a command to get SPI running status on the XEM.
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/is_spi_running
-    """
+    """Queue up a command to get SPI running status on the XEM."""
     comm_dict = {"communication_type": "debug_console", "command": "is_spi_running", "suppress_error": True}
 
     response = queue_command_to_instrument_comm(comm_dict)
@@ -1082,10 +1019,7 @@ def queue_is_spi_running() -> Response:
 
 @flask_app.route("/insert_xem_command_into_queue/read_from_fifo", methods=["GET"])
 def queue_read_from_fifo() -> Response:
-    """Queue up a command to read data from the XEM.
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/read_from_fifo?num_words_to_log=72
-    """
+    """Queue up a command to read data from the XEM."""
     num_words_to_log = int(request.args["num_words_to_log"], 0)
     comm_dict = {
         "communication_type": "debug_console",
@@ -1101,10 +1035,7 @@ def queue_read_from_fifo() -> Response:
 
 @flask_app.route("/insert_xem_command_into_queue/set_wire_in", methods=["GET"])
 def queue_set_wire_in() -> Response:
-    """Queue up a command to set a wire-in value on the XEM.
-
-    Can be invoked by: curl "http://localhost:4567/insert_xem_command_into_queue/set_wire_in?ep_addr=6&value=0x00000010&mask=0x00000010"
-    """
+    """Queue up a command to set a wire-in value on the XEM."""
     ep_addr = int(request.args["ep_addr"], 0)
     value = int(request.args["value"], 0)
     mask = int(request.args["mask"], 0)
@@ -1124,10 +1055,7 @@ def queue_set_wire_in() -> Response:
 
 @flask_app.route("/xem_scripts", methods=["GET"])
 def run_xem_script() -> Response:
-    """Run a script of XEM commands created from an existing flask log.
-
-    Can be invoked by: curl http://localhost:4567/xem_scripts?script_type=start_up
-    """
+    """Run a script of XEM commands created from an existing flask log."""
     script_type = request.args["script_type"]
     comm_dict = {"communication_type": "xem_scripts", "script_type": script_type}
 
@@ -1141,8 +1069,6 @@ def queue_read_wire_out() -> Response:
     """Queue up a command to read from wire out on the XEM.
 
     Takes an optional description message for commenting in the the log
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/read_wire_out?ep_addr=0x06&description=description_contents
     """
     ep_addr = int(request.args["ep_addr"], 0)
     comm_dict = {
@@ -1164,9 +1090,8 @@ def queue_read_wire_out() -> Response:
 def queue_get_status() -> Response:
     """Queue up a command to get instance attributes of FrontPanelBase object.
 
-    Does not interact with a XEM. This route shouldn't be used if an attribute of a XEM is needed.
-
-    Can be invoked by: curl http://localhost:4567/insert_xem_command_into_queue/get_status
+    Does not interact with a XEM. This route shouldn't be used if an
+    attribute of a XEM is needed.
     """
     comm_dict = {"communication_type": "debug_console", "command": "get_status", "suppress_error": True}
 
@@ -1184,10 +1109,7 @@ def shutdown_server() -> None:
 
 @flask_app.route("/stop_server", methods=["GET"])
 def stop_server() -> str:
-    """Shut down Flask.
-
-    curl http://localhost:4567/stop_server
-    """
+    """Shut down Flask."""
     shutdown_server()
     # Tanner (6/20/21): SystemExit is raised inside the previous function call, so no lines after this will execute
     return "Server shutting down..."  # pragma: no cover
@@ -1195,10 +1117,7 @@ def stop_server() -> str:
 
 @flask_app.route("/shutdown", methods=["GET"])
 def shutdown() -> Response:
-    """Shutdown subprocesses then stop the server.
-
-    curl http://localhost:4567/shutdown
-    """
+    """Shutdown subprocesses then stop the server."""
     queue_command_to_main({"communication_type": "shutdown", "command": "hard_stop"})
     wait_for_subprocesses_to_stop()
 
