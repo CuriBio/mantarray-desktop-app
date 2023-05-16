@@ -18,6 +18,7 @@ from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import redact_sensitive_info_from_path
 from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import SystemActionTransitionStates
 from mantarray_desktop_app.main_process import process_manager
 from mantarray_desktop_app.main_process import process_monitor
 from mantarray_desktop_app.main_process import server
@@ -656,6 +657,7 @@ def test_send_single_stop_managed_acquisition_command__gets_processed(
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     shared_values_dict["system_status"] = LIVE_VIEW_ACTIVE_STATE
+    shared_values_dict["system_action_transitions"] = {"live_view": None}
 
     ok_process = test_process_manager.instrument_comm_process
     fw_process = test_process_manager.file_writer_process
@@ -676,25 +678,23 @@ def test_send_single_stop_managed_acquisition_command__gets_processed(
     response = test_client.get("/stop_managed_acquisition")
     assert response.status_code == 200
     invoke_process_run_and_check_errors(monitor_thread)
+    assert (
+        shared_values_dict["system_action_transitions"]["live_view"] == SystemActionTransitionStates.STOPPING
+    )
+
     confirm_queue_is_eventually_of_size(to_instrument_comm_queue, 1)
     confirm_queue_is_eventually_of_size(to_file_writer_queue, 1)
     confirm_queue_is_eventually_of_size(to_da_queue, 1)
 
     invoke_process_run_and_check_errors(ok_process)
     confirm_queue_is_eventually_of_size(comm_from_ok_queue, 1)
-    communication = comm_from_ok_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert communication["command"] == "stop_managed_acquisition"
-
     invoke_process_run_and_check_errors(fw_process)
     confirm_queue_is_eventually_of_size(comm_from_fw_queue, 1)
-    communication = comm_from_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert communication["communication_type"] == "command_receipt"
-    assert communication["command"] == "stop_managed_acquisition"
-
     invoke_process_run_and_check_errors(da_process)
     confirm_queue_is_eventually_of_size(comm_from_da_queue, 1)
-    communication = comm_from_da_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert communication["command"] == "stop_managed_acquisition"
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    assert shared_values_dict["system_action_transitions"]["live_view"] is None
 
 
 def test_send_single_set_mantarray_serial_number_command__gets_processed_and_stores_serial_number_in_shared_values_dict(
@@ -994,6 +994,8 @@ def test_stop_recording_command__sets_system_status_to_live_view_active(
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
+    shared_values_dict["system_status"] = RECORDING_STATE
+
     expected_acquisition_timestamp = datetime.datetime(
         year=2020, month=6, day=2, hour=17, minute=9, second=22, microsecond=362490
     )
@@ -1017,6 +1019,8 @@ def test_stop_recording_command__is_received_by_file_writer__with_given_time_ind
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+
+    shared_values_dict["system_status"] = RECORDING_STATE
 
     expected_acquisition_timestamp = datetime.datetime(
         year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332597

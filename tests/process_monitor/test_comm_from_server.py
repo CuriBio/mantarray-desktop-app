@@ -21,6 +21,7 @@ from mantarray_desktop_app import UnrecognizedMantarrayNamingCommandError
 from mantarray_desktop_app import UnrecognizedRecordingCommandError
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
+from mantarray_desktop_app.constants import SystemActionTransitionStates
 from mantarray_desktop_app.constants import UPDATES_NEEDED_STATE
 from mantarray_desktop_app.main_process import process_manager
 from mantarray_desktop_app.main_process import process_monitor
@@ -391,7 +392,9 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     test_process_manager_creator, test_monitor, mocker
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, *_ = test_monitor(test_process_manager)
+    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+
+    shared_values_dict["system_action_transitions"] = {"live_view": None}
 
     server_to_main_queue = test_process_manager.queue_container.from_flask
 
@@ -425,6 +428,10 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     mocked_to_da_put_nowait.assert_called_once_with(STOP_MANAGED_ACQUISITION_COMMUNICATION)
     mocked_to_fw_put_nowait.assert_called_once_with(STOP_MANAGED_ACQUISITION_COMMUNICATION)
     mocked_to_ic_put_nowait.assert_called_once_with(STOP_MANAGED_ACQUISITION_COMMUNICATION)
+
+    assert (
+        shared_values_dict["system_action_transitions"]["live_view"] == SystemActionTransitionStates.STOPPING
+    )
 
 
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handles_update_shared_values_by_updating_shared_values_dictionary__and_sends_update_message_to_file_writer(
@@ -910,6 +917,7 @@ def test_MantarrayProcessesMonitor__processes_set_stim_status_command(
         "protocols": [{"protocol_id": "A"}],
         "protocol_assignments": {well_name: "A" for well_name in test_well_names},
     }
+    shared_values_dict["system_action_transitions"] = {"stimulation": None}
 
     test_command = {"communication_type": "stimulation", "command": "set_stim_status", "status": test_status}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)
@@ -921,6 +929,10 @@ def test_MantarrayProcessesMonitor__processes_set_stim_status_command(
 
     expected_command = "start_stimulation" if test_status else "stop_stimulation"
     assert actual == {"communication_type": "stimulation", "command": expected_command}
+
+    assert shared_values_dict["system_action_transitions"]["stimulation"] == (
+        SystemActionTransitionStates.STARTING if test_status else SystemActionTransitionStates.STOPPING
+    )
 
 
 def test_MantarrayProcessesMonitor__processes_set_protocols_command(

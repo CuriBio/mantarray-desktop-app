@@ -9,6 +9,7 @@ The following constants are based off the geometry of Mantarray Board Rev 2
 * WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 """
 import datetime
+from enum import Enum
 from enum import IntEnum
 from typing import Dict
 from typing import FrozenSet
@@ -227,6 +228,12 @@ SYSTEM_STATUS_UUIDS: immutabledict[str, uuid.UUID] = immutabledict(
         UPDATE_ERROR_STATE: uuid.UUID("33742bfc-d354-4ae5-88b6-2b3cee23aff8"),
     }
 )
+
+
+class SystemActionTransitionStates(Enum):
+    STARTING = "starting"
+    STOPPING = "stopping"
+
 
 SUBPROCESS_JOIN_TIMEOUT_SECONDS = 3
 SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS = 1
