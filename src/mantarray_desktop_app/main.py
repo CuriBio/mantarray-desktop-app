@@ -298,6 +298,10 @@ def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[
             return
 
         shared_values_dict["system_status"] = SERVER_INITIALIZING_STATE
+        shared_values_dict["system_action_transitions"] = {
+            action: None for action in ("live_view", "stimulation")
+        }
+
         if parsed_args.port_number is not None:
             shared_values_dict["server_port_number"] = parsed_args.port_number
         global _server_port_number

@@ -39,6 +39,7 @@ from mantarray_desktop_app import UPDATES_COMPLETE_STATE
 from mantarray_desktop_app import UPDATES_NEEDED_STATE
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
+from mantarray_desktop_app.constants import SystemActionTransitionStates
 from mantarray_desktop_app.exceptions import FirmwareAndSoftwareNotCompatibleError
 from mantarray_desktop_app.exceptions import InstrumentBadDataError
 from mantarray_desktop_app.exceptions import InstrumentConnectionLostError
@@ -800,6 +801,8 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_manag
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
     monitor_thread._data_dump_buffer_size = OUTGOING_DATA_BUFFER_SIZE
 
+    shared_values_dict["system_action_transitions"] = {"live_view": SystemActionTransitionStates.STOPPING}
+
     ok_comm_process = test_process_manager.instrument_comm_process
     from_instrument_comm_queue = test_process_manager.queue_container.from_instrument_comm(0)
     to_instrument_comm_queue = test_process_manager.queue_container.to_instrument_comm(0)
@@ -816,6 +819,7 @@ def test_MantarrayProcessesMonitor__sets_system_status_to_calibrated_after_manag
     assert is_queue_eventually_not_empty(from_instrument_comm_queue) is True
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["system_status"] == CALIBRATED_STATE
+    assert shared_values_dict["system_action_transitions"]["live_view"] is None
     assert monitor_thread._data_dump_buffer_size == 0
 
 
@@ -1878,6 +1882,8 @@ def test_MantarrayProcessesMonitor__sets_stim_running_statuses_in_shared_values_
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
 
+    shared_values_dict["system_action_transitions"] = {"stimulation": SystemActionTransitionStates.STARTING}
+
     test_stim_info = create_random_stim_info()
 
     shared_values_dict["stimulation_info"] = test_stim_info
@@ -1903,6 +1909,7 @@ def test_MantarrayProcessesMonitor__sets_stim_running_statuses_in_shared_values_
         )
         for well_idx in range(24)
     ]
+    assert shared_values_dict["system_action_transitions"]["stimulation"] is None
 
 
 def test_MantarrayProcessesMonitor__updates_stim_running_statuses_shared_values_dict_after_receiving_stop_stimulation_command_response_from_instrument_comm(
@@ -1910,6 +1917,8 @@ def test_MantarrayProcessesMonitor__updates_stim_running_statuses_shared_values_
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
+
+    shared_values_dict["system_action_transitions"] = {"stimulation": SystemActionTransitionStates.STOPPING}
 
     test_stim_info = create_random_stim_info()
 
@@ -1930,6 +1939,7 @@ def test_MantarrayProcessesMonitor__updates_stim_running_statuses_shared_values_
 
     invoke_process_run_and_check_errors(monitor_thread)
     assert shared_values_dict["stimulation_running"] == [False] * 24
+    assert shared_values_dict["system_action_transitions"]["stimulation"] is None
 
 
 def test_MantarrayProcessesMonitor__updates_stimulation_running_list_when_status_update_message_received_from_instrument_comm(
