@@ -616,7 +616,7 @@ def test_stop_managed_acquisition__returns_error_code_if_called_in_incorrect_sta
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["system_status"] = choice([RECORDING_STATE, CALIBRATING_STATE])
+    shared_values_dict["system_status"] = choice([CALIBRATION_NEEDED_STATE, CALIBRATING_STATE])
     shared_values_dict["system_action_transitions"] = {"live_view": None}
 
     response = test_client.get("/stop_managed_acquisition")
