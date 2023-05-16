@@ -20,6 +20,7 @@ from typing import Union
 from uuid import UUID
 
 from immutabledict import immutabledict
+from mantarray_magnet_finding.exceptions import UnableToConvergeError
 from mantarray_magnet_finding.utils import calculate_magnetic_flux_density_from_memsic
 from nptyping import NDArray
 import numpy as np
@@ -660,9 +661,10 @@ class DataAnalyzerProcess(InfiniteProcess):
             snapshot_dict = snapshot_dfs[0].to_dict()
             snapshot_list = [list(snapshot_dict[key].values()) for key in snapshot_dict.keys()]
             mag_analysis_msg = {"time": snapshot_list[0], "force": snapshot_list[1:]}
-
+        except UnableToConvergeError:
+            mag_analysis_msg = {"error": "Unable to process recording due to low quality calibration and/or noise"}  # type: ignore
         except Exception:
-            mag_analysis_msg = {"error": "Unable to converge due to bad data"}  # type: ignore
+            mag_analysis_msg = {"error": "Something went wrong"}  # type: ignore
 
         outgoing_msg = {"data_type": "recording_snapshot_data", "data_json": json.dumps(mag_analysis_msg)}
 

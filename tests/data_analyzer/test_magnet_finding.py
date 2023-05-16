@@ -6,6 +6,7 @@ from mantarray_desktop_app.constants import RECORDING_SNAPSHOT_DUR_SECS
 from mantarray_desktop_app.exceptions import UnrecognizedCommandFromMainToDataAnalyzerError
 from mantarray_desktop_app.sub_processes import data_analyzer
 from mantarray_desktop_app.workers.magnet_finder import run_magnet_finding_alg
+from mantarray_magnet_finding.exceptions import UnableToConvergeError
 import numpy as np
 import pandas as pd
 import pytest
@@ -141,7 +142,7 @@ def test_DataAnalyzerProcess__correctly_handles_recording_snapshot_command(
     )
 
 
-def test_DataAnalyzerProcess__correctly_handles_recording_snapshot_error(
+def test_DataAnalyzerProcess__correctly_handles_recording_snapshot_generic_error(
     four_board_analyzer_process_beta_2_mode, mocker
 ):
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
@@ -160,7 +161,36 @@ def test_DataAnalyzerProcess__correctly_handles_recording_snapshot_error(
     assert msg["content"]["data_type"] == "recording_snapshot_data"
     parsed_data = json.loads(msg["content"]["data_json"])
 
-    assert "error" in parsed_data
+    assert parsed_data == {"error": "Something went wrong"}
+
+
+@pytest.mark.parametrize(
+    "exception,err_message",
+    [
+        [Exception, "Something went wrong"],
+        [UnableToConvergeError, "Unable to process recording due to low quality calibration and/or noise"],
+    ],
+)
+def test_DataAnalyzerProcess__correctly_handles_recording_snapshot_errors(
+    four_board_analyzer_process_beta_2_mode, mocker, exception, err_message
+):
+    da_process = four_board_analyzer_process_beta_2_mode["da_process"]
+    from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
+    to_main_queue = four_board_analyzer_process_beta_2_mode["to_main_queue"]
+
+    mocker.patch.object(data_analyzer, "run_magnet_finding_alg", autospec=True, side_effect=exception())
+
+    test_command = dict(TEST_START_RECORDING_SNAPSHOT_COMMAND)
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, from_main_queue)
+    invoke_process_run_and_check_errors(da_process)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+
+    msg = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert msg["communication_type"] == "mag_analysis_complete"
+    assert msg["content"]["data_type"] == "recording_snapshot_data"
+    parsed_data = json.loads(msg["content"]["data_json"])
+
+    assert parsed_data["error"] == err_message
 
 
 def test_DataAnalyzerProcess__raises_error_when_receiving_unrecognized_mag_finding_analysis_command(
