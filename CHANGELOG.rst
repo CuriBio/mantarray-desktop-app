@@ -1,13 +1,14 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.1.3 (unreleased)
+1.1.4 (unreleased)
 ------------------
 
 Fixed:
 ^^^^^^
 
 - Issue with buttons being unresponsive after press.
+- Return custom error when magnet finding fails to converge for recording snapshot.
 
 
 1.1.3 (unreleased)
@@ -17,7 +18,6 @@ Changed:
 ^^^^^^^^
 - Stimulation pulse editor now greys out disabled inputs.
 - New user login flow.
-- Return custom error when magnet finding fails to converge for recording snapshot.
 
 
 1.1.2 (2023-05-03)
