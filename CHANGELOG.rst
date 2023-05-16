@@ -11,7 +11,7 @@ Fixed:
 - Return custom error when magnet finding fails to converge for recording snapshot.
 
 
-1.1.3 (unreleased)
+1.1.3 (2023-05-22)
 ------------------
 
 Changed:
