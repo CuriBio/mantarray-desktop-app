@@ -827,7 +827,7 @@ def stop_managed_acquisition() -> Response:
         == SystemActionTransitionStates.STOPPING
     ):
         return _get_no_op_response()
-    if status not in (BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE):
+    if status not in (BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE):
         return Response(status=f"403 Cannot stop managed acquisition while in {status} state")
 
     response = queue_command_to_main(dict(STOP_MANAGED_ACQUISITION_COMMUNICATION))
