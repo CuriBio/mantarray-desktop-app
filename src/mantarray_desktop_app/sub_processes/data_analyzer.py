@@ -664,7 +664,6 @@ class DataAnalyzerProcess(InfiniteProcess):
             # {"name": <recording name>, "error": <generic message to display to user>, "expanded_err": <only present if general unknown exception is raised>}
             mag_analysis_msg = failed_snaphots["failed_recordings"][0]
         else:
-            # KeyError gets raised when mag finding fails
             snapshot_dict = snapshot_dfs[0].to_dict()
             snapshot_list = [list(snapshot_dict[key].values()) for key in snapshot_dict.keys()]
             mag_analysis_msg = {"time": snapshot_list[0], "force": snapshot_list[1:]}
