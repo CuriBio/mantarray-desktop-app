@@ -73,7 +73,12 @@ def run_magnet_finding_alg(
                     df.to_csv(output_path)
 
             except UnableToConvergeError:
-                raise
+                failed_recordings.append(
+                    {
+                        "name": recording_name,
+                        "error": "Unable to process recording due to low quality calibration and/or noise",
+                    }
+                )
             except Exception as e:
                 failed_recordings.append({"name": recording_name, "error": repr(e)})
 

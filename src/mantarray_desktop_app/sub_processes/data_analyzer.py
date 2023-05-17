@@ -20,7 +20,6 @@ from typing import Union
 from uuid import UUID
 
 from immutabledict import immutabledict
-from mantarray_magnet_finding.exceptions import UnableToConvergeError
 from mantarray_magnet_finding.utils import calculate_magnetic_flux_density_from_memsic
 from nptyping import NDArray
 import numpy as np
@@ -656,15 +655,23 @@ class DataAnalyzerProcess(InfiniteProcess):
     def _start_recording_snapshot_analysis(self, recording_path: str) -> None:
         # TODO (9/16/22): this should be run in a thread so that this process is still responsive to main
         try:
-            snapshot_dfs = run_magnet_finding_alg({}, [recording_path], end_time=RECORDING_SNAPSHOT_DUR_SECS)
-            # KeyError gets raised when mag finding fails
-            snapshot_dict = snapshot_dfs[0].to_dict()
-            snapshot_list = [list(snapshot_dict[key].values()) for key in snapshot_dict.keys()]
-            mag_analysis_msg = {"time": snapshot_list[0], "force": snapshot_list[1:]}
-        except UnableToConvergeError:
-            mag_analysis_msg = {"error": "Unable to process recording due to low quality calibration and/or noise"}  # type: ignore
+            failed_snaphots: Dict[Any, Any] = dict()
+            snapshot_dfs = run_magnet_finding_alg(
+                failed_snaphots, [recording_path], end_time=RECORDING_SNAPSHOT_DUR_SECS
+            )
+
+            if "failed_recordings" in failed_snaphots:
+                failed_snapshot_msg = failed_snaphots["failed_recordings"][0]
+                failed_snapshot_msg.pop("name")
+                mag_analysis_msg = failed_snapshot_msg
+
+            else:
+                # KeyError gets raised when mag finding fails
+                snapshot_dict = snapshot_dfs[0].to_dict()
+                snapshot_list = [list(snapshot_dict[key].values()) for key in snapshot_dict.keys()]
+                mag_analysis_msg = {"time": snapshot_list[0], "force": snapshot_list[1:]}
         except Exception:
-            mag_analysis_msg = {"error": "Something went wrong"}  # type: ignore
+            mag_analysis_msg = {"error": "Something went wrong"}
 
         outgoing_msg = {"data_type": "recording_snapshot_data", "data_json": json.dumps(mag_analysis_msg)}
 
