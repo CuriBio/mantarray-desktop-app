@@ -80,7 +80,11 @@ def run_magnet_finding_alg(
                     }
                 )
             except Exception as e:
-                failed_recordings.append({"name": recording_name, "error": repr(e)})
+                # Leaving in plain text because this error message is used directly in pop up modal to user when rec snapshot fails
+                # It is never displayed to user in local analysis
+                failed_recordings.append(
+                    {"name": recording_name, "error": "Something went wrong", "expanded_err": repr(e)}
+                )
 
     if failed_recordings:
         result_dict["failed_recordings"] = failed_recordings
