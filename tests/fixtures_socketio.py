@@ -56,9 +56,7 @@ def fixture_fsio_test_client_creator(mocker):
         test_client = FSIOTestClient(flask_app, socketio)
         test_clients.append(test_client)
 
-        mocker.patch.object(
-            socketio.server, "_send_packet", autospec=True, side_effect=test_client.mock_send_packet
-        )
+        mocker.patch.object(socketio.server, "_send_packet", side_effect=test_client.mock_send_packet)
 
         mock_server = python_socketio.Server(**socketio.server_options)
         mocker.patch.object(flask_socketio.socketio, "server", mock_server)
