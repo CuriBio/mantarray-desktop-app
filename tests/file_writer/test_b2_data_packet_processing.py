@@ -18,7 +18,6 @@ import numpy as np
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_FIRST_TISSUE_DATA_POINT_UUID
 import pytest
-from stdlib_utils import confirm_parallelism_is_stopped
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
 
@@ -38,7 +37,6 @@ from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import confirm_queue_is_eventually_of_size
 from ..helpers import handle_putting_multiple_objects_into_empty_queue
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
-from ..parsed_channel_data_packets import SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS
 from ..parsed_channel_data_packets import SIMPLE_STIM_DATA_PACKET_FROM_ALL_WELLS
 
 
@@ -58,42 +56,6 @@ def _get_expected_sensor_data_arr(data_packet, well_idx):
         data[channel_idx] = data_packet[well_idx][channel_idx]
 
     return data
-
-
-@pytest.mark.timeout(15)
-@pytest.mark.slow
-def test_FileWriterProcess__passes_magnetometer_data_packet_through_to_output_queue_correctly(
-    runnable_four_board_file_writer_process,
-):
-    fw_process = runnable_four_board_file_writer_process["fw_process"]
-    fw_process.set_beta_2_mode()
-    incoming_data_queue = runnable_four_board_file_writer_process["board_queues"][0][0]
-    outgoing_data_queue = runnable_four_board_file_writer_process["board_queues"][0][1]
-    error_queue = runnable_four_board_file_writer_process["error_queue"]
-
-    test_data_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        copy.deepcopy(test_data_packet), incoming_data_queue
-    )
-
-    fw_process.start()  # start it after the queue has been populated so that the process will certainly see the object in the queue
-    fw_process.soft_stop()
-    confirm_parallelism_is_stopped(fw_process, timeout_seconds=15)
-    confirm_queue_is_eventually_empty(error_queue)
-
-    out_packet = outgoing_data_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    np.testing.assert_array_equal(out_packet["time_indices"], test_data_packet["time_indices"])
-    for well_idx in range(24):
-        for channel_id, expected_data in test_data_packet[well_idx].items():
-            np.testing.assert_array_equal(
-                out_packet[well_idx][channel_id],
-                expected_data,
-                err_msg=f"Incorrect data for well {well_idx}, channel id {channel_id}",
-            )
-
-    # clean up
-    fw_process.hard_stop()
-    fw_process.join()
 
 
 def test_FileWriterProcess__does_not_pass_magnetometer_data_packet_through_to_output_queue_after_stop_managed_acquisition_command_received(

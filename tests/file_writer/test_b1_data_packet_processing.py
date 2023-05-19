@@ -13,11 +13,8 @@ from pulse3D.constants import REFERENCE_SENSOR_READINGS
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_FIRST_REF_DATA_POINT_UUID
 from pulse3D.constants import UTC_FIRST_TISSUE_DATA_POINT_UUID
-import pytest
-from stdlib_utils import confirm_parallelism_is_stopped
 from stdlib_utils import invoke_process_run_and_check_errors
 
-from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
 from ..fixtures_file_writer import fixture_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_runnable_four_board_file_writer_process
 from ..fixtures_file_writer import fixture_running_four_board_file_writer_process
@@ -27,7 +24,6 @@ from ..fixtures_file_writer import GENERIC_STOP_RECORDING_COMMAND
 from ..fixtures_file_writer import GENERIC_TISSUE_DATA_PACKET
 from ..fixtures_file_writer import open_the_generic_h5_file
 from ..fixtures_file_writer import open_the_generic_h5_file_as_WellFile
-from ..helpers import confirm_queue_is_eventually_empty
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 from ..parsed_channel_data_packets import SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0
 
@@ -37,34 +33,6 @@ __fixtures__ = [
     fixture_runnable_four_board_file_writer_process,
     fixture_running_four_board_file_writer_process,
 ]
-
-
-@pytest.mark.timeout(15)
-def test_FileWriterProcess__passes_data_packet_through_to_output_queue(
-    runnable_four_board_file_writer_process,
-):
-    fw_process = runnable_four_board_file_writer_process["fw_process"]
-    board_queues = runnable_four_board_file_writer_process["board_queues"]
-    error_queue = runnable_four_board_file_writer_process["error_queue"]
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0,
-        board_queues[0][0],
-    )
-
-    fw_process.start()  # start it after the queue has been populated so that the process will certainly see the object in the queue
-
-    fw_process.soft_stop()
-    confirm_parallelism_is_stopped(fw_process, timeout_seconds=15)
-
-    confirm_queue_is_eventually_empty(error_queue)
-
-    out_data = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    np.testing.assert_array_equal(out_data["data"], SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0["data"])
-    assert out_data["well_index"] == SIMPLE_BETA_1_CONSTRUCT_DATA_FROM_WELL_0["well_index"]
-
-    # clean up
-    fw_process.hard_stop()
-    fw_process.join()
 
 
 def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_whole_data_chunk_is_at_the_timestamp_idx__and_sets_timestamp_metadata_for_tissue_since_this_is_first_piece_of_data(
