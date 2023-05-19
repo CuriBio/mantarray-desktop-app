@@ -3,6 +3,7 @@ name = "pypi"
 url = "https://pypi.org/simple"
 verify_ssl = true
 
+
 [dev-packages]
 boto3 = "==1.26.135"
 click = "==8.0.3"  # Tanner (4/11/22): pinned for black
@@ -45,7 +46,6 @@ streamz = "==0.6.2"
 wakepy = "==0.5.0"
 werkzeug = "==2.0.3"  # Tanner (4/7/22): pinned for flask
 xem-wrapper = "==0.3.0"
-mantarray-desktop-app = {editable = true, path = "."}
 
 [requires]
 python_version = "3.11"
