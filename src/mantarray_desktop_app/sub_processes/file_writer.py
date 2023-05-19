@@ -1061,7 +1061,7 @@ class FileWriterProcess(InfiniteProcess):
                     timepoint_well_status_pairs.append((timepoint, original_subprotocol_idx))
 
             if timepoint_well_status_pairs:
-                reduced_well_statuses[well_idx] = np.array(timepoint_well_status_pairs, dtype=int).T
+                reduced_well_statuses[well_idx] = np.array(timepoint_well_status_pairs, dtype=np.int64).T
 
         return reduced_well_statuses
 

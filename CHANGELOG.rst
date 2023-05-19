@@ -4,19 +4,15 @@ Changelog for Mantarray Desktop App
 1.1.3 (unreleased)
 ------------------
 
-Fixed:
-^^^^^^
-
-- Issue with buttons being unresponsive after press.
-
-
-1.1.3 (unreleased)
-------------------
-
 Changed:
 ^^^^^^^^
 - Stimulation pulse editor now greys out disabled inputs.
 - New user login flow.
+
+Fixed:
+^^^^^^
+- Error when running stim and live view together for over ~35 minutes.
+- Issue with buttons being unresponsive after press.
 
 
 1.1.2 (2023-05-03)
