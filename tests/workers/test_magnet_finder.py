@@ -3,6 +3,7 @@ import os
 
 from mantarray_desktop_app.workers import magnet_finder
 from mantarray_desktop_app.workers.magnet_finder import run_magnet_finding_alg
+from mantarray_magnet_finding.exceptions import UnableToConvergeError
 import pandas as pd
 import pytest
 
@@ -143,6 +144,23 @@ def test_run_magnet_finding_alg__handles_failed_recordings_correctly(failure, mo
     run_magnet_finding_alg(result_dict, test_recording_paths, "")
 
     if failure:
-        assert result_dict["failed_recordings"] == [{"name": test_recordings[1], "error": repr(test_error)}]
+        assert result_dict["failed_recordings"] == [
+            {"name": test_recordings[1], "error": "Something went wrong", "expanded_err": repr(test_error)}
+        ]
     else:
         assert "failed_recordings" not in result_dict
+
+
+def test_run_magnet_finding_alg__correctly_raises_exception_if_pr_raises_convergence_error(mocker):
+    mocker.patch.object(magnet_finder.shutil, "copytree", autospec=True)
+    mocker.patch.object(magnet_finder, "PlateRecording", side_effect=UnableToConvergeError())
+    failed_dict = dict()
+
+    run_magnet_finding_alg(failed_dict, ["path/to/rec_snapshot"], "")
+
+    assert failed_dict["failed_recordings"] == [
+        {
+            "name": "rec_snapshot",
+            "error": "Unable to process recording due to low quality calibration and/or noise",
+        }
+    ]

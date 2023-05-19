@@ -1,16 +1,17 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.1.3 (unreleased)
+1.1.4 (unreleased)
 ------------------
 
 Fixed:
 ^^^^^^
 
 - Issue with buttons being unresponsive after press.
+- Return custom error when magnet finding fails to converge for recording snapshot.
 
 
-1.1.3 (unreleased)
+1.1.3 (2023-05-22)
 ------------------
 
 Changed:

@@ -8,6 +8,7 @@ from typing import List
 from typing import Optional
 from typing import Union
 
+from mantarray_magnet_finding.exceptions import UnableToConvergeError
 from pulse3D.plate_recording import PlateRecording
 
 from ..constants import GENERIC_24_WELL_DEFINITION
@@ -71,8 +72,19 @@ def run_magnet_finding_alg(
                     output_path = os.path.join(output_dir, f"{recording_name}.csv")
                     df.to_csv(output_path)
 
+            except UnableToConvergeError:
+                failed_recordings.append(
+                    {
+                        "name": recording_name,
+                        "error": "Unable to process recording due to low quality calibration and/or noise",
+                    }
+                )
             except Exception as e:
-                failed_recordings.append({"name": recording_name, "error": repr(e)})
+                # Leaving in plain text because this error message is used directly in pop up modal to user when rec snapshot fails
+                # It is never displayed to user in local analysis
+                failed_recordings.append(
+                    {"name": recording_name, "error": "Something went wrong", "expanded_err": repr(e)}
+                )
 
     if failed_recordings:
         result_dict["failed_recordings"] = failed_recordings
