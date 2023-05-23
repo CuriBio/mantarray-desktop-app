@@ -923,7 +923,6 @@ class McCommunicationProcess(InstrumentCommProcess):
 
     def _process_status_beacon(self, packet_payload: bytes) -> None:
         board_idx = 0
-        self._time_of_last_beacon_secs = perf_counter()
         status_codes_dict = convert_status_code_bytes_to_dict(
             packet_payload[:SERIAL_COMM_STATUS_CODE_LENGTH_BYTES]
         )
@@ -1212,6 +1211,8 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise FirmwareUpdateTimeoutError(self._firmware_update_type)
 
     def _handle_status_codes(self, status_codes_dict: Dict[str, int], comm_type: str) -> None:
+        self._time_of_last_beacon_secs = perf_counter()
+
         board_idx = 0
         if (
             self._time_of_reboot_start is not None
@@ -1225,8 +1226,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                     "message": "Instrument completed reboot",
                 }
             )
-            # Tanner (9/15/22): reset this value now that comm has been received from the instrument following the reboot
-            self._time_of_last_beacon_secs = perf_counter()
 
         status_codes_msg = f"{comm_type} received from instrument. Status Codes: {status_codes_dict}"
         if any(status_codes_dict.values()):
