@@ -13,6 +13,8 @@ Fixed:
 ^^^^^^
 - Error when running stim and live view together for over ~35 minutes.
 - Issue with buttons being unresponsive after press.
+- Issue with buttons being unresponsive after press.
+- Return custom error when magnet finding fails to converge for recording snapshot.
 
 
 1.1.2 (2023-05-03)
