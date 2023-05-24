@@ -72,6 +72,49 @@ def chunk_subprotocol(
     return loop_chunk, leftover_chunk
 
 
+def chunk_stim_nodes(
+    original_stim_nodes: List[Dict[str, Any]], curr_original_idx: int = 0, curr_chunked_idx: int = 0
+) -> Tuple[List[Dict[str, Any]], Dict[int, int], List[int], int, int]:
+    new_stim_nodes = []
+
+    chunked_idx_to_original_idx = {}
+    original_idx_counts = []
+
+    for stim_node in original_stim_nodes:
+        if stim_node["type"] == "loop":
+            inner_nodes, inner_mapping, inner_counts, curr_original_idx, curr_chunked_idx = chunk_stim_nodes(
+                stim_node["subprotocols"], curr_original_idx, curr_chunked_idx
+            )
+            new_stim_nodes.append({**stim_node, "subprotocols": inner_nodes})
+            chunked_idx_to_original_idx.update(inner_mapping)
+            original_idx_counts.extend(inner_counts)
+        else:
+            original_idx_count = 0
+
+            for chunk in chunk_subprotocol(stim_node):
+                if not chunk:
+                    continue
+
+                chunked_idx_to_original_idx[curr_chunked_idx] = curr_original_idx
+                # for loop chunk, need to count the num iterations, leftover chunk is always 1
+                original_idx_count += chunk.get("num_iterations", 1)
+                new_stim_nodes.append(chunk)
+
+                curr_chunked_idx += 1
+
+            original_idx_counts.append(original_idx_count)
+
+            curr_original_idx += 1
+
+    return (
+        new_stim_nodes,
+        chunked_idx_to_original_idx,
+        original_idx_counts,
+        curr_original_idx,
+        curr_chunked_idx,
+    )
+
+
 def chunk_protocols_in_stim_info(
     stim_info: Dict[str, Any]
 ) -> Tuple[Dict[str, Any], Dict[str, Dict[int, int]], Dict[str, Tuple[int, ...]]]:
@@ -82,27 +125,9 @@ def chunk_protocols_in_stim_info(
     max_subprotocol_idx_counts = {}
 
     for protocol in chunked_stim_info["protocols"]:
-        curr_chunked_idx = 0
-
-        chunked_idx_to_original_idx = {}
-        original_idx_counts = []
-        new_subprotocols = []
-
-        for original_idx, subprotocol in enumerate(protocol["subprotocols"]):
-            original_idx_count = 0
-
-            for chunk in chunk_subprotocol(subprotocol):
-                if not chunk:
-                    continue
-
-                chunked_idx_to_original_idx[curr_chunked_idx] = original_idx
-                # for loop chunk, need to count the num iterations, leftover chunk is always 1
-                original_idx_count += chunk.get("num_iterations", 1)
-                new_subprotocols.append(chunk)
-
-                curr_chunked_idx += 1
-
-            original_idx_counts.append(original_idx_count)
+        new_subprotocols, chunked_idx_to_original_idx, original_idx_counts, *_ = chunk_stim_nodes(
+            protocol["subprotocols"]
+        )
 
         # FW requires top level to be a single loop
         protocol["subprotocols"] = [{"type": "loop", "num_iterations": 1, "subprotocols": new_subprotocols}]
