@@ -4,6 +4,10 @@ Changelog for Mantarray Desktop App
 1.1.4 (unreleased)
 ------------------
 
+Added:
+^^^^^^
+- Stimulation subprotocol looping
+
 Fixed:
 ^^^^^^
 
