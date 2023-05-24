@@ -9,15 +9,15 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 
-from ..constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
-from ..constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
-from ..constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
-from ..constants import STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS
-from ..constants import STIM_MAX_DUTY_CYCLE_PERCENTAGE
-from ..constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
-from ..constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
-from ..constants import VALID_SUBPROTOCOL_TYPES
-from ..exceptions import InvalidSubprotocolError
+from mantarray_desktop_app.constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
+from mantarray_desktop_app.constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
+from mantarray_desktop_app.constants import STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS
+from mantarray_desktop_app.constants import STIM_MAX_DUTY_CYCLE_PERCENTAGE
+from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
+from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
+from mantarray_desktop_app.constants import VALID_SUBPROTOCOL_TYPES
+from mantarray_desktop_app.exceptions import InvalidSubprotocolError
 
 SUBPROTOCOL_DUTY_CYCLE_DUR_COMPONENTS = frozenset(
     ["phase_one_duration", "interphase_interval", "phase_two_duration"]
@@ -47,8 +47,14 @@ def chunk_subprotocol(
     # copy so the original subprotocol dict isn't modified
     original_subprotocol = copy.deepcopy(original_subprotocol)
 
-    # TODO figure out how to chunk subprotocols
     if original_subprotocol["type"] == "loop":
+        original_subprotocol.update(
+            {
+                "subprotocols": [
+                    chunk_subprotocol(subprotocol) for subprotocol in original_subprotocol["subprotocols"]
+                ]
+            }
+        )
         return None, original_subprotocol
 
     original_subprotocol_dur_us = get_subprotocol_dur_us(original_subprotocol)
@@ -102,7 +108,6 @@ def chunk_protocols_in_stim_info(
 
         for original_idx, subprotocol in enumerate(protocol["subprotocols"]):
             original_idx_count = 0
-
             for chunk in chunk_subprotocol(subprotocol):
                 if not chunk:
                     continue
@@ -111,7 +116,6 @@ def chunk_protocols_in_stim_info(
                 # for loop chunk, need to count the num iterations, leftover chunk is always 1
                 original_idx_count += chunk.get("num_iterations", 1)
                 new_subprotocols.append(chunk)
-
                 curr_chunked_idx += 1
 
             original_idx_counts.append(original_idx_count)
