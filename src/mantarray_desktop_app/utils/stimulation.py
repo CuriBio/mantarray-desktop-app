@@ -9,8 +9,15 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 
+from ..constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
+from ..constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
 from ..constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
+from ..constants import STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS
+from ..constants import STIM_MAX_DUTY_CYCLE_PERCENTAGE
+from ..constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
 from ..constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
+from ..constants import VALID_SUBPROTOCOL_TYPES
+from ..exceptions import InvalidSubprotocolError
 
 SUBPROTOCOL_DUTY_CYCLE_DUR_COMPONENTS = frozenset(
     ["phase_one_duration", "interphase_interval", "phase_two_duration"]
@@ -39,6 +46,11 @@ def chunk_subprotocol(
 ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
     # copy so the original subprotocol dict isn't modified
     original_subprotocol = copy.deepcopy(original_subprotocol)
+
+    # TODO figure out how to chunk subprotocols
+    if original_subprotocol["type"] == "loop":
+        return None, original_subprotocol
+
     original_subprotocol_dur_us = get_subprotocol_dur_us(original_subprotocol)
 
     if (
@@ -203,3 +215,76 @@ class StimulationProtocolManager:
     def _reset_idxs(self, hard_reset: bool) -> None:
         self._subprotocol_idx = self._start_idx - int(hard_reset)
         self._node_idx = 0 - int(hard_reset)
+
+
+def check_subprotocol_type(subprotocol: dict[str, Any], protocol_id: int, idx: int) -> Any:
+    subprotocol["type"] = subprotocol_type = subprotocol["type"].lower()
+    # validate subprotocol type
+    if subprotocol_type not in VALID_SUBPROTOCOL_TYPES:
+        raise InvalidSubprotocolError(
+            f"400 Protocol {protocol_id}, Subprotocol {idx}, Invalid subprotocol type: {subprotocol_type}"
+        )
+
+    return subprotocol_type
+
+
+def validate_stim_subprotocol(
+    subprotocol: dict[str, Any], subprotocol_type: Optional[str], stim_type: str, protocol_id: int, idx: int
+) -> None:
+    # validate subprotocol components
+    if subprotocol_type == "delay":
+        # make sure this value is not a float
+        subprotocol["duration"] = int(subprotocol["duration"])
+        total_subprotocol_duration_us = subprotocol["duration"]
+    else:  # monophasic and biphasic
+        max_abs_charge = (
+            STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS if stim_type == "V" else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
+        )
+
+        subprotocol_component_validators = {
+            "phase_one_duration": lambda n: n > 0,
+            "phase_one_charge": lambda n: abs(n) <= max_abs_charge,
+            "postphase_interval": lambda n: n >= 0,
+        }
+        if subprotocol_type == "biphasic":
+            subprotocol_component_validators.update(
+                {
+                    "phase_two_duration": lambda n: n > 0,
+                    "phase_two_charge": lambda n: abs(n) <= max_abs_charge,
+                    "interphase_interval": lambda n: n >= 0,
+                }
+            )
+        for component_name, validator in subprotocol_component_validators.items():
+            if not validator(component_value := subprotocol[component_name]):  # type: ignore
+                component_name = component_name.replace("_", " ")
+                raise InvalidSubprotocolError(
+                    f"400 Protocol {protocol_id}, Subprotocol {idx}, Invalid {component_name}: {component_value}"
+                )
+
+        duty_cycle_dur_us = get_pulse_duty_cycle_dur_us(subprotocol)
+
+        # make sure duty cycle duration is not too long
+        if duty_cycle_dur_us > STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS:
+            raise InvalidSubprotocolError(
+                f"400 Protocol {protocol_id}, Subprotocol {idx}, Duty cycle duration too long"
+            )
+
+        total_subprotocol_duration_us = (duty_cycle_dur_us + subprotocol["postphase_interval"]) * subprotocol[
+            "num_cycles"
+        ]
+
+        # make sure duty cycle percentage is not too high
+        if duty_cycle_dur_us > get_pulse_dur_us(subprotocol) * STIM_MAX_DUTY_CYCLE_PERCENTAGE:
+            raise InvalidSubprotocolError(
+                f"400 Protocol {protocol_id}, Subprotocol {idx}, Duty cycle exceeds {int(STIM_MAX_DUTY_CYCLE_PERCENTAGE * 100)}%"
+            )
+
+    # make sure subprotocol duration is within the acceptable limits
+    if total_subprotocol_duration_us < STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS:
+        raise InvalidSubprotocolError(
+            f"400 Protocol {protocol_id}, Subprotocol {idx}, Subprotocol duration not long enough"
+        )
+    if total_subprotocol_duration_us > STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS:
+        raise InvalidSubprotocolError(
+            f"400 Protocol {protocol_id}, Subprotocol {idx}, Subprotocol duration too long"
+        )

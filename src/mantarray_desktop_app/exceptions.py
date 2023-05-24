@@ -18,6 +18,10 @@ class UnrecognizedDebugConsoleCommandError(Exception):
     pass
 
 
+class InvalidSubprotocolError(Exception):
+    pass
+
+
 class UnableToUploadLogFilesToS3(Exception):
     pass
 
