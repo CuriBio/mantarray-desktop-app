@@ -1393,7 +1393,7 @@ def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
     assert response.status_code == 200
 
     comm_queue = server_manager.get_queue_to_main()
-    # confirm_queue_is_eventually_of_size(comm_queue, 1)
+    confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["communication_type"] == "stimulation"
     assert communication["command"] == "set_protocols"
