@@ -458,11 +458,17 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
     mocked_get_tokens.return_value = (AuthTokens(access="", refresh=""), {"jobs_reached": False})
 
     test_protocol_assignments = {
-        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): (
-            "A" if well_idx % 2 == 0 else "B"
-        )
-        for well_idx in range(24)
+        **{GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "A" for well_idx in range(8)},
+        **{
+            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "B"
+            for well_idx in range(8, 16)
+        },
+        **{
+            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx): "C"
+            for well_idx in range(16, 24)
+        },
     }
+
     # both protocols will be 3 seconds long
     test_stim_info = {
         "protocols": [
@@ -483,6 +489,21 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                 "run_until_stopped": False,
                 "subprotocols": [
                     get_random_stim_pulse(total_subprotocol_dur_us=MICRO_TO_BASE_CONVERSION) for _ in range(3)
+                ],
+            },
+            {
+                "protocol_id": "C",
+                "stimulation_type": "C",
+                "run_until_stopped": False,
+                "subprotocols": [
+                    {
+                        "type": "loop",
+                        "num_iterations": 10,
+                        "subprotocols": [
+                            get_random_stim_pulse(total_subprotocol_dur_us=MICRO_TO_BASE_CONVERSION),
+                            get_random_stim_delay(MICRO_TO_BASE_CONVERSION // 2),
+                        ],
+                    }
                 ],
             },
         ],
