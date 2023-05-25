@@ -46,17 +46,6 @@ def chunk_subprotocol(
 ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
     # copy so the original subprotocol dict isn't modified
     original_subprotocol = copy.deepcopy(original_subprotocol)
-
-    if original_subprotocol["type"] == "loop":
-        original_subprotocol.update(
-            {
-                "subprotocols": [
-                    chunk_subprotocol(subprotocol) for subprotocol in original_subprotocol["subprotocols"]
-                ]
-            }
-        )
-        return None, original_subprotocol
-
     original_subprotocol_dur_us = get_subprotocol_dur_us(original_subprotocol)
 
     if (
