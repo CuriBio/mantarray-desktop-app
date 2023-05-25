@@ -498,6 +498,7 @@ def set_protocols() -> Response:
     all_well_names = set(
         GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx) for well_idx in range(24)
     )
+
     given_well_names = set(protocol_assignments_dict.keys())
     if missing_wells := all_well_names - given_well_names:
         return Response(status=f"400 Protocol assignments missing wells: {missing_wells}")
@@ -515,7 +516,6 @@ def set_protocols() -> Response:
     queue_command_to_main(
         {"communication_type": "stimulation", "command": "set_protocols", "stim_info": stim_info}
     )
-
     # wait for process monitor to update stim info in shared values dictionary
     while _get_stim_info_from_process_monitor() != stim_info:
         sleep(0.1)
