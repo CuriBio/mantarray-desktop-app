@@ -72,7 +72,6 @@ from ..utils.generic import get_redacted_string
 from ..utils.generic import redact_sensitive_info_from_path
 from ..utils.generic import validate_settings
 from ..utils.generic import validate_user_credentials
-from ..utils.stimulation import check_subprotocol_type
 from ..utils.stimulation import validate_stim_subprotocol
 
 logger = logging.getLogger(__name__)
@@ -481,15 +480,8 @@ def set_protocols() -> Response:
         # validate subprotocol dictionaries
         try:
             for idx, subprotocol in enumerate(protocol["subprotocols"]):
-                subprotocol_type = check_subprotocol_type(subprotocol, protocol_id, idx)
-                if subprotocol_type == "loop":
-                    for nested_subprotocol in subprotocol["subprotocols"]:
-                        nested_subprotocol_type = check_subprotocol_type(nested_subprotocol, protocol_id, idx)
-                        validate_stim_subprotocol(
-                            nested_subprotocol, nested_subprotocol_type, stim_type, protocol_id, idx
-                        )
-                else:
-                    validate_stim_subprotocol(subprotocol, subprotocol_type, stim_type, protocol_id, idx)
+                validate_stim_subprotocol(subprotocol, stim_type, protocol_id, idx)
+
         except InvalidSubprotocolError as e:
             return Response(status=str(e))
 
