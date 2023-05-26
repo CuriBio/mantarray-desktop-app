@@ -347,11 +347,7 @@ GOING_DORMANT_HANDSHAKE_TIMEOUT_CODE = 0
 
 # Magnetometer configuration
 SERIAL_COMM_SENSOR_AXIS_LOOKUP_TABLE: immutabledict[str, Dict[str, int]] = immutabledict(
-    {
-        "A": {"X": 0, "Y": 1, "Z": 2},
-        "B": {"X": 3, "Y": 4, "Z": 5},
-        "C": {"X": 6, "Y": 7, "Z": 8},
-    }
+    {"A": {"X": 0, "Y": 1, "Z": 2}, "B": {"X": 3, "Y": 4, "Z": 5}, "C": {"X": 6, "Y": 7, "Z": 8}}
 )
 SERIAL_COMM_NUM_CHANNELS_PER_SENSOR = 3
 SERIAL_COMM_NUM_SENSORS_PER_WELL = 3
@@ -387,7 +383,7 @@ STIM_SHORT_CIRCUIT_THRESHOLD_OHMS = 10
 
 # Stim Subprotocols
 VALID_STIMULATION_TYPES = frozenset(["C", "V"])
-VALID_SUBPROTOCOL_TYPES = frozenset(["delay", "monophasic", "biphasic"])
+VALID_SUBPROTOCOL_TYPES = frozenset(["delay", "monophasic", "biphasic", "loop"])
 
 # does not include subprotocol idx
 STIM_PULSE_BYTES_LEN = 29

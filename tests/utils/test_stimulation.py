@@ -11,6 +11,7 @@ from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MIC
 from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.utils import stimulation
 from mantarray_desktop_app.utils.stimulation import chunk_protocols_in_stim_info
+from mantarray_desktop_app.utils.stimulation import chunk_stim_nodes
 from mantarray_desktop_app.utils.stimulation import chunk_subprotocol
 import pytest
 
@@ -177,6 +178,125 @@ def test_chunk_subprotocol__divides_into_loop_with_leftover_cycles__leftover_chu
         num_cycles_in_loop_chunk * expected_num_loop_iterations + num_cycles_in_leftover_chunk
         == test_original_num_cycles
     )
+
+
+def test_chunk_stim_nodes__handl_nested_loops():
+    test_pulses = [
+        get_random_stim_pulse(
+            total_subprotocol_dur_us=int(STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS * 1.5), freq=1
+        ),
+        get_random_stim_pulse(
+            total_subprotocol_dur_us=int(STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS * 3), freq=1
+        ),
+        get_random_stim_pulse(
+            total_subprotocol_dur_us=int(STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS * 0.5), freq=1
+        ),
+    ]
+    test_delays = [get_random_stim_delay() for _ in range(2)]
+    test_num_loop_iterations = randint(1, 10)
+
+    test_stim_nodes = [
+        test_pulses[0],
+        {
+            "type": "loop",
+            "num_iterations": test_num_loop_iterations,
+            "subprotocols": [test_pulses[1], test_delays[0], test_pulses[2]],
+        },
+        test_delays[1],
+    ]
+
+    expected_chunked_stim_nodes = [
+        *chunk_subprotocol(test_pulses[0]),
+        {
+            "type": "loop",
+            "num_iterations": test_num_loop_iterations,
+            "subprotocols": [
+                chunk_subprotocol(test_pulses[1])[0],
+                test_delays[0],
+                chunk_subprotocol(test_pulses[2])[1],
+            ],
+        },
+        test_delays[1],
+    ]
+
+    actual_chunked_stim_nodes, actual_idx_mapping, actual_idx_counts, *_ = chunk_stim_nodes(test_stim_nodes)
+    assert actual_chunked_stim_nodes == expected_chunked_stim_nodes
+    assert actual_idx_mapping == {0: 0, 1: 0, 2: 1, 3: 2, 4: 3, 5: 4}
+    assert actual_idx_counts == [2, 3, 1, 1, 1]
+
+
+def test_chunk_stim_nodes__handles_nested_loops():
+    test_pulses = [
+        get_random_stim_pulse(
+            total_subprotocol_dur_us=int(STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS * 2.5), freq=1
+        ),
+        get_random_stim_pulse(
+            total_subprotocol_dur_us=int(STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS * 3.5), freq=1
+        ),
+        get_random_stim_pulse(
+            total_subprotocol_dur_us=int(STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS * 4), freq=1
+        ),
+        get_random_stim_pulse(total_subprotocol_dur_us=STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS),
+    ]
+    test_delays = [get_random_stim_delay() for _ in range(3)]
+    test_num_loop_iterations = [randint(1, 10) for _ in range(2)]
+
+    test_stim_nodes = [
+        {
+            "type": "loop",
+            "num_iterations": 1,
+            "subprotocols": [
+                test_pulses[0],
+                test_delays[0],
+                {
+                    "type": "loop",
+                    "num_iterations": test_num_loop_iterations[0],
+                    "subprotocols": [
+                        test_delays[1],
+                        test_pulses[1],
+                        {
+                            "type": "loop",
+                            "num_iterations": test_num_loop_iterations[1],
+                            "subprotocols": [test_pulses[2]],
+                        },
+                        test_pulses[3],
+                    ],
+                },
+            ],
+        },
+        test_delays[2],
+    ]
+
+    expected_chunked_stim_nodes = [
+        {
+            "type": "loop",
+            "num_iterations": 1,
+            "subprotocols": [
+                *chunk_subprotocol(test_pulses[0]),
+                test_delays[0],
+                {
+                    "type": "loop",
+                    "num_iterations": test_num_loop_iterations[0],
+                    "subprotocols": [
+                        test_delays[1],
+                        *chunk_subprotocol(test_pulses[1]),
+                        {
+                            "type": "loop",
+                            "num_iterations": test_num_loop_iterations[1],
+                            "subprotocols": [chunk_subprotocol(test_pulses[2])[0]],
+                        },
+                        chunk_subprotocol(test_pulses[3])[1],
+                    ],
+                },
+            ],
+        },
+        test_delays[2],
+    ]
+
+    actual_chunked_stim_nodes, actual_idx_mapping, actual_idx_counts, *_ = chunk_stim_nodes(test_stim_nodes)
+    assert actual_chunked_stim_nodes == expected_chunked_stim_nodes
+    assert actual_idx_mapping == {0: 0, 1: 0, 2: 1, 3: 2, 4: 3, 5: 3, 6: 4, 7: 5, 8: 6}
+    assert actual_idx_counts == [3, 1, 1, 4, 4, 1, 1]
 
 
 @pytest.mark.parametrize("is_loop_full_size", [True, False])

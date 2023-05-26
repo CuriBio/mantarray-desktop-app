@@ -9,8 +9,15 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 
-from ..constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
-from ..constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
+from mantarray_desktop_app.constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
+from mantarray_desktop_app.constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
+from mantarray_desktop_app.constants import STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS
+from mantarray_desktop_app.constants import STIM_MAX_DUTY_CYCLE_PERCENTAGE
+from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
+from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
+from mantarray_desktop_app.constants import VALID_SUBPROTOCOL_TYPES
+from mantarray_desktop_app.exceptions import InvalidSubprotocolError
 
 SUBPROTOCOL_DUTY_CYCLE_DUR_COMPONENTS = frozenset(
     ["phase_one_duration", "interphase_interval", "phase_two_duration"]
@@ -72,6 +79,49 @@ def chunk_subprotocol(
     return loop_chunk, leftover_chunk
 
 
+def chunk_stim_nodes(
+    original_stim_nodes: List[Dict[str, Any]], curr_original_idx: int = 0, curr_chunked_idx: int = 0
+) -> Tuple[List[Dict[str, Any]], Dict[int, int], List[int], int, int]:
+    new_stim_nodes = []
+
+    chunked_idx_to_original_idx = {}
+    original_idx_counts = []
+
+    for stim_node in original_stim_nodes:
+        if stim_node["type"] == "loop":
+            inner_nodes, inner_mapping, inner_counts, curr_original_idx, curr_chunked_idx = chunk_stim_nodes(
+                stim_node["subprotocols"], curr_original_idx, curr_chunked_idx
+            )
+            new_stim_nodes.append({**stim_node, "subprotocols": inner_nodes})
+            chunked_idx_to_original_idx.update(inner_mapping)
+            original_idx_counts.extend(inner_counts)
+        else:
+            original_idx_count = 0
+
+            for chunk in chunk_subprotocol(stim_node):
+                if not chunk:
+                    continue
+
+                chunked_idx_to_original_idx[curr_chunked_idx] = curr_original_idx
+                # for loop chunk, need to count the num iterations, leftover chunk is always 1
+                original_idx_count += chunk.get("num_iterations", 1)
+                new_stim_nodes.append(chunk)
+
+                curr_chunked_idx += 1
+
+            original_idx_counts.append(original_idx_count)
+
+            curr_original_idx += 1
+
+    return (
+        new_stim_nodes,
+        chunked_idx_to_original_idx,
+        original_idx_counts,
+        curr_original_idx,
+        curr_chunked_idx,
+    )
+
+
 def chunk_protocols_in_stim_info(
     stim_info: Dict[str, Any]
 ) -> Tuple[Dict[str, Any], Dict[str, Dict[int, int]], Dict[str, Tuple[int, ...]]]:
@@ -82,27 +132,9 @@ def chunk_protocols_in_stim_info(
     max_subprotocol_idx_counts = {}
 
     for protocol in chunked_stim_info["protocols"]:
-        curr_chunked_idx = 0
-
-        chunked_idx_to_original_idx = {}
-        original_idx_counts = []
-        new_subprotocols = []
-
-        for original_idx, subprotocol in enumerate(protocol["subprotocols"]):
-            original_idx_count = 0
-
-            for chunk in chunk_subprotocol(subprotocol):
-                if not chunk:
-                    continue
-
-                chunked_idx_to_original_idx[curr_chunked_idx] = original_idx
-                # for loop chunk, need to count the num iterations, leftover chunk is always 1
-                original_idx_count += chunk.get("num_iterations", 1)
-                new_subprotocols.append(chunk)
-
-                curr_chunked_idx += 1
-
-            original_idx_counts.append(original_idx_count)
+        new_subprotocols, chunked_idx_to_original_idx, original_idx_counts, *_ = chunk_stim_nodes(
+            protocol["subprotocols"]
+        )
 
         # FW requires top level to be a single loop
         protocol["subprotocols"] = [{"type": "loop", "num_iterations": 1, "subprotocols": new_subprotocols}]
@@ -203,3 +235,84 @@ class StimulationProtocolManager:
     def _reset_idxs(self, hard_reset: bool) -> None:
         self._subprotocol_idx = self._start_idx - int(hard_reset)
         self._node_idx = 0 - int(hard_reset)
+
+
+def _check_subprotocol_type(subprotocol: dict[str, Any], protocol_id: int, idx: int) -> Any:
+    subprotocol["type"] = subprotocol_type = subprotocol["type"].lower()
+    # validate subprotocol type
+    if subprotocol_type not in VALID_SUBPROTOCOL_TYPES:
+        raise InvalidSubprotocolError(
+            f"400 Protocol {protocol_id}, Subprotocol {idx}, Invalid subprotocol type: {subprotocol_type}"
+        )
+
+    return subprotocol_type
+
+
+def validate_stim_subprotocol(
+    subprotocol: dict[str, Any], stim_type: str, protocol_id: int, idx: int
+) -> None:
+    subprotocol_type = _check_subprotocol_type(subprotocol, protocol_id, idx)
+
+    if subprotocol_type == "loop":
+        for nested_subprotocol in subprotocol["subprotocols"]:
+            validate_stim_subprotocol(nested_subprotocol, stim_type, protocol_id, idx)
+    else:
+        # validate subprotocol components
+        if subprotocol_type == "delay":
+            # make sure this value is not a float
+            subprotocol["duration"] = int(subprotocol["duration"])
+            total_subprotocol_duration_us = subprotocol["duration"]
+        else:  # monophasic and biphasic
+            max_abs_charge = (
+                STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+                if stim_type == "V"
+                else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
+            )
+
+            subprotocol_component_validators = {
+                "phase_one_duration": lambda n: n > 0,
+                "phase_one_charge": lambda n: abs(n) <= max_abs_charge,
+                "postphase_interval": lambda n: n >= 0,
+            }
+            if subprotocol_type == "biphasic":
+                subprotocol_component_validators.update(
+                    {
+                        "phase_two_duration": lambda n: n > 0,
+                        "phase_two_charge": lambda n: abs(n) <= max_abs_charge,
+                        "interphase_interval": lambda n: n >= 0,
+                    }
+                )
+            for component_name, validator in subprotocol_component_validators.items():
+                if not validator(component_value := subprotocol[component_name]):  # type: ignore
+                    component_name = component_name.replace("_", " ")
+                    raise InvalidSubprotocolError(
+                        f"400 Protocol {protocol_id}, Subprotocol {idx}, Invalid {component_name}: {component_value}"
+                    )
+
+            duty_cycle_dur_us = get_pulse_duty_cycle_dur_us(subprotocol)
+
+            # make sure duty cycle duration is not too long
+            if duty_cycle_dur_us > STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS:
+                raise InvalidSubprotocolError(
+                    f"400 Protocol {protocol_id}, Subprotocol {idx}, Duty cycle duration too long"
+                )
+
+            total_subprotocol_duration_us = (
+                duty_cycle_dur_us + subprotocol["postphase_interval"]
+            ) * subprotocol["num_cycles"]
+
+            # make sure duty cycle percentage is not too high
+            if duty_cycle_dur_us > get_pulse_dur_us(subprotocol) * STIM_MAX_DUTY_CYCLE_PERCENTAGE:
+                raise InvalidSubprotocolError(
+                    f"400 Protocol {protocol_id}, Subprotocol {idx}, Duty cycle exceeds {int(STIM_MAX_DUTY_CYCLE_PERCENTAGE * 100)}%"
+                )
+
+        # make sure subprotocol duration is within the acceptable limits
+        if total_subprotocol_duration_us < STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS:
+            raise InvalidSubprotocolError(
+                f"400 Protocol {protocol_id}, Subprotocol {idx}, Subprotocol duration not long enough"
+            )
+        if total_subprotocol_duration_us > STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS:
+            raise InvalidSubprotocolError(
+                f"400 Protocol {protocol_id}, Subprotocol {idx}, Subprotocol duration too long"
+            )

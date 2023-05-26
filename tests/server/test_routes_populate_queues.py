@@ -109,9 +109,7 @@ def test_send_single_set_mantarray_nickname_command__populates_queue(
     ],
 )
 def test_send_single_update_recording_name_command__populates_queue(
-    test_new_name,
-    expected_new_name,
-    client_and_server_manager_and_shared_values,
+    test_new_name, expected_new_name, client_and_server_manager_and_shared_values
 ):
     test_client, (test_server, _), shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["new_name"] = test_new_name
@@ -180,9 +178,7 @@ def test_send_single_initialize_board_command_without_bit_file__populates_queue(
     assert response_json["suppress_error"] is True
 
 
-def test_send_single_get_status_command__populates_queue(
-    client_and_server_manager_and_shared_values,
-):
+def test_send_single_get_status_command__populates_queue(client_and_server_manager_and_shared_values):
     test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
     response = test_client.get("/insert_xem_command_into_queue/get_status")
     assert response.status_code == 200
@@ -250,9 +246,7 @@ def test_send_single_activate_trigger_in_command__using_hex_notation__populates_
     assert response_json["suppress_error"] is True
 
 
-def test_send_single_comm_delay_command__populates_queue(
-    client_and_server_manager_and_shared_values,
-):
+def test_send_single_comm_delay_command__populates_queue(client_and_server_manager_and_shared_values):
     test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     expected_num_millis = 35
@@ -274,9 +268,7 @@ def test_send_single_comm_delay_command__populates_queue(
     assert response_json["suppress_error"] is True
 
 
-def test_send_single_get_num_words_fifo_command__populates_queue(
-    client_and_server_manager_and_shared_values,
-):
+def test_send_single_get_num_words_fifo_command__populates_queue(client_and_server_manager_and_shared_values):
     test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
     response = test_client.get("/insert_xem_command_into_queue/get_num_words_fifo")
     assert response.status_code == 200
@@ -292,9 +284,7 @@ def test_send_single_get_num_words_fifo_command__populates_queue(
     assert response_json["suppress_error"] is True
 
 
-def test_send_single_set_device_id_command__populates_queue(
-    client_and_server_manager_and_shared_values,
-):
+def test_send_single_set_device_id_command__populates_queue(client_and_server_manager_and_shared_values):
     test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     test_id = "Mantarray XEM"
@@ -314,9 +304,7 @@ def test_send_single_set_device_id_command__populates_queue(
     assert response_json["suppress_error"] is True
 
 
-def test_send_single_stop_acquisition_command__populates_queue(
-    client_and_server_manager_and_shared_values,
-):
+def test_send_single_stop_acquisition_command__populates_queue(client_and_server_manager_and_shared_values):
     test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     response = test_client.get("/insert_xem_command_into_queue/stop_acquisition")
@@ -333,9 +321,7 @@ def test_send_single_stop_acquisition_command__populates_queue(
     assert response_json["suppress_error"] is True
 
 
-def test_send_single_start_acquisition_command__populates_queue(
-    client_and_server_manager_and_shared_values,
-):
+def test_send_single_start_acquisition_command__populates_queue(client_and_server_manager_and_shared_values):
     test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     response = test_client.get("/insert_xem_command_into_queue/start_acquisition")
@@ -352,9 +338,7 @@ def test_send_single_start_acquisition_command__populates_queue(
     assert response_json["suppress_error"] is True
 
 
-def test_send_single_get_serial_number_command__populates_queue(
-    client_and_server_manager_and_shared_values,
-):
+def test_send_single_get_serial_number_command__populates_queue(client_and_server_manager_and_shared_values):
     test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     response = test_client.get("/insert_xem_command_into_queue/get_serial_number")
@@ -371,9 +355,7 @@ def test_send_single_get_serial_number_command__populates_queue(
     assert response_json["suppress_error"] is True
 
 
-def test_send_single_get_device_id_command__populates_queue(
-    client_and_server_manager_and_shared_values,
-):
+def test_send_single_get_device_id_command__populates_queue(client_and_server_manager_and_shared_values):
     test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     response = test_client.get("/insert_xem_command_into_queue/get_device_id")
@@ -390,9 +372,7 @@ def test_send_single_get_device_id_command__populates_queue(
     assert response_json["suppress_error"] is True
 
 
-def test_send_single_is_spi_running_command__populates_queue(
-    client_and_server_manager_and_shared_values,
-):
+def test_send_single_is_spi_running_command__populates_queue(client_and_server_manager_and_shared_values):
     test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     response = test_client.get("/insert_xem_command_into_queue/is_spi_running")
@@ -409,9 +389,7 @@ def test_send_single_is_spi_running_command__populates_queue(
     assert response_json["suppress_error"] is True
 
 
-def test_send_single_read_from_fifo_command__populates_queue(
-    client_and_server_manager_and_shared_values,
-):
+def test_send_single_read_from_fifo_command__populates_queue(client_and_server_manager_and_shared_values):
     test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     response = test_client.get("/insert_xem_command_into_queue/read_from_fifo?num_words_to_log=72")
@@ -446,9 +424,7 @@ def test_send_single_read_from_fifo_command_with_hex_notation__populates_queue(
     assert response_json["suppress_error"] is True
 
 
-def test_send_single_set_wire_in_command__populates_queue(
-    client_and_server_manager_and_shared_values,
-):
+def test_send_single_set_wire_in_command__populates_queue(client_and_server_manager_and_shared_values):
     test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     expected_ep_addr = 8
@@ -505,9 +481,7 @@ def test_send_single_set_wire_in_command__using_hex_notation__populates_queue(
     assert response_json["suppress_error"] is True
 
 
-def test_send_single_xem_scripts_command__populates_queue(
-    client_and_server_manager_and_shared_values,
-):
+def test_send_single_xem_scripts_command__populates_queue(client_and_server_manager_and_shared_values):
     test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     expected_script_type = "start_up"
@@ -642,9 +616,7 @@ def test_send_single_set_mantarray_serial_number_command__populates_queue(
     assert response_json["mantarray_serial_number"] == expected_serial_number
 
 
-def test_send_single_boot_up_command__populates_queue(
-    client_and_server_manager_and_shared_values,
-):
+def test_send_single_boot_up_command__populates_queue(client_and_server_manager_and_shared_values):
     test_client, (test_server, _), _ = client_and_server_manager_and_shared_values
 
     response = test_client.get("/boot_up")
@@ -1277,10 +1249,7 @@ def test_start_recording_command__populates_queue_with_recording_file_name_corre
         {},
         {
             "map_name": "test platemap name",
-            "labels": [
-                {"name": "test-label-1", "wells": [0]},
-                {"name": "test_label_2", "wells": [1]},
-            ],
+            "labels": [{"name": "test-label-1", "wells": [0]}, {"name": "test_label_2", "wells": [1]}],
         },
     ],
 )
@@ -1354,9 +1323,7 @@ def test_shutdown__sends_hard_stop_command__waits_for_subprocesses_to_stop__then
     ],
 )
 def test_set_stim_status__populates_queue_to_process_monitor_with_new_stim_status(
-    test_status,
-    test_description,
-    client_and_server_manager_and_shared_values,
+    test_status, test_description, client_and_server_manager_and_shared_values
 ):
     test_client, (server_manager, _), shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
@@ -1398,7 +1365,15 @@ def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
                 "stimulation_type": "C",
                 "protocol_id": "X",
                 "run_until_stopped": True,
-                "subprotocols": [get_random_stim_delay(test_delay_dur), get_random_stim_pulse()],
+                "subprotocols": [
+                    get_random_stim_delay(test_delay_dur),
+                    get_random_stim_pulse(),
+                    {
+                        "type": "loop",
+                        "num_iterations": 10,
+                        "subprotocols": [get_random_stim_pulse(), get_random_stim_delay()],
+                    },
+                ],
             }
         ],
         "protocol_assignments": {
@@ -1414,7 +1389,6 @@ def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
     mocker.patch.object(
         server, "_get_stim_info_from_process_monitor", autospec=True, side_effect=[expected_protocol_dict]
     )
-
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_protocol_dict)})
     assert response.status_code == 200
 
@@ -1511,16 +1485,12 @@ def test_latest_software_version__returns_ok_when_version_string_is_a_valid_sema
     comm_queue = server_manager.get_queue_to_main()
     confirm_queue_is_eventually_of_size(comm_queue, 1)
     communication = comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert communication == {
-        "communication_type": "set_latest_software_version",
-        "version": test_version,
-    }
+    assert communication == {"communication_type": "set_latest_software_version", "version": test_version}
 
 
 @pytest.mark.parametrize("user_response", ["true", "True", "false", "False"])
 def test_firmware_update_confirmation__sends_correct_command_to_main(
-    user_response,
-    client_and_server_manager_and_shared_values,
+    user_response, client_and_server_manager_and_shared_values
 ):
     test_client, (server_manager, _), shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True

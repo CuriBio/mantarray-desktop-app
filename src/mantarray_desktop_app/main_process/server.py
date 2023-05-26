@@ -25,8 +25,6 @@ from flask_cors import CORS
 from flask_socketio import SocketIO
 from immutabledict import immutabledict
 from mantarray_desktop_app.main_process.shared_values import SharedValues
-from mantarray_desktop_app.utils.stimulation import get_pulse_dur_us
-from mantarray_desktop_app.utils.stimulation import get_pulse_duty_cycle_dur_us
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
@@ -49,12 +47,6 @@ from ..constants import MICROSECONDS_PER_CENTIMILLISECOND
 from ..constants import RECORDING_STATE
 from ..constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from ..constants import START_MANAGED_ACQUISITION_COMMUNICATION
-from ..constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
-from ..constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
-from ..constants import STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS
-from ..constants import STIM_MAX_DUTY_CYCLE_PERCENTAGE
-from ..constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
-from ..constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from ..constants import StimulatorCircuitStatuses
 from ..constants import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from ..constants import SUBPROCESS_POLL_DELAY_SECONDS
@@ -62,7 +54,7 @@ from ..constants import SYSTEM_STATUS_UUIDS
 from ..constants import SystemActionTransitionStates
 from ..constants import VALID_CONFIG_SETTINGS
 from ..constants import VALID_STIMULATION_TYPES
-from ..constants import VALID_SUBPROTOCOL_TYPES
+from ..exceptions import InvalidSubprotocolError
 from ..exceptions import LocalServerPortAlreadyInUseError
 from ..exceptions import LoginFailedError
 from ..exceptions import RecordingFolderDoesNotExistError
@@ -80,7 +72,7 @@ from ..utils.generic import get_redacted_string
 from ..utils.generic import redact_sensitive_info_from_path
 from ..utils.generic import validate_settings
 from ..utils.generic import validate_user_credentials
-
+from ..utils.stimulation import validate_stim_subprotocol
 
 logger = logging.getLogger(__name__)
 os.environ[
@@ -459,6 +451,7 @@ def set_protocols() -> Response:
     if _is_stimulating_on_any_well():
         return Response(status="403 Cannot change protocols while stimulation is running")
     system_status = _get_values_from_process_monitor()["system_status"]
+
     if system_status not in (CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE):
         return Response(status=f"403 Cannot change protocols while {system_status}")
 
@@ -476,6 +469,7 @@ def set_protocols() -> Response:
         protocol_id = protocol["protocol_id"]
         if protocol_id in given_protocol_ids:
             return Response(status=f"400 Multiple protocols given with ID: {protocol_id}")
+
         given_protocol_ids.add(protocol_id)
 
         # validate stim type
@@ -484,80 +478,19 @@ def set_protocols() -> Response:
             return Response(status=f"400 Protocol {protocol_id}, Invalid stimulation type: {stim_type}")
 
         # validate subprotocol dictionaries
-        for idx, subprotocol in enumerate(protocol["subprotocols"]):
-            subprotocol["type"] = subprotocol["type"].lower()
-            subprotocol_type = subprotocol["type"]
-            # validate subprotocol type
-            if subprotocol_type not in VALID_SUBPROTOCOL_TYPES:
-                return Response(
-                    status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Invalid subprotocol type: {subprotocol_type}"
-                )
+        try:
+            for idx, subprotocol in enumerate(protocol["subprotocols"]):
+                validate_stim_subprotocol(subprotocol, stim_type, protocol_id, idx)
 
-            # validate subprotocol components
-            if subprotocol_type == "delay":
-                # make sure this value is not a float
-                subprotocol["duration"] = int(subprotocol["duration"])
-                total_subprotocol_duration_us = subprotocol["duration"]
-            else:  # monophasic and biphasic
-                max_abs_charge = (
-                    STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
-                    if stim_type == "V"
-                    else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
-                )
-
-                subprotocol_component_validators = {
-                    "phase_one_duration": lambda n: n > 0,
-                    "phase_one_charge": lambda n: abs(n) <= max_abs_charge,
-                    "postphase_interval": lambda n: n >= 0,
-                }
-                if subprotocol_type == "biphasic":
-                    subprotocol_component_validators.update(
-                        {
-                            "phase_two_duration": lambda n: n > 0,
-                            "phase_two_charge": lambda n: abs(n) <= max_abs_charge,
-                            "interphase_interval": lambda n: n >= 0,
-                        }
-                    )
-                for component_name, validator in subprotocol_component_validators.items():
-                    if not validator(component_value := subprotocol[component_name]):  # type: ignore
-                        component_name = component_name.replace("_", " ")
-                        return Response(
-                            status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Invalid {component_name}: {component_value}"
-                        )
-
-                duty_cycle_dur_us = get_pulse_duty_cycle_dur_us(subprotocol)
-
-                # make sure duty cycle duration is not too long
-                if duty_cycle_dur_us > STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS:
-                    return Response(
-                        status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Duty cycle duration too long"
-                    )
-
-                total_subprotocol_duration_us = (
-                    duty_cycle_dur_us + subprotocol["postphase_interval"]
-                ) * subprotocol["num_cycles"]
-
-                # make sure duty cycle percentage is not too high
-                if duty_cycle_dur_us > get_pulse_dur_us(subprotocol) * STIM_MAX_DUTY_CYCLE_PERCENTAGE:
-                    return Response(
-                        status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Duty cycle exceeds {int(STIM_MAX_DUTY_CYCLE_PERCENTAGE * 100)}%"
-                    )
-
-            # make sure subprotocol duration is within the acceptable limits
-            if total_subprotocol_duration_us < STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS:
-                return Response(
-                    status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Subprotocol duration not long enough"
-                )
-            if total_subprotocol_duration_us > STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS:
-                return Response(
-                    status=f"400 Protocol {protocol_id}, Subprotocol {idx}, Subprotocol duration too long"
-                )
+        except InvalidSubprotocolError as e:
+            return Response(status=str(e))
 
     protocol_assignments_dict = stim_info["protocol_assignments"]
     # make sure protocol assignments are not missing any wells and do not contain any invalid wells
     all_well_names = set(
         GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx) for well_idx in range(24)
     )
+
     given_well_names = set(protocol_assignments_dict.keys())
     if missing_wells := all_well_names - given_well_names:
         return Response(status=f"400 Protocol assignments missing wells: {missing_wells}")
@@ -575,7 +508,6 @@ def set_protocols() -> Response:
     queue_command_to_main(
         {"communication_type": "stimulation", "command": "set_protocols", "stim_info": stim_info}
     )
-
     # wait for process monitor to update stim info in shared values dictionary
     while _get_stim_info_from_process_monitor() != stim_info:
         sleep(0.1)

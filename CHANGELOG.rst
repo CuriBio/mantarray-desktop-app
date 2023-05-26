@@ -4,6 +4,10 @@ Changelog for Mantarray Desktop App
 1.1.3 (unreleased)
 ------------------
 
+Added:
+^^^^^^
+- Stimulation subprotocol looping
+
 Changed:
 ^^^^^^^^
 - Stimulation pulse editor now greys out disabled inputs.

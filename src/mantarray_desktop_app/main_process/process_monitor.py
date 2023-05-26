@@ -290,6 +290,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                     subprotocol_idx_mappings,
                     max_subprotocol_idx_counts,
                 ) = chunk_protocols_in_stim_info(stim_info)
+
                 self._put_communication_into_instrument_comm_queue(
                     {**communication, "stim_info": chunked_stim_info}
                 )
