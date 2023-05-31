@@ -7,6 +7,7 @@ Changelog for Mantarray Desktop App
 Added:
 ^^^^^^
 - Stimulation subprotocol looping
+- Backwards stimulation protocol compatibility
 
 Changed:
 ^^^^^^^^
