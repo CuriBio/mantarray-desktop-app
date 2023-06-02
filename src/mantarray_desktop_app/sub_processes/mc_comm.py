@@ -325,7 +325,9 @@ class McCommunicationProcess(InstrumentCommProcess):
             # log any data in cache, flush and log remaining serial data
             put_log_message_into_queue(
                 logging.INFO,
-                f"Remaining serial data in cache: {list(self._serial_packet_cache)}, in buffer: {list(board.read_all())}",
+                f"\nDuration (seconds) since events: {self._get_dur_since_events()}"
+                f"\nRemaining serial data in cache: {list(self._serial_packet_cache)}, "
+                f"in buffer: {list(board.read_all())}",
                 self._board_queues[board_idx][1],
                 self.get_logging_level(),
             )
@@ -338,9 +340,21 @@ class McCommunicationProcess(InstrumentCommProcess):
                 unset_keepawake()
 
                 if self._error and not isinstance(self._error, InstrumentFirmwareError):
-                    self._send_data_packet(board_idx, SERIAL_COMM_REBOOT_PACKET_TYPE)
+                    self._send_data_packet(board_idx, SERIAL_COMM_REBOOT_PACKET_TYPE, track_command=False)
 
         super()._teardown_after_loop()
+
+    def _get_dur_since_events(self) -> Dict[str, float | str]:
+        event_timepoints = {
+            "status_beacon_received": self._time_of_last_beacon_secs,
+            "handshake_sent": self._time_of_last_handshake_secs,
+            **self._timepoints_of_prev_actions,
+        }
+        current_timepoint = perf_counter()
+        return {
+            event_name: ("No occurance" if event_timepoint is None else current_timepoint - event_timepoint)
+            for event_name, event_timepoint in event_timepoints.items()
+        }
 
     def _report_fatal_error(self, err: Exception, formatted_stack_trace: Optional[str] = None) -> None:
         self._error = (
@@ -378,7 +392,15 @@ class McCommunicationProcess(InstrumentCommProcess):
 
     def _reset_timepoints_of_prev_actions(self) -> None:
         self._timepoints_of_prev_actions = {
-            key: None for key in ("data_read", "packet_sort", "mag_data_parse")
+            key: None
+            for key in (
+                "data_read",
+                "packet_sort",
+                "mag_data_parse",
+                "stim_data_parse",
+                "command_sent",
+                "command_response_received",
+            )
         }
 
     def is_registered_with_serial_comm(self, board_idx: int) -> bool:
@@ -429,11 +451,11 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._simulator_error_queues[board_idx] = board.get_fatal_error_reporter()
 
     def _send_data_packet(
-        self,
-        board_idx: int,
-        packet_type: int,
-        data_to_send: bytes = bytes(0),
+        self, board_idx: int, packet_type: int, data_to_send: bytes = bytes(0), track_command: bool = True
     ) -> None:
+        if track_command:
+            self._timepoints_of_prev_actions["command_sent"] = perf_counter()
+
         data_packet = create_data_packet(get_serial_comm_timestamp(), packet_type, data_to_send)
         board = self._board_connections[board_idx]
         if board is None:
@@ -741,7 +763,7 @@ class McCommunicationProcess(InstrumentCommProcess):
 
     def _send_handshake(self, board_idx: int) -> None:
         self._time_of_last_handshake_secs = perf_counter()
-        self._send_data_packet(board_idx, SERIAL_COMM_HANDSHAKE_PACKET_TYPE)
+        self._send_data_packet(board_idx, SERIAL_COMM_HANDSHAKE_PACKET_TYPE, track_command=False)
 
     def _process_comm_from_instrument(self, packet_type: int, packet_payload: bytes) -> None:
         if packet_type == SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE:
@@ -920,6 +942,13 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._board_queues[board_idx][1].put_nowait(barcode_comm)
         else:
             raise UnrecognizedSerialCommPacketTypeError(f"Packet Type ID: {packet_type} is not defined")
+
+        if packet_type not in (
+            # beacons tracked separately, going dormant packet will raise an error and does not need to be tracked
+            SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
+            SERIAL_COMM_GOING_DORMANT_PACKET_TYPE,
+        ):
+            self._timepoints_of_prev_actions["command_response_received"] = perf_counter()
 
     def _process_status_beacon(self, packet_payload: bytes) -> None:
         board_idx = 0
@@ -1121,6 +1150,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         if not stim_stream_info["num_packets"]:
             return
 
+        self._timepoints_of_prev_actions["stim_data_parse"] = perf_counter()
+
         protocol_statuses: Dict[int, Any] = parse_stim_data(*stim_stream_info.values())
 
         well_statuses: Dict[int, Any] = {}
@@ -1229,7 +1260,7 @@ class McCommunicationProcess(InstrumentCommProcess):
 
         status_codes_msg = f"{comm_type} received from instrument. Status Codes: {status_codes_dict}"
         if any(status_codes_dict.values()):
-            self._send_data_packet(board_idx, SERIAL_COMM_ERROR_ACK_PACKET_TYPE)
+            self._send_data_packet(board_idx, SERIAL_COMM_ERROR_ACK_PACKET_TYPE, track_command=False)
             raise InstrumentFirmwareError(status_codes_msg)
         put_log_message_into_queue(
             logging.DEBUG,
