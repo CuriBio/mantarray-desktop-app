@@ -222,6 +222,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._auto_get_metadata = False
         self._time_of_last_handshake_secs: Optional[float] = None
         self._time_of_last_beacon_secs: Optional[float] = None
+        self._handshake_sent_after_beacon_missed = False
         self._commands_awaiting_response = CommandTracker()
         self._hardware_test_mode = hardware_test_mode
         # reboot values
@@ -1205,6 +1206,19 @@ class McCommunicationProcess(InstrumentCommProcess):
             return
         secs_since_last_beacon_received = _get_secs_since_last_beacon(self._time_of_last_beacon_secs)
         if (
+            secs_since_last_beacon_received >= SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS + 1
+            and not self._handshake_sent_after_beacon_missed
+        ):
+            board_idx = 0
+            put_log_message_into_queue(
+                logging.INFO,
+                "Status Beacon overdue. Sending handshake now to prompt a response.",
+                self._board_queues[board_idx][1],
+                self.get_logging_level(),
+            )
+            self._send_handshake(board_idx)
+            self._handshake_sent_after_beacon_missed = True
+        elif (
             secs_since_last_beacon_received >= SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
             and not self._is_waiting_for_reboot
             and not self._is_updating_firmware
@@ -1243,6 +1257,7 @@ class McCommunicationProcess(InstrumentCommProcess):
 
     def _handle_status_codes(self, status_codes_dict: Dict[str, int], comm_type: str) -> None:
         self._time_of_last_beacon_secs = perf_counter()
+        self._handshake_sent_after_beacon_missed = False
 
         board_idx = 0
         if (
