@@ -461,7 +461,15 @@ class McCommunicationProcess(InstrumentCommProcess):
         board = self._board_connections[board_idx]
         if board is None:
             raise NotImplementedError("Board should not be None when sending a command to it")
-        board.write(data_packet)
+
+        write_len = board.write(data_packet)
+        if write_len == 0:
+            put_log_message_into_queue(
+                logging.INFO,
+                "Serial data write reporting no bytes written",
+                self._board_queues[board_idx][1],
+                self.get_logging_level(),
+            )
 
     def _commands_for_each_run_iteration(self) -> None:
         """Ordered actions to perform each iteration.
@@ -1028,7 +1036,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         except serial.SerialException as e:
             put_log_message_into_queue(
                 logging.INFO,
-                f"Data read failed: {repr(e)}. Trying one more time",
+                f"Serial data read failed: {repr(e)}. Trying one more time",
                 self._board_queues[board_idx][1],
                 self.get_logging_level(),
             )

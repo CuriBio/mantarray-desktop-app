@@ -815,8 +815,9 @@ class MantarrayMcSimulator(InfiniteProcess):
         """Read all available bytes from the simulator."""
         return self._read()
 
-    def write(self, input_item: bytes) -> None:
+    def write(self, input_item: bytes) -> int:
         self._input_queue.put_nowait(input_item)
+        return len(input_item)
 
     def _drain_all_queues(self) -> Dict[str, Any]:
         queue_items = {
