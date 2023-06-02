@@ -1023,7 +1023,17 @@ class McCommunicationProcess(InstrumentCommProcess):
             )
         self._timepoints_of_prev_actions["data_read"] = perf_counter()
         # read bytes from serial buffer
-        data_read_bytes = board.read_all()
+        try:
+            data_read_bytes = board.read_all()
+        except serial.SerialException as e:
+            put_log_message_into_queue(
+                logging.INFO,
+                f"Data read failed: {repr(e)}. Trying one more time",
+                self._board_queues[board_idx][1],
+                self.get_logging_level(),
+            )
+            data_read_bytes = board.read_all()
+
         new_performance_tracking_values["data_read_duration"] = _get_dur_of_data_read_secs(
             self._timepoints_of_prev_actions["data_read"]  # type: ignore
         )
