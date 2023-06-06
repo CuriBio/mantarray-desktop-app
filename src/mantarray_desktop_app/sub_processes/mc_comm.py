@@ -326,8 +326,8 @@ class McCommunicationProcess(InstrumentCommProcess):
             # log any data in cache, flush and log remaining serial data
             put_log_message_into_queue(
                 logging.INFO,
-                f"\nDuration (seconds) since events: {self._get_dur_since_events()}"
-                f"\nRemaining serial data in cache: {list(self._serial_packet_cache)}, "
+                f"Duration (seconds) since events: {self._get_dur_since_events()}. "
+                f"Remaining serial data in cache: {list(self._serial_packet_cache)}, "
                 f"in buffer: {list(board.read_all())}",
                 self._board_queues[board_idx][1],
                 self.get_logging_level(),
@@ -353,7 +353,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         }
         current_timepoint = perf_counter()
         return {
-            event_name: ("No occurance" if event_timepoint is None else current_timepoint - event_timepoint)
+            event_name: ("No occurrence" if event_timepoint is None else current_timepoint - event_timepoint)
             for event_name, event_timepoint in event_timepoints.items()
         }
 
@@ -953,8 +953,9 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise UnrecognizedSerialCommPacketTypeError(f"Packet Type ID: {packet_type} is not defined")
 
         if packet_type not in (
-            # beacons tracked separately, going dormant packet will raise an error and does not need to be tracked
+            # beacons + handshakes tracked separately, going dormant packet will raise an error and does not need to be tracked
             SERIAL_COMM_STATUS_BEACON_PACKET_TYPE,
+            SERIAL_COMM_HANDSHAKE_PACKET_TYPE,
             SERIAL_COMM_GOING_DORMANT_PACKET_TYPE,
         ):
             self._timepoints_of_prev_actions["command_response_received"] = perf_counter()
