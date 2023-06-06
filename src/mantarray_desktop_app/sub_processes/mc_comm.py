@@ -1221,7 +1221,12 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._has_stim_packet_been_sent = True
 
     def _handle_beacon_tracking(self) -> None:
-        if self._time_of_last_beacon_secs is None:
+        if (
+            self._time_of_last_beacon_secs is None
+            or self._is_waiting_for_reboot
+            or self._is_updating_firmware
+            or self._is_setting_nickname
+        ):
             return
         secs_since_last_beacon_received = _get_secs_since_last_beacon(self._time_of_last_beacon_secs)
         if (
@@ -1237,12 +1242,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             )
             self._send_handshake(board_idx)
             self._handshake_sent_after_beacon_missed = True
-        elif (
-            secs_since_last_beacon_received >= SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS
-            and not self._is_waiting_for_reboot
-            and not self._is_updating_firmware
-            and not self._is_setting_nickname
-        ):
+        elif secs_since_last_beacon_received >= SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS:
             raise SerialCommStatusBeaconTimeoutError()
 
     def _handle_command_tracking(self) -> None:
