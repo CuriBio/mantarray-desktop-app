@@ -157,7 +157,7 @@ class MantarrayMcSimulator(InfiniteProcess):
     default_mantarray_serial_number = "MA2022001000"
     default_main_firmware_version = "0.0.0"
     default_channel_firmware_version = "0.0.0"
-    default_plate_barcode = "est_get_twitch_analysis_"
+    default_plate_barcode = "ML22001000-2"
     default_stim_barcode = "MS22001000-2"
     default_metadata_values: immutabledict[UUID, Any] = immutabledict(
         {
