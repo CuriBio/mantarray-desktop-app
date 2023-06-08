@@ -1109,7 +1109,9 @@ def after_request(response: Response) -> Response:
         msg += json.dumps(response_json)
     else:
         msg += response.status
-    logger.info(msg)
+
+    if "system_status" not in rule.rule:
+        logger.info(msg)
     return response
 
 

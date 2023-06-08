@@ -165,9 +165,15 @@ def live_data_metrics(
                 peak_and_valley_indices, filtered_data, twitch_indices
             )
         except Exception:  # nosec B112
-            continue
+            raise
+            # continue
+
         for twitch_idx, metric_value in metric_df.to_dict().items():
             time_index = time_series[twitch_idx]
+
+            if metric_uuid == AMPLITUDE_UUID:
+                metric_value *= MICRO_TO_BASE_CONVERSION
+
             main_twitch_dict[time_index][metric_uuid] = metric_value
 
     if not any(main_twitch_dict.values()):
@@ -323,12 +329,15 @@ class DataAnalyzerProcess(InfiniteProcess):
             compress=False,
             is_beta_2_data=self._beta_2_mode,
         )
+
         try:
             peak_detection_results = peak_detector(force)
             analysis_dict = live_data_metrics(peak_detection_results, force)
+
         except PeakDetectionError:
             # Tanner (7/14/21): this dict will be filtered out by downstream elements of analysis stream
             analysis_dict = {-1: None}  # type: ignore
+
         self._data_analysis_durations.append(_get_secs_since_data_analysis_start(analysis_start))
         return analysis_dict
 
