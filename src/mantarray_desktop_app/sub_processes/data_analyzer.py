@@ -169,10 +169,6 @@ def live_data_metrics(
 
         for twitch_idx, metric_value in metric_df.to_dict().items():
             time_index = time_series[twitch_idx]
-
-            if metric_uuid == AMPLITUDE_UUID:
-                metric_value *= MICRO_TO_BASE_CONVERSION
-
             main_twitch_dict[time_index][metric_uuid] = metric_value
 
     if not any(main_twitch_dict.values()):
@@ -320,7 +316,7 @@ class DataAnalyzerProcess(InfiniteProcess):
 
         data_buf_arr = np.array(data_buf, dtype=np.int64)
         analysis_start = perf_counter()
-        force = get_force_signal(
+        force_v_time = get_force_signal(
             data_buf_arr,
             self._filter_coefficients,
             self._barcode,
@@ -329,9 +325,11 @@ class DataAnalyzerProcess(InfiniteProcess):
             is_beta_2_data=self._beta_2_mode,
         )
 
+        force_v_time[1] *= MICRO_TO_BASE_CONVERSION
+
         try:
-            peak_detection_results = peak_detector(force)
-            analysis_dict = live_data_metrics(peak_detection_results, force)
+            peak_detection_results = peak_detector(force_v_time)
+            analysis_dict = live_data_metrics(peak_detection_results, force_v_time)
 
         except PeakDetectionError:
             # Tanner (7/14/21): this dict will be filtered out by downstream elements of analysis stream
