@@ -1,6 +1,14 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+1.1.4 (unreleased)
+------------------
+
+Fixed:
+^^^^^^
+- Heatmap values to be converted from N to µN before sending to FE.
+
+
 1.1.3 (2023-06-07)
 ------------------
 
