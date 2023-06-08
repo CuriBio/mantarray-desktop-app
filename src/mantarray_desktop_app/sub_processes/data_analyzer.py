@@ -165,8 +165,7 @@ def live_data_metrics(
                 peak_and_valley_indices, filtered_data, twitch_indices
             )
         except Exception:  # nosec B112
-            raise
-            # continue
+            continue
 
         for twitch_idx, metric_value in metric_df.to_dict().items():
             time_index = time_series[twitch_idx]
