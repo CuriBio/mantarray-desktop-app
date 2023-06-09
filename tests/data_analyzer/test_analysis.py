@@ -9,6 +9,7 @@ from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
+from mantarray_desktop_app.constants import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app.constants import POST_STIFFNESS_TO_MM_PER_MT_Z_AXIS_SENSOR_0
 from mantarray_desktop_app.simulators.mc_simulator import MantarrayMcSimulator
 from mantarray_desktop_app.sub_processes import data_analyzer
@@ -252,10 +253,7 @@ def test_append_data__beta_2__removes_oldest_data_points_when_buffer_exceeds_req
 
     expected_buffer_size = MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS * int(1e6 / expected_sampling_period_us)
 
-    init_list = init_list = [
-        list(range(expected_buffer_size)),
-        list(range(expected_buffer_size)),
-    ]
+    init_list = init_list = [list(range(expected_buffer_size)), list(range(expected_buffer_size))]
     new_data = np.array(
         [
             np.arange(expected_buffer_size, expected_buffer_size + 3),
@@ -312,6 +310,7 @@ def test_get_twitch_analysis__returns_force_metrics_from_given_beta_1_data(
     force = get_force_signal(
         test_data_arr, filter_coefficients, test_barcode, test_well_idx, compress=False, is_beta_2_data=False
     )
+    force[1] *= MICRO_TO_BASE_CONVERSION
     peak_detection_results = peak_detector(force)
     expected_metrics = live_data_metrics(peak_detection_results, force)
 
@@ -344,6 +343,8 @@ def test_get_twitch_analysis__returns_force_metrics_from_given_beta_2_data(
 
     filter_coefficients = create_filter(BUTTERWORTH_LOWPASS_30_UUID, DEFAULT_SAMPLING_PERIOD)
     force = get_force_signal(test_data_arr, filter_coefficients, test_barcode, test_well_idx, compress=False)
+    force[1] *= MICRO_TO_BASE_CONVERSION
+
     peak_detection_results = peak_detector(force)
     expected_metrics = live_data_metrics(peak_detection_results, force)
 

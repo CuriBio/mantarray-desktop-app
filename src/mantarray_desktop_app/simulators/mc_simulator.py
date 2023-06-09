@@ -150,7 +150,7 @@ class MantarrayMcSimulator(InfiniteProcess):
 
     # values for V1 instrument as of 6/17/22
     initial_magnet_finding_params: immutabledict[str, int] = immutabledict(
-        {"X": 0, "Y": 2, "Z": -5, "REMN": 1200},
+        {"X": 0, "Y": 2, "Z": -5, "REMN": 1200}
     )
 
     default_mantarray_nickname = "Mantarray Sim"
@@ -307,8 +307,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             simulated_data_timepoints = next(csv.reader(csvfile, delimiter=","))
             simulated_data_values = next(csv.reader(csvfile, delimiter=","))
         self._interpolator = interpolate.interp1d(
-            np.array(simulated_data_timepoints, dtype=np.uint64),
-            simulated_data_values,
+            np.array(simulated_data_timepoints, dtype=np.uint64), simulated_data_values
         )
 
     def _handle_boot_up_config(self, reboot: bool = False) -> None:
@@ -331,8 +330,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                     else SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
                 )
                 self._send_data_packet(
-                    packet_type,
-                    bytes([0, 0, 0]),  # TODO make this the new firmware version
+                    packet_type, bytes([0, 0, 0])  # TODO make this the new firmware version
                 )
             elif self._new_nickname is not None:
                 self._send_data_packet(
@@ -370,10 +368,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         return self._get_absolute_timer()
 
     def _send_data_packet(
-        self,
-        packet_type: int,
-        data_to_send: bytes = bytes(0),
-        truncate: bool = False,
+        self, packet_type: int, data_to_send: bytes = bytes(0), truncate: bool = False
     ) -> None:
         timestamp = self._get_timestamp()
         data_packet = create_data_packet(timestamp, packet_type, data_to_send)
@@ -543,8 +538,7 @@ class MantarrayMcSimulator(InfiniteProcess):
                 # Tanner (11/10/21): currently unsure how real board would handle receiving this packet before the previous two firmware packet types
                 raise NotImplementedError("_firmware_update_bytes should never be None here")
             received_checksum = int.from_bytes(
-                comm_from_pc[SERIAL_COMM_PAYLOAD_INDEX : SERIAL_COMM_PAYLOAD_INDEX + 4],
-                byteorder="little",
+                comm_from_pc[SERIAL_COMM_PAYLOAD_INDEX : SERIAL_COMM_PAYLOAD_INDEX + 4], byteorder="little"
             )
             calculated_checksum = crc32(self._firmware_update_bytes)
             checksum_failure = received_checksum != calculated_checksum
