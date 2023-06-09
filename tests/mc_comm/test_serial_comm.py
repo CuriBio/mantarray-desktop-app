@@ -214,6 +214,31 @@ def test_McCommunicationProcess__includes_correct_timestamp_in_packets_sent_to_i
     spied_write.assert_called_with(expected_data_packet)
 
 
+def test_McCommunicationProcess__logs_message_if_write_fails(
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process["mc_process"]
+    board_queues = four_board_mc_comm_process["board_queues"]
+    input_queue, output_queue = board_queues[0][:2]
+
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator_no_beacon)
+    test_command = {"communication_type": "metadata_comm", "command": "get_metadata"}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(copy.deepcopy(test_command), input_queue)
+
+    mocker.patch.object(simulator, "write", autospec=True, return_value=0)
+
+    # run mc_process one iteration to send the command
+    invoke_process_run_and_check_errors(mc_process)
+
+    confirm_queue_is_eventually_of_size(output_queue, 1)
+    assert (
+        output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)["message"]
+        == "Serial data write reporting no bytes written"
+    )
+
+
 def test_McCommunicationProcess__sends_handshake_every_5_seconds__and_includes_correct_timestamp__and_processes_response(
     four_board_mc_comm_process,
     mantarray_mc_simulator_no_beacon,

@@ -25,6 +25,7 @@ from mantarray_desktop_app.simulators import mc_simulator
 from mantarray_desktop_app.sub_processes import mc_comm
 import numpy as np
 import pytest
+import serial
 from stdlib_utils import create_metrics_stats
 from stdlib_utils import drain_queue
 from stdlib_utils import invoke_process_run_and_check_errors
@@ -257,6 +258,50 @@ def test_McCommunicationProcess__reads_all_bytes_from_instrument__and_does_not_s
     spied_read_all.assert_called_once()
     spied_sort.assert_not_called()
     confirm_queue_is_eventually_empty(to_fw_queue)
+
+
+def test_McCommunicationProcess__tries_to_read_one_more_time_if_first_read_fails(
+    four_board_mc_comm_process_no_handshake,
+    mantarray_mc_simulator_no_beacon,
+    mocker,
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    test_sampling_period_us = 25000  # arbitrary value
+    # mocking to ensure only one data packet is sent
+    mocker.patch.object(
+        mc_simulator,
+        "_get_us_since_last_data_packet",
+        autospec=True,
+        side_effect=[0, test_sampling_period_us],
+    )
+
+    set_connection_and_register_simulator(
+        four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
+    )
+    set_sampling_period_and_start_streaming(
+        four_board_mc_comm_process_no_handshake, simulator, sampling_period=test_sampling_period_us
+    )
+
+    expected_error = serial.SerialException("test msg")
+
+    mocked_read_all = mocker.patch.object(
+        simulator, "read_all", autospec=True, side_effect=[expected_error, bytes()]
+    )
+
+    # send and read data
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+
+    assert mocked_read_all.call_count == 2
+
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    assert (
+        to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)["message"]
+        == f"Serial data read failed: {expected_error}. Trying one more time"
+    )
 
 
 def test_McCommunicationProcess__processes_non_stream_packet_immediately(

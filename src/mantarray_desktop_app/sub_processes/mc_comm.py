@@ -1037,7 +1037,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         except serial.SerialException as e:
             put_log_message_into_queue(
                 logging.INFO,
-                f"Serial data read failed: {repr(e)}. Trying one more time",
+                f"Serial data read failed: {e}. Trying one more time",
                 self._board_queues[board_idx][1],
                 self.get_logging_level(),
             )
