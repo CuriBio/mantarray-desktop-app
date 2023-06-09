@@ -382,8 +382,8 @@ def test_McCommunicationProcess__does_not_check_for_overdue_status_beacons_after
     # run mc_process to sent reboot command and simulator to start reboot
     invoke_process_run_and_check_errors(mc_process)
     invoke_process_run_and_check_errors(simulator)
-    # run mc_process again to make sure status beacon time is checked but no error is raised
-    assert mocked_get_secs.call_count == 1
+    # run mc_process again to make sure status beacon time is not checked
+    assert mocked_get_secs.call_count == 0
 
 
 def test_McCommunicationProcess__raises_error_if_reboot_takes_longer_than_maximum_reboot_period(

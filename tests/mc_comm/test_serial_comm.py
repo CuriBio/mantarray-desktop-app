@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import copy
+import logging
 from random import randint
 
 from mantarray_desktop_app import create_data_packet
@@ -31,6 +32,7 @@ from mantarray_desktop_app.constants import SERIAL_COMM_GOING_DORMANT_PACKET_TYP
 from mantarray_desktop_app.exceptions import SerialCommCommandProcessingError
 from mantarray_desktop_app.sub_processes import mc_comm
 import pytest
+from src.mantarray_desktop_app.constants import SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS
 from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import fixture_patch_print
@@ -212,6 +214,31 @@ def test_McCommunicationProcess__includes_correct_timestamp_in_packets_sent_to_i
     spied_write.assert_called_with(expected_data_packet)
 
 
+def test_McCommunicationProcess__logs_message_if_write_fails(
+    four_board_mc_comm_process, mantarray_mc_simulator_no_beacon, mocker
+):
+    mc_process = four_board_mc_comm_process["mc_process"]
+    board_queues = four_board_mc_comm_process["board_queues"]
+    input_queue, output_queue = board_queues[0][:2]
+
+    simulator = mantarray_mc_simulator_no_beacon["simulator"]
+
+    set_connection_and_register_simulator(four_board_mc_comm_process, mantarray_mc_simulator_no_beacon)
+    test_command = {"communication_type": "metadata_comm", "command": "get_metadata"}
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(copy.deepcopy(test_command), input_queue)
+
+    mocker.patch.object(simulator, "write", autospec=True, return_value=0)
+
+    # run mc_process one iteration to send the command
+    invoke_process_run_and_check_errors(mc_process)
+
+    confirm_queue_is_eventually_of_size(output_queue, 1)
+    assert (
+        output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)["message"]
+        == "Serial data write reporting no bytes written"
+    )
+
+
 def test_McCommunicationProcess__sends_handshake_every_5_seconds__and_includes_correct_timestamp__and_processes_response(
     four_board_mc_comm_process,
     mantarray_mc_simulator_no_beacon,
@@ -349,25 +376,34 @@ def test_McCommunicationProcess__raises_error_if_command_response_not_received_w
         invoke_process_run_and_check_errors(mc_process)
 
 
-def test_McCommunicationProcess__raises_error_if_status_beacon_not_received_in_allowed_period_of_time(
+def test_McCommunicationProcess__handles_missed_beacons_correctly(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
     mocker,
     patch_print,
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
 
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
-    # patch so next iteration of mc_process will hit beacon timeout
     mocker.patch.object(
         mc_comm,
         "_get_secs_since_last_beacon",
         autospec=True,
-        return_value=SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS,
+        side_effect=[SERIAL_COMM_STATUS_BEACON_PERIOD_SECONDS + 1, SERIAL_COMM_STATUS_BEACON_TIMEOUT_SECONDS],
     )
+
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_of_size(to_main_queue, 1)
+    assert to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == {
+        "communication_type": "log",
+        "log_level": logging.INFO,
+        "message": "Status Beacon overdue. Sending handshake now to prompt a response.",
+    }
+
     with pytest.raises(SerialCommStatusBeaconTimeoutError):
         invoke_process_run_and_check_errors(mc_process)
 
