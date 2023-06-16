@@ -131,10 +131,7 @@ def test_upload_file_to_s3__raises_error_if_upload_fails(mocker):
 
 def test_start_analysis__starts_analysis_job_correctly__and_returns_job_id_and_usage(mocker):
     mocked_post = mocker.patch.object(requests, "post", autospec=True)
-    mocked_post.return_value.json.return_value = {
-        "id": "test_id",
-        "usage_quota": {"jobs_reached": False},
-    }
+    mocked_post.return_value.json.return_value = {"id": "test_id", "usage_quota": {"jobs_reached": False}}
 
     test_access_token = "token"
     test_id = "id"
@@ -300,8 +297,9 @@ def test_FileUploader_job__does_not_create_new_zip_file_if_file_to_upload_is_a_z
     mocked_create_zip_file.assert_not_called()
 
 
+@pytest.mark.parametrize("job_status", ["pending", "running"])
 def test_FileUploader__sleeps_in_between_polling_analysis_status_until_analysis_completes(
-    create_file_uploader, mocker
+    create_file_uploader, mocker, job_status
 ):
     mocked_get_tokens = mocker.patch.object(web_api, "get_cloud_api_tokens", autospec=True)
     mocked_get_tokens.return_value = (AuthTokens(access="", refresh=""), {"jobs_reached": False})
@@ -314,7 +312,7 @@ def test_FileUploader__sleeps_in_between_polling_analysis_status_until_analysis_
     mocked_start_analysis.return_value = {"id": "test_id"}
 
     # set up so analysis status is only polled twice
-    test_status_dicts = [{"status": "pending"}, {"status": "finished", "url": None}]
+    test_status_dicts = [{"status": job_status}, {"status": "finished", "url": None}]
 
     mocked_get_analysis_status = mocker.patch.object(
         file_uploader.FileUploader, "get_analysis_status", autospec=True, side_effect=test_status_dicts
@@ -374,10 +372,7 @@ def test_FileUploader__runs_upload_procedure_correctly_for_recording(
     mocked_get_tokens.assert_called_once_with(TEST_CUSTOMER_ID, TEST_USER_NAME, TEST_PASSWORD)
     mocked_get_file_md5.assert_called_once_with(expected_zipped_file_path)
     mocked_get_upload_details.assert_called_once_with(
-        expected_access_token,
-        expected_zipped_file_name,
-        expected_md5,
-        RECORDING_UPLOAD_TYPE,
+        expected_access_token, expected_zipped_file_name, expected_md5, RECORDING_UPLOAD_TYPE
     )
     mocked_upload_file.assert_called_once_with(
         expected_zipped_file_path, expected_zipped_file_name, expected_upload_details
