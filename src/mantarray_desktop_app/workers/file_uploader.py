@@ -61,12 +61,7 @@ def get_file_md5(file_path: str) -> str:
     return md5s
 
 
-def get_upload_details(
-    access_token: str,
-    file_name: str,
-    file_md5: str,
-    upload_type: str,
-) -> Dict[Any, Any]:
+def get_upload_details(access_token: str, file_name: str, file_md5: str, upload_type: str) -> Dict[Any, Any]:
     """Post to generate post specific parameters.
 
     Args:
@@ -214,7 +209,10 @@ class FileUploader(WebWorker):
             # if job fails because job limit has been reached, error will be returned and needs to be raised
             raise CloudAnalysisJobFailedError(error_type)
 
-        while (status_dict := self.get_analysis_status(job_details["id"]))["status"] == "pending":
+        while (status_dict := self.get_analysis_status(job_details["id"]))["status"] in (
+            "pending",
+            "running",
+        ):
             sleep(5)
 
         # download analysis of file
