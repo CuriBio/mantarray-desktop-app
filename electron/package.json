@@ -15,7 +15,6 @@
   "license": "MIT",
   "main": "./dist/main/index.js",
   "scripts": {
-    "prepare": "pre-commit install",
     "dev": "check-engines && cross-env-shell NODE_ENV=development node .electron-nuxt/index.js",
     "test:unit": "check-engines && cross-env-shell NODE_ENV=test jest -c jest.config.js",
     "build-unstable": "check-engines && cross-env-shell NODE_ENV=production RELEASE_CHANNEL=unstable node .electron-nuxt/index.js",

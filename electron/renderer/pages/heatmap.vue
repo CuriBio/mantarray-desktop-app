@@ -5,7 +5,7 @@
 </template>
 
 <script>
-import { HeatMap } from "@curi-bio/mantarray-frontend-components";
+import { HeatMap } from "@curi-bio/ui";
 export default {
   components: {
     HeatMap,

@@ -5,7 +5,7 @@
 </template>
 
 <script>
-import { PlateMapEditor } from "@curi-bio/mantarray-frontend-components";
+import { PlateMapEditor } from "@curi-bio/ui";
 export default {
   components: {
     PlateMapEditor,

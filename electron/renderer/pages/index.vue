@@ -36,7 +36,7 @@
 </template>
 
 <script>
-import { ContinuousWaveform, XAxisControls, YAxisControls } from "@curi-bio/mantarray-frontend-components";
+import { ContinuousWaveform, XAxisControls, YAxisControls } from "@curi-bio/ui";
 import { mapState } from "vuex";
 export default {
   components: {

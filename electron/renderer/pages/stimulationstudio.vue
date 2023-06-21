@@ -5,7 +5,7 @@
 </template>
 
 <script>
-import { StimulationStudio } from "@curi-bio/mantarray-frontend-components";
+import { StimulationStudio } from "@curi-bio/ui";
 export default {
   components: {
     StimulationStudio,

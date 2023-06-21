@@ -159,7 +159,7 @@ import {
   DataAnalysisControl,
   PlateMapEditorButton,
   StimulationRunningWidget,
-} from "@curi-bio/mantarray-frontend-components";
+} from "@curi-bio/ui";
 import { ipcRenderer } from "electron";
 import { mapState } from "vuex";
 const log = require("electron-log");

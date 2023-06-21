@@ -1,12 +1,7 @@
 import { mount, shallowMount, createLocalVue, RouterLinkStub } from "@vue/test-utils";
 import WaveformScreenView from "@/renderer/pages/index.vue";
 import SideBar from "@/renderer/layouts/default.vue";
-import {
-  XAxisControls,
-  YAxisControls,
-  FLASK_STATUS_ENUMS,
-  system_status_regexp,
-} from "@curi-bio/mantarray-frontend-components";
+import { XAxisControls, YAxisControls, FLASK_STATUS_ENUMS, system_status_regexp } from "@curi-bio/ui";
 
 // from https://dev.to/bawa_geek/how-to-setup-jest-testing-in-nuxt-js-project-5c84
 import { config } from "@vue/test-utils";

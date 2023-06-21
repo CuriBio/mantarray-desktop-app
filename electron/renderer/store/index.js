@@ -14,7 +14,7 @@ import {
   heatmap_store_module,
   stimulation_store_module,
   platemap_store_module,
-} from "@curi-bio/mantarray-frontend-components";
+} from "@curi-bio/ui";
 
 const ws_plugin = create_web_socket_plugin(socket);
 
