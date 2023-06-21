@@ -1,0 +1,11 @@
+[flake8]
+# W503 is incompatible with PEP8 (according to https://github.com/ambv/black/issues/43)
+
+# E231 relates to whitespace---we use Black to take care of our whitespace
+
+# E203 is not PEP8 compliant -- should be ignored https://github.com/psf/black/issues/315
+
+max-line-length = 110
+select = C,E,F,W,B
+ignore = E501,W503,E231,E203
+import-order-style = google
