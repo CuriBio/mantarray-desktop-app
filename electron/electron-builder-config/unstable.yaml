@@ -1,6 +1,6 @@
 # https://www.electron.build/configuration/configuration#configuration
-productName: "Stingray Controller"
-appId: "CuriBio.Stingray.Controller"
+productName: "Mantarray Controller"
+appId: "CuriBio.Mantarray.Controller"
 asar: true
 directories:
   buildResources: "electron-build-resources"
@@ -15,10 +15,10 @@ files:
     to: "dist/renderer/"
 win:
   target: "nsis"
-  artifactName: "StingrayController-Setup-unstable-${version}.${ext}"
+  artifactName: "MantarrayController-Setup-unstable-${version}.${ext}"
 publish:
   provider: "s3"
   bucket: "downloads.curibio.com"
-  path: "software/stingray"
+  path: "software/mantarray"
   channel: "unstable"
   region: "us-east-1"

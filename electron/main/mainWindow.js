@@ -4,8 +4,8 @@ const { centerWindow } = require("electron-util");
 import BrowserWinHandler from "./BrowserWinHandler";
 
 const winHandler = new BrowserWinHandler({
-  targetHeight: 930,
-  targetWidth: 1920,
+  target_height: 930,
+  target_width: 1920,
   maxHeight: 989, // required to offset the hidden menu bar that holds keyboard shortcuts
   x: 0, //  have the window launch in the top left corner of the screen. This is necessary since it takes the full width of the screen and so normally would try some weird way to center itself
   y: 0,
@@ -21,8 +21,8 @@ winHandler.onCreated((browserWindow) => {
 
   centerWindow({ window: browserWindow });
   // move the window up to the top
-  const windowX = browserWindow.getPosition()[0];
-  browserWindow.setPosition(windowX, 0);
+  const window_x = browserWindow.getPosition()[0];
+  browserWindow.setPosition(window_x, 0);
 
   winHandler.loadPage("/");
 });

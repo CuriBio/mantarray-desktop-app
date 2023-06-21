@@ -3,6 +3,16 @@ import electronDebug from "electron-debug";
 import fs from "fs";
 import path from "path";
 
+// const electron_config_path = path.join(
+//   __dirname,
+//   "..",
+//   "..",
+//   ".electron-nuxt",
+//   "config"
+// );
+
+// const main_window_path = path.resolve("./mainWindow");
+
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = "true";
 
 electronDebug({
@@ -22,7 +32,9 @@ if (process.platform === "win32") {
   }
 }
 
-app.on("ready", () => {});
+app.on("ready", () => {
+  // Menu.setApplicationMenu(menu);
+});
 
 // Require `main` process to boot app
 require("../index");

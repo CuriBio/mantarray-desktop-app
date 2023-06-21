@@ -1,15 +1,7 @@
 const path = require("path");
 const electron = require("electron");
 const Conf = require("conf");
-
-/**
- * Electron store class.
- * @class
- */
 export default class ElectronStore extends Conf {
-  /**
-   * @param {object} options electron store options
-   */
   constructor(options) {
     options = {
       name: "config",
@@ -30,9 +22,6 @@ export default class ElectronStore extends Conf {
     super(options);
   }
 
-  /**
-   *
-   */
   openInEditor() {
     const open = electron.shell.openItem || electron.shell.openPath;
     open(this.path);
