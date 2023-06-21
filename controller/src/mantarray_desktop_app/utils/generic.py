@@ -233,7 +233,7 @@ def get_current_software_version() -> str:
     if is_frozen_as_exe():
         return CURRENT_SOFTWARE_VERSION
     path_to_package_json = os.path.join(
-        get_current_file_abs_directory(), os.pardir, os.pardir, os.pardir, "package.json"
+        get_current_file_abs_directory(), *([os.pardir] * 4), "electron", "package.json"
     )
     with open(path_to_package_json) as in_file:
         parsed_json = json.load(in_file)

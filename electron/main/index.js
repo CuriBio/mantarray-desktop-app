@@ -63,16 +63,6 @@ const isRunningInBundle = () => {
   return fs.existsSync(path_to_py_dist_folder);
 };
 
-const getPythonScriptPath = () => {
-  const up_two_dirs = path.resolve(__dirname, "..", ".."); // https://stackoverflow.com/questions/7083045/fs-how-do-i-locate-a-parent-folder
-  const bundled_path = path.join(path_to_py_dist_folder, PY_EXE);
-  const unbundled_path = path.join(up_two_dirs, PY_SRC_FOLDER, PY_MODULE);
-  if (!isRunningInBundle()) {
-    return unbundled_path;
-  }
-  return bundled_path;
-};
-
 let wait_for_subprocess_to_complete = null;
 
 const start_python_subprocess = () => {
@@ -93,7 +83,7 @@ const start_python_subprocess = () => {
 
   console.log("sending command line args: " + redacted_args); // allow-log
   if (isRunningInBundle()) {
-    const script = getPythonScriptPath();
+    const script = path.join(path_to_py_dist_folder, PY_EXE);
     console.log(
       // allow-log
       "Launching compiled Python EXE at path: " + main_utils.redact_username_from_logs(script)
@@ -114,7 +104,7 @@ const start_python_subprocess = () => {
       mode: "text",
       pythonPath: process.platform === "win32" ? "python" : "python3",
       // pythonOptions: ['-u'], // get print results in real-time
-      scriptPath: "src",
+      scriptPath: path.join("..", "controller", "src"),
       args: python_cmd_line_args,
     };
     const py_file_name = "entrypoint.py";
