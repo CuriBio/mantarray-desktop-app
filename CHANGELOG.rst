@@ -10,7 +10,7 @@ Fixed:
 
 Changed:
 ^^^^^^^^
-- Limited loggin of /system_status to only when status code is not 200
+- Limited logging of /system_status to only when status code is not 200
 
 
 1.1.3 (2023-06-07)
