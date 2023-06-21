@@ -131,7 +131,7 @@ class Filter_System_Status_Logs(logging.Filter):
     def filter(self: Filter_System_Status_Logs, record: logging.LogRecord) -> bool:
         # log system_status only if not 200
         message = record.getMessage()
-        return not ("system_status" in message and "200" in message)
+        return not ("system_status" in message and " 200 " in message)
 
 
 def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[str, Any]] = None) -> None:
