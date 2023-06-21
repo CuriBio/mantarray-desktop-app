@@ -8,6 +8,10 @@ Fixed:
 ^^^^^^
 - Heatmap values to be converted from N to µN before sending to FE.
 
+Changed:
+^^^^^^^^
+- Limited loggin of /system_status to only when status code is not 200
+
 
 1.1.3 (2023-06-07)
 ------------------
