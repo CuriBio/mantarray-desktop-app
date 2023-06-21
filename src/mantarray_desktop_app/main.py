@@ -127,6 +127,13 @@ def _log_system_info() -> None:
         logger.info(msg)
 
 
+class Filter_System_Status_Logs(logging.Filter):
+    def filter(self: Filter_System_Status_Logs, record: logging.LogRecord) -> bool:
+        # log system_status only is not 200
+        message = record.getMessage()
+        return not ("system_status" in message and "200" in message)
+
+
 def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[str, Any]] = None) -> None:
     """Parse command line arguments and run."""
     if object_access_for_testing is None:
@@ -137,6 +144,9 @@ def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[
     try:
         # Tanner (5/20/22): not sure if this is actually logging anything since logging isn't configured yet
         logger.info(command_line_args)
+
+        # add filtering of /server_status logs
+        logger.addFilter(Filter_System_Status_Logs())
 
         log_level = logging.INFO
         parser = argparse.ArgumentParser()
