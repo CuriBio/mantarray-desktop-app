@@ -145,7 +145,7 @@ def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[
         # Tanner (5/20/22): not sure if this is actually logging anything since logging isn't configured yet
         logger.info(command_line_args)
 
-        # add filtering of /server_status logs
+        # add filtering of /system_status logs
         logger.addFilter(Filter_System_Status_Logs())
 
         log_level = logging.INFO
