@@ -1,8 +1,8 @@
 # dependencies
 node_modules
 
-src/firmware/*.bit
-src/drivers/*.exe
+controller/src/firmware/*.bit
+controller/src/drivers/*.exe
 
 # CI caches
 .npm_cache/
