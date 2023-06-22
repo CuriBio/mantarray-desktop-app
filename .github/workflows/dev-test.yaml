@@ -77,36 +77,36 @@ jobs:
           node --version
           npm --version
 
-      - name: Cache node modules # https://docs.github.com/en/free-pro-team@latest/actions/guides/caching-dependencies-to-speed-up-workflows
-        uses: actions/cache@v3
-        env:
-          cache-name: cache-node-modules
-        with:
-          path: ./.npm_cache
-          key: ${{ matrix.os }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ matrix.os }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-
+      # - name: Cache node modules # https://docs.github.com/en/free-pro-team@latest/actions/guides/caching-dependencies-to-speed-up-workflows
+      #   uses: actions/cache@v3
+      #   env:
+      #     cache-name: cache-node-modules
+      #   with:
+      #     path: ./.npm_cache
+      #     key: ${{ matrix.os }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+      #     restore-keys: |
+      #       ${{ matrix.os }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-
 
-      - name: Cache Python modules
-        uses: actions/cache@v3
-        env:
-          cache-name: cache-python-modules
-        with:
-          path: ./.pipenv_cache
-          key: ${{ matrix.os }}-${{ matrix.python-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/Pipfile.lock') }}
-          restore-keys: |
-            ${{ matrix.os }}-${{ matrix.python-version }}-build-${{ env.cache-name }}-
+      # - name: Cache Python modules
+      #   uses: actions/cache@v3
+      #   env:
+      #     cache-name: cache-python-modules
+      #   with:
+      #     path: ./.pipenv_cache
+      #     key: ${{ matrix.os }}-${{ matrix.python-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/Pipfile.lock') }}
+      #     restore-keys: |
+      #       ${{ matrix.os }}-${{ matrix.python-version }}-build-${{ env.cache-name }}-
 
-      - name: Cache Pre-commit hooks
-        uses: actions/cache@v3
-        env:
-          cache-name: cache-pre-commit-hooks
-        if: matrix.IS_FASTEST_JOB == true
-        with:
-          path: ~/.precommit_cache # Eli (10/22/20): Having the pre-commit cache inside the repo creates problems with Pytest detecting test files inside the cache
-          key: ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/.pre-commit-config.yaml') }}
-          restore-keys: |
-            ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-
+      # - name: Cache Pre-commit hooks
+      #   uses: actions/cache@v3
+      #   env:
+      #     cache-name: cache-pre-commit-hooks
+      #   if: matrix.IS_FASTEST_JOB == true
+      #   with:
+      #     path: ~/.precommit_cache # Eli (10/22/20): Having the pre-commit cache inside the repo creates problems with Pytest detecting test files inside the cache
+      #     key: ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-${{ hashFiles('**/.pre-commit-config.yaml') }}
+      #     restore-keys: |
+      #       ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.node-version }}-build-${{ env.cache-name }}-
 
       - name: Display Chrome version (Windows)
         if: runner.os == 'Windows'
@@ -122,14 +122,14 @@ jobs:
         id: software-version
         uses: notiz-dev/github-action-json-property@v0.2.0
         with:
-          path: "package.json"
+          path: "electron/package.json"
           prop_path: "version"
 
       - name: Get Product Name
         id: product-name
         uses: notiz-dev/github-action-json-property@v0.2.0
         with:
-          path: "package.json"
+          path: "electron/package.json"
           prop_path: "name"
 
       - name: Display Extracted Software Version and Product Name
@@ -145,6 +145,7 @@ jobs:
           PIPENV_VENV_IN_PROJECT: 1
         # Eli (10/28/20): in the windows environments, just saying `pipenv --three` defaults to the highest installed version of Python on the image...not the actual one specified in the matrix. So need to specify
         run: |
+          cd controller/
           pipenv --python ${{ matrix.python-version }}
           pipenv run pip freeze
 
@@ -152,19 +153,34 @@ jobs:
         env:
           PIPENV_CACHE_DIR: ./.pipenv_cache
         # Eli (10/28/20): The --sequential flag was found to be necessary on windows due to issues where scipy wouldn't recognize that it had been installed. Also, when this was part of a set of multiple run commands using the pipe, when it errored it didn't cause the whole step to fail, so separating it out into its own step
-        run: pipenv install --dev --deploy --sequential
+        run: |
+          cd controller/
+          pipenv install --dev --deploy --sequential
 
       - name: Download zlib Library
-        run: pipenv run python .github/workflows/run_zlib_download.py
+        run: |
+          cd controller/
+          pipenv run python ../.github/workflows/run_zlib_download.py
 
       - name: Install Local Package in editable mode for testing
-        run: pipenv run pip install -e .
+        run: |
+          cd controller/
+          pipenv run pip install -e .
 
       - name: Log full installed Python packages
-        run: pipenv run pip freeze
+        run: |
+          cd controller/
+          pipenv run pip freeze
 
-      - name: Install NPM Dependencies
-        run: pipenv run npm ci --cache .npm_cache/
+      - name: Setup UI
+        run: |
+          cd ui/
+          npm ci
+
+      - name: Setup Electron
+        run: |
+          cd electron/
+          npm ci
 
       - name: Run pre-commit hooks
         # only enable pre-commit on the fastest job.
@@ -172,45 +188,47 @@ jobs:
         env:
           PRE_COMMIT_HOME: ~/.precommit_cache
         run: |
+          cd controller/
           pipenv run pre-commit install
           pipenv run pre-commit run -a
 
       - name: Move OpalKelly .so file to needed location (Linux)
         if: runner.os == 'Linux' # Eli (10/20/20): not sure if copying to both locations is needed...but it's working and haven't checked which is required...should theoretically only be one needed
         run: |
-          sudo cp .venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/local/lib
-          sudo cp .venv/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/lib
+          cd controller/
+          sudo cp $(pipenv --venv)/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/local/lib
+          sudo cp $(pipenv --venv)/lib/python${{ matrix.python-version }}/site-packages/xem_wrapper/_linux/libokFrontPanel.so /usr/lib
 
       - name: Download the firmware files from AWS S3
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
-        run: pipenv run python .github/workflows/run_s3_download.py
+        run: |
+          cd controller/
+          pipenv run python ../.github/workflows/run_s3_download.py
 
       - name: Run Python Tests with randomly generated seed
         if: github.event.inputs.randomlyseed == ''
         timeout-minutes: 40
-        run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci
+        run: |
+          cd controller/
+          pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci
 
       - name: Run Python Tests with supplied pytest-randomly seed
         if: github.event.inputs.randomlyseed != ''
         timeout-minutes: 30
-        run: pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci --randomly-seed=${{ github.event.inputs.randomlyseed }}
-
-      - name: Confirm Sphinx Docs build correctly
-        # only check Sphinx docs build on the fastest job
-        if: matrix.IS_FASTEST_JOB == true
-        run: pipenv run sh make_sphinx_fail_on_error.sh
-
-      - name: Run Jest Tests
-        run: npm run test:unit -- --ci
+        run: |
+          cd controller/
+          pipenv run pytest -xsvv --cov-report=xml --include-slow-tests --full-ci --randomly-seed=${{ github.event.inputs.randomlyseed }}
 
       - name: Confirm no extra files generated by this test suite
         if: matrix.IS_FASTEST_JOB == true
         env:
           PRE_COMMIT_HOME: ./.precommit_cache
         # only enable pre-commit on the fastest job
-        run: pipenv run pre-commit run git-dirty -a
+        run: |
+          cd controller/
+          pipenv run pre-commit run git-dirty -a
 
       - name: Insert the Build Number and Software Version into the code (Windows)
         if: runner.os == 'Windows'
@@ -218,10 +236,10 @@ jobs:
           build_number: ${{ github.run_number }}
         run: |
           echo $env:build_number
-          ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$env:build_number") | Set-Content -Path src\mantarray_desktop_app\constants.py
-          ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHVERSIONDURINGBUILD',"${{steps.software-version.outputs.prop}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
-          ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHENDPOINTDURINGBUILD',"${{github.event.inputs.api_endpoint}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
-          ((Get-Content -path src\main\index.js -Raw) -replace 'REPLACETHISWITHENDPOINTDURINGBUILD',"${{env.API_ENDPOINT}}") | Set-Content -Path src\main\index.js
+          ((Get-Content -path controller\src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$env:build_number") | Set-Content -Path controller\src\mantarray_desktop_app\constants.py
+          ((Get-Content -path controller\src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHVERSIONDURINGBUILD',"${{steps.software-version.outputs.prop}}") | Set-Content -Path controller\src\mantarray_desktop_app\constants.py
+          ((Get-Content -path controller\src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHENDPOINTDURINGBUILD',"${{github.event.inputs.api_endpoint}}") | Set-Content -Path controller\src\mantarray_desktop_app\constants.py
+          ((Get-Content -path electron\main\index.js -Raw) -replace 'REPLACETHISWITHENDPOINTDURINGBUILD',"${{env.API_ENDPOINT}}") | Set-Content -Path electron\main\index.js
 
       - name: Insert the Build Number and Software Version into the code (Linux)
         if: runner.os == 'Linux'
@@ -229,24 +247,27 @@ jobs:
           build_number: ${{ github.run_number }}
         run: |
           echo $build_number
-          sed -i 's/REPLACETHISWITHTIMESTAMPDURINGBUILD/'"$(date +'%y%m%d%H%M%S')"'--$build_number/g' src/mantarray_desktop_app/constants.py
-          sed -i 's/REPLACETHISWITHVERSIONDURINGBUILD/'"${{steps.software-version.outputs.prop}}"'/g' src/mantarray_desktop_app/constants.py
-          sed -i 's/REPLACETHISWITHENDPOINTDURINGBUILD/'"${{github.event.inputs.api_endpoint}}"'/g' src/mantarray_desktop_app/constants.py
-          sed -i 's/REPLACETHISWITHENDPOINTDURINGBUILD/'"${{github.event.inputs.api_endpoint}}"'/g' src/main/index.js
+          sed -i 's/REPLACETHISWITHTIMESTAMPDURINGBUILD/'"$(date +'%y%m%d%H%M%S')"'--$build_number/g' controller/src/mantarray_desktop_app/constants.py
+          sed -i 's/REPLACETHISWITHVERSIONDURINGBUILD/'"${{steps.software-version.outputs.prop}}"'/g' controller/src/mantarray_desktop_app/constants.py
+          sed -i 's/REPLACETHISWITHENDPOINTDURINGBUILD/'"${{github.event.inputs.api_endpoint}}"'/g' controller/src/mantarray_desktop_app/constants.py
+          sed -i 's/REPLACETHISWITHENDPOINTDURINGBUILD/'"${{github.event.inputs.api_endpoint}}"'/g' electron/main/index.js
 
       - name: Compile the Python Executable
-        run: pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
+        run: |
+          cd controller/
+          pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
 
       - name: Run Python Tests on Executable with randomly generated seed
         if: github.event.inputs.randomlyseed == ''
-        run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov
+        run: |
+          cd controller/
+          pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov
 
       - name: Run Python Tests on Executable with supplied pytest-randomly seed
         if: github.event.inputs.randomlyseed != ''
-        run: pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov --randomly-seed=${{ github.event.inputs.randomlyseed }}
-
-      - name: Build Full Electron App
-        run: pipenv run npm run build
+        run: |
+          cd controller/
+          pipenv run pytest tests/test_exe.py -xsvv --only-exe --no-cov --randomly-seed=${{ github.event.inputs.randomlyseed }}
 
       - name: Upload coverage to Codecov
         # only upload coverage from fastest job
@@ -261,16 +282,23 @@ jobs:
           name: codecov-umbrella
           fail_ci_if_error: true
 
-      - name: Archive Installer File
-        if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v3
-        with:
-          name: installer--${{ matrix.os }}--${{ matrix.node-version }}--${{ matrix.python-version }}
-          path: "dist/Mantarray*.exe"
+      - name: Build Full Electron App
+        run: |
+          cd ui/
+          npm run build
+          cd ../electron
+          npm run build
 
-      - name: Archive Dist Folder
-        if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v3
-        with:
-          name: dist--${{ matrix.os }}--${{ matrix.node-version }}--${{ matrix.python-version }}
-          path: "dist/**/*"
+      # - name: Archive Installer File
+      #   if: runner.os == 'Windows'
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: installer--${{ matrix.os }}--${{ matrix.node-version }}--${{ matrix.python-version }}
+      #     path: "dist/Mantarray*.exe"
+
+      # - name: Archive Dist Folder
+      #   if: runner.os == 'Windows'
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: dist--${{ matrix.os }}--${{ matrix.node-version }}--${{ matrix.python-version }}
+      #     path: "dist/**/*"

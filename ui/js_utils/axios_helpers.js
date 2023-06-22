@@ -74,7 +74,7 @@ export async function call_axios_post_from_vuex(url, data = null) {
   try {
     return await Vue.axios.post(`${baseURL}${url}`, data);
   } catch (error) {
-    console.log(`Error in ${endpoint} for ${baseURL}${endpoint}: ${error}`);
+    console.log(`Error in ${endpoint} for ${baseURL}${endpoint}: ${error}`); // allow-log
 
     if (error.response) return error.response.status;
     else return error;

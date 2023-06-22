@@ -1,4 +1,4 @@
-minimum_pre_commit_version: 2.17.0
+minimum_pre_commit_version: 2.11.1
 fail_fast: false
 default_language_version:
   python: python3.10
@@ -84,15 +84,9 @@ repos:
     hooks:
       - id: mypy
         name: mypy-controller
-        args: [--config-file=controller/pyproject.toml]
+        args: [--config-file=controller/mypy.ini, --install-types, --non-interactive]
         files: controller/.*
         exclude: (tests/)|(build.py)
-      # TODO
-      # - id: mypy
-      #   name: mypy-virtual-instrument
-      #   args: [--config-file=virtual-instrument/pyproject.toml]
-      #   files: virtual-instrument/.*
-      #   exclude: (tests/)|(build.py)
 
   - repo: https://github.com/Lucas-C/pre-commit-hooks-markup
     rev: v1.0.1

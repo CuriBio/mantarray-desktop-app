@@ -23,7 +23,7 @@ extensions = [
         "mantarray_desktop_app.utils.data_parsing_cy",
         [
             os.path.join("src", "mantarray_desktop_app", "utils", "data_parsing_cy") + ext,
-            os.path.join("src", "zlib", "crc32.c"),
+            os.path.join("src", "mantarray_desktop_app", "zlib", "crc32.c"),
         ],
     )
 ]
