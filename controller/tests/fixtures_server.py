@@ -58,6 +58,7 @@ def fixture_server_manager(generic_queue_container):
     shared_values_dict = sm._values_from_process_monitor
     # Tanner (4/23/21): Many routes require these values to be in the shared values dictionary. They are normally set during app start up, so manually setting here
     shared_values_dict["system_status"] = SERVER_READY_STATE
+    shared_values_dict["log_file_id"] = "log-ID"
     shared_values_dict["beta_2_mode"] = False
     shared_values_dict["config_settings"] = dict()
 

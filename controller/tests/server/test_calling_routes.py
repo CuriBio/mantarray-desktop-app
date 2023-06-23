@@ -84,6 +84,16 @@ def test_system_status__returns_correct_state_and_simulation_values(
     assert response_json["in_simulation_mode"] == expected_in_simulation
 
 
+def test_system_status__returns_correct_log_file_id(client_and_server_manager_and_shared_values):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+
+    response = test_client.get("/system_status")
+    assert response.status_code == 200
+
+    response_json = response.get_json()
+    assert response_json["log_file_id"] == shared_values_dict["log_file_id"]
+
+
 @pytest.mark.parametrize(
     "test_stimulating_value,test_description",
     [(True, "returns True when stimulating"), (False, "returns False when not stimulating")],
