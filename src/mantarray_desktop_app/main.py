@@ -137,6 +137,7 @@ def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[
     try:
         # Tanner (5/20/22): not sure if this is actually logging anything since logging isn't configured yet
         logger.info(command_line_args)
+
         log_level = logging.INFO
         parser = argparse.ArgumentParser()
         parser.add_argument(

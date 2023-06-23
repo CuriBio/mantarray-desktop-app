@@ -15,12 +15,12 @@ class SensitiveFormatter(logging.Formatter):
 
     @staticmethod
     def _filter(log_msg: str) -> Any:
-        if "/system_status" in log_msg:
-            parts = log_msg.split()
-            status_code_position = parts.index('HTTP/1.1"') + 1
-            status_code = parts[status_code_position]
-            return status_code != "200"
-        elif "/update_settings" not in log_msg:
+        # if "/system_status" in log_msg:
+        #     parts = log_msg.split()
+        #     status_code_position = parts.index('HTTP/1.1"') + 1
+        #     status_code = parts[status_code_position]
+        #     return status_code != "200"
+        if "/update_settings" not in log_msg:
             return re.sub(
                 r"(.*set_mantarray_nickname\?nickname=)(.*)( HTTP.*)",
                 lambda match_obj: match_obj[1] + get_redacted_string(len(match_obj[2])) + match_obj[3],
