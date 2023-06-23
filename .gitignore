@@ -1,8 +1,8 @@
 # dependencies
 node_modules
 
-src/firmware/*.bit
-src/drivers/*.exe
+controller/src/firmware/*.bit
+controller/src/drivers/*.exe
 
 # CI caches
 .npm_cache/
@@ -32,7 +32,7 @@ dist
 tests/__coverage__
 test/__coverage__
 coverage-report-pytest
-.pytest_cache/
+**.pytest_cache/
 .mypy_cache/
 .coverage
 .coverage.*
@@ -58,8 +58,7 @@ __pycache__/
 
 # C/C++ libraries
 *.zip
-src/zlib
-src/zlib*
+**/zlib**
 
 # Venv
 .venv/
