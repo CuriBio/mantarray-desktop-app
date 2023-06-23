@@ -1283,31 +1283,6 @@ def test_set_protocols__waits_for_stim_info_in_shared_values_dict_to_be_updated_
     assert mocked_sleep.call_args_list == [mocker.call(0.1), mocker.call(0.1)]
 
 
-def test_after_request__redacts_mantarray_nicknames_from_system_status_log_message(
-    client_and_server_manager_and_shared_values, test_client, mocker
-):
-    *_, shared_values_dict = client_and_server_manager_and_shared_values
-    shared_values_dict["system_status"] = CALIBRATED_STATE
-
-    expected_nickname_1 = "Test Nickname 1"
-    expected_nickname_2 = "Other Nickname"
-    expected_nickname_dict = {"0": expected_nickname_1, "1": expected_nickname_2}
-    shared_values_dict["mantarray_nickname"] = expected_nickname_dict
-
-    spied_server_logger = mocker.spy(server.logger, "info")
-
-    response = test_client.get("/system_status")
-    assert response.status_code == 200
-    response_json = response.get_json()
-    assert response_json["mantarray_nickname"] == expected_nickname_dict
-
-    expected_redaction_1 = get_redacted_string(len(expected_nickname_1))
-    expected_redaction_2 = get_redacted_string(len(expected_nickname_2))
-    expected_logged_dict = {"0": expected_redaction_1, "1": expected_redaction_2}
-    logged_json = convert_after_request_log_msg_to_json(spied_server_logger.call_args_list[0][0][0])
-    assert logged_json["mantarray_nickname"] == expected_logged_dict
-
-
 def test_after_request__redacts_mantarray_nickname_from_set_mantarray_nickname_log_message(
     client_and_server_manager_and_shared_values, mocker
 ):
@@ -1380,6 +1355,30 @@ def test_after_request__redacts_recording_folder_path_from_get_recordings_log_me
         "recordings_list": test_recording_info_list,
         "root_recording_path": redact_sensitive_info_from_path(test_recording_dir),
     }
+
+
+def test_after_request___200_status_code_system_status_log_messages_filtered(
+    client_and_server_manager_and_shared_values, test_client, mocker
+):
+    *_, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    spied_server_logger = mocker.spy(server.logger, "info")
+    response = test_client.get("/system_status")
+
+    assert response.status_code == 200
+    assert len(spied_server_logger.call_args_list) == 0
+
+
+def test_after_request__status_code_system_status_error_logged(
+    client_and_server_manager_and_shared_values, test_client, mocker
+):
+    *_, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    spied_server_logger = mocker.spy(server.logger, "info")
+    response = test_client.put("/system_status")
+
+    assert response.status_code != 200
+    assert len(spied_server_logger.call_args_list) > 0
 
 
 @pytest.mark.parametrize(

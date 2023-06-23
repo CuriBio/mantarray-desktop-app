@@ -1079,7 +1079,6 @@ def after_request(response: Response) -> Response:
     """Log request and handle any necessary response clean up."""
     rule = request.url_rule
     response_json = response.get_json()
-
     if rule is None:
         response = Response(status="404 Route not implemented")
     elif response.status_code == 200 and "system_status" not in rule.rule:
