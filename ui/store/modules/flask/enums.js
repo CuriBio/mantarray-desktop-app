@@ -21,6 +21,7 @@ export const STATUS = {
     UPDATE_ERROR: "33742bfc-d354-4ae5-88b6-2b3cee23aff8",
     // other
     ERROR: "4551998b-4134-4157-ab16-f4b257b55f5e",
+    DUPLICATE_INSTANCE: "2e5bd7e5-3eb1-4c0d-8246-277f4beb841f",
     SHUTDOWN: "dfcbe7d6-3b09-11eb-adc1-0242ac120002",
   },
 };

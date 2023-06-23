@@ -27,7 +27,7 @@ export async function ping_system_status() {
       console.error(
         `Duplicate instance detected. Current ID: ${this.state.log_file_id}, Existing ID: ${data.log_file_id}`
       );
-      this.commit("set_status_uuid", STATUS.MESSAGE.ERROR);
+      this.commit("set_status_uuid", STATUS.MESSAGE.DUPLICATE_INSTANCE);
       this.commit("stop_status_pinging");
       return;
     }
