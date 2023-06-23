@@ -99,21 +99,21 @@ jobs:
       - name: Add prerelease SemVer component (if unstable)
         if: env.RELEASE_CHANNEL == 'unstable'
         run: |
-          ((Get-Content -path package.json -Raw) -replace '\n  "version": "(\d+\.\d+\.\d+)"', $("`n" + '  "version": "$1-pre.' + $(Get-Date -Format 'yyyyMMddHHmm') + '"')) | Set-Content -Path package.json
-          ((Get-Content -path package-lock.json -Raw) -replace '\n  "version": "(\d+\.\d+\.\d+)"', $("`n" + '  "version": "$1-pre.' + $(Get-Date -Format 'yyyyMMddHHmm') + '"')) | Set-Content -Path package-lock.json
+          ((Get-Content -path electron/package.json -Raw) -replace '\n  "version": "(\d+\.\d+\.\d+)"', $("`n" + '  "version": "$1-pre.' + $(Get-Date -Format 'yyyyMMddHHmm') + '"')) | Set-Content -Path electron/package.json
+          ((Get-Content -path electron/package-lock.json -Raw) -replace '\n  "version": "(\d+\.\d+\.\d+)"', $("`n" + '  "version": "$1-pre.' + $(Get-Date -Format 'yyyyMMddHHmm') + '"')) | Set-Content -Path electron/package-lock.json
 
       - name: Get Version
         id: software-version
         uses: notiz-dev/github-action-json-property@v0.2.0
         with:
-          path: "package.json"
+          path: "electron/package.json"
           prop_path: "version"
 
       - name: Get Product Name
         id: product-name
         uses: notiz-dev/github-action-json-property@v0.2.0
         with:
-          path: "package.json"
+          path: "electron/package.json"
           prop_path: "name"
 
       - name: Check release tag (If not unstable)
@@ -194,31 +194,50 @@ jobs:
           PIPENV_VENV_IN_PROJECT: 1
         # Eli (10/28/20): in the windows environments, just saying `pipenv --three` defaults to the highest installed version of Python on the image...not the actual one specified in the matrix. So need to specify
         run: |
+          cd controller/
           pipenv --python ${{ matrix.python-version }}
           pipenv run pip freeze
+
       - name: Install Python Dependencies
         env:
           PIPENV_CACHE_DIR: ./.pipenv_cache
         # Eli (10/28/20): The --sequential flag was found to be necessary on windows due to issues where scipy wouldn't recognize that it had been installed. Also, when this was part of a set of multiple run commands using the pipe, when it errored it didn't cause the whole step to fail, so separating it out into its own step
-        run: pipenv install --dev --deploy --sequential
+        run: |
+          cd controller/
+          pipenv install --dev --deploy --sequential
 
       - name: Download zlib Library
-        run: pipenv run python .github/workflows/run_zlib_download.py
+        run: |
+          cd controller/
+          pipenv run python ../.github/workflows/run_zlib_download.py
 
       - name: Install Local Package in editable mode for testing
-        run: pipenv run pip install -e .
+        run: |
+          cd controller/
+          pipenv run pip install -e .
 
       - name: Log full installed Python packages
-        run: pipenv run pip freeze
+        run: |
+          cd controller/
+          pipenv run pip freeze
 
-      - name: Install NPM Dependencies
-        run: pipenv run npm ci --cache .npm_cache/
+      - name: Setup UI
+        run: |
+          cd ui/
+          npm ci
+
+      - name: Setup Electron
+        run: |
+          cd electron/
+          npm ci
 
       - name: Download the firmware files from AWS S3
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_USER_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_USER_SECRET_KEY }}
-        run: pipenv run python .github/workflows/run_s3_download.py
+        run: |
+          cd controller/
+          pipenv run python ../.github/workflows/run_s3_download.py
 
       - name: Insert the Build Number and Software Version into the code (Windows)
         if: runner.os == 'Windows'
@@ -226,21 +245,29 @@ jobs:
           build_number: ${{ github.run_number }}
         run: |
           echo $env:build_number
-          ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$env:build_number") | Set-Content -Path src\mantarray_desktop_app\constants.py
-          ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHVERSIONDURINGBUILD',"${{steps.software-version.outputs.prop}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
-          ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHENDPOINTDURINGBUILD',"${{env.API_ENDPOINT}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
-          ((Get-Content -path src\main\index.js -Raw) -replace 'REPLACETHISWITHENDPOINTDURINGBUILD',"${{env.API_ENDPOINT}}") | Set-Content -Path src\main\index.js
-          ((Get-Content -path src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHRELEASECHANNELDURINGBUILD',"${{env.RELEASE_CHANNEL}}") | Set-Content -Path src\mantarray_desktop_app\constants.py
+          ((Get-Content -path controller\src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHTIMESTAMPDURINGBUILD',"$(Get-Date -Format 'yyMMddHHmmss')--$env:build_number") | Set-Content -Path controller\src\mantarray_desktop_app\constants.py
+          ((Get-Content -path controller\src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHVERSIONDURINGBUILD',"${{steps.software-version.outputs.prop}}") | Set-Content -Path controller\src\mantarray_desktop_app\constants.py
+          ((Get-Content -path controller\src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHENDPOINTDURINGBUILD',"${{github.event.inputs.api_endpoint}}") | Set-Content -Path controller\src\mantarray_desktop_app\constants.py
+          ((Get-Content -path electron\main\index.js -Raw) -replace 'REPLACETHISWITHENDPOINTDURINGBUILD',"${{env.API_ENDPOINT}}") | Set-Content -Path electron\main\index.js
+          ((Get-Content -path controller\src\mantarray_desktop_app\constants.py -Raw) -replace 'REPLACETHISWITHRELEASECHANNELDURINGBUILD',"${{env.RELEASE_CHANNEL}}") | Set-Content -Path controller\src\mantarray_desktop_app\constants.py
 
       - name: Compile the Python Executable
-        run: pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=dist-python --workpath=build-python
+        run: |
+          cd controller/
+          pipenv run pyinstaller pyinstaller.spec --log-level=DEBUG --distpath=../electron/dist-python --workpath=build-python
 
       - name: Build Full Electron App
-        run: pipenv run npm run build-${{env.RELEASE_CHANNEL}}
+        run: |
+          cd ui/
+          npm run build
+          cd ../electron
+          npm run build-unstable
 
       - name: S3 Publisher
         if: matrix.IS_DEPLOYMENT_CONFIG == true
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_GIT_PUBLISH_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_GIT_PUBLISH_SECRET_KEY }}
-        run: pipenv run node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{env.RELEASE_CHANNEL}}-${{steps.software-version.outputs.prop}}.exe" --buildDir=./dist --channel=${{env.RELEASE_CHANNEL}}
+        run: |
+          cd electron/
+          node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{env.RELEASE_CHANNEL}}-${{steps.software-version.outputs.prop}}.exe" --buildDir=./dist --channel=${{env.RELEASE_CHANNEL}}

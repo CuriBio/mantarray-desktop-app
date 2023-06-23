@@ -1,5 +1,7 @@
 minimum_pre_commit_version: 2.11.1
 fail_fast: false
+default_language_version:
+  python: python3.10
 repos:
   # Git-related
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -13,7 +15,7 @@ repos:
 
   # Reformatting (should generally come before any file format or other checks, because reformatting can change things)
   - repo: https://github.com/sqlalchemyorg/zimports
-    rev: 0.3.0 # pick a hash or tag to point to
+    rev: v0.6.0 # pick a hash or tag to point to
     hooks:
       - id: zimports
 
@@ -39,20 +41,7 @@ repos:
     hooks:
       - id: prettier
         args: [--print-width=110]
-        #args: [--vue-indent-script-and-style true]
-
-  - repo: https://github.com/myint/docformatter
-    # black seems to be working on formatting docstrings, but use this for now
-    rev: v1.4 # pick a git hash / tag to point to
-    hooks:
-      - id: docformatter
-        exclude: (tests*)|(exceptions\.py)|(warnings\.py)
-
-  # Safety/Security Issues
-  - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
-    rev: v1.2.1
-    hooks:
-      - id: python-safety-dependencies-check
+        exclude: sample_waveform_data/|dist/|jsdoc.json
 
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.4
@@ -91,11 +80,13 @@ repos:
 
   # Linting
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v0.981 # pick a git hash / tag to point to
+    rev: v1.0.1 # pick a git hash / tag to point to
     hooks:
       - id: mypy
-        additional_dependencies: [nptyping==1.4.0, types-requests==2.28.11]
-        exclude: (tests/.*)|(tools/)
+        name: mypy-controller
+        args: [--config-file=controller/mypy.ini, --install-types, --non-interactive]
+        files: controller/.*
+        exclude: (tests/)|(build.py)
 
   - repo: https://github.com/Lucas-C/pre-commit-hooks-markup
     rev: v1.0.1
@@ -110,23 +101,10 @@ repos:
       - id: python-check-mock-methods
 
   - repo: https://github.com/PyCQA/flake8
-    rev: 3.9.0 # pick a git hash / tag to point to
-    hooks:
-      - id: flake8
-
-  - repo: https://github.com/PyCQA/pydocstyle
-    # black seems to be working on formatting docstrings, but use this for now
     rev: 6.0.0 # pick a git hash / tag to point to
     hooks:
-      - id: pydocstyle
-        args:
-          # ignore warnings about missing docstrings
-          # ignore D203 because it's a bug https://github.com/PyCQA/pydocstyle/issues/141
-          # ignore D407,D408,D409 because they appear to be in conflict with Google style (they relate to underlining?) https://rsmith.home.xs4all.nl/programming/improving-my-python-coding.html
-          # ignore D406 because it appears to be in conflict with Google style (complains about 'Raises:')
-          # ignore D413 about final blank line because docformatter gets rid of it
-          # ignore D213 because mutually exclusive with D212 https://stackoverflow.com/questions/45990301/pep257-d212-and-d213-conflicts
-          - --ignore=D100,D101,D102,D103,D104,D105,D106,D107,D203,D407,D408,D409,D406,D413,D213
+      - id: flake8
+        args: [--config=controller/.flake8]
 
   - repo: https://github.com/NanoSurface-Biomedical/pre-commit-pylint
     rev: "d805cc60bb5290c2f1ca869d5f1d5e2be720f3fa" # pick a git hash / tag to point to
@@ -134,12 +112,20 @@ repos:
       - id: python-check-no-print-statments
         exclude: tools/
       - id: vuejs-check-no-console-log-statments
+        exclude: ui/pages/
 
   - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v7.23.0
+    rev: v8.35.0
     hooks:
       - id: eslint
-        exclude: (electron_store.js)|(BrowserWinHandler.js)
+        name: eslint-electron
+        exclude: ^(?!electron/)|(electron_store.js)|(BrowserWinHandler.js)|(dist/)|(tests/)|(\.electron-nuxt)
         files: \.(vue)|(js)$
         types: [file]
-        args: [--fix]
+        args: [--fix, --config=electron/.eslintrc.js]
+      - id: eslint
+        name: eslint-ui
+        exclude: ^(?!ui/)|(dist/)|(tests/)
+        files: \.(vue)|(js)$
+        types: [file]
+        args: [--fix, --config=ui/.eslintrc.js]
