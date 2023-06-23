@@ -13,7 +13,7 @@ module.exports = {
   },
   mode: "spa", // or 'universal'
   head: {
-    title: "Stingray Controller",
+    title: "Mantarray Controller",
     meta: [{ charset: "utf-8" }],
   },
   loading: false,
