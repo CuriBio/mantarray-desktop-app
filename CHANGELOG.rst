@@ -10,7 +10,7 @@ Fixed:
 
 Changed:
 ^^^^^^^^
-- Removed unnecessary logs lines from log files.
+- Removed unnecessary log lines from log files.
 
 
 1.1.3 (2023-06-07)
