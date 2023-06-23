@@ -4,9 +4,18 @@ Changelog for Mantarray Desktop App
 1.1.4 (unreleased)
 ------------------
 
+Added:
+^^^^^^
+- "Start Recording and Stimulation" option will now start the recording at the same timepoint that stimulation starts.
+- Error message if other instance(s) of the software are detected.
+- Support for barcodes of MA Mini Plates.
+
 Fixed:
 ^^^^^^
-- Heatmap values to be converted from N to µN before sending to FE.
+- Twitch Amplitude values in Heat Map.
+- Recording Snapshot error for recordings that contain stimulation protocols with loops.
+- Issue where stimulation state will sometime switch back to "Ready" while stimulation is running.
+- Installer link in error messages.
 
 
 1.1.3 (2023-06-07)
@@ -112,8 +121,8 @@ Fixed:
 ^^^^^^
 - Issue where firmware update(s) are found but no prompt to continue or cancel is given.
 - Force amplitude in Live View for SkM plates.
-- Heatmap now correctly averages the last 5 datapoints per well.
-- Heatmap colors not updating as new twitches are analyzed.
+- Heat Map now correctly averages the last 5 datapoints per well.
+- Heat Map colors not updating as new twitches are analyzed.
 
 
 1.0.8 (2022-01-24)

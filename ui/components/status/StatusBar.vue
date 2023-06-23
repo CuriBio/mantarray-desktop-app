@@ -29,8 +29,22 @@
         :no-close-on-backdrop="true"
       >
         <StatusWarningWidget
-          :modal_labels="h5_warning_label"
+          :modal_labels="h5_warning_labels"
           @handle_confirmation="close_modals_by_id(['h5-warning'])"
+        />
+      </b-modal>
+      <b-modal
+        id="duplicate-instance"
+        size="sm"
+        hide-footer
+        hide-header
+        hide-header-close
+        :static="true"
+        :no-close-on-backdrop="true"
+      >
+        <StatusWarningWidget
+          :modal_labels="duplicate_instance_labels"
+          @handle_confirmation="close_modals_by_id(['duplicate-instance'])"
         />
       </b-modal>
       <b-modal
@@ -261,10 +275,17 @@ export default {
         msg_two: "Auto upload will be disabled.",
         button_names: ["Close"],
       },
-      h5_warning_label: {
+      h5_warning_labels: {
         header: "Error!",
         msg_one: "Corrupt h5 files found",
         msg_two: "",
+        button_names: ["Close"],
+      },
+      duplicate_instance_labels: {
+        header: "Error!",
+        msg_one: "A separate instance of the Mantarray Controller is already running.",
+        msg_two:
+          "Please close this and all other instances of the software before launching the Mantarray Controller again. Note that the other instances may be running under other users of this computer.",
         button_names: ["Close"],
       },
     };
@@ -404,9 +425,11 @@ export default {
     },
   },
   created() {
-    this.stim_specific
-      ? this.set_stim_specific_status(this.stim_status)
-      : this.set_system_specific_status(this.status_uuid);
+    if (this.stim_specific) {
+      this.set_stim_specific_status(this.stim_status);
+    } else {
+      this.set_system_specific_status(this.status_uuid);
+    }
   },
   methods: {
     set_stim_specific_status: function (status) {
@@ -485,6 +508,10 @@ export default {
 
           this.alert_txt = "Error Occurred";
           this.$bvModal.show("error-catch");
+          break;
+        case STATUS.MESSAGE.DUPLICATE_INSTANCE:
+          this.alert_txt = "Second Instance of Software Detected";
+          this.$bvModal.show("duplicate-instance");
           break;
         default:
           this.alert_txt = status;
@@ -606,6 +633,7 @@ export default {
 #short-circuit-err,
 #success-qc-check,
 #h5-warning,
+#duplicate-instance,
 #usage-reached,
 #new-assignment-modal {
   position: fixed;

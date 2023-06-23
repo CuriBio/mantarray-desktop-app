@@ -22,10 +22,20 @@ export async function ping_system_status() {
 
   if (result.status == 200) {
     const data = result.data;
-    const status_uuid = data.ui_status_code;
+
+    if (this.state.log_file_id !== null && this.state.log_file_id !== data.log_file_id) {
+      console.error(
+        `Duplicate instance detected. Current ID: ${this.state.log_file_id}, Existing ID: ${data.log_file_id}`
+      );
+      this.commit("set_status_uuid", STATUS.MESSAGE.DUPLICATE_INSTANCE);
+      this.commit("stop_status_pinging");
+      return;
+    }
 
     const simulation_mode = data.in_simulation_mode;
     this.commit("set_simulation_status", simulation_mode);
+
+    const status_uuid = data.ui_status_code;
     if (this.state.ignore_next_system_status_if_matching_this_status !== status_uuid) {
       if (status_uuid != this.state.status_uuid) {
         this.commit("set_status_uuid", status_uuid);

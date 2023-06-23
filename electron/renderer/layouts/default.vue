@@ -213,7 +213,7 @@ export default {
     ]),
     ...mapState("playback", ["data_analysis_state", "playback_state", "start_recording_from_stim"]),
     ...mapState("stimulation", ["stim_play_state"]),
-    ...mapState("flask", ["status_uuid"]),
+    ...mapState("flask", ["status_uuid", "log_file_id"]),
     data_acquisition_dynamic_class: function () {
       return this.data_acquisition_visibility ? "div__accordian-tabs-visible" : "div__accordian-tabs";
     },
@@ -254,15 +254,20 @@ export default {
       console.error = log.error;
       console.log("Initial view has been rendered"); // allow-log
     });
-
     if (this.log_dir_name === undefined) {
       ipcRenderer.send("logs_flask_dir_request");
+    }
+
+    ipcRenderer.on("log_file_id_response", (e, log_file_id) => {
+      this.$store.commit("flask/set_log_file_id", log_file_id);
+    });
+    if (!this.log_file_id) {
+      ipcRenderer.send("log_file_id_request");
     }
 
     ipcRenderer.on("sw_version_response", (_, package_version) => {
       this.package_version = package_version;
     });
-
     if (this.package_version === "") {
       ipcRenderer.send("sw_version_request");
     }
@@ -312,7 +317,6 @@ export default {
       this.stored_accounts = stored_accounts;
       this.$store.commit("settings/set_stored_accounts", stored_accounts);
     });
-
     if (this.request_stored_accounts) {
       ipcRenderer.send("stored_accounts_request");
     }
