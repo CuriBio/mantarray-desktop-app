@@ -213,7 +213,7 @@ export default {
     ]),
     ...mapState("playback", ["data_analysis_state", "playback_state", "start_recording_from_stim"]),
     ...mapState("stimulation", ["stim_play_state"]),
-    ...mapState("flask", ["status_uuid, log_file_id"]),
+    ...mapState("flask", ["status_uuid", "log_file_id"]),
     data_acquisition_dynamic_class: function () {
       return this.data_acquisition_visibility ? "div__accordian-tabs-visible" : "div__accordian-tabs";
     },
