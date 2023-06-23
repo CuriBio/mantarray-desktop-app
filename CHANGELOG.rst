@@ -8,9 +8,9 @@ Fixed:
 ^^^^^^
 - Heatmap values to be converted from N to µN before sending to FE.
 
-Changed:
+Removed:
 ^^^^^^^^
-- Limited logging of /system_status to only when status code is not 200
+- Unnecessary logging from log files
 
 
 1.1.3 (2023-06-07)
