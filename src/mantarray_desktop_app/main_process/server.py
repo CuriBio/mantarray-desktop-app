@@ -1079,14 +1079,11 @@ def after_request(response: Response) -> Response:
     """Log request and handle any necessary response clean up."""
     rule = request.url_rule
     response_json = response.get_json()
+
     if rule is None:
         response = Response(status="404 Route not implemented")
-    elif response.status_code == 200:
-        if "system_status" in rule.rule:
-            mantarray_nicknames = response_json.get("mantarray_nickname", {})
-            for board in mantarray_nicknames:
-                mantarray_nicknames[board] = get_redacted_string(len(mantarray_nicknames[board]))
-        elif "set_mantarray_nickname" in rule.rule:
+    elif response.status_code == 200 and "system_status" not in rule.rule:
+        if "set_mantarray_nickname" in rule.rule:
             response_json["mantarray_nickname"] = get_redacted_string(
                 len(response_json["mantarray_nickname"])
             )
@@ -1104,12 +1101,13 @@ def after_request(response: Response) -> Response:
                 response_json["root_recording_path"]
             )
     msg = "Response to HTTP Request in next log entry: "
-    if response.status_code == 200:
+    if response.status_code == 200 and "system_status" not in rule.rule:
         # Tanner (1/19/21): using json.dumps instead of an f-string here allows us to perform better testing of our log messages by loading the json string to a python dict
         msg += json.dumps(response_json)
-    else:
+        logger.info(msg)
+    elif response.status_code != 200:
         msg += response.status
-    logger.info(msg)
+        logger.info(msg)
     return response
 
 

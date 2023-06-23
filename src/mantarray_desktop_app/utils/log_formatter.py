@@ -16,10 +16,7 @@ class SensitiveFormatter(logging.Formatter):
     @staticmethod
     def _filter(log_msg: str) -> Any:
         if "/system_status" in log_msg:
-            parts = log_msg.split()
-            status_code_position = parts.index('HTTP/1.1"') + 1
-            status_code = parts[status_code_position]
-            return status_code != "200"
+            return re.search(r'HTTP/\d+\.\d+"\s+(200)', log_msg) is not None
         elif "/update_settings" not in log_msg:
             return re.sub(
                 r"(.*set_mantarray_nickname\?nickname=)(.*)( HTTP.*)",

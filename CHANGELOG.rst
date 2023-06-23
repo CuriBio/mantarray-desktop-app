@@ -8,9 +8,9 @@ Fixed:
 ^^^^^^
 - Heatmap values to be converted from N to µN before sending to FE.
 
-Removed:
+Changed:
 ^^^^^^^^
-- Unnecessary logging from log files
+- Removed unnecessary logs lines from log files.
 
 
 1.1.3 (2023-06-07)
