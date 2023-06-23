@@ -1358,28 +1358,6 @@ def test_after_request__redacts_recording_folder_path_from_get_recordings_log_me
 
 
 @pytest.mark.parametrize(
-    "mocked_request_method,expected_status_code,is_expecting_logs", [("GET", 200, False), ("PUT", 404, True)]
-)
-def test_after_request__system_status_log_messages_filtering(
-    mocked_request_method,
-    expected_status_code,
-    is_expecting_logs,
-    client_and_server_manager_and_shared_values,
-    test_client,
-    mocker,
-):
-    *_, shared_values_dict = client_and_server_manager_and_shared_values
-    shared_values_dict["system_status"] = CALIBRATED_STATE
-    spied_server_logger = mocker.spy(server.logger, "info")
-
-    response = test_client.open("/system_status", method=mocked_request_method)
-    is_logs_present = len(spied_server_logger.call_args_list) > 0
-
-    assert response.status_code == expected_status_code
-    assert is_logs_present is is_expecting_logs
-
-
-@pytest.mark.parametrize(
     "test_plate_barcode,test_stim_barcode,expected_is_from_scanner",
     [
         (MantarrayMcSimulator.default_plate_barcode, MantarrayMcSimulator.default_stim_barcode, True),

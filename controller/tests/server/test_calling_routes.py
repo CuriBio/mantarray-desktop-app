@@ -104,15 +104,18 @@ def test_system_status__beta_2_mode__returns_correct_stimulating_value(
 
 
 def test_system_status__beta_1_mode__returns_False_for_stimulating_value(
-    client_and_server_manager_and_shared_values,
+    client_and_server_manager_and_shared_values, mocker
 ):
     test_client, *_ = client_and_server_manager_and_shared_values
+    spied_server_logger = mocker.spy(server.logger, "info")
 
     response = test_client.get("/system_status")
     assert response.status_code == 200
 
     response_json = response.get_json()
     assert response_json["is_stimulating"] is False
+
+    assert len(spied_server_logger.call_args_list) == 0
 
 
 def test_system_status__returns_in_simulator_mode_False_as_default_value(
@@ -186,6 +189,7 @@ def test_system_status_handles_expected_software_version_correctly(
     if expected_software_version is not None:
         shared_values_dict["expected_software_version"] = expected_software_version
 
+    spied_server_logger = mocker.spy(server.logger, "info")
     mocker.patch.object(
         server, "get_current_software_version", autospec=True, return_value=actual_software_version
     )
@@ -201,6 +205,7 @@ def test_system_status_handles_expected_software_version_correctly(
         assert response.status.endswith(
             f"Versions of Electron and Flask EXEs do not match. Expected: {expected_software_version}"
         )
+    assert len(spied_server_logger.call_args_list) > 0
 
 
 @pytest.mark.parametrize(
