@@ -11,6 +11,9 @@ export default {
       state.status_ping_interval_id = null;
     }
   },
+  set_log_file_id(state, log_id) {
+    state.log_file_id = log_id;
+  },
   set_status_uuid(state, new_id) {
     if (state.status_uuid !== STATUS.MESSAGE.ERROR) {
       state.status_uuid = new_id;

@@ -122,6 +122,9 @@ export default class BrowserWinHandler {
     ipcMain.once("logs_flask_dir_request", (event) => {
       event.reply("logs_flask_dir_response", get_flask_logs_full_path(store));
     });
+    ipcMain.once("log_file_id_request", (event) => {
+      event.reply("log_file_id_response", main_utils.FILENAME_PREFIX);
+    });
   }
 
   _recreate() {
