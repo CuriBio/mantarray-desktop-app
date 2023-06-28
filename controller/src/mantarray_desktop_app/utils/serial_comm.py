@@ -111,19 +111,34 @@ def validate_checksum(comm_from_pc: bytes) -> bool:
     return actual_checksum == expected_checksum
 
 
-def parse_instrument_event_info(info_bytes: bytes) -> Dict[str, Any]:
+def parse_instrument_event_info(event_info: bytes) -> Dict[str, Any]:
     return {
-        "prev_main_status_update_timestamp": int.from_bytes(info_bytes[:8], byteorder="little"),
-        "prev_channel_status_update_timestamp": int.from_bytes(info_bytes[8:16], byteorder="little"),
-        "start_of_prev_mag_data_stream_timestamp": int.from_bytes(info_bytes[16:24], byteorder="little"),
-        "start_of_prev_stim_timestamp": int.from_bytes(info_bytes[24:32], byteorder="little"),
-        "prev_handshake_received_timestamp": int.from_bytes(info_bytes[32:40], byteorder="little"),
-        "prev_system_going_dormant_timestamp": int.from_bytes(info_bytes[40:48], byteorder="little"),
-        "mag_data_stream_active": bool(info_bytes[48]),
-        "stim_active": bool(info_bytes[49]),
-        "pc_connection_status": info_bytes[50],
-        "prev_barcode_scanned": info_bytes[51:63].decode("ascii"),
+        "prev_main_status_update_timestamp": int.from_bytes(event_info[:8], byteorder="little"),
+        "prev_channel_status_update_timestamp": int.from_bytes(event_info[8:16], byteorder="little"),
+        "start_of_prev_mag_data_stream_timestamp": int.from_bytes(event_info[16:24], byteorder="little"),
+        "start_of_prev_stim_timestamp": int.from_bytes(event_info[24:32], byteorder="little"),
+        "prev_handshake_received_timestamp": int.from_bytes(event_info[32:40], byteorder="little"),
+        "prev_system_going_dormant_timestamp": int.from_bytes(event_info[40:48], byteorder="little"),
+        "mag_data_stream_active": bool(event_info[48]),
+        "stim_active": bool(event_info[49]),
+        "pc_connection_status": event_info[50],
+        "prev_barcode_scanned": event_info[51:63].decode("ascii"),
     }
+
+
+def convert_instrument_event_info_to_bytes(event_info: dict[str, Any]) -> bytes:
+    return (  # type: ignore
+        event_info["prev_main_status_update_timestamp"].to_bytes(8, byteorder="little")
+        + event_info["prev_channel_status_update_timestamp"].to_bytes(8, byteorder="little")
+        + event_info["start_of_prev_mag_data_stream_timestamp"].to_bytes(8, byteorder="little")
+        + event_info["start_of_prev_stim_timestamp"].to_bytes(8, byteorder="little")
+        + event_info["prev_handshake_received_timestamp"].to_bytes(8, byteorder="little")
+        + event_info["prev_system_going_dormant_timestamp"].to_bytes(8, byteorder="little")
+        + bytes(
+            [event_info[key] for key in ("mag_data_stream_active", "stim_active", "pc_connection_status")]
+        )
+        + bytes(event_info["prev_barcode_scanned"], encoding="ascii")
+    )
 
 
 def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[Any, Any]:

@@ -50,6 +50,7 @@ from ..constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from ..constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from ..constants import SERIAL_COMM_ERROR_ACK_PACKET_TYPE
 from ..constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
+from ..constants import SERIAL_COMM_GET_ERROR_DETAILS_PACKET_TYPE
 from ..constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from ..constants import SERIAL_COMM_GOING_DORMANT_PACKET_TYPE
 from ..constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
@@ -89,6 +90,7 @@ from ..exceptions import SerialCommTooManyMissedHandshakesError
 from ..exceptions import UnrecognizedSerialCommPacketTypeError
 from ..exceptions import UnrecognizedSimulatorTestCommandError
 from ..utils.serial_comm import convert_adc_readings_to_circuit_status
+from ..utils.serial_comm import convert_instrument_event_info_to_bytes
 from ..utils.serial_comm import convert_metadata_to_bytes
 from ..utils.serial_comm import convert_stim_bytes_to_dict
 from ..utils.serial_comm import create_data_packet
@@ -159,6 +161,20 @@ class MantarrayMcSimulator(InfiniteProcess):
     default_channel_firmware_version = "0.0.0"
     default_plate_barcode = "ML22001000-2"
     default_stim_barcode = "MS22001000-2"
+    default_event_info = immutabledict(
+        {
+            "prev_main_status_update_timestamp": 1,
+            "prev_channel_status_update_timestamp": 2,
+            "start_of_prev_mag_data_stream_timestamp": 3,
+            "start_of_prev_stim_timestamp": 4,
+            "prev_handshake_received_timestamp": 5,
+            "prev_system_going_dormant_timestamp": 6,
+            "mag_data_stream_active": False,
+            "stim_active": False,
+            "pc_connection_status": 1,
+            "prev_barcode_scanned": default_plate_barcode,
+        }
+    )
     default_metadata_values: immutabledict[UUID, Any] = immutabledict(
         {
             BOOT_FLAGS_UUID: 0b00000000,
@@ -167,6 +183,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             MAIN_FIRMWARE_VERSION_UUID: default_main_firmware_version,
             CHANNEL_FIRMWARE_VERSION_UUID: default_channel_firmware_version,
             INITIAL_MAGNET_FINDING_PARAMS_UUID: initial_magnet_finding_params,
+            **default_event_info,
         }
     )
     default_adc_reading = 0xFF00
@@ -546,6 +563,8 @@ class MantarrayMcSimulator(InfiniteProcess):
             if not checksum_failure:
                 self._reboot_time_secs = perf_counter()
                 self._reboot_again = True
+        elif packet_type == SERIAL_COMM_GET_ERROR_DETAILS_PACKET_TYPE:  # pragma: no cover
+            response_body += convert_instrument_event_info_to_bytes(self.default_event_info)
         elif packet_type == SERIAL_COMM_ERROR_ACK_PACKET_TYPE:  # pragma: no cover
             # Tanner (3/24/22): As of right now, simulator does not need to handle this message at all, so it is the responsibility of tests to prompt simulator to go through the rest of the error handling procedure
             pass
