@@ -111,6 +111,21 @@ def validate_checksum(comm_from_pc: bytes) -> bool:
     return actual_checksum == expected_checksum
 
 
+def parse_instrument_event_info(info_bytes: bytes) -> Dict[str, Any]:
+    return {
+        "prev_main_status_update_timestamp": int.from_bytes(info_bytes[:8], byteorder="little"),
+        "prev_channel_status_update_timestamp": int.from_bytes(info_bytes[8:16], byteorder="little"),
+        "start_of_prev_mag_data_stream_timestamp": int.from_bytes(info_bytes[16:24], byteorder="little"),
+        "start_of_prev_stim_timestamp": int.from_bytes(info_bytes[24:32], byteorder="little"),
+        "prev_handshake_received_timestamp": int.from_bytes(info_bytes[32:40], byteorder="little"),
+        "prev_system_going_dormant_timestamp": int.from_bytes(info_bytes[40:48], byteorder="little"),
+        "mag_data_stream_active": bool(info_bytes[48]),
+        "stim_active": bool(info_bytes[49]),
+        "pc_connection_status": info_bytes[50],
+        "prev_barcode_scanned": info_bytes[51:63].decode("ascii"),
+    }
+
+
 def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[Any, Any]:
     """Parse bytes containing metadata and return as Dict."""
     return {
@@ -127,6 +142,7 @@ def parse_metadata_bytes(metadata_bytes: bytes) -> Dict[Any, Any]:
             "REMN": int.from_bytes(metadata_bytes[61:63], byteorder="little", signed=True),
         },
         "is_stingray": bool(metadata_bytes[63]),
+        **parse_instrument_event_info(metadata_bytes[64:]),
     }
 
 

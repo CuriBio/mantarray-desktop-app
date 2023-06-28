@@ -47,6 +47,7 @@ from ..constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from ..constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
 from ..constants import SERIAL_COMM_ERROR_ACK_PACKET_TYPE
 from ..constants import SERIAL_COMM_FIRMWARE_UPDATE_PACKET_TYPE
+from ..constants import SERIAL_COMM_GET_ERROR_DETAILS_PACKET_TYPE
 from ..constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
 from ..constants import SERIAL_COMM_GOING_DORMANT_PACKET_TYPE
 from ..constants import SERIAL_COMM_HANDSHAKE_PACKET_TYPE
@@ -119,6 +120,7 @@ from ..utils.serial_comm import convert_stim_dict_to_bytes
 from ..utils.serial_comm import convert_stimulator_check_bytes_to_dict
 from ..utils.serial_comm import create_data_packet
 from ..utils.serial_comm import get_serial_comm_timestamp
+from ..utils.serial_comm import parse_instrument_event_info
 from ..utils.serial_comm import parse_metadata_bytes
 from ..workers.firmware_downloader import check_versions
 from ..workers.firmware_downloader import download_firmware_updates
@@ -341,7 +343,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 unset_keepawake()
 
                 if self._error and not isinstance(self._error, InstrumentFirmwareError):
-                    self._send_data_packet(board_idx, SERIAL_COMM_REBOOT_PACKET_TYPE, track_command=False)
+                    self._send_data_packet(board_idx, SERIAL_COMM_ERROR_ACK_PACKET_TYPE, track_command=False)
 
         super()._teardown_after_loop()
 
@@ -949,6 +951,9 @@ class McCommunicationProcess(InstrumentCommProcess):
                 "valid": check_barcode_is_valid(barcode, True),
             }
             self._board_queues[board_idx][1].put_nowait(barcode_comm)
+        elif packet_type == SERIAL_COMM_GET_ERROR_DETAILS_PACKET_TYPE:
+            error_details = parse_instrument_event_info(packet_payload)
+            raise InstrumentFirmwareError(f"Error Details: {error_details}")
         else:
             raise UnrecognizedSerialCommPacketTypeError(f"Packet Type ID: {packet_type} is not defined")
 
@@ -1292,16 +1297,28 @@ class McCommunicationProcess(InstrumentCommProcess):
                 }
             )
 
+        is_error_code_present = any(status_codes_dict.values())
+
         status_codes_msg = f"{comm_type} received from instrument. Status Codes: {status_codes_dict}"
-        if any(status_codes_dict.values()):
-            self._send_data_packet(board_idx, SERIAL_COMM_ERROR_ACK_PACKET_TYPE, track_command=False)
-            raise InstrumentFirmwareError(status_codes_msg)
         put_log_message_into_queue(
-            logging.DEBUG,
+            logging.ERROR if is_error_code_present else logging.DEBUG,
             status_codes_msg,
             self._board_queues[board_idx][1],
             self.get_logging_level(),
         )
+
+        if is_error_code_present:
+            put_log_message_into_queue(
+                logging.ERROR,
+                "Retrieving error details from instrument",
+                self._board_queues[board_idx][1],
+                self.get_logging_level(),
+            )
+            self._send_data_packet(board_idx, SERIAL_COMM_GET_ERROR_DETAILS_PACKET_TYPE)
+            self._add_command_to_track(
+                SERIAL_COMM_GET_ERROR_DETAILS_PACKET_TYPE,
+                {"communication_type": "error_retrieval", "command": "get_error_details"},
+            )
 
     def _check_simulator_error(self) -> bool:
         board_idx = 0
