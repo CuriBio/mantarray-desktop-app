@@ -205,7 +205,7 @@ def test_system_status_handles_expected_software_version_correctly(
         assert response.status.endswith(
             f"Versions of Electron and Flask EXEs do not match. Expected: {expected_software_version}"
         )
-    assert len(spied_server_logger.call_args_list) > 0
+        assert len(spied_server_logger.call_args_list) > 0
 
 
 @pytest.mark.parametrize(

@@ -1105,7 +1105,7 @@ def after_request(response: Response) -> Response:
         msg += json.dumps(response_json)
     else:
         msg += response.status
-    if not ("system_status" in rule.rule and response.status_code == 200):
+    if not (rule is not None and "system_status" in rule.rule and response.status_code == 200):
         logger.info(msg)
     return response
 
