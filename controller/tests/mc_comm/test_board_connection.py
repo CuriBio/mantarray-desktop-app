@@ -452,6 +452,7 @@ def test_McCommunicationProcess__requests_metadata_if_setup_before_loop_was_perf
     metadata_comm = to_main_items[-1]
     assert metadata_comm["communication_type"] == "metadata_comm"
     expected_dict = dict(MantarrayMcSimulator.default_metadata_values)
+    expected_dict.pop("is_stingray")
     expected_dict["status_codes_prior_to_reboot"] = convert_status_code_bytes_to_dict(
         DEFAULT_SIMULATOR_STATUS_CODES
     )

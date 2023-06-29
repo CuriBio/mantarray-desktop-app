@@ -183,6 +183,7 @@ class MantarrayMcSimulator(InfiniteProcess):
             MAIN_FIRMWARE_VERSION_UUID: default_main_firmware_version,
             CHANNEL_FIRMWARE_VERSION_UUID: default_channel_firmware_version,
             INITIAL_MAGNET_FINDING_PARAMS_UUID: initial_magnet_finding_params,
+            "is_stingray": False,
             **default_event_info,
         }
     )
@@ -217,7 +218,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._is_first_data_stream = True
         self._simulated_data_index = 0
         self._simulated_data: NDArray[np.uint16] = np.array([], dtype=np.uint16)
-        self._metadata_dict: Dict[UUID, Any] = dict()
+        self._metadata_dict: Dict[UUID | str, Any] = dict()
         self._reset_metadata_dict()
         self._setup_data_interpolator()
         # simulator values (set in _handle_boot_up_config)
