@@ -92,9 +92,9 @@ def test_SensitiveFormatter__redacts_from_request_log_entries_correctly():
     assert actual == test_unsensitive_log_entry
 
 
-def test_SensitiveFormatter__removes_request_log_with_customer_creds():
+def test_SensitiveFormatter__only_logs_error_system_status_calls():
     test_formatter = SensitiveFormatter("%(message)s")
 
-    test_sensitive_log_entry = "<any text here>/update_settings?password=test HTTP<any text here>"
+    test_sensitive_log_entry = "<any text here>/system_status<any text here>"
     actual = test_formatter.format(logging.makeLogRecord({"msg": test_sensitive_log_entry}))
-    assert actual is None
+    assert actual is False
