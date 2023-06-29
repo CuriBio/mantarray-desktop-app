@@ -147,7 +147,7 @@ def test_MantarrayMcSimulator__raises_error_if_unrecognized_packet_type_sent_fro
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     dummy_timestamp = 0
-    test_packet_type = 253
+    test_packet_type = 123
     test_handshake = create_data_packet(dummy_timestamp, test_packet_type, DEFAULT_SIMULATOR_STATUS_CODES)
 
     simulator.write(test_handshake)

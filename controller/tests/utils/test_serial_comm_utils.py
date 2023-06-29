@@ -30,6 +30,7 @@ from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.utils import serial_comm
 from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_circuit_status
 from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_impedance
+from mantarray_desktop_app.utils.serial_comm import convert_instrument_event_info_to_bytes
 from mantarray_desktop_app.utils.serial_comm import convert_stim_bytes_to_dict
 from mantarray_desktop_app.utils.serial_comm import convert_subprotocol_node_dict_to_bytes
 from mantarray_desktop_app.utils.serial_comm import convert_well_name_to_module_id
@@ -121,6 +122,7 @@ def test_parse_metadata_bytes__returns_expected_value():
             2, byteorder="little", signed=True
         )
         + bytes([is_stingray])
+        + convert_instrument_event_info_to_bytes(MantarrayMcSimulator.default_event_info)
     )
 
     metadata_bytes += bytes(SERIAL_COMM_METADATA_BYTES_LENGTH - len(metadata_bytes))
@@ -137,6 +139,7 @@ def test_parse_metadata_bytes__returns_expected_value():
         "status_codes_prior_to_reboot": convert_status_code_bytes_to_dict(bytes(test_status_codes)),
         INITIAL_MAGNET_FINDING_PARAMS_UUID: MantarrayMcSimulator.initial_magnet_finding_params,
         "is_stingray": is_stingray,
+        **MantarrayMcSimulator.default_event_info,
     }
 
 
