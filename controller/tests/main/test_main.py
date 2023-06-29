@@ -98,3 +98,17 @@ def test_SensitiveFormatter__only_logs_error_system_status_calls():
     test_sensitive_log_entry = "<any text here>/system_status<any text here>"
     actual = test_formatter.format(logging.makeLogRecord({"msg": test_sensitive_log_entry}))
     assert actual is False
+
+
+def test_SensitiveFormatter_without_update_settings():
+    test_formatter = SensitiveFormatter("%(message)s")
+    test_sensitive_log_entry = "<any text here>/update_settings?nickname=test HTTP/1.1<any text here>"
+    result = test_formatter.format(logging.makeLogRecord({"msg": test_sensitive_log_entry}))
+    assert result is None
+
+
+def test_SensitiveFormatter_with_update_settings():
+    test_formatter = SensitiveFormatter("%(message)s")
+    test_sensitive_log_entry = "<any text here>/otheres?nickname=test HTTP/1.1<any text here>"
+    result = test_formatter.format(logging.makeLogRecord({"msg": test_sensitive_log_entry}))
+    assert result != ""
