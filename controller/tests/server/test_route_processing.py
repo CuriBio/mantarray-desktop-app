@@ -895,9 +895,7 @@ def test_update_settings__stores_values_in_shared_values_dict__and_recordings_fo
 
     with tempfile.TemporaryDirectory() as expected_recordings_dir:
         response = test_client.get(f"/update_settings?recording_directory={expected_recordings_dir}")
-        spied_server_logger = mocker.spy(server.logger, "info")
         assert response.status_code == 204
-        assert len(spied_server_logger.call_args_list) >= 0
         invoke_process_run_and_check_errors(monitor_thread)
 
         assert shared_values_dict["config_settings"]["recording_directory"] == expected_recordings_dir
