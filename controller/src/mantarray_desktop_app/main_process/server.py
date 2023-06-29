@@ -1083,11 +1083,7 @@ def after_request(response: Response) -> Response:
     if rule is None:
         response = Response(status="404 Route not implemented")
     elif response.status_code == 200:
-        if "system_status" in rule.rule:
-            mantarray_nicknames = response_json.get("mantarray_nickname", {})
-            for board in mantarray_nicknames:
-                mantarray_nicknames[board] = get_redacted_string(len(mantarray_nicknames[board]))
-        elif "set_mantarray_nickname" in rule.rule:
+        if "set_mantarray_nickname" in rule.rule:
             response_json["mantarray_nickname"] = get_redacted_string(
                 len(response_json["mantarray_nickname"])
             )
@@ -1110,7 +1106,8 @@ def after_request(response: Response) -> Response:
         msg += json.dumps(response_json)
     else:
         msg += response.status
-    logger.info(msg)
+    if not (rule is not None and "system_status" in rule.rule and response.status_code == 200):
+        logger.info(msg)
     return response
 
 

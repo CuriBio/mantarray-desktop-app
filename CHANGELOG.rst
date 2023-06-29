@@ -17,6 +17,10 @@ Fixed:
 - Issue where stimulation state will sometime switch back to "Ready" while stimulation is running.
 - Installer link in error messages.
 
+Changed:
+^^^^^^^^
+- Removed unnecessary log lines from log files.
+
 
 1.1.3 (2023-06-07)
 ------------------
