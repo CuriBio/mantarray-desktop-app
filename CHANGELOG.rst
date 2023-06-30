@@ -1,6 +1,15 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+1.1.5 (unreleased)
+------------------
+
+Added:
+^^^^^^
+- Handling for new firmware error reporting
+
+
+
 1.1.4 (unreleased)
 ------------------
 

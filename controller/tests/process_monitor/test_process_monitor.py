@@ -8,6 +8,7 @@ from random import choice
 from random import randint
 import threading
 import time
+from uuid import UUID
 
 from freezegun import freeze_time
 from mantarray_desktop_app import BARCODE_INVALID_UUID
@@ -894,9 +895,9 @@ def test_MantarrayProcessesMonitor__stores_device_information_from_metadata_comm
     assert (
         shared_values_dict["mantarray_nickname"][board_idx] == MantarrayMcSimulator.default_mantarray_nickname
     )
-    assert (
-        shared_values_dict["instrument_metadata"][board_idx] == MantarrayMcSimulator.default_metadata_values
-    )
+    assert shared_values_dict["instrument_metadata"][board_idx] == {
+        key: val for key, val in MantarrayMcSimulator.default_metadata_values.items() if isinstance(key, UUID)
+    }
 
     for call_args in spied_info.call_args_list:
         assert MantarrayMcSimulator.default_mantarray_nickname not in call_args[0][0]

@@ -149,7 +149,7 @@ def test_McCommunicationProcess__raises_error_if_unrecognized_packet_type_sent_f
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
     dummy_timestamp = 0
-    test_packet_type = 253
+    test_packet_type = 123  # arbitrary packet type, this test can fail if this packet type ever gets added
     test_packet = create_data_packet(dummy_timestamp, test_packet_type, DEFAULT_SIMULATOR_STATUS_CODES)
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
         {"command": "add_read_bytes", "read_bytes": test_packet}, testing_queue
