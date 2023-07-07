@@ -71,7 +71,9 @@ def get_server_port_number() -> int:
 def _set_up_socketio_handlers(
     to_websocket_queue: LightQueue, from_websocket_queue: queue.Queue[Dict[str, Any]]
 ) -> Callable[[], None]:
-    def data_sender() -> None:  # pragma: no cover  # Tanner (6/21/21): code coverage can't follow into start_background_task where this function is run
+    def data_sender() -> (
+        None
+    ):  # pragma: no cover  # Tanner (6/21/21): code coverage can't follow into start_background_task where this function is run
         while True:
             try:
                 item = to_websocket_queue.get(timeout=0.0001)
@@ -155,20 +157,14 @@ def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[
             action="store_true",
             help="bypasses automatic run of boot_up for hardware testing",
         )
-        parser.add_argument(
-            "--port-number",
-            type=int,
-            help="allow manual setting of server port number",
-        )
+        parser.add_argument("--port-number", type=int, help="allow manual setting of server port number")
         parser.add_argument(
             "--log-file-dir",
             type=str,
             help="allow manual setting of the directory in which log files will be stored",
         )
         parser.add_argument(
-            "--initial-base64-settings",
-            type=str,
-            help="allow initial configuration of user settings",
+            "--initial-base64-settings", type=str, help="allow initial configuration of user settings"
         )
         parser.add_argument(
             "--expected-software-version",
