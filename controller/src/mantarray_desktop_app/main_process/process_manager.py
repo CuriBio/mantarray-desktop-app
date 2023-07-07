@@ -42,11 +42,7 @@ def _process_failed_to_join(process: InfiniteProcess) -> bool:
 class MantarrayProcessesManager:
     """Controls access to all the subprocesses."""
 
-    def __init__(
-        self,
-        values_to_share_to_server: SharedValues,
-        logging_level: int = logging.INFO,
-    ) -> None:
+    def __init__(self, values_to_share_to_server: SharedValues, logging_level: int = logging.INFO) -> None:
         self._logging_level = logging_level
         self._all_processes: Optional[Dict[str, InfiniteProcess]] = None
         self._subprocesses_started: bool = False
@@ -137,6 +133,7 @@ class MantarrayProcessesManager:
         bit_file_name = None
         if load_firmware_file:
             bit_file_name = get_latest_firmware()
+
         to_instrument_comm_queue = self.queue_container.to_instrument_comm(0)
 
         self.values_to_share_to_server["system_status"] = INSTRUMENT_INITIALIZING_STATE

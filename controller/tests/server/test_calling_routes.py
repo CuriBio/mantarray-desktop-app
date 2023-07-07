@@ -580,6 +580,22 @@ def test_start_managed_acquisition__returns_error_code_and_message_if_mantarray_
     assert response.status.endswith("Mantarray has not been assigned a Serial Number")
 
 
+def test_start_managed_acquisition__returns_200_when_mini_barcode_is_used(
+    client_and_server_manager_and_shared_values, mocker
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["mantarray_serial_number"] = {0: MantarrayMcSimulator.default_mantarray_serial_number}
+    shared_values_dict["stimulator_circuit_statuses"] = {
+        well_idx: StimulatorCircuitStatuses.MEDIA.name.lower() for well_idx in range(24)
+    }
+
+    test_mini_barcode = "ML22001350-2"
+
+    response = test_client.get(f"/start_managed_acquisition?plate_barcode={test_mini_barcode}")
+    assert response.status_code == 200
+
+
 @pytest.mark.parametrize("test_system_status", [BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE])
 def test_start_managed_acquisition__returns_error_code_if_already_running(
     test_system_status, client_and_server_manager_and_shared_values
@@ -969,6 +985,17 @@ def test_start_recording__allows_correct_barcode_headers__for_correct_barcode_ty
         "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
         "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
     }
+    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
+    assert response.status_code == 200
+
+
+def test_start_recording__returns_200_when_mini_barcode_is_sent(client_and_server_manager_and_shared_values):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
+    shared_values_dict["stimulation_running"] = [True] * 24
+
+    barcodes = {"plate_barcode": "ML22001350-2", "stim_barcode": MantarrayMcSimulator.default_stim_barcode}
+
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
     assert response.status_code == 200
 
