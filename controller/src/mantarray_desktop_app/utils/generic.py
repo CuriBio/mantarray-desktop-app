@@ -271,7 +271,7 @@ def _check_new_barcode(barcode: str, beta_2_mode: bool) -> str:
         return f"barcode contains invalid year: '{barcode[2:4]}'"
     if not 0 < int(barcode[4:7]) < 366:
         return f"barcode contains invalid Julian date: '{barcode[4:7]}'"
-    if not 0 <= int(barcode[7:10]) < 300:
+    if not 0 <= int(barcode[7:10]) < 400:
         return f"barcode contains invalid experiment id: '{barcode[7:10]}'"
     # final digit must equal beta version (1/2)
     last_digit = int(barcode[-1])
@@ -405,10 +405,7 @@ def _create_start_recording_command(
         if is_hardware_test_recording:
             adc_offsets = dict()
             for well_idx in range(24):
-                adc_offsets[well_idx] = {
-                    "construct": 0,
-                    "ref": 0,
-                }
+                adc_offsets[well_idx] = {"construct": 0, "ref": 0}
         else:
             adc_offsets = shared_values_dict["adc_offsets"]
         comm_dict["metadata_to_copy_onto_main_file_attributes"].update(
@@ -439,7 +436,7 @@ def _check_scanned_barcode_vs_user_value(
 
 
 def _get_timestamp_of_acquisition_sample_index_zero(  # yeah, it's kind of long, but Eli (2/27/20) doesn't know a good way to shorten it
-    shared_values_dict: Dict[str, Any],
+    shared_values_dict: Dict[str, Any]
 ) -> datetime.datetime:
     board_idx = 0  # board index 0 hardcoded for now
     timestamp_of_sample_idx_zero: datetime.datetime = shared_values_dict[
@@ -458,7 +455,6 @@ def set_this_process_high_priority() -> None:  # pragma: no cover
 
 
 def upload_log_files_to_s3(config_settings: Dict[str, str]) -> None:
-
     if not config_settings.get("auto_upload_on_completion", False):
         logger.info("Auto-upload is not turned on, skipping upload of log files.")
         return
