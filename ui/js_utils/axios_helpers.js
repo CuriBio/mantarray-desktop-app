@@ -37,9 +37,8 @@ export async function call_axios_get_from_vuex(url, action_context, params = {})
     if (error.response && error.response.status === 520) {
       const version = error.response.statusText.split(" ").slice(-1)[0];
       action_context.commit(
-        "settings/set_shutdown_error_message",
-        "Error during install. Please restart this PC then reinstall. " +
-          `The installer can be downloaded here: https://downloads.curibio.com/software/mantarray/MantarrayController-Setup-prod-${version}.exe`,
+        "settings/set_shutdown_error_status",
+        { error_type: "InstallError", latest_compatible_sw_version: version },
         { root: true }
       );
     } else if (action_context.rootState.flask.status_uuid === STATUS.MESSAGE.SERVER_BOOTING_UP) {
