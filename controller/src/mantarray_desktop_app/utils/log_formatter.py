@@ -23,18 +23,14 @@ class SensitiveFormatter(logging.Formatter):
                 lambda match_obj: match_obj[1] + get_redacted_string(len(match_obj[2])) + match_obj[3],
                 log_msg,
             )
-        elif "/login" in log_msg:
-            return re.sub(
-                r"(.*login\?)(.*)( HTTP.*)",
-                lambda match_obj: match_obj[1] + get_redacted_string(4) + match_obj[3],
-                log_msg,
-            )
-        elif "/update_settings" in log_msg:
-            return re.sub(
-                r"(.*update_settings\?)(.*)( HTTP.*)",
-                lambda match_obj: match_obj[1] + get_redacted_string(4) + match_obj[3],
-                log_msg,
-            )
+        else:
+            for route in ("/login", "/update_settings"):
+                if route in log_msg:
+                    return re.sub(
+                        rf"(.*{route}\?)(.*)( HTTP.*)",
+                        lambda match_obj: match_obj[1] + get_redacted_string(4) + match_obj[3],
+                        log_msg,
+                    )
         return log_msg
 
     def format(self, record: logging.LogRecord) -> Any:

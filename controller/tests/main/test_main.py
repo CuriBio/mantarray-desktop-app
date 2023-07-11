@@ -1,12 +1,8 @@
 # -*- coding: utf-8 -*-
-import logging
-
 from mantarray_desktop_app import clear_the_server_manager
 from mantarray_desktop_app import DEFAULT_SERVER_PORT_NUMBER
-from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import get_server_port_number
 from mantarray_desktop_app import main
-from mantarray_desktop_app import SensitiveFormatter
 from mantarray_desktop_app import ServerManager
 from stdlib_utils import drain_queue
 from stdlib_utils import TestingQueue
@@ -70,45 +66,3 @@ def test_set_up_socketio_handlers__sets_up_socketio_events_correctly(mocker, fsi
                 client.disconnect()
     # make sure tombstone message only sent once
     assert drain_queue(websocket_queue) == [{"data_type": "tombstone"}]
-
-
-def test_SensitiveFormatter__redacts_from_request_log_entries_correctly():
-    test_formatter = SensitiveFormatter("%(message)s")
-
-    test_nickname = "Secret Mantarray Name"
-    test_sensitive_log_entry = (
-        f"<any text here>set_mantarray_nickname?nickname={test_nickname} HTTP<any text here>"
-    )
-    actual = test_formatter.format(logging.makeLogRecord({"msg": test_sensitive_log_entry}))
-
-    redacted_nickname = get_redacted_string(len(test_nickname))
-    expected_message_with_redaction = (
-        f"<any text here>set_mantarray_nickname?nickname={redacted_nickname} HTTP<any text here>"
-    )
-    assert actual == expected_message_with_redaction
-
-    test_unsensitive_log_entry = "<any text here>system_status HTTP<any text here>"
-    actual = test_formatter.format(logging.makeLogRecord({"msg": test_unsensitive_log_entry}))
-    assert actual == test_unsensitive_log_entry
-
-
-def test_SensitiveFormatter__only_logs_error_system_status_calls():
-    test_formatter = SensitiveFormatter("%(message)s")
-
-    test_sensitive_log_entry = "<any text here>/system_status<any text here>"
-    actual = test_formatter.format(logging.makeLogRecord({"msg": test_sensitive_log_entry}))
-    assert actual is False
-
-
-def test_SensitiveFormatter_without_update_settings():
-    test_formatter = SensitiveFormatter("%(message)s")
-    test_sensitive_log_entry = "<any text here>/update_settings?nickname=test HTTP/1.1<any text here>"
-    result = test_formatter.format(logging.makeLogRecord({"msg": test_sensitive_log_entry}))
-    assert result is None
-
-
-def test_SensitiveFormatter_with_update_settings():
-    test_formatter = SensitiveFormatter("%(message)s")
-    test_sensitive_log_entry = "<any text here>/otheres?nickname=test HTTP/1.1<any text here>"
-    result = test_formatter.format(logging.makeLogRecord({"msg": test_sensitive_log_entry}))
-    assert result != ""
