@@ -248,7 +248,7 @@ a:hover {
   position: absolute;
   top: 59px;
   left: 20px;
-  width: 410px;
+  width: 420px;
   background: rgb(17, 17, 17);
   border: 2px solid rgb(17, 17, 17);
   border-radius: 0px;
