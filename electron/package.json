@@ -21,7 +21,6 @@
     "build-alpha": "check-engines && cross-env-shell NODE_ENV=production RELEASE_CHANNEL=alpha node .electron-nuxt/index.js",
     "build-beta": "check-engines && cross-env-shell NODE_ENV=production RELEASE_CHANNEL=beta node .electron-nuxt/index.js",
     "build-prod": "check-engines && cross-env-shell NODE_ENV=production RELEASE_CHANNEL=prod node .electron-nuxt/index.js",
-    "build": "check-engines && cross-env-shell NODE_ENV=production RELEASE_CHANNEL=jest node .electron-nuxt/index.js",
     "build-nuxt": "check-engines && cross-env-shell NODE_ENV=production SUPPRESS_ELECTRON_BUILD=true node .electron-nuxt/index.js",
     "electron-builder-help": "electron-builder --help",
     "postinstall": "electron-builder install-app-deps",
