@@ -261,7 +261,7 @@ jobs:
           cd ui/
           npm run build
           cd ../electron
-          npm run build-unstable
+          npm run build-${{env.RELEASE_CHANNEL}}
 
       - name: S3 Publisher
         if: matrix.IS_DEPLOYMENT_CONFIG == true
