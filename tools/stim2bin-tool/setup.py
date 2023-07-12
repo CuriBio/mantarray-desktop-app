@@ -21,7 +21,7 @@ setup(
         "numpy==1.22.4",
         "psutil==5.8.0",
         "pyserial==3.5",
-        "scipy==1.8.1",
+        "scipy==1.10.0",
         "secrets-manager==0.4",
         "semver==2.13.0",
         "stdlib-utils==0.5.2",
