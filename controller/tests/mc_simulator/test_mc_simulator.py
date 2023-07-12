@@ -68,6 +68,8 @@ def test_MantarrayMcSimulator__class_attributes():
         MAIN_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_main_firmware_version,
         CHANNEL_FIRMWARE_VERSION_UUID: MantarrayMcSimulator.default_channel_firmware_version,
         INITIAL_MAGNET_FINDING_PARAMS_UUID: MantarrayMcSimulator.initial_magnet_finding_params,
+        "is_stingray": False,
+        **MantarrayMcSimulator.default_event_info,
     }
     assert MantarrayMcSimulator.global_timer_offset_secs == 2.5
 

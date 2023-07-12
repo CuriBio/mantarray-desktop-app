@@ -17,7 +17,6 @@ from mantarray_desktop_app.sub_processes import mc_comm
 from mantarray_desktop_app.utils.data_parsing_cy import sort_serial_packets
 from mantarray_desktop_app.utils.serial_comm import convert_status_code_bytes_to_dict
 from mantarray_desktop_app.utils.serial_comm import create_data_packet
-from mantarray_desktop_app.utils.serial_comm import parse_metadata_bytes
 from mantarray_desktop_app.workers.firmware_downloader import check_versions
 from mantarray_desktop_app.workers.firmware_downloader import download_firmware_updates
 from mantarray_desktop_app.workers.worker_thread import ErrorCatchingThread
@@ -167,12 +166,7 @@ def test_McCommunicationProcess__processes_get_metadata_command(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
     )
 
-    if is_stingray:
-
-        def parse_se(metadata_bytes):
-            return {**parse_metadata_bytes(metadata_bytes), "is_stingray": True}
-
-        mocker.patch.object(mc_comm, "parse_metadata_bytes", autospec=True, side_effect=parse_se)
+    simulator._metadata_dict["is_stingray"] = is_stingray
 
     expected_response = {"communication_type": "metadata_comm", "command": "get_metadata"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -193,11 +187,14 @@ def test_McCommunicationProcess__processes_get_metadata_command(
 
         confirm_queue_is_eventually_of_size(output_queue, 1)
         expected_response["metadata"] = dict(MantarrayMcSimulator.default_metadata_values)
+        expected_response["metadata"].pop("is_stingray")
         expected_response["metadata"]["status_codes_prior_to_reboot"] = convert_status_code_bytes_to_dict(
             DEFAULT_SIMULATOR_STATUS_CODES
         )
         expected_response["board_index"] = 0
         command_response = output_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+
+        assert command_response.pop("metadata") == expected_response.pop("metadata")
         assert command_response == expected_response
 
 
