@@ -60,7 +60,6 @@ from ..constants import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
 from ..constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from ..constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from ..constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
-from ..constants import SERIAL_COMM_OKAY_CODE
 from ..constants import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
 from ..constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from ..constants import SERIAL_COMM_REBOOT_PACKET_TYPE
@@ -970,14 +969,15 @@ class McCommunicationProcess(InstrumentCommProcess):
         status_codes_dict = convert_status_code_bytes_to_dict(
             packet_payload[:SERIAL_COMM_STATUS_CODE_LENGTH_BYTES]
         )
-        self._handle_status_codes(status_codes_dict, "Status Beacon")
-        if status_codes_dict["main_status"] == SERIAL_COMM_OKAY_CODE and self._auto_get_metadata:
+        # Tanner (7/17/23): need to retrieve metadata after the first status beacon is received, and before handling any error codes
+        if self._auto_get_metadata:
             self._send_data_packet(board_idx, SERIAL_COMM_GET_METADATA_PACKET_TYPE)
             self._add_command_to_track(
                 SERIAL_COMM_GET_METADATA_PACKET_TYPE,
                 {"communication_type": "metadata_comm", "command": "get_metadata"},
             )
             self._auto_get_metadata = False
+        self._handle_status_codes(status_codes_dict, "Status Beacon")
 
     def _register_magic_word(self, board_idx: int) -> None:
         board = self._board_connections[board_idx]
