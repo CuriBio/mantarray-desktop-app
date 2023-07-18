@@ -148,9 +148,9 @@ COMMAND_PACKET_TYPES = frozenset(
 
 
 class MetadataStatuses(Enum):
+    SKIP = auto()
     NEED = auto()
     ERROR = auto()
-    RETRIEVED = auto()
 
 
 def _get_formatted_utc_now() -> str:
@@ -228,7 +228,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         )
         self._num_wells = 24
         self._is_registered_with_serial_comm: List[bool] = [False] * len(self._board_queues)
-        self._metadata_status = MetadataStatuses.NEED
+        self._metadata_status = MetadataStatuses.SKIP
         self._time_of_last_handshake_secs: Optional[float] = None
         self._time_of_last_beacon_secs: Optional[float] = None
         self._handshake_sent_after_beacon_missed = False
@@ -319,7 +319,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             # also make sure that the computer does not put itself to sleep
             set_keepawake(keep_screen_awake=True)
 
-        self._metadata_status = MetadataStatuses.RETRIEVED
+        self._metadata_status = MetadataStatuses.NEED
 
     def _teardown_after_loop(self) -> None:
         board_idx = 0
@@ -1296,9 +1296,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 SERIAL_COMM_GET_METADATA_PACKET_TYPE,
                 {"communication_type": "metadata_comm", "command": "get_metadata"},
             )
-            self._metadata_status = (
-                MetadataStatuses.ERROR if is_error_code_present else MetadataStatuses.RETRIEVED
-            )
+            self._metadata_status = MetadataStatuses.ERROR if is_error_code_present else MetadataStatuses.SKIP
 
         if (
             self._time_of_reboot_start is not None
