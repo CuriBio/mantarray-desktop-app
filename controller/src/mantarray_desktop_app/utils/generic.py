@@ -33,6 +33,7 @@ from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
+from pulse3D.constants import MAX_MINI_SKM_EXPERIMENT_ID
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
 from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
@@ -271,7 +272,7 @@ def _check_new_barcode(barcode: str, beta_2_mode: bool) -> str:
         return f"barcode contains invalid year: '{barcode[2:4]}'"
     if not 0 < int(barcode[4:7]) < 366:
         return f"barcode contains invalid Julian date: '{barcode[4:7]}'"
-    if not 0 <= int(barcode[7:10]) < 400:
+    if not 0 <= int(barcode[7:10]) <= MAX_MINI_SKM_EXPERIMENT_ID:
         return f"barcode contains invalid experiment id: '{barcode[7:10]}'"
     # final digit must equal beta version (1/2)
     last_digit = int(barcode[-1])

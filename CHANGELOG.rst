@@ -12,6 +12,10 @@ Changed:
 ^^^^^^^^
 - Removed unnecessary log lines from log files.
 
+Fixed:
+^^^^^^
+- Support for barcodes of MA Mini Plates.
+
 
 1.1.4 (unreleased)
 ------------------
