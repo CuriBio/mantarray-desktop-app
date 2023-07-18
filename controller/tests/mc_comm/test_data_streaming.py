@@ -740,7 +740,7 @@ def test_McCommunicationProcess__updates_performance_metrics_after_parsing_data(
     # perform setup so performance logging values are initialized
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
     # don't automatically get metadata
-    mc_process._auto_get_metadata = False
+    mc_process._metadata_status = False
 
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
@@ -892,7 +892,7 @@ def test_McCommunicationProcess__does_not_include_data_streaming_performance_met
     # perform setup so performance logging values are initialized
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
     # don't automatically get metadata
-    mc_process._auto_get_metadata = False
+    mc_process._metadata_status = False
 
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon

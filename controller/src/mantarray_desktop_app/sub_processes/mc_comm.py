@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import copy
 import datetime
+from enum import auto
+from enum import Enum
 import logging
 from multiprocessing import Queue
 import queue
@@ -145,6 +147,12 @@ COMMAND_PACKET_TYPES = frozenset(
 )
 
 
+class MetadataStatuses(Enum):
+    NEED = auto()
+    ERROR = auto()
+    RETRIEVED = auto()
+
+
 def _get_formatted_utc_now() -> str:
     return datetime.datetime.utcnow().strftime(DATETIME_STR_FORMAT)
 
@@ -220,7 +228,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         )
         self._num_wells = 24
         self._is_registered_with_serial_comm: List[bool] = [False] * len(self._board_queues)
-        self._auto_get_metadata = False
+        self._metadata_status = MetadataStatuses.NEED
         self._time_of_last_handshake_secs: Optional[float] = None
         self._time_of_last_beacon_secs: Optional[float] = None
         self._handshake_sent_after_beacon_missed = False
@@ -311,7 +319,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             # also make sure that the computer does not put itself to sleep
             set_keepawake(keep_screen_awake=True)
 
-        self._auto_get_metadata = True
+        self._metadata_status = MetadataStatuses.RETRIEVED
 
     def _teardown_after_loop(self) -> None:
         board_idx = 0
@@ -806,6 +814,9 @@ class McCommunicationProcess(InstrumentCommProcess):
             if prev_command["command"] == "get_metadata":
                 prev_command["board_index"] = board_idx
                 prev_command["metadata"] = metadata = parse_metadata_bytes(response_data)
+                if self._metadata_status == MetadataStatuses.ERROR:
+                    # TODO unit test
+                    raise InstrumentFirmwareError(f"Error Details: {metadata}")
                 if metadata.pop("is_stingray"):
                     raise IncorrectInstrumentConnectedError()
             elif prev_command["command"] == "reboot":
@@ -965,18 +976,9 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._timepoints_of_prev_actions["command_response_received"] = perf_counter()
 
     def _process_status_beacon(self, packet_payload: bytes) -> None:
-        board_idx = 0
         status_codes_dict = convert_status_code_bytes_to_dict(
             packet_payload[:SERIAL_COMM_STATUS_CODE_LENGTH_BYTES]
         )
-        # Tanner (7/17/23): need to retrieve metadata after the first status beacon is received, and before handling any error codes
-        if self._auto_get_metadata:
-            self._send_data_packet(board_idx, SERIAL_COMM_GET_METADATA_PACKET_TYPE)
-            self._add_command_to_track(
-                SERIAL_COMM_GET_METADATA_PACKET_TYPE,
-                {"communication_type": "metadata_comm", "command": "get_metadata"},
-            )
-            self._auto_get_metadata = False
         self._handle_status_codes(status_codes_dict, "Status Beacon")
 
     def _register_magic_word(self, board_idx: int) -> None:
@@ -1284,6 +1286,20 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._handshake_sent_after_beacon_missed = False
 
         board_idx = 0
+
+        is_error_code_present = any(status_codes_dict.values())
+
+        # Tanner (7/17/23): need to retrieve metadata after the first status beacon is received, and before handling any error codes
+        if self._metadata_status == MetadataStatuses.NEED:
+            self._send_data_packet(board_idx, SERIAL_COMM_GET_METADATA_PACKET_TYPE)
+            self._add_command_to_track(
+                SERIAL_COMM_GET_METADATA_PACKET_TYPE,
+                {"communication_type": "metadata_comm", "command": "get_metadata"},
+            )
+            self._metadata_status = (
+                MetadataStatuses.ERROR if is_error_code_present else MetadataStatuses.RETRIEVED
+            )
+
         if (
             self._time_of_reboot_start is not None
         ):  # Tanner (4/1/21): want to check that reboot has actually started before considering a status beacon to mean that reboot has completed. It is possible (and has happened in unit tests) where a beacon is received in between sending the reboot command and the instrument actually beginning to reboot
@@ -1296,8 +1312,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                     "message": "Instrument completed reboot",
                 }
             )
-
-        is_error_code_present = any(status_codes_dict.values())
 
         status_codes_msg = f"{comm_type} received from instrument. Status Codes: {status_codes_dict}"
         put_log_message_into_queue(
