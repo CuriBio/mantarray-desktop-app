@@ -23,6 +23,7 @@ from mantarray_desktop_app.constants import SERIAL_COMM_STATUS_CODE_LENGTH_BYTES
 from mantarray_desktop_app.constants import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.simulators import mc_simulator
 from mantarray_desktop_app.sub_processes import mc_comm
+from mantarray_desktop_app.sub_processes.mc_comm import MetadataStatuses
 import numpy as np
 import pytest
 import serial
@@ -740,7 +741,7 @@ def test_McCommunicationProcess__updates_performance_metrics_after_parsing_data(
     # perform setup so performance logging values are initialized
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
     # don't automatically get metadata
-    mc_process._metadata_status = False
+    mc_process._metadata_status = MetadataStatuses.SKIP
 
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
@@ -892,7 +893,7 @@ def test_McCommunicationProcess__does_not_include_data_streaming_performance_met
     # perform setup so performance logging values are initialized
     invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
     # don't automatically get metadata
-    mc_process._metadata_status = False
+    mc_process._metadata_status = MetadataStatuses.SKIP
 
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
