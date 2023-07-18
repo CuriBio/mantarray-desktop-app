@@ -815,7 +815,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                 prev_command["board_index"] = board_idx
                 prev_command["metadata"] = metadata = parse_metadata_bytes(response_data)
                 if self._metadata_status == MetadataStatuses.ERROR:
-                    # TODO unit test
                     raise InstrumentFirmwareError(f"Error Details: {metadata}")
                 if metadata.pop("is_stingray"):
                     raise IncorrectInstrumentConnectedError()
