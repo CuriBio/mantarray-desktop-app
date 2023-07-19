@@ -17,6 +17,7 @@ from mantarray_desktop_app import SerialCommPacketRegistrationReadEmptyError
 from mantarray_desktop_app import SerialCommPacketRegistrationSearchExhaustedError
 from mantarray_desktop_app import SerialCommPacketRegistrationTimeoutError
 from mantarray_desktop_app.constants import SERIAL_COMM_GET_METADATA_PACKET_TYPE
+from mantarray_desktop_app.exceptions import InstrumentFirmwareError
 from mantarray_desktop_app.simulators import mc_simulator
 from mantarray_desktop_app.simulators.mc_simulator import AVERAGE_MC_REBOOT_DURATION_SECONDS
 from mantarray_desktop_app.sub_processes import mc_comm
@@ -457,3 +458,43 @@ def test_McCommunicationProcess__requests_metadata_if_setup_before_loop_was_perf
         DEFAULT_SIMULATOR_STATUS_CODES
     )
     assert metadata_comm["metadata"] == expected_dict
+
+
+def test_McCommunicationProcess__raises_error_with_metadata_response_if_error_codes_present_in_beacon_before_metadata_retrieved(
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator, mocker
+):
+    mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
+    simulator = mantarray_mc_simulator["simulator"]
+    testing_queue = mantarray_mc_simulator["testing_queue"]
+    set_connection_and_register_simulator(four_board_mc_comm_process_no_handshake, mantarray_mc_simulator)
+
+    mocker.patch.object(  # Tanner (4/6/21): Need to prevent automatic beacons without interrupting the beacons sent after status code updates
+        mc_simulator, "_get_secs_since_last_status_beacon", return_value=0, autospec=True
+    )
+    # Tanner (5/22/21): performing set up before loop means that mc_comm will try to start the simulator process which will slow this test down
+    mocker.patch.object(simulator, "start", autospec=True)
+
+    spied_parse = mocker.spy(mc_comm, "parse_metadata_bytes")
+
+    invoke_process_run_and_check_errors(mc_process, perform_setup_before_loop=True)
+
+    # set error codes
+    expected_status_codes = list(range(simulator._num_wells + 2))
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "set_status_code", "status_codes": expected_status_codes}, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # have simulator send a status beacon to trigger automatic collection of metadata
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        {"command": "send_single_beacon"}, testing_queue
+    )
+    invoke_process_run_and_check_errors(simulator)
+    # send get metadata command
+    invoke_process_run_and_check_errors(mc_process)
+    # process get metadata command
+    invoke_process_run_and_check_errors(simulator)
+    # raise error
+    with pytest.raises(InstrumentFirmwareError) as exc_info:
+        invoke_process_run_and_check_errors(mc_process)
+    # make sure relevant info is in error message
+    assert str(spied_parse.spy_return) in str(exc_info.value)
