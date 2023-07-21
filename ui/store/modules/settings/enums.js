@@ -7,4 +7,5 @@ export const ERRORS = {
   InstrumentFirmwareError: "An error occurred in the instrument's firmware",
   FirmwareAndSoftwareNotCompatibleError:
     "The instrument's firmware is not compatible with this version of the Mantarray Controller",
+  InstallError: "Error during install. Please restart this PC then reinstall",
 };

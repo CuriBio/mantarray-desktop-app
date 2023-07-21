@@ -14,7 +14,11 @@ export default {
     let error = `${ERRORS[error_type]}.`;
     if (latest_compatible_sw_version) {
       state.installer_link = `https://downloads.curibio.com/software/mantarray/MantarrayController-Setup-prod-${latest_compatible_sw_version}.exe`;
-      error += " Please download the installer for the correct version here:";
+      if (error_type === "FirmwareAndSoftwareNotCompatibleError") {
+        error += " Please download the installer for the correct version here:";
+      } else {
+        error += " The installer can be downloaded here:";
+      }
     } else {
       state.installer_link = null;
       error += " Mantarray Controller is about to shutdown.";
