@@ -7,6 +7,7 @@ Changelog for Mantarray Desktop App
 Added:
 ^^^^^^
 - Handling for new firmware error reporting.
+- Additional special characters for platemap labels
 
 Changed:
 ^^^^^^^^
