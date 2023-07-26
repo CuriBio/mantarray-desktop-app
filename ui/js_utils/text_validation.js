@@ -96,8 +96,7 @@ export class TextValidation {
     const valid_regex = new RegExp("^[0-9A-Za-z ./_-]+$");
     if (!text || text.length === 0) feedback = "Required";
     else if (!valid_regex.test(text))
-      feedback =
-        "Invalid character present. Valid characters are alphanumeric, spaces, hyphens, and underscores";
+      feedback = "Invalid character present. Valid characters are alphanumeric, spaces, and _ . / -";
 
     return feedback;
   }
