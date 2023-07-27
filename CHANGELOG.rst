@@ -6,8 +6,16 @@ Changelog for Mantarray Desktop App
 
 Added:
 ^^^^^^
-- Handling for new firmware error reporting
+- Handling for new firmware error reporting.
+- Additional special characters for platemap labels
 
+Changed:
+^^^^^^^^
+- Removed unnecessary log lines from log files.
+
+Fixed:
+^^^^^^
+- Support for barcodes of MA Mini Plates.
 
 
 1.1.4 (unreleased)
@@ -25,10 +33,6 @@ Fixed:
 - Recording Snapshot error for recordings that contain stimulation protocols with loops.
 - Issue where stimulation state will sometime switch back to "Ready" while stimulation is running.
 - Installer link in error messages.
-
-Changed:
-^^^^^^^^
-- Removed unnecessary log lines from log files.
 
 
 1.1.3 (2023-06-07)
