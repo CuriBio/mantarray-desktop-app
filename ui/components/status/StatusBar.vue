@@ -635,7 +635,8 @@ export default {
 #h5-warning,
 #duplicate-instance,
 #usage-reached,
-#new-assignment-modal {
+#new-assignment-modal,
+#account-locked-warning {
   position: fixed;
   margin: 5% auto;
   top: 15%;

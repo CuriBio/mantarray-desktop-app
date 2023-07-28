@@ -290,8 +290,8 @@ class CloudAnalysisJobFailedError(Exception):
 class CloudAuthFailedError(Exception):
     """Base class for cloud auth related errors."""
 
-    def __init__(self, status_code: int):
-        super().__init__(f"Status Code: {status_code}")
+    def __init__(self, status_code: int, error_msg: Union[str, None] = None):
+        super().__init__(f"Status code {status_code}: {error_msg}")
 
 
 class LoginFailedError(CloudAuthFailedError):

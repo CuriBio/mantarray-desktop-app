@@ -7,7 +7,7 @@
         <InputWidget
           :title_label="'Select Customer ID'"
           :placeholder="'ba86b8f0-6fdf-4944-87a0-8a491a19490e'"
-          :invalid_text="error_text.customer_id"
+          :invalid_text="input_err_text.customer_id"
           :input_width="400"
           :initial_value="user_details.customer_id"
           :dom_id_suffix="'customer-id'"
@@ -20,7 +20,7 @@
         <InputDropDown
           :title_label="'Select User'"
           :placeholder="'user account 1'"
-          :invalid_text="error_text.username"
+          :invalid_text="input_err_text.username"
           :input_width="400"
           :value="user_details.username"
           :options_text="stored_usernames"
@@ -32,7 +32,7 @@
         <InputWidget
           :title_label="'Enter Password'"
           :placeholder="'****'"
-          :invalid_text="error_text.password"
+          :invalid_text="input_err_text.password"
           :type="'password'"
           :spellcheck="false"
           :initial_value="user_details.password"
@@ -43,6 +43,7 @@
           @update:value="on_update_input($event, 'password')"
         />
       </div>
+      <div class="div__login-error-text">{{ login_err_text }}</div>
       <div
         class="div__settings-login-btn"
         :class="[
@@ -63,8 +64,8 @@
         >
       </div>
     </div>
-    <div v-if="is_user_logged_in" class="div__logged_in_text">
-      <FontAwesomeIcon :icon="['fa', 'check']" style="margin-right: 7px" />Success
+    <div v-if="is_user_logged_in && !invalid_creds_found" class="div__logged_in_text">
+      <FontAwesomeIcon :icon="['fa', 'check']" style="margin-right: 7px" />Logged in
     </div>
     <span class="span__settingsform-record-file-settings">
       Recorded&nbsp;<wbr />File&nbsp;<wbr />Settings</span
@@ -159,6 +160,20 @@
         >Save&nbsp;<wbr />Changes</span
       >
     </div>
+    <b-modal
+      id="account-locked-warning"
+      size="sm"
+      hide-footer
+      hide-header
+      hide-header-close
+      :static="true"
+      :no-close-on-backdrop="true"
+    >
+      <StatusWarningWidget
+        :modal_labels="account_locked_labels"
+        @handle_confirmation="$bvModal.hide('account-locked-warning')"
+      />
+    </b-modal>
   </div>
 </template>
 <script>
@@ -175,6 +190,7 @@ import InputDropDown from "@/components/basic_widgets/InputDropDown.vue";
 import ToggleWidget from "@/components/basic_widgets/ToggleWidget.vue";
 import SmallDropDown from "@/components/basic_widgets/SmallDropDown.vue";
 import InputWidget from "@/components/basic_widgets/InputWidget.vue";
+import StatusWarningWidget from "@/components/status/StatusWarningWidget.vue";
 import { VBPopover } from "bootstrap-vue";
 import semver_sort from "semver-sort";
 
@@ -193,11 +209,13 @@ export default {
     SmallDropDown,
     InputWidget,
     FontAwesomeIcon,
+    StatusWarningWidget,
   },
   data() {
     return {
       disable_settings: true,
       invalid_creds_found: false,
+      account_locked: false,
       show_auto_delete: false,
       user_settings: {
         auto_upload: false,
@@ -209,6 +227,12 @@ export default {
         customer_id: "",
         password: "",
         username: "",
+      },
+      account_locked_labels: {
+        header: "Warning!",
+        msg_one: "This account has been locked because it has reached the maximum login attempts.",
+        msg_two: "Please contact your administrator to unlock this account.",
+        button_names: ["Close"],
       },
     };
   },
@@ -229,21 +253,30 @@ export default {
       return semver_sort.desc(this.pulse3d_versions);
     },
     is_login_enabled: function () {
-      return !Object.values(this.error_text).some((val) => val !== "");
+      return !Object.values(this.input_err_text).some((val) => val !== "");
     },
-    error_text: function () {
-      return this.invalid_creds_found
-        ? {
-            customer_id: "Invalid Customer ID, Username, or Password",
-            username: "Invalid Customer ID, Username, or Password",
-            password: "Invalid Customer ID, Username, or Password",
-          }
-        : {
-            customer_id:
-              this.user_details.customer_id && this.user_details.customer_id !== "" ? "" : "Required",
-            username: this.user_details.username && this.user_details.username !== "" ? "" : "Required",
-            password: this.user_details.password && this.user_details.password !== "" ? "" : "Required",
-          };
+    input_err_text: function () {
+      return {
+        customer_id:
+          this.user_details.customer_id && this.user_details.customer_id !== "" && !this.invalid_creds_found
+            ? ""
+            : " ",
+        username:
+          this.user_details.username && this.user_details.username !== "" && !this.invalid_creds_found
+            ? ""
+            : " ",
+        password:
+          this.user_details.password && this.user_details.password !== "" && !this.invalid_creds_found
+            ? ""
+            : " ",
+      };
+    },
+    login_err_text: function () {
+      if (this.account_locked) return "*Account locked. Too many failed attempts.";
+      else if (this.invalid_creds_found)
+        return "*Invalid credentials. Account will be locked after 10 failed attempts.";
+      else if (!this.is_login_enabled) return "*All fields required";
+      else return "";
     },
     is_user_logged_in: function () {
       return this.user_account.username && this.user_account.username !== "";
@@ -257,6 +290,9 @@ export default {
     },
     stored_customer_id: function () {
       this.user_details.customer_id = this.stored_customer_id;
+    },
+    account_locked: function (locked_state) {
+      if (locked_state) this.$bvModal.show("account-locked-warning");
     },
   },
   methods: {
@@ -274,13 +310,16 @@ export default {
         this.$store.commit("settings/set_job_limit_reached", data.usage_quota.jobs_reached);
       } else if (status === 401) {
         this.invalid_creds_found = true;
+        this.account_locked = data.includes("Account locked");
       }
 
       // this protects if a user toggles the rec settings, but clicks login instead of save
       this.reset_to_stored_state();
     },
     on_update_input: function (new_value, field) {
+      // reset error messages when input changes
       this.invalid_creds_found = false;
+      this.account_locked = false;
       this.user_details = { ...this.user_details, [field]: new_value };
     },
     cancel_changes() {
@@ -378,8 +417,29 @@ export default {
   width: 105px;
   z-index: 2;
   left: 458px;
-  top: 395px;
+  top: 406px;
   font-style: italic;
+}
+
+.div__login-error-text {
+  line-height: 1;
+  white-space: nowrap;
+  color: rgb(229, 74, 74);
+  font-family: Muli;
+  position: relative;
+  left: 5px;
+  height: 12px;
+  visibility: visible;
+  user-select: none;
+  text-align: left;
+  font-size: 12px;
+  letter-spacing: normal;
+  font-weight: normal;
+  font-style: normal;
+  text-decoration: none;
+  z-index: 17;
+  pointer-events: all;
+  width: 375px;
 }
 
 .span__settingsform-record-file-settings {

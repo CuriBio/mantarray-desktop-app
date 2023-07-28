@@ -395,7 +395,7 @@ def login_user() -> Response:
     try:
         auth_response = validate_user_credentials(request.args)
     except LoginFailedError as e:
-        return Response(status=f"401 {repr(e)}")
+        return Response(json.dumps(str(e)), status=f"401 {repr(e)}")
 
     queue_command_to_main(
         {
