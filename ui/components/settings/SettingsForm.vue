@@ -257,6 +257,7 @@ export default {
     },
     input_err_text: function () {
       const errors = {};
+
       for (const entry of ["customer_id", "username", "password"]) {
         errors[entry] =
           this.user_details[entry] && this.user_details[entry] !== "" && !this.invalid_creds_found ? "" : " ";

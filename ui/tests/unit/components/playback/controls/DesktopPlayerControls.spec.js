@@ -594,17 +594,18 @@ describe("DesktopPlayerControls.vue", () => {
         store,
         localVue,
       });
+
       store.commit("settings/set_beta_2_mode", true);
       store.commit("playback/set_playback_state", playback_module.ENUMS.PLAYBACK_STATES.NEEDS_CALIBRATION);
       await wrapper.vm.$nextTick(); // wait for update
 
-      await wrapper.find(".svg__playback-desktop-player-controls-calibrate-button").trigger("click");
+      await wrapper.find(".span__playback-desktop-player-controls--available").trigger("click");
 
       Vue.nextTick(() => {
         expect(wrapper.find("#calibration-modal").isVisible()).toBe(true);
       });
 
-      await wrapper.findAll(".span__button-label").at(1).trigger("click");
+      await wrapper.vm.close_calibration_modal(1);
 
       expect(action_spy).toHaveBeenCalledWith("playback/start_calibration");
     });

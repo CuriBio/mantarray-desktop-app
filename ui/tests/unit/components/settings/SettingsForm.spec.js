@@ -144,6 +144,30 @@ describe("SettingsForm.vue", () => {
       expect(wrapper.vm.user_settings.pulse3d_focus_idx).toBe(1);
     });
 
+    test.each([
+      ["Account locked", "*Account locked. Too many failed attempts."],
+      ["Invalid credentials", "*Invalid credentials. Account will be locked after 10 failed attempts."],
+    ])(
+      "When a user attempts to login for the 10+ time, Then the error message will let user know their account has been locked",
+      async (returned_err, display_msg) => {
+        wrapper = mount(SettingsForm, {
+          store,
+          localVue,
+        });
+
+        jest.spyOn(store, "dispatch").mockImplementation(() => {
+          return { status: 401, data: returned_err };
+        });
+
+        expect(wrapper.find(".div__login-error-text").text()).toBe("*All fields required");
+        wrapper.vm.user_details = { customer_id: "test_uuid", username: "test_user", password: "test_pw" };
+
+        await wrapper.find(".span__settings-tool-tip-login-btn-txt").trigger("click");
+
+        expect(wrapper.find(".div__login-error-text").text()).toBe(display_msg);
+      }
+    );
+
     test("When a user clicks close to hide modal, Then the state in vuex repopulates user settings", async () => {
       wrapper = mount(SettingsForm, {
         store,
