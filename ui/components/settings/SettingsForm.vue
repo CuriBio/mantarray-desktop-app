@@ -256,20 +256,13 @@ export default {
       return !Object.values(this.input_err_text).some((val) => val !== "");
     },
     input_err_text: function () {
-      return {
-        customer_id:
-          this.user_details.customer_id && this.user_details.customer_id !== "" && !this.invalid_creds_found
-            ? ""
-            : " ",
-        username:
-          this.user_details.username && this.user_details.username !== "" && !this.invalid_creds_found
-            ? ""
-            : " ",
-        password:
-          this.user_details.password && this.user_details.password !== "" && !this.invalid_creds_found
-            ? ""
-            : " ",
-      };
+      const errors = {};
+      for (const entry of ["customer_id", "username", "password"]) {
+        errors[entry] =
+          this.user_details[entry] && this.user_details[entry] !== "" && !this.invalid_creds_found ? "" : " ";
+      }
+
+      return errors;
     },
     login_err_text: function () {
       if (this.account_locked) return "*Account locked. Too many failed attempts.";
