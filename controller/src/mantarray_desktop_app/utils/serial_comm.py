@@ -122,8 +122,15 @@ def parse_instrument_event_info(event_info: bytes) -> Dict[str, Any]:
         "mag_data_stream_active": bool(event_info[48]),
         "stim_active": bool(event_info[49]),
         "pc_connection_status": event_info[50],
-        "prev_barcode_scanned": event_info[51:63].decode("ascii"),
+        "prev_barcode_scanned": _parse_prev_barcode_scanned(event_info[51:63]),
     }
+
+
+def _parse_prev_barcode_scanned(barcode_bytes: bytes) -> str:
+    try:
+        return barcode_bytes.decode("ascii")
+    except UnicodeDecodeError:
+        return "N/A"
 
 
 def convert_instrument_event_info_to_bytes(event_info: dict[str, Any]) -> bytes:
