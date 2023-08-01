@@ -1741,7 +1741,9 @@ def test_set_protocols__returns_error_code_if_protocol_assignments_contains_any_
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
-    assert response.status.endswith(f"Protocol assignments contain invalid protocol IDs: {test_invalid_ids}")
+    assert response.status.endswith(
+        f"Protocol assignments contain invalid protocol IDs: {sorted(test_invalid_ids)}"
+    )
 
 
 @pytest.mark.parametrize("test_ids,test_unassigned_ids", [({"A", "B"}, {"A", "B"}), ({"A", "B"}, {"B"})])
