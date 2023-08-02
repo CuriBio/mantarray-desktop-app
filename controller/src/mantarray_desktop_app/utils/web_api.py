@@ -43,10 +43,10 @@ def get_cloud_api_tokens(
             "client_type": f"mantarray:{CURRENT_SOFTWARE_VERSION}",
         },
     )
-    if response.status_code != 200:
-        raise LoginFailedError(response.status_code)
-
     response_json = response.json()
+    if response.status_code != 200:
+        raise LoginFailedError(response.status_code, response_json["detail"])
+
     return _get_tokens(response_json["tokens"]), response_json["usage_quota"]
 
 
