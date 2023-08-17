@@ -503,7 +503,7 @@ def set_protocols() -> Response:
         return Response(status=f"400 Protocol assignments missing protocol IDs: {missing_protocol_ids}")
     if invalid_protocol_ids := assigned_ids - given_protocol_ids:
         return Response(
-            status=f"400 Protocol assignments contain invalid protocol IDs: {invalid_protocol_ids}"
+            status=f"400 Protocol assignments contain invalid protocol IDs: {sorted(invalid_protocol_ids)}"
         )
 
     queue_command_to_main(
