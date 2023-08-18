@@ -33,13 +33,14 @@ from wakepy import set_keepawake
 from wakepy import unset_keepawake
 
 from .instrument_comm import InstrumentCommProcess
+from ..constants import CURI_VID
 from ..constants import DEFAULT_SAMPLING_PERIOD
 from ..constants import GENERIC_24_WELL_DEFINITION
 from ..constants import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
 from ..constants import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from ..constants import MAX_MC_REBOOT_DURATION_SECONDS
 from ..constants import MICRO_TO_BASE_CONVERSION
-from ..constants import NUM_INITIAL_PACKETS_TO_DROP
+from ..constants import NUM_INITIAL_SECONDS_TO_DROP
 from ..constants import PERFOMANCE_LOGGING_PERIOD_SECS
 from ..constants import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from ..constants import SERIAL_COMM_BAUD_RATE
@@ -259,6 +260,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._sampling_period_us = DEFAULT_SAMPLING_PERIOD
         self._is_data_streaming = False
         self._has_data_packet_been_sent = False
+        self._discarding_beginning_of_data_stream = True
         self._serial_packet_cache = bytes(0)
         self._mag_data_cache_dict: Dict[str, Union[bytearray, int]]
         self._reset_mag_data_cache()
@@ -439,7 +441,7 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _create_board_connection(self) -> Tuple[Union[MantarrayMcSimulator, serial.Serial], str]:
         for port_info in list_ports.comports():
             # Tanner (6/14/21): attempt to connect to any device with the STM vendor ID
-            if port_info.vid == STM_VID:
+            if port_info.vid in (STM_VID, CURI_VID):
                 conn_msg = f"Board detected with description: {port_info.description}"
                 serial_conn = serial.Serial(
                     port=port_info.name,
@@ -831,6 +833,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._is_data_streaming = True
                 self._has_stim_packet_been_sent = False
                 self._has_data_packet_been_sent = False
+                self._discarding_beginning_of_data_stream = True
                 if response_data[0]:
                     if not self._hardware_test_mode:
                         raise InstrumentDataStreamingAlreadyStartedError()
@@ -1137,30 +1140,35 @@ class McCommunicationProcess(InstrumentCommProcess):
         new_performance_tracking_values["num_mag_packets_parsed"] = len(time_indices)
 
         is_first_packet = not self._has_data_packet_been_sent
-        data_start_idx = NUM_INITIAL_PACKETS_TO_DROP if is_first_packet else 0
-        data_slice = slice(data_start_idx, self._mag_data_cache_dict["num_packets"])
+        data_slice = slice(0, self._mag_data_cache_dict["num_packets"])
 
-        mag_data_packet: Dict[Any, Any] = {
-            "data_type": "magnetometer",
-            "time_indices": time_indices[data_slice],
-            "is_first_packet_of_stream": is_first_packet,
-        }
+        if self._discarding_beginning_of_data_stream:
+            earliest_allowed_time_index = NUM_INITIAL_SECONDS_TO_DROP * MICRO_TO_BASE_CONVERSION
+            if time_indices[-1] > earliest_allowed_time_index:
+                self._discarding_beginning_of_data_stream = False
+                self._base_global_time_of_data_stream += time_indices[-1]
+        else:
+            mag_data_packet: Dict[Any, Any] = {
+                "data_type": "magnetometer",
+                "time_indices": time_indices[data_slice],
+                "is_first_packet_of_stream": is_first_packet,
+            }
 
-        time_offset_idx = 0
-        for module_id in range(self._num_wells):
-            time_offset_slice = slice(time_offset_idx, time_offset_idx + SERIAL_COMM_NUM_SENSORS_PER_WELL)
-            time_offset_idx += SERIAL_COMM_NUM_SENSORS_PER_WELL
+            time_offset_idx = 0
+            for module_id in range(self._num_wells):
+                time_offset_slice = slice(time_offset_idx, time_offset_idx + SERIAL_COMM_NUM_SENSORS_PER_WELL)
+                time_offset_idx += SERIAL_COMM_NUM_SENSORS_PER_WELL
 
-            well_dict: Dict[Any, Any] = {"time_offsets": time_offsets[time_offset_slice, data_slice]}
+                well_dict: Dict[Any, Any] = {"time_offsets": time_offsets[time_offset_slice, data_slice]}
 
-            data_idx = module_id * SERIAL_COMM_NUM_DATA_CHANNELS
-            for channel_idx in range(SERIAL_COMM_NUM_DATA_CHANNELS):
-                well_dict[channel_idx] = data[data_idx + channel_idx, data_slice]
+                data_idx = module_id * SERIAL_COMM_NUM_DATA_CHANNELS
+                for channel_idx in range(SERIAL_COMM_NUM_DATA_CHANNELS):
+                    well_dict[channel_idx] = data[data_idx + channel_idx, data_slice]
 
-            well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
-            mag_data_packet[well_idx] = well_dict
+                well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
+                mag_data_packet[well_idx] = well_dict
 
-        self._dump_mag_data_packet(mag_data_packet)
+            self._dump_mag_data_packet(mag_data_packet)
 
         # reset cache now that all mag data has been parsed
         self._reset_mag_data_cache()
