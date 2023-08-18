@@ -845,19 +845,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                 prev_command["timestamp"] = datetime.datetime.utcnow()
                 # Tanner (6/11/21): This helps prevent against status beacon timeouts with beacons that come just after the data stream begins but before 1 second of data is available
                 self._time_of_last_beacon_secs = perf_counter()
-                # send any buffered stim statuses
-                well_statuses: Dict[int, Any] = {}
-                for well_idx in range(self._num_wells):
-                    stim_statuses = self._stim_status_buffers[well_idx]
-                    if len(stim_statuses[0]) == 0 or stim_statuses[1][-1] == STIM_COMPLETE_SUBPROTOCOL_IDX:
-                        continue
-                    well_statuses[well_idx] = np.array(
-                        [stim_statuses[0][-1:], stim_statuses[1][-1:]], dtype=np.int64
-                    )
-                    well_statuses[well_idx][0] -= self._base_global_time_of_data_stream
-
-                if well_statuses:
-                    self._dump_stim_packet(well_statuses)
             elif prev_command["command"] == "stop_managed_acquisition":
                 self._is_data_streaming = False
                 if response_data[0]:
@@ -1146,7 +1133,21 @@ class McCommunicationProcess(InstrumentCommProcess):
             earliest_allowed_time_index = NUM_INITIAL_SECONDS_TO_DROP * MICRO_TO_BASE_CONVERSION
             if time_indices[-1] > earliest_allowed_time_index:
                 self._discarding_beginning_of_data_stream = False
-                self._base_global_time_of_data_stream += time_indices[-1]
+                self._base_global_time_of_data_stream += int(time_indices[-1])
+
+                # send any buffered stim statuses
+                well_statuses: Dict[int, Any] = {}
+                for well_idx in range(self._num_wells):
+                    stim_statuses = self._stim_status_buffers[well_idx]
+                    if len(stim_statuses[0]) == 0 or stim_statuses[1][-1] == STIM_COMPLETE_SUBPROTOCOL_IDX:
+                        continue
+                    well_statuses[well_idx] = np.array(
+                        [stim_statuses[0][-1:], stim_statuses[1][-1:]], dtype=np.int64
+                    )
+                    well_statuses[well_idx][0] -= self._base_global_time_of_data_stream
+
+                if well_statuses:
+                    self._dump_stim_packet(well_statuses)
         else:
             mag_data_packet: Dict[Any, Any] = {
                 "data_type": "magnetometer",
@@ -1218,7 +1219,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 }
             )
 
-        if self._is_data_streaming:
+        if self._is_data_streaming and not self._discarding_beginning_of_data_stream:
             for stim_status_updates in well_statuses.values():
                 stim_status_updates[0] -= self._base_global_time_of_data_stream
             self._dump_stim_packet(well_statuses)
