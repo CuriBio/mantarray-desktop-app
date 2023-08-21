@@ -495,13 +495,13 @@ def create_simple_magnetometer_well_dict(start_timepoint, num_data_points):
 
 
 def create_simple_beta_2_data_packet(
-    time_index_start, data_start, well_idxs, num_data_points, is_first_packet_of_stream=False
+    time_index_start, data_start, well_idxs, num_data_points, is_first_packet_of_stream=False, step=1
 ):
     if isinstance(well_idxs, int):
         well_idxs = [well_idxs]
     data_packet = {
         "data_type": "magnetometer",
-        "time_indices": create_simple_1d_array(time_index_start, num_data_points, np.uint64),
+        "time_indices": create_simple_1d_array(time_index_start, num_data_points, np.uint64, step=step),
         "is_first_packet_of_stream": is_first_packet_of_stream,
     }
     for idx in well_idxs:

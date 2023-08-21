@@ -212,12 +212,13 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
     start_recording_command["active_well_indices"] = [test_well_index]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
+    step = 2
     total_num_data_points = 75
     num_recorded_data_points = 50
-    time_index_offset = total_num_data_points - num_recorded_data_points
-    start_timepoint = start_recording_command["timepoint_to_begin_recording_at"] - time_index_offset
+    time_index_offset = (total_num_data_points - num_recorded_data_points) * step
+    start_timepoint = start_recording_command["timepoint_to_begin_recording_at"] - time_index_offset - 1
     test_data_packet = create_simple_beta_2_data_packet(
-        start_timepoint, 0, start_recording_command["active_well_indices"], total_num_data_points
+        start_timepoint, 0, start_recording_command["active_well_indices"], total_num_data_points, step=step
     )
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -228,7 +229,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
     expected_timestamp = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         UTC_BEGINNING_DATA_ACQUISTION_UUID
     ] + datetime.timedelta(
-        seconds=(start_recording_command["timepoint_to_begin_recording_at"]) / MICRO_TO_BASE_CONVERSION
+        seconds=((start_recording_command["timepoint_to_begin_recording_at"] - 1) / MICRO_TO_BASE_CONVERSION)
     )
 
     with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
@@ -240,13 +241,14 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
         actual_tissue_data = get_tissue_dataset_from_file(this_file)[:]
 
     np.testing.assert_array_equal(
-        actual_time_index_data, test_data_packet["time_indices"][time_index_offset:]
+        actual_time_index_data, test_data_packet["time_indices"][-num_recorded_data_points:]
     )
     np.testing.assert_array_equal(
-        actual_time_offset_data, test_data_packet[test_well_index]["time_offsets"][:, time_index_offset:]
+        actual_time_offset_data,
+        test_data_packet[test_well_index]["time_offsets"][:, -num_recorded_data_points:],
     )
     expected_tissue_data = _get_expected_sensor_data_arr(test_data_packet, test_well_index)[
-        :, time_index_offset:
+        :, -num_recorded_data_points:
     ]
     np.testing.assert_array_equal(actual_tissue_data, expected_tissue_data)
 
