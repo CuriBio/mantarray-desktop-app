@@ -18,7 +18,6 @@ pytest-profiling = "==1.7.0"
 pytest-randomly = "==3.12.0"
 pytest-timeout = "==1.4.2"
 pywin32-ctypes = "==0.2.0" # Eli (3/1/21): this must be explicitly specified when using a Linux dev environment so that it will be included in a Windows build environment
-sphinx = "==4.2.0"
 types-requests = "2.31.0.1"
 websocket-client = "==1.1.0"  # this is used by socketio in tests
 
@@ -38,7 +37,7 @@ jsonschema = "==4.1.0"  # Tanner (11/8/21): latest version is having issues in c
 nptyping = "==1.4.4"  # Tanner (4/7/22): pinned for pulse3D
 numpy = "==1.23.4"
 psutil = "==5.8.0"
-pulse3d = "==0.33.13"
+pulse3d = "==0.34.0"
 pyserial = "==3.5"
 scipy = "==1.9.3"
 semver = "==2.13.0"

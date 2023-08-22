@@ -17,6 +17,7 @@ from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import LIVE_VIEW_ACTIVE_STATE
+from mantarray_desktop_app.constants import NUM_INITIAL_MICROSECONDS_TO_PAD
 from mantarray_desktop_app.constants import RECORDING_STATE
 from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
@@ -35,6 +36,7 @@ from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
+from pulse3D.constants import NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID
 from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import REFERENCE_VOLTAGE_UUID
@@ -1132,6 +1134,10 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     assert communication["metadata_to_copy_onto_main_file_attributes"][
         INITIAL_MAGNET_FINDING_PARAMS_UUID
     ] == json.dumps(dict(MantarrayMcSimulator.initial_magnet_finding_params))
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID]
+        == NUM_INITIAL_MICROSECONDS_TO_PAD
+    )
     # metadata values from instrument
     instrument_metadata = shared_values_dict["instrument_metadata"][0]
     assert (

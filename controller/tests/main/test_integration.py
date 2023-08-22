@@ -65,6 +65,7 @@ from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
+from pulse3D.constants import NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID
 from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import PLATEMAP_LABEL_UUID
@@ -793,6 +794,12 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                     this_file.attrs[str(INITIAL_MAGNET_FINDING_PARAMS_UUID)]
                     == GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
                         INITIAL_MAGNET_FINDING_PARAMS_UUID
+                    ]
+                )
+                assert (
+                    this_file.attrs[str(NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID)]
+                    == GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"][
+                        NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID
                     ]
                 )
                 assert (
