@@ -25,6 +25,7 @@ Changed:
 Fixed:
 ^^^^^^
 - Support for barcodes of MA Mini Plates.
+- Tooltip for recording button when in buffering state.
 
 
 1.1.4 (2023-07-11)
@@ -445,7 +446,7 @@ Fixed:
 
 - Added upload of log files at shutdown if customer credentials have been input.
 - Added minor styling updates.
-- Added tool tips for additional controls.
+- Added tooltips for additional controls.
 - Added 30 second max time limit to recordings.
 - Changed subprotocol edit from Shift+Click to Double Click.
 - Fixed issue with Mantarray Controller and Mantarray Software processes persisting after an error occurs and

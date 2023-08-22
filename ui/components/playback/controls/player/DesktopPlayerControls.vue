@@ -478,6 +478,9 @@ export default {
       if (this.playback_state === this.playback_state_enums.CALIBRATED) {
         return "Must activate Live View before recording.";
       }
+      if (this.playback_state === this.playback_state_enums.BUFFERING) {
+        return "Must finish buffering data before recording.";
+      }
       return "Must initialize before recording.";
     },
 
