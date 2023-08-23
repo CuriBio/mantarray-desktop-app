@@ -16,7 +16,6 @@
       class="svg__playback-desktop-player-controls-button svg__playback-desktop-player-controls-schedule-button span__playback-desktop-player-controls--available"
       viewBox="0 0 72 72"
       :title="schedule_title"
-      @click="$bvModal.show('recording-name-input-prompt-message')"
     >
       <!-- original mockflow ID: id="cmpD5e8bf5701514a91630d619c1a308f43d"-->
 
@@ -534,10 +533,11 @@ export default {
       if (this.user_cred_input_needed) this.$bvModal.show("user-input-prompt-message");
     },
     playback_state(new_state) {
-      // if live view had to be started from stim studio, then catch it here and then start recording after buffering state. Start recording cannot happen right after starting live view becuase of buffering state
+      // if live view had to be started from stim studio, then catch it here and then start recording after buffering state. Start recording cannot happen right after starting live view because of buffering state
       if (this.start_recording_from_stim) {
         if (new_state === this.playback_state_enums.LIVE_VIEW_ACTIVE) {
-          // // then start stimulation once ensured that live view has started
+          // then start stimulation once ensured that live view has started
+          // TODO is it necessary to check this condition again?
           if (this.start_recording_from_stim) this.$store.dispatch(`stimulation/create_protocol_message`);
         } else if (new_state === this.playback_state_enums.RECORDING) {
           this.$store.commit("playback/set_start_recording_from_stim", false);

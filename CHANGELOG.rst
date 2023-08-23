@@ -26,6 +26,7 @@ Fixed:
 ^^^^^^
 - Support for barcodes of MA Mini Plates.
 - Tooltip for recording button when in buffering state.
+- Schedule recording button now does nothing when pressed
 
 
 1.1.4 (2023-07-11)

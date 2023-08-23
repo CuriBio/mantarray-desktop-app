@@ -162,6 +162,7 @@ from mantarray_desktop_app.constants import ALL_VALID_BARCODE_HEADERS
 from mantarray_desktop_app.constants import BARCODE_HEADERS
 from mantarray_desktop_app.constants import BARCODE_LEN
 from mantarray_desktop_app.constants import MICRO_TO_BASE_CONVERSION
+from mantarray_desktop_app.constants import NUM_INITIAL_MICROSECONDS_TO_PAD
 from mantarray_desktop_app.constants import PERFOMANCE_LOGGING_PERIOD_SECS
 from mantarray_desktop_app.constants import POST_STIFFNESS_TO_MM_PER_MT_Z_AXIS_SENSOR_0
 from mantarray_desktop_app.constants import RECORDING_SNAPSHOT_DUR_SECS
@@ -600,4 +601,4 @@ def test_live_view_conversion():
 
 
 def test_recording_snapshot():
-    assert RECORDING_SNAPSHOT_DUR_SECS == 5
+    assert RECORDING_SNAPSHOT_DUR_SECS == 5 + (NUM_INITIAL_MICROSECONDS_TO_PAD / MICRO_TO_BASE_CONVERSION)
