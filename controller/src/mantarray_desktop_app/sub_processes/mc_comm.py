@@ -1127,13 +1127,17 @@ class McCommunicationProcess(InstrumentCommProcess):
         new_performance_tracking_values["num_mag_packets_parsed"] = len(time_indices)
 
         is_first_packet = not self._has_data_packet_been_sent
-        data_slice = slice(0, self._mag_data_cache_dict["num_packets"])
+        start_idx = 0
 
         if self._discarding_beginning_of_data_stream:
             earliest_allowed_time_index = NUM_INITIAL_SECONDS_TO_DROP * MICRO_TO_BASE_CONVERSION
-            if time_indices[-1] > earliest_allowed_time_index:
+            valid_time_indices = time_indices >= earliest_allowed_time_index
+            if any(valid_time_indices):
                 self._discarding_beginning_of_data_stream = False
-                self._base_global_time_of_data_stream += int(time_indices[-1])
+
+                start_idx = np.argmax(valid_time_indices)
+                time_indices -= time_indices[start_idx]
+                self._base_global_time_of_data_stream += int(time_indices[start_idx])
 
                 # send any buffered stim statuses
                 well_statuses: Dict[int, Any] = {}
@@ -1148,7 +1152,9 @@ class McCommunicationProcess(InstrumentCommProcess):
 
                 if well_statuses:
                     self._dump_stim_packet(well_statuses)
-        else:
+        # condition may change in above branch, so not using else here
+        data_slice = slice(start_idx, self._mag_data_cache_dict["num_packets"])
+        if not self._discarding_beginning_of_data_stream:
             mag_data_packet: Dict[Any, Any] = {
                 "data_type": "magnetometer",
                 "time_indices": time_indices[data_slice],

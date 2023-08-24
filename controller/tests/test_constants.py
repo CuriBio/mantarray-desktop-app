@@ -62,7 +62,6 @@ from mantarray_desktop_app import MILLIVOLTS_PER_VOLT
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import NO_PLATE_DETECTED_BARCODE_VALUE
 from mantarray_desktop_app import NO_PLATE_DETECTED_UUID
-from mantarray_desktop_app import NUM_INITIAL_PACKETS_TO_DROP
 from mantarray_desktop_app import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import OUTGOING_DATA_BUFFER_SIZE
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
@@ -415,10 +414,6 @@ def test_shutdown_values():
 
 def test_parallelism_config():
     assert SECONDS_TO_WAIT_WHEN_POLLING_QUEUES == 0.02
-
-
-def test_data_stream_values():
-    assert NUM_INITIAL_PACKETS_TO_DROP == 2
 
 
 def test_serial_comm():

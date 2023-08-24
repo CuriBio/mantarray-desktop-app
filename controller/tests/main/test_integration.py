@@ -32,7 +32,6 @@ from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
-from mantarray_desktop_app import NUM_INITIAL_PACKETS_TO_DROP
 from mantarray_desktop_app import RECORDING_STATE
 from mantarray_desktop_app import REFERENCE_SENSOR_SAMPLING_PERIOD
 from mantarray_desktop_app import REFERENCE_VOLTAGE
@@ -44,6 +43,7 @@ from mantarray_desktop_app import system_state_eventually_equals
 from mantarray_desktop_app import wait_for_subprocesses_to_start
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import NUM_INITIAL_SECONDS_TO_DROP
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.main_process import process_monitor
 from mantarray_desktop_app.main_process import server
@@ -565,7 +565,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
-        expected_start_index_1 = NUM_INITIAL_PACKETS_TO_DROP * DEFAULT_SAMPLING_PERIOD
+        expected_start_index_1 = NUM_INITIAL_SECONDS_TO_DROP
         start_recording_params_1 = {
             "plate_barcode": expected_plate_barcode_1,
             "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
