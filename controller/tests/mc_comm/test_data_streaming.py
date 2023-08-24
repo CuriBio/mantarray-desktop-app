@@ -378,6 +378,7 @@ def test_McCommunicationProcess__correctly_indicates_which_packet_is_the_first_o
     set_sampling_period_and_start_streaming(
         four_board_mc_comm_process_no_handshake, simulator, sampling_period=test_sampling_period_us
     )
+    mc_process._discarding_beginning_of_data_stream = False
 
     for read_num in range(2):
         invoke_process_run_and_check_errors(simulator)
@@ -431,9 +432,9 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
 
     test_sampling_period_us = DEFAULT_SAMPLING_PERIOD
     test_num_packets = (
-        int(NUM_INITIAL_SECONDS_TO_DROP * 1.5 * MICRO_TO_BASE_CONVERSION) // test_sampling_period_us
-    )
-    expected_num_packets = test_num_packets // 3
+        int((NUM_INITIAL_SECONDS_TO_DROP + 1) * MICRO_TO_BASE_CONVERSION) // test_sampling_period_us
+    ) + 1
+    expected_num_packets = MICRO_TO_BASE_CONVERSION // DEFAULT_SAMPLING_PERIOD
     # mocking to ensure one second of data is sent
     mocker.patch.object(
         mc_simulator,
@@ -441,8 +442,8 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
         autospec=True,
         side_effect=[
             0,
-            test_sampling_period_us * test_num_packets // 2,
-            test_sampling_period_us * test_num_packets // 2,
+            test_sampling_period_us * (test_num_packets - expected_num_packets),
+            test_sampling_period_us * expected_num_packets,
         ],
     )
 
@@ -451,16 +452,15 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     )
     start_data_stream(four_board_mc_comm_process_no_handshake, simulator)
 
-    min_time_idx_us = 0
-    max_time_idx_us = test_sampling_period_us * expected_num_packets
-    expected_time_indices = list(range(min_time_idx_us, max_time_idx_us, test_sampling_period_us))
+    min_time_idx_us = test_sampling_period_us
+    max_time_idx_us = test_sampling_period_us * (expected_num_packets + 1)
+    expected_time_indices = np.arange(
+        min_time_idx_us, max_time_idx_us, test_sampling_period_us, dtype=np.uint64
+    )
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
-    expected_data = np.hstack([simulated_data, simulated_data[: len(simulated_data) // 2]])
-    expected_fw_item = {
-        "data_type": "mangetometer",
-        "time_indices": np.array(expected_time_indices, np.uint64),
-    }
+    expected_data = np.hstack([simulated_data[1:], simulated_data[:1]])
+    expected_fw_item = {"data_type": "mangetometer", "time_indices": expected_time_indices}
     for well_idx in range(mc_process._num_wells):
         channel_dict = {
             "time_offsets": np.zeros(
@@ -509,15 +509,19 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     test_sampling_period_us = 10000  # specifically chosen so that there are 100 data packets in one second
     test_num_packets_to_drop = (
         NUM_INITIAL_SECONDS_TO_DROP * MICRO_TO_BASE_CONVERSION
-    ) // test_sampling_period_us
+    ) // test_sampling_period_us + 1
     expected_num_packets = int(MICRO_TO_BASE_CONVERSION // test_sampling_period_us)
-    test_num_packets = expected_num_packets + test_num_packets_to_drop
     # mocking to ensure one second of data is sent
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_last_data_packet",
         autospec=True,
-        side_effect=[0, test_sampling_period_us * test_num_packets],
+        side_effect=[
+            0,
+            test_sampling_period_us * test_num_packets_to_drop // 2,
+            test_sampling_period_us * (test_num_packets_to_drop // 2 + 1),
+            test_sampling_period_us * expected_num_packets,
+        ],
     )
 
     set_connection_and_register_simulator(
@@ -527,11 +531,14 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
         four_board_mc_comm_process_no_handshake, simulator, sampling_period=test_sampling_period_us
     )
 
-    min_time_idx_us = 0
-    max_time_idx_us = test_sampling_period_us * expected_num_packets
-    expected_time_indices = list(range(min_time_idx_us, max_time_idx_us, test_sampling_period_us))
+    min_time_idx_us = test_sampling_period_us
+    max_time_idx_us = test_sampling_period_us * (expected_num_packets + 1)
+    expected_time_indices = np.arange(
+        min_time_idx_us, max_time_idx_us, test_sampling_period_us, dtype=np.uint64
+    )
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
+    expected_data = np.hstack([simulated_data[1:], simulated_data[:1]])
     expected_fw_item = {
         "data_type": "mangetometer",
         "time_indices": np.array(expected_time_indices, np.uint64),
@@ -543,11 +550,17 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
             )
         }
         for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
-            channel_dict[channel_id] = simulated_data * np.uint16(well_idx + 1)
+            channel_dict[channel_id] = expected_data * np.uint16(well_idx + 1)
         expected_fw_item[well_idx] = channel_dict
     # not actually using the value here in any assertions, just need the key present
     expected_fw_item["is_first_packet_of_stream"] = None
 
+    # process discared packets
+    for _ in range(2):
+        invoke_process_run_and_check_errors(simulator)
+        invoke_process_run_and_check_errors(mc_process)
+        confirm_queue_is_eventually_empty(to_fw_queue)
+    # process retained packets
     invoke_process_run_and_check_errors(simulator)
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(to_fw_queue, 1)
@@ -577,17 +590,13 @@ def test_McCommunicationProcess__handles_one_second_read_with_two_interrupting_p
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
     test_sampling_period_us = 10000  # specifically chosen so that there are 100 data packets in one second
-    test_num_packets_to_drop = (
-        NUM_INITIAL_SECONDS_TO_DROP * MICRO_TO_BASE_CONVERSION
-    ) // test_sampling_period_us
     expected_num_packets = int(MICRO_TO_BASE_CONVERSION * 1.5 // test_sampling_period_us)
-    test_num_packets = expected_num_packets + test_num_packets_to_drop
     # mocking to ensure one second of data is sent
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_last_data_packet",
         autospec=True,
-        side_effect=[0, test_sampling_period_us * test_num_packets, 0],
+        side_effect=[0, test_sampling_period_us * expected_num_packets, 0],
     )
 
     set_connection_and_register_simulator(
@@ -596,6 +605,7 @@ def test_McCommunicationProcess__handles_one_second_read_with_two_interrupting_p
     set_sampling_period_and_start_streaming(
         four_board_mc_comm_process_no_handshake, simulator, sampling_period=test_sampling_period_us
     )
+    mc_process._discarding_beginning_of_data_stream = False
 
     min_time_idx_us = 0
     max_time_idx_us = test_sampling_period_us * expected_num_packets

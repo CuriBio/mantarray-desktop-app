@@ -1066,9 +1066,15 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     expected_acquisition_timestamp = datetime.datetime(
         year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598
     )
-    expected_recording_timepoint = GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
+    expected_recording_timepoint = (
+        GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
+        - NUM_INITIAL_MICROSECONDS_TO_PAD
+    )
     expected_recording_timestamp = expected_acquisition_timestamp + datetime.timedelta(
-        seconds=(expected_recording_timepoint / MICRO_TO_BASE_CONVERSION)
+        seconds=(
+            GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
+            / MICRO_TO_BASE_CONVERSION
+        )
     )
 
     shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [expected_acquisition_timestamp]
@@ -1172,10 +1178,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
         ]
     )
     assert set(communication["active_well_indices"]) == set(range(24))
-    assert (
-        communication["timepoint_to_begin_recording_at"]
-        == GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
-    )
+    assert communication["timepoint_to_begin_recording_at"] == expected_recording_timepoint
     response_json = response.get_json()
     assert response_json["command"] == "start_recording"
 

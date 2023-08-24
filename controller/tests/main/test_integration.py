@@ -43,7 +43,7 @@ from mantarray_desktop_app import system_state_eventually_equals
 from mantarray_desktop_app import wait_for_subprocesses_to_start
 from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
-from mantarray_desktop_app.constants import NUM_INITIAL_SECONDS_TO_DROP
+from mantarray_desktop_app.constants import NUM_INITIAL_MICROSECONDS_TO_PAD
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.main_process import process_monitor
 from mantarray_desktop_app.main_process import server
@@ -565,11 +565,13 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert response.status_code == 200
         assert system_state_eventually_equals(BUFFERING_STATE, 5) is True
         assert system_state_eventually_equals(LIVE_VIEW_ACTIVE_STATE, LIVE_VIEW_ACTIVE_WAIT_TIME) is True
-        expected_start_index_1 = NUM_INITIAL_SECONDS_TO_DROP
+        time.sleep(10)  # wait to ensure that the first recorded data point is present
+
+        expected_start_index_1 = 2 * MICRO_TO_BASE_CONVERSION
         start_recording_params_1 = {
             "plate_barcode": expected_plate_barcode_1,
             "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
-            "time_index": expected_start_index_1,
+            "time_index": expected_start_index_1 + NUM_INITIAL_MICROSECONDS_TO_PAD,
             "platemap": convert_formatted_platemap_to_query_param(GENERIC_PLATEMAP_INFO),
             "is_hardware_test_recording": False,
         }
@@ -588,6 +590,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         # Tanner (10/28/21): Stim data should also have been sent by the time the first metric is sent, so test that too
         assert len(msg_list_container["stimulation_data"]) > 0
 
+        time.sleep(10)  # wait to ensure that the first recorded data point is present
         # Tanner (6/1/21): End recording at a known timepoint
         expected_stop_index_1 = expected_start_index_1 + (2 * MICRO_TO_BASE_CONVERSION)
         response = requests.get(f"{get_api_endpoint()}stop_recording?time_index={expected_stop_index_1}")
@@ -629,12 +632,12 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         assert stimulation_running_status_eventually_equals(True, 4) is True
 
         # Tanner (5/25/21): Start at a different timepoint to create a different timestamp in the names of the second set of files
-        expected_start_index_2 = 2 * MICRO_TO_BASE_CONVERSION
+        expected_start_index_2 = 3 * MICRO_TO_BASE_CONVERSION
         # Tanner (6/1/21): Start recording with second barcode to create second set of files
         start_recording_params_2 = {
             "plate_barcode": expected_plate_barcode_2,
             "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
-            "time_index": expected_start_index_2,
+            "time_index": expected_start_index_2 + NUM_INITIAL_MICROSECONDS_TO_PAD,
             "is_hardware_test_recording": False,
         }
         response = requests.get(f"{get_api_endpoint()}start_recording", params=start_recording_params_2)
@@ -681,7 +684,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
         # Tanner (6/15/20): Processes must be joined to avoid h5 errors with reading files, so hard-stopping before joining
         test_process_manager.hard_stop_and_join_processes()
 
-        expected_timestamp_1 = "2021_05_24_212304"
+        expected_timestamp_1 = "2021_05_24_212306"
         actual_set_of_files_1 = set(
             os.listdir(
                 os.path.join(expected_recordings_dir, f"{expected_plate_barcode_1}__{expected_timestamp_1}")
@@ -830,7 +833,7 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
                 else:
                     assert actual_stim_data.shape[1] == 0, well_idx
 
-        expected_timestamp_2 = "2021_05_24_212306"
+        expected_timestamp_2 = "2021_05_24_212307"
         actual_set_of_files_2 = set(
             os.listdir(
                 os.path.join(expected_recordings_dir, f"{expected_plate_barcode_2}__{expected_timestamp_2}")
