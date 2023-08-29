@@ -309,7 +309,7 @@ def test_CLOUD_ENDPOINT_USER_OPTION():
 
 
 def test_CLOUD_ENDPOINT_VALID_OPTIONS():
-    assert CLOUD_ENDPOINT_VALID_OPTIONS == {"test": "curibio-test", "prod": "curibio"}
+    assert CLOUD_ENDPOINT_VALID_OPTIONS == {"test": "curibio-test", "modl": "curibio-modl", "prod": "curibio"}
 
 
 def test_managed_acquisition_commands():
