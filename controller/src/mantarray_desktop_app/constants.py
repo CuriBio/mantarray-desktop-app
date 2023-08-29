@@ -29,7 +29,7 @@ SOFTWARE_RELEASE_CHANNEL = "REPLACETHISWITHRELEASECHANNELDURINGBUILD"
 # Cloud APIs
 CLOUD_ENDPOINT_USER_OPTION = "REPLACETHISWITHENDPOINTDURINGBUILD"
 CLOUD_ENDPOINT_VALID_OPTIONS: immutabledict[str, str] = immutabledict(
-    {"test": "curibio-test", "prod": "curibio"}
+    {"test": "curibio-test", "modl": "curibio-modl", "prod": "curibio"}
 )
 CLOUD_DOMAIN = CLOUD_ENDPOINT_VALID_OPTIONS.get(CLOUD_ENDPOINT_USER_OPTION, "curibio-test")
 CLOUD_API_ENDPOINT = f"apiv2.{CLOUD_DOMAIN}.com"
