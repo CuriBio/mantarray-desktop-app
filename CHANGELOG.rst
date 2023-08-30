@@ -1,24 +1,35 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.1.5 (unreleased)
+1.2.0 (unreleased)
 ------------------
 
 Added:
 ^^^^^^
 - Handling for new firmware error reporting.
-- Additional special characters for platemap labels
+- Additional buffering of magnetometer data to avoid baseline drift in Live View.
+  The first 3 seconds of magnetometer data will be discarded, not to be included in recordings or Live View.
+  This will increase the duration of the Buffering state after starting live view by about 3 seconds.
+- An additional 50ms will be included at the start of each V1 recording. This will allow pulse3D to discard
+  the first 50ms after running raw data through the magnet finding algorithm in order to remove the "spike"
+  (large baseline shift) artifacts produced by the algorithm.
+- Support for additional special characters for platemap labels.
 
 Changed:
 ^^^^^^^^
 - Removed unnecessary log lines from log files.
+- Beta 2 H5 file format version is now 1.4.0. Format changes include adding the following values:
+
+  - NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID
 
 Fixed:
 ^^^^^^
 - Support for barcodes of MA Mini Plates.
+- Tooltip for recording button when in buffering state.
+- Schedule recording button now does nothing when pressed
 
 
-1.1.4 (unreleased)
+1.1.4 (2023-07-11)
 ------------------
 
 Added:
@@ -436,7 +447,7 @@ Fixed:
 
 - Added upload of log files at shutdown if customer credentials have been input.
 - Added minor styling updates.
-- Added tool tips for additional controls.
+- Added tooltips for additional controls.
 - Added 30 second max time limit to recordings.
 - Changed subprotocol edit from Shift+Click to Double Click.
 - Fixed issue with Mantarray Controller and Mantarray Software processes persisting after an error occurs and

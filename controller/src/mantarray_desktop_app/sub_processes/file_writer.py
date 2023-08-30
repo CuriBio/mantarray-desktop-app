@@ -139,16 +139,23 @@ def _find_bounds(
     min_timepoint: int,
     max_timepoint: Optional[int] = None,
 ) -> Tuple[int, int]:
-    """Return a tuple of the first and last valid indices."""
     length_of_data = time_arr.shape[0]
-    first_valid_index_in_packet: int
-    try:
-        first_valid_index_in_packet = next(i for i, time in enumerate(time_arr) if time >= min_timepoint)
-    except StopIteration as e:
-        raise NotImplementedError(
-            f"No timepoint >= the min timepoint of {min_timepoint} was found. All data passed to this function should contain at least one valid timepoint"
-        ) from e
     last_valid_index_in_packet = length_of_data - 1
+    """Return a tuple of the first and last valid indices."""
+    if time_arr[-1] == min_timepoint:
+        return -1, last_valid_index_in_packet
+
+    if time_arr[0] == min_timepoint:
+        first_valid_index_in_packet = 0
+    else:
+        try:
+            first_valid_index_in_packet = next(i for i, time in enumerate(time_arr) if time > min_timepoint)
+        except StopIteration as e:
+            raise NotImplementedError(
+                f"No timepoint >= the min timepoint of {min_timepoint} was found. All data passed to this function should contain at least one valid timepoint"
+            ) from e
+        first_valid_index_in_packet = max(0, first_valid_index_in_packet - 1)
+
     if max_timepoint is not None:
         try:
             last_valid_index_in_packet = next(

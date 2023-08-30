@@ -35,6 +35,7 @@ from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 from pulse3D.constants import MAX_MINI_SKM_EXPERIMENT_ID
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
+from pulse3D.constants import NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID
 from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import REFERENCE_VOLTAGE_UUID
@@ -65,6 +66,7 @@ from ..constants import DEFAULT_SAMPLING_PERIOD
 from ..constants import GENERIC_24_WELL_DEFINITION
 from ..constants import MICRO_TO_BASE_CONVERSION
 from ..constants import MICROSECONDS_PER_CENTIMILLISECOND
+from ..constants import NUM_INITIAL_MICROSECONDS_TO_PAD
 from ..constants import REFERENCE_VOLTAGE
 from ..exceptions import RecordingFolderDoesNotExistError
 from ..workers.file_uploader import FileUploader
@@ -333,6 +335,9 @@ def _create_start_recording_command(
             MICRO_TO_BASE_CONVERSION if shared_values_dict["beta_2_mode"] else CENTIMILLISECONDS_PER_SECOND
         )
 
+    if shared_values_dict["beta_2_mode"]:
+        begin_time_index = max(0, begin_time_index - NUM_INITIAL_MICROSECONDS_TO_PAD)
+
     if not active_well_indices:
         active_well_indices = list(range(24))
 
@@ -399,6 +404,7 @@ def _create_start_recording_command(
                 INITIAL_MAGNET_FINDING_PARAMS_UUID: json.dumps(
                     dict(instrument_metadata[INITIAL_MAGNET_FINDING_PARAMS_UUID])
                 ),
+                NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID: NUM_INITIAL_MICROSECONDS_TO_PAD,
             }
         )
     else:

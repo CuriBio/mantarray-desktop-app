@@ -62,7 +62,6 @@ from mantarray_desktop_app import MILLIVOLTS_PER_VOLT
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import NO_PLATE_DETECTED_BARCODE_VALUE
 from mantarray_desktop_app import NO_PLATE_DETECTED_UUID
-from mantarray_desktop_app import NUM_INITIAL_PACKETS_TO_DROP
 from mantarray_desktop_app import OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
 from mantarray_desktop_app import OUTGOING_DATA_BUFFER_SIZE
 from mantarray_desktop_app import RAW_TO_SIGNED_CONVERSION_VALUE
@@ -162,6 +161,7 @@ from mantarray_desktop_app.constants import ALL_VALID_BARCODE_HEADERS
 from mantarray_desktop_app.constants import BARCODE_HEADERS
 from mantarray_desktop_app.constants import BARCODE_LEN
 from mantarray_desktop_app.constants import MICRO_TO_BASE_CONVERSION
+from mantarray_desktop_app.constants import NUM_INITIAL_MICROSECONDS_TO_PAD
 from mantarray_desktop_app.constants import PERFOMANCE_LOGGING_PERIOD_SECS
 from mantarray_desktop_app.constants import POST_STIFFNESS_TO_MM_PER_MT_Z_AXIS_SENSOR_0
 from mantarray_desktop_app.constants import RECORDING_SNAPSHOT_DUR_SECS
@@ -289,7 +289,7 @@ def test_sensors_and_mappings():
 
 def test_current_file_versions():
     assert CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION == "0.4.2"
-    assert CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION == "1.3.0"
+    assert CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION == "1.4.0"
 
 
 def test_COMPILED_EXE_BUILD_TIMESTAMP():
@@ -414,10 +414,6 @@ def test_shutdown_values():
 
 def test_parallelism_config():
     assert SECONDS_TO_WAIT_WHEN_POLLING_QUEUES == 0.02
-
-
-def test_data_stream_values():
-    assert NUM_INITIAL_PACKETS_TO_DROP == 2
 
 
 def test_serial_comm():
@@ -600,4 +596,4 @@ def test_live_view_conversion():
 
 
 def test_recording_snapshot():
-    assert RECORDING_SNAPSHOT_DUR_SECS == 5
+    assert RECORDING_SNAPSHOT_DUR_SECS == 5 + (NUM_INITIAL_MICROSECONDS_TO_PAD / MICRO_TO_BASE_CONVERSION)

@@ -9,13 +9,14 @@ from mantarray_desktop_app import create_data_packet
 from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStartedError
 from mantarray_desktop_app import InstrumentDataStreamingAlreadyStoppedError
-from mantarray_desktop_app import NUM_INITIAL_PACKETS_TO_DROP
 from mantarray_desktop_app import SamplingPeriodUpdateWhileDataStreamingError
 from mantarray_desktop_app import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app import SERIAL_COMM_NUM_SENSORS_PER_WELL
 from mantarray_desktop_app import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
 from mantarray_desktop_app import SERIAL_COMM_STATUS_BEACON_PACKET_TYPE
+from mantarray_desktop_app.constants import MICRO_TO_BASE_CONVERSION
+from mantarray_desktop_app.constants import NUM_INITIAL_SECONDS_TO_DROP
 from mantarray_desktop_app.constants import PERFOMANCE_LOGGING_PERIOD_SECS
 from mantarray_desktop_app.constants import SERIAL_COMM_MAGIC_WORD_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_NUM_CHANNELS_PER_SENSOR
@@ -357,8 +358,8 @@ def test_McCommunicationProcess__correctly_indicates_which_packet_is_the_first_o
     to_fw_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][2]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
-    test_num_packets = 100
-    test_sampling_period_us = int(1e6 // test_num_packets)
+    test_sampling_period_us = DEFAULT_SAMPLING_PERIOD
+    test_num_packets_per_second = MICRO_TO_BASE_CONVERSION // test_sampling_period_us
     # mocking to ensure one second of data is sent
     mocker.patch.object(
         mc_simulator,
@@ -366,8 +367,8 @@ def test_McCommunicationProcess__correctly_indicates_which_packet_is_the_first_o
         autospec=True,
         side_effect=[
             0,
-            test_sampling_period_us * test_num_packets,
-            test_sampling_period_us * test_num_packets,
+            test_sampling_period_us * test_num_packets_per_second * (NUM_INITIAL_SECONDS_TO_DROP + 1),
+            test_sampling_period_us * test_num_packets_per_second,
         ],
     )
 
@@ -377,6 +378,7 @@ def test_McCommunicationProcess__correctly_indicates_which_packet_is_the_first_o
     set_sampling_period_and_start_streaming(
         four_board_mc_comm_process_no_handshake, simulator, sampling_period=test_sampling_period_us
     )
+    mc_process._discarding_beginning_of_data_stream = False
 
     for read_num in range(2):
         invoke_process_run_and_check_errors(simulator)
@@ -419,7 +421,7 @@ def test_McCommunicationProcess__does_not_parse_data_packets_before_one_second_o
     confirm_queue_is_eventually_empty(to_fw_queue)
 
 
-def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_data_to_file_writer_correctly__when_one_second_of_data_with_all_channels_enabled_is_present(
+def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_data_to_file_writer_correctly__when_at_least_one_second_of_data_with_all_channels_enabled_is_present(
     four_board_mc_comm_process_no_handshake,
     mantarray_mc_simulator_no_beacon,
     mocker,
@@ -428,15 +430,21 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     to_fw_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][2]
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
-    test_num_packets = 100
-    expected_num_packets = test_num_packets - NUM_INITIAL_PACKETS_TO_DROP
     test_sampling_period_us = DEFAULT_SAMPLING_PERIOD
+    test_num_packets = (
+        int((NUM_INITIAL_SECONDS_TO_DROP + 1) * MICRO_TO_BASE_CONVERSION) // test_sampling_period_us
+    ) + 1
+    expected_num_packets = MICRO_TO_BASE_CONVERSION // DEFAULT_SAMPLING_PERIOD
     # mocking to ensure one second of data is sent
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_last_data_packet",
         autospec=True,
-        side_effect=[0, test_sampling_period_us * test_num_packets],
+        side_effect=[
+            0,
+            test_sampling_period_us * (test_num_packets - expected_num_packets),
+            test_sampling_period_us * expected_num_packets,
+        ],
     )
 
     set_connection_and_register_simulator(
@@ -444,15 +452,15 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     )
     start_data_stream(four_board_mc_comm_process_no_handshake, simulator)
 
-    min_time_idx_us = test_sampling_period_us * NUM_INITIAL_PACKETS_TO_DROP
-    max_time_idx_us = test_sampling_period_us * test_num_packets
-    expected_time_indices = list(range(min_time_idx_us, max_time_idx_us, test_sampling_period_us))
+    min_time_idx_us = test_sampling_period_us
+    max_time_idx_us = test_sampling_period_us * (expected_num_packets + 1)
+    expected_time_indices = np.arange(
+        min_time_idx_us, max_time_idx_us, test_sampling_period_us, dtype=np.uint64
+    )
 
-    simulated_data = simulator.get_interpolated_data(test_sampling_period_us)[NUM_INITIAL_PACKETS_TO_DROP:]
-    expected_fw_item = {
-        "data_type": "mangetometer",
-        "time_indices": np.array(expected_time_indices, np.uint64),
-    }
+    simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
+    expected_data = np.hstack([simulated_data[1:], simulated_data[:1]])
+    expected_fw_item = {"data_type": "mangetometer", "time_indices": expected_time_indices}
     for well_idx in range(mc_process._num_wells):
         channel_dict = {
             "time_offsets": np.zeros(
@@ -460,11 +468,16 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
             ),
         }
         for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
-            channel_dict[channel_id] = simulated_data * np.uint16(well_idx + 1)
+            channel_dict[channel_id] = expected_data * np.uint16(well_idx + 1)
         expected_fw_item[well_idx] = channel_dict
     # not actually using the value here in any assertions, just need the key present
     expected_fw_item["is_first_packet_of_stream"] = None
 
+    # process discared packets
+    invoke_process_run_and_check_errors(simulator)
+    invoke_process_run_and_check_errors(mc_process)
+    confirm_queue_is_eventually_empty(to_fw_queue)
+    # process retained packets
     invoke_process_run_and_check_errors(simulator)
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(to_fw_queue, 1)
@@ -478,8 +491,7 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
         assert actual_item.keys() == expected_item.keys()
         for sub_key, expected_data in expected_item.items():
             actual_data = actual_item[sub_key]
-            expected_dtype = np.uint16
-            assert actual_data.dtype == expected_dtype
+            assert actual_data.dtype == np.uint16
             np.testing.assert_array_equal(
                 actual_data, expected_data, err_msg=f"Failure at key '{key}', sub key '{sub_key}'"
             )
@@ -495,14 +507,21 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     test_sampling_period_us = 10000  # specifically chosen so that there are 100 data packets in one second
-    test_num_packets = int(1e6 // test_sampling_period_us)
-    expected_num_packets = test_num_packets - NUM_INITIAL_PACKETS_TO_DROP
+    test_num_packets_to_drop = (
+        NUM_INITIAL_SECONDS_TO_DROP * MICRO_TO_BASE_CONVERSION
+    ) // test_sampling_period_us + 1
+    expected_num_packets = int(MICRO_TO_BASE_CONVERSION // test_sampling_period_us)
     # mocking to ensure one second of data is sent
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_last_data_packet",
         autospec=True,
-        side_effect=[0, test_sampling_period_us * test_num_packets],
+        side_effect=[
+            0,
+            test_sampling_period_us * test_num_packets_to_drop // 2,
+            test_sampling_period_us * (test_num_packets_to_drop // 2 + 1),
+            test_sampling_period_us * expected_num_packets,
+        ],
     )
 
     set_connection_and_register_simulator(
@@ -512,11 +531,14 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
         four_board_mc_comm_process_no_handshake, simulator, sampling_period=test_sampling_period_us
     )
 
-    min_time_idx_us = test_sampling_period_us * NUM_INITIAL_PACKETS_TO_DROP
-    max_time_idx_us = test_sampling_period_us * test_num_packets
-    expected_time_indices = list(range(min_time_idx_us, max_time_idx_us, test_sampling_period_us))
+    min_time_idx_us = test_sampling_period_us
+    max_time_idx_us = test_sampling_period_us * (expected_num_packets + 1)
+    expected_time_indices = np.arange(
+        min_time_idx_us, max_time_idx_us, test_sampling_period_us, dtype=np.uint64
+    )
 
-    simulated_data = simulator.get_interpolated_data(test_sampling_period_us)[NUM_INITIAL_PACKETS_TO_DROP:]
+    simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
+    expected_data = np.hstack([simulated_data[1:], simulated_data[:1]])
     expected_fw_item = {
         "data_type": "mangetometer",
         "time_indices": np.array(expected_time_indices, np.uint64),
@@ -528,11 +550,17 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
             )
         }
         for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
-            channel_dict[channel_id] = simulated_data * np.uint16(well_idx + 1)
+            channel_dict[channel_id] = expected_data * np.uint16(well_idx + 1)
         expected_fw_item[well_idx] = channel_dict
     # not actually using the value here in any assertions, just need the key present
     expected_fw_item["is_first_packet_of_stream"] = None
 
+    # process discared packets
+    for _ in range(2):
+        invoke_process_run_and_check_errors(simulator)
+        invoke_process_run_and_check_errors(mc_process)
+        confirm_queue_is_eventually_empty(to_fw_queue)
+    # process retained packets
     invoke_process_run_and_check_errors(simulator)
     invoke_process_run_and_check_errors(mc_process)
     confirm_queue_is_eventually_of_size(to_fw_queue, 1)
@@ -562,14 +590,13 @@ def test_McCommunicationProcess__handles_one_second_read_with_two_interrupting_p
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
     test_sampling_period_us = 10000  # specifically chosen so that there are 100 data packets in one second
-    test_num_packets = int(1.5e6 // test_sampling_period_us)
-    expected_num_packets = test_num_packets - NUM_INITIAL_PACKETS_TO_DROP
+    expected_num_packets = int(MICRO_TO_BASE_CONVERSION * 1.5 // test_sampling_period_us)
     # mocking to ensure one second of data is sent
     mocker.patch.object(
         mc_simulator,
         "_get_us_since_last_data_packet",
         autospec=True,
-        side_effect=[0, test_sampling_period_us * test_num_packets, 0],
+        side_effect=[0, test_sampling_period_us * expected_num_packets, 0],
     )
 
     set_connection_and_register_simulator(
@@ -578,9 +605,10 @@ def test_McCommunicationProcess__handles_one_second_read_with_two_interrupting_p
     set_sampling_period_and_start_streaming(
         four_board_mc_comm_process_no_handshake, simulator, sampling_period=test_sampling_period_us
     )
+    mc_process._discarding_beginning_of_data_stream = False
 
-    min_time_idx_us = test_sampling_period_us * NUM_INITIAL_PACKETS_TO_DROP
-    max_time_idx_us = test_sampling_period_us * test_num_packets
+    min_time_idx_us = 0
+    max_time_idx_us = test_sampling_period_us * expected_num_packets
     expected_time_indices = list(range(min_time_idx_us, max_time_idx_us, test_sampling_period_us))
 
     simulated_data = simulator.get_interpolated_data(test_sampling_period_us)
@@ -591,9 +619,7 @@ def test_McCommunicationProcess__handles_one_second_read_with_two_interrupting_p
     }
     for module_id in range(24):
         well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
-        channel_data = np.concatenate(
-            (simulated_data[NUM_INITIAL_PACKETS_TO_DROP:], simulated_data[: test_num_packets // 3])
-        )
+        channel_data = np.concatenate((simulated_data, simulated_data[: expected_num_packets // 3]))
         channel_dict = {
             "time_offsets": np.zeros(
                 (SERIAL_COMM_NUM_SENSORS_PER_WELL, expected_num_packets), dtype=np.uint16
