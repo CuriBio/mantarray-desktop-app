@@ -103,7 +103,7 @@ def test_FileWriterProcess__creates_temp_dir_for_calibration_files_in_beta_2_mod
         fw_process_beta_2 = FileWriterProcess(
             (), Queue(), Queue(), Queue(), file_directory=tmpdir, beta_2_mode=True
         )
-        spied_temp_dir.assert_called_once()
+        spied_temp_dir.assert_called_once_with(ignore_cleanup_errors=True)
         assert fw_process_beta_2.calibration_file_directory == spied_temp_dir.spy_return.name
 
 

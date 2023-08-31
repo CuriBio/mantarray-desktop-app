@@ -388,7 +388,7 @@ class FileWriterProcess(InfiniteProcess):
 
     def set_beta_2_mode(self) -> None:
         self._beta_2_mode = True
-        self._calibration_folder = tempfile.TemporaryDirectory()
+        self._calibration_folder = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.calibration_file_directory = self._calibration_folder.name
 
     def get_upload_threads_container(self) -> List[Dict[str, Any]]:
