@@ -34,7 +34,7 @@ jobs:
     runs-on: "ubuntu-22.04"
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Confirming tag not already present on remote
         run: if [$(git ls-remote --tags origin | grep ${{ steps.extract_version.outputs.package-version }}) = '']; then echo Tag does not exist on remote; else echo Tag already exists on remote && exit 1; fi
@@ -89,7 +89,7 @@ jobs:
           Get-DisplayResolution
 
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Convert Workflow Inputs to Env Vars
         run: |
