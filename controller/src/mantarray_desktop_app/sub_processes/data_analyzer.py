@@ -52,6 +52,7 @@ from ..constants import CONSTRUCT_SENSORS_PER_REF_SENSOR
 from ..constants import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from ..constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from ..constants import DEFAULT_SAMPLING_PERIOD
+from ..constants import GENERIC_24_WELL_DEFINITION
 from ..constants import MICRO_TO_BASE_CONVERSION
 from ..constants import MICROSECONDS_PER_CENTIMILLISECOND
 from ..constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
@@ -72,7 +73,9 @@ METRIC_CALCULATORS = immutabledict(
 
 
 def _get_post_stiffness_factor_for_well(plate_barcode: str, well_idx: int) -> int:
-    return get_stiffness_factor(get_experiment_id(plate_barcode), well_idx)  # type: ignore
+    well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
+    experiment_id = get_experiment_id(plate_barcode)
+    return get_stiffness_factor(experiment_id, well_name)  # type: ignore  # mypy doesn't understand that this will always return an int
 
 
 def calculate_displacement_from_magnetic_flux_density(
