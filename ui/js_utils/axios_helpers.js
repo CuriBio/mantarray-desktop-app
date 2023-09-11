@@ -31,7 +31,11 @@ export async function call_axios_get_from_vuex(url, action_context, params = {},
     } else if (error.request) {
       // The request was made but no response was received
       console.log(`No response was received to request for ${url}. Full Request: ${error.request}`); // allow-log
-      if (url.includes("system_status") && retry) {
+      if (
+        url.includes("system_status") &&
+        retry &&
+        action_context.rootState.flask.status_uuid !== STATUS.MESSAGE.SERVER_BOOTING_UP
+      ) {
         console.log(`Retrying request for ${url} in 5 seconds`); // allow-log
         return await new Promise((resolve) => {
           setTimeout(() => {
