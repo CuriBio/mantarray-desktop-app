@@ -21,6 +21,7 @@ on:
         type: choice
         options:
           - test
+          - modl
           - prod
   push:
     branches:
@@ -55,11 +56,6 @@ jobs:
         run: |
           if [ "${{github.event.inputs.api_endpoint}}" = "prod" ] ; then echo "Using prod API endpoint, can proceed to publish"; else exit 1; fi
           if [ "${{ env.SHA_OF_CURRENT_BRANCH }}" = "${{ env.SHA_OF_MAIN_BRANCH }}" ] ; then echo "Running on main branch, can proceed to publish"; else exit 1; fi
-
-      - name: Fail if attempting to publish to unstable release channel incorrectly
-        if: github.event.inputs.release_channel == 'unstable'
-        run: |
-          if [ "${{github.event.inputs.api_endpoint}}" = "test" ] ; then echo "Using test API endpoint, can proceed to publish"; else exit 1; fi
 
   publish:
     needs: [check_inputs]

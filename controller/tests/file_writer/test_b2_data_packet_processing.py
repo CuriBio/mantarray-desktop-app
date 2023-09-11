@@ -194,6 +194,57 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
     np.testing.assert_array_equal(actual_tissue_data, expected_tissue_data)
 
 
+def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_data_chunk_ends_at_the_timestamp_idx__and_sets_timestamp_metadata_for_tissue_since_this_is_first_piece_of_data(
+    four_board_file_writer_process,
+):
+    fw_process = four_board_file_writer_process["fw_process"]
+    fw_process.set_beta_2_mode()
+    populate_calibration_folder(fw_process)
+
+    board_queues = four_board_file_writer_process["board_queues"]
+    from_main_queue = four_board_file_writer_process["from_main_queue"]
+    file_dir = four_board_file_writer_process["file_dir"]
+
+    test_well_index = randint(0, 23)
+    test_well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_index)
+
+    start_recording_command = dict(GENERIC_BETA_2_START_RECORDING_COMMAND)
+    start_recording_command["active_well_indices"] = [test_well_index]
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
+
+    num_data_points = 50
+    start_timepoint = start_recording_command["timepoint_to_begin_recording_at"] - num_data_points + 1
+    test_data_packet = create_simple_beta_2_data_packet(
+        start_timepoint, 0, start_recording_command["active_well_indices"], num_data_points
+    )
+
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(
+        copy.deepcopy(test_data_packet), board_queues[0][0]
+    )
+    invoke_process_run_and_check_errors(fw_process)
+
+    expected_timestamp = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+        UTC_BEGINNING_DATA_ACQUISTION_UUID
+    ] + datetime.timedelta(
+        seconds=start_recording_command["timepoint_to_begin_recording_at"] / MICRO_TO_BASE_CONVERSION
+    )
+
+    with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
+        assert this_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
+            "%Y-%m-%d %H:%M:%S.%f"
+        )
+        actual_time_index_data = get_time_index_dataset_from_file(this_file)[:]
+        actual_time_offset_data = get_time_offset_dataset_from_file(this_file)[:]
+        actual_tissue_data = get_tissue_dataset_from_file(this_file)[:]
+
+    np.testing.assert_array_equal(actual_time_index_data, test_data_packet["time_indices"][-1:])
+    np.testing.assert_array_equal(
+        actual_time_offset_data, test_data_packet[test_well_index]["time_offsets"][..., -1:]
+    )
+    expected_tissue_data = _get_expected_sensor_data_arr(test_data_packet, test_well_index)
+    np.testing.assert_array_equal(actual_tissue_data, expected_tissue_data[..., -1:])
+
+
 def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_timestamp_idx_starts_part_way_through_the_chunk__and_sets_timestamp_metadata_for_tissue_since_this_is_first_piece_of_data(
     four_board_file_writer_process,
 ):
@@ -212,12 +263,13 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
     start_recording_command["active_well_indices"] = [test_well_index]
     put_object_into_queue_and_raise_error_if_eventually_still_empty(start_recording_command, from_main_queue)
 
+    step = 2
     total_num_data_points = 75
     num_recorded_data_points = 50
-    time_index_offset = total_num_data_points - num_recorded_data_points
-    start_timepoint = start_recording_command["timepoint_to_begin_recording_at"] - time_index_offset
+    time_index_offset = (total_num_data_points - num_recorded_data_points) * step
+    start_timepoint = start_recording_command["timepoint_to_begin_recording_at"] - time_index_offset - 1
     test_data_packet = create_simple_beta_2_data_packet(
-        start_timepoint, 0, start_recording_command["active_well_indices"], total_num_data_points
+        start_timepoint, 0, start_recording_command["active_well_indices"], total_num_data_points, step=step
     )
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -228,7 +280,7 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
     expected_timestamp = start_recording_command["metadata_to_copy_onto_main_file_attributes"][
         UTC_BEGINNING_DATA_ACQUISTION_UUID
     ] + datetime.timedelta(
-        seconds=(start_recording_command["timepoint_to_begin_recording_at"]) / MICRO_TO_BASE_CONVERSION
+        seconds=((start_recording_command["timepoint_to_begin_recording_at"] - 1) / MICRO_TO_BASE_CONVERSION)
     )
 
     with open_the_generic_h5_file(file_dir, well_name=test_well_name, beta_version=2) as this_file:
@@ -240,13 +292,14 @@ def test_FileWriterProcess_process_magnetometer_data_packet__writes_data_if_the_
         actual_tissue_data = get_tissue_dataset_from_file(this_file)[:]
 
     np.testing.assert_array_equal(
-        actual_time_index_data, test_data_packet["time_indices"][time_index_offset:]
+        actual_time_index_data, test_data_packet["time_indices"][-num_recorded_data_points:]
     )
     np.testing.assert_array_equal(
-        actual_time_offset_data, test_data_packet[test_well_index]["time_offsets"][:, time_index_offset:]
+        actual_time_offset_data,
+        test_data_packet[test_well_index]["time_offsets"][:, -num_recorded_data_points:],
     )
     expected_tissue_data = _get_expected_sensor_data_arr(test_data_packet, test_well_index)[
-        :, time_index_offset:
+        :, -num_recorded_data_points:
     ]
     np.testing.assert_array_equal(actual_tissue_data, expected_tissue_data)
 

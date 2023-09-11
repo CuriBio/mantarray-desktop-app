@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import copy
 import datetime
+from enum import auto
+from enum import Enum
 import logging
 from multiprocessing import Queue
 import queue
@@ -31,13 +33,14 @@ from wakepy import set_keepawake
 from wakepy import unset_keepawake
 
 from .instrument_comm import InstrumentCommProcess
+from ..constants import CURI_VID
 from ..constants import DEFAULT_SAMPLING_PERIOD
 from ..constants import GENERIC_24_WELL_DEFINITION
 from ..constants import MAX_CHANNEL_FIRMWARE_UPDATE_DURATION_SECONDS
 from ..constants import MAX_MAIN_FIRMWARE_UPDATE_DURATION_SECONDS
 from ..constants import MAX_MC_REBOOT_DURATION_SECONDS
 from ..constants import MICRO_TO_BASE_CONVERSION
-from ..constants import NUM_INITIAL_PACKETS_TO_DROP
+from ..constants import NUM_INITIAL_SECONDS_TO_DROP
 from ..constants import PERFOMANCE_LOGGING_PERIOD_SECS
 from ..constants import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from ..constants import SERIAL_COMM_BAUD_RATE
@@ -60,7 +63,6 @@ from ..constants import SERIAL_COMM_MF_UPDATE_COMPLETE_PACKET_TYPE
 from ..constants import SERIAL_COMM_MODULE_ID_TO_WELL_IDX
 from ..constants import SERIAL_COMM_NUM_DATA_CHANNELS
 from ..constants import SERIAL_COMM_NUM_SENSORS_PER_WELL
-from ..constants import SERIAL_COMM_OKAY_CODE
 from ..constants import SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES
 from ..constants import SERIAL_COMM_PLATE_EVENT_PACKET_TYPE
 from ..constants import SERIAL_COMM_REBOOT_PACKET_TYPE
@@ -146,6 +148,12 @@ COMMAND_PACKET_TYPES = frozenset(
 )
 
 
+class MetadataStatuses(Enum):
+    SKIP = auto()
+    NEED = auto()
+    ERROR = auto()
+
+
 def _get_formatted_utc_now() -> str:
     return datetime.datetime.utcnow().strftime(DATETIME_STR_FORMAT)
 
@@ -221,7 +229,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         )
         self._num_wells = 24
         self._is_registered_with_serial_comm: List[bool] = [False] * len(self._board_queues)
-        self._auto_get_metadata = False
+        self._metadata_status = MetadataStatuses.SKIP
         self._time_of_last_handshake_secs: Optional[float] = None
         self._time_of_last_beacon_secs: Optional[float] = None
         self._handshake_sent_after_beacon_missed = False
@@ -252,6 +260,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._sampling_period_us = DEFAULT_SAMPLING_PERIOD
         self._is_data_streaming = False
         self._has_data_packet_been_sent = False
+        self._discarding_beginning_of_data_stream = True
         self._serial_packet_cache = bytes(0)
         self._mag_data_cache_dict: Dict[str, Union[bytearray, int]]
         self._reset_mag_data_cache()
@@ -312,7 +321,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             # also make sure that the computer does not put itself to sleep
             set_keepawake(keep_screen_awake=True)
 
-        self._auto_get_metadata = True
+        self._metadata_status = MetadataStatuses.NEED
 
     def _teardown_after_loop(self) -> None:
         board_idx = 0
@@ -432,7 +441,7 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _create_board_connection(self) -> Tuple[Union[MantarrayMcSimulator, serial.Serial], str]:
         for port_info in list_ports.comports():
             # Tanner (6/14/21): attempt to connect to any device with the STM vendor ID
-            if port_info.vid == STM_VID:
+            if port_info.vid in (STM_VID, CURI_VID):
                 conn_msg = f"Board detected with description: {port_info.description}"
                 serial_conn = serial.Serial(
                     port=port_info.name,
@@ -807,6 +816,8 @@ class McCommunicationProcess(InstrumentCommProcess):
             if prev_command["command"] == "get_metadata":
                 prev_command["board_index"] = board_idx
                 prev_command["metadata"] = metadata = parse_metadata_bytes(response_data)
+                if self._metadata_status == MetadataStatuses.ERROR:
+                    raise InstrumentFirmwareError(f"Error Details: {metadata}")
                 if metadata.pop("is_stingray"):
                     raise IncorrectInstrumentConnectedError()
             elif prev_command["command"] == "reboot":
@@ -822,6 +833,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._is_data_streaming = True
                 self._has_stim_packet_been_sent = False
                 self._has_data_packet_been_sent = False
+                self._discarding_beginning_of_data_stream = True
                 if response_data[0]:
                     if not self._hardware_test_mode:
                         raise InstrumentDataStreamingAlreadyStartedError()
@@ -833,19 +845,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                 prev_command["timestamp"] = datetime.datetime.utcnow()
                 # Tanner (6/11/21): This helps prevent against status beacon timeouts with beacons that come just after the data stream begins but before 1 second of data is available
                 self._time_of_last_beacon_secs = perf_counter()
-                # send any buffered stim statuses
-                well_statuses: Dict[int, Any] = {}
-                for well_idx in range(self._num_wells):
-                    stim_statuses = self._stim_status_buffers[well_idx]
-                    if len(stim_statuses[0]) == 0 or stim_statuses[1][-1] == STIM_COMPLETE_SUBPROTOCOL_IDX:
-                        continue
-                    well_statuses[well_idx] = np.array(
-                        [stim_statuses[0][-1:], stim_statuses[1][-1:]], dtype=np.int64
-                    )
-                    well_statuses[well_idx][0] -= self._base_global_time_of_data_stream
-
-                if well_statuses:
-                    self._dump_stim_packet(well_statuses)
             elif prev_command["command"] == "stop_managed_acquisition":
                 self._is_data_streaming = False
                 if response_data[0]:
@@ -966,18 +965,10 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._timepoints_of_prev_actions["command_response_received"] = perf_counter()
 
     def _process_status_beacon(self, packet_payload: bytes) -> None:
-        board_idx = 0
         status_codes_dict = convert_status_code_bytes_to_dict(
             packet_payload[:SERIAL_COMM_STATUS_CODE_LENGTH_BYTES]
         )
         self._handle_status_codes(status_codes_dict, "Status Beacon")
-        if status_codes_dict["main_status"] == SERIAL_COMM_OKAY_CODE and self._auto_get_metadata:
-            self._send_data_packet(board_idx, SERIAL_COMM_GET_METADATA_PACKET_TYPE)
-            self._add_command_to_track(
-                SERIAL_COMM_GET_METADATA_PACKET_TYPE,
-                {"communication_type": "metadata_comm", "command": "get_metadata"},
-            )
-            self._auto_get_metadata = False
 
     def _register_magic_word(self, board_idx: int) -> None:
         board = self._board_connections[board_idx]
@@ -1136,30 +1127,49 @@ class McCommunicationProcess(InstrumentCommProcess):
         new_performance_tracking_values["num_mag_packets_parsed"] = len(time_indices)
 
         is_first_packet = not self._has_data_packet_been_sent
-        data_start_idx = NUM_INITIAL_PACKETS_TO_DROP if is_first_packet else 0
-        data_slice = slice(data_start_idx, self._mag_data_cache_dict["num_packets"])
 
-        mag_data_packet: Dict[Any, Any] = {
-            "data_type": "magnetometer",
-            "time_indices": time_indices[data_slice],
-            "is_first_packet_of_stream": is_first_packet,
-        }
+        if self._discarding_beginning_of_data_stream:
+            earliest_allowed_time_index = NUM_INITIAL_SECONDS_TO_DROP * MICRO_TO_BASE_CONVERSION
+            if time_indices[-1] >= earliest_allowed_time_index:
+                self._discarding_beginning_of_data_stream = False
+                self._base_global_time_of_data_stream += int(time_indices[-1])
 
-        time_offset_idx = 0
-        for module_id in range(self._num_wells):
-            time_offset_slice = slice(time_offset_idx, time_offset_idx + SERIAL_COMM_NUM_SENSORS_PER_WELL)
-            time_offset_idx += SERIAL_COMM_NUM_SENSORS_PER_WELL
+                # send any buffered stim statuses
+                well_statuses: Dict[int, Any] = {}
+                for well_idx in range(self._num_wells):
+                    stim_statuses = self._stim_status_buffers[well_idx]
+                    if len(stim_statuses[0]) == 0 or stim_statuses[1][-1] == STIM_COMPLETE_SUBPROTOCOL_IDX:
+                        continue
+                    well_statuses[well_idx] = np.array(
+                        [stim_statuses[0][-1:], stim_statuses[1][-1:]], dtype=np.int64
+                    )
+                    well_statuses[well_idx][0] -= self._base_global_time_of_data_stream
 
-            well_dict: Dict[Any, Any] = {"time_offsets": time_offsets[time_offset_slice, data_slice]}
+                if well_statuses:
+                    self._dump_stim_packet(well_statuses)
+        else:
+            data_slice = slice(0, self._mag_data_cache_dict["num_packets"])
+            mag_data_packet: Dict[Any, Any] = {
+                "data_type": "magnetometer",
+                "time_indices": time_indices[data_slice],
+                "is_first_packet_of_stream": is_first_packet,
+            }
 
-            data_idx = module_id * SERIAL_COMM_NUM_DATA_CHANNELS
-            for channel_idx in range(SERIAL_COMM_NUM_DATA_CHANNELS):
-                well_dict[channel_idx] = data[data_idx + channel_idx, data_slice]
+            time_offset_idx = 0
+            for module_id in range(self._num_wells):
+                time_offset_slice = slice(time_offset_idx, time_offset_idx + SERIAL_COMM_NUM_SENSORS_PER_WELL)
+                time_offset_idx += SERIAL_COMM_NUM_SENSORS_PER_WELL
 
-            well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
-            mag_data_packet[well_idx] = well_dict
+                well_dict: Dict[Any, Any] = {"time_offsets": time_offsets[time_offset_slice, data_slice]}
 
-        self._dump_mag_data_packet(mag_data_packet)
+                data_idx = module_id * SERIAL_COMM_NUM_DATA_CHANNELS
+                for channel_idx in range(SERIAL_COMM_NUM_DATA_CHANNELS):
+                    well_dict[channel_idx] = data[data_idx + channel_idx, data_slice]
+
+                well_idx = SERIAL_COMM_MODULE_ID_TO_WELL_IDX[module_id]
+                mag_data_packet[well_idx] = well_dict
+
+            self._dump_mag_data_packet(mag_data_packet)
 
         # reset cache now that all mag data has been parsed
         self._reset_mag_data_cache()
@@ -1209,7 +1219,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 }
             )
 
-        if self._is_data_streaming:
+        if self._is_data_streaming and not self._discarding_beginning_of_data_stream:
             for stim_status_updates in well_statuses.values():
                 stim_status_updates[0] -= self._base_global_time_of_data_stream
             self._dump_stim_packet(well_statuses)
@@ -1284,6 +1294,18 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._handshake_sent_after_beacon_missed = False
 
         board_idx = 0
+
+        is_error_code_present = any(status_codes_dict.values())
+
+        # Tanner (7/17/23): need to retrieve metadata after the first status beacon is received, and before handling any error codes
+        if self._metadata_status == MetadataStatuses.NEED:
+            self._send_data_packet(board_idx, SERIAL_COMM_GET_METADATA_PACKET_TYPE)
+            self._add_command_to_track(
+                SERIAL_COMM_GET_METADATA_PACKET_TYPE,
+                {"communication_type": "metadata_comm", "command": "get_metadata"},
+            )
+            self._metadata_status = MetadataStatuses.ERROR if is_error_code_present else MetadataStatuses.SKIP
+
         if (
             self._time_of_reboot_start is not None
         ):  # Tanner (4/1/21): want to check that reboot has actually started before considering a status beacon to mean that reboot has completed. It is possible (and has happened in unit tests) where a beacon is received in between sending the reboot command and the instrument actually beginning to reboot
@@ -1296,8 +1318,6 @@ class McCommunicationProcess(InstrumentCommProcess):
                     "message": "Instrument completed reboot",
                 }
             )
-
-        is_error_code_present = any(status_codes_dict.values())
 
         status_codes_msg = f"{comm_type} received from instrument. Status Codes: {status_codes_dict}"
         put_log_message_into_queue(

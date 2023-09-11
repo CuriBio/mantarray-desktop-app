@@ -33,7 +33,9 @@ from pulse3D.constants import INITIAL_MAGNET_FINDING_PARAMS_UUID
 from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
+from pulse3D.constants import MAX_MINI_SKM_EXPERIMENT_ID
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
+from pulse3D.constants import NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID
 from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import REFERENCE_VOLTAGE_UUID
@@ -64,6 +66,7 @@ from ..constants import DEFAULT_SAMPLING_PERIOD
 from ..constants import GENERIC_24_WELL_DEFINITION
 from ..constants import MICRO_TO_BASE_CONVERSION
 from ..constants import MICROSECONDS_PER_CENTIMILLISECOND
+from ..constants import NUM_INITIAL_MICROSECONDS_TO_PAD
 from ..constants import REFERENCE_VOLTAGE
 from ..exceptions import RecordingFolderDoesNotExistError
 from ..workers.file_uploader import FileUploader
@@ -271,7 +274,7 @@ def _check_new_barcode(barcode: str, beta_2_mode: bool) -> str:
         return f"barcode contains invalid year: '{barcode[2:4]}'"
     if not 0 < int(barcode[4:7]) < 366:
         return f"barcode contains invalid Julian date: '{barcode[4:7]}'"
-    if not 0 <= int(barcode[7:10]) < 400:
+    if not 0 <= int(barcode[7:10]) <= MAX_MINI_SKM_EXPERIMENT_ID:
         return f"barcode contains invalid experiment id: '{barcode[7:10]}'"
     # final digit must equal beta version (1/2)
     last_digit = int(barcode[-1])
@@ -331,6 +334,9 @@ def _create_start_recording_command(
         begin_time_index = time_since_index_0.total_seconds() * (
             MICRO_TO_BASE_CONVERSION if shared_values_dict["beta_2_mode"] else CENTIMILLISECONDS_PER_SECOND
         )
+
+    if shared_values_dict["beta_2_mode"]:
+        begin_time_index = max(0, begin_time_index - NUM_INITIAL_MICROSECONDS_TO_PAD)
 
     if not active_well_indices:
         active_well_indices = list(range(24))
@@ -398,6 +404,7 @@ def _create_start_recording_command(
                 INITIAL_MAGNET_FINDING_PARAMS_UUID: json.dumps(
                     dict(instrument_metadata[INITIAL_MAGNET_FINDING_PARAMS_UUID])
                 ),
+                NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID: NUM_INITIAL_MICROSECONDS_TO_PAD,
             }
         )
     else:

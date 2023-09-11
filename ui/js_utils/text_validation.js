@@ -93,11 +93,10 @@ export class TextValidation {
    */
   validate_platemap_editor_input(text) {
     let feedback = "";
-    const valid_regex = new RegExp("^[0-9A-Za-z _-]+$");
+    const valid_regex = new RegExp("^[0-9A-Za-z ./_-]+$");
     if (!text || text.length === 0) feedback = "Required";
     else if (!valid_regex.test(text))
-      feedback =
-        "Invalid character present. Valid characters are alphanumeric, spaces, hyphens, and underscores";
+      feedback = "Invalid character present. Valid characters are alphanumeric, spaces, and _ . / -";
 
     return feedback;
   }
@@ -245,8 +244,8 @@ export class TextValidation {
     if (parseInt(barcode.slice(4, 7)) < 1 || parseInt(barcode.slice(4, 7)) > 365) {
       return " ";
     }
-    // check that experiment code is between 0 and 299 inclusive
-    if (parseInt(barcode.slice(7, 10)) < 0 || parseInt(barcode.slice(7, 10)) > 399) {
+    // check that experiment code is between 0 and 499 inclusive
+    if (parseInt(barcode.slice(7, 10)) < 0 || parseInt(barcode.slice(7, 10)) > 499) {
       return " ";
     }
     // check if in beta one or two mode. if last digit invalid then mark the barcode as invalid
