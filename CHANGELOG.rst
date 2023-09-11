@@ -1,6 +1,14 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+1.2.1 (unreleased)
+------------------
+
+Fixed:
+^^^^^^
+- Issue with interprocess comms failing after the app has been running for extended periods of time
+
+
 1.2.0 (unreleased)
 ------------------
 

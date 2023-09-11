@@ -11,9 +11,10 @@ Vue.use(VueAxios, axios);
  * @param {string} url - The URL to pass to axios.get, without query params
  * @param {Object} action_context - The context of the Vuex action calling this function (to give this function access to the Vuex store)
  * @param {Object} params - The query params to include in the URL
+ * @param {bool} retry - Whether or not to retry the request if it fails due to a NetworkError. Only works for /system_status
  * @return {Object} the result of the axios call
  */
-export async function call_axios_get_from_vuex(url, action_context, params = {}) {
+export async function call_axios_get_from_vuex(url, action_context, params = {}, retry = true) {
   try {
     return await Vue.axios.get(url, { params });
   } catch (error) {
@@ -29,7 +30,20 @@ export async function call_axios_get_from_vuex(url, action_context, params = {})
       console.log("headers:", error.response.headers); // allow-log
     } else if (error.request) {
       // The request was made but no response was received
-      console.log("No response was received to request:", error.request); // allow-log
+      console.log(`No response was received to request for ${url}. Full Request: ${error.request}`); // allow-log
+      if (
+        url.includes("system_status") &&
+        retry &&
+        action_context.rootState.flask.status_uuid !== STATUS.MESSAGE.SERVER_BOOTING_UP
+      ) {
+        console.log(`Retrying request for ${url} in 5 seconds`); // allow-log
+        return await new Promise((resolve) => {
+          setTimeout(() => {
+            const retry_result = call_axios_get_from_vuex(url, action_context, params, false);
+            resolve(retry_result);
+          }, 5000);
+        });
+      }
     } else {
       // Something happened in setting up the request that triggered an Error
       console.log("Error", error.message); // allow-log
