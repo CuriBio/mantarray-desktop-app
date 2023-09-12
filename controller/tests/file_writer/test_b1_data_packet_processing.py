@@ -141,26 +141,27 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_if_the_
     this_data_packet = dict(GENERIC_TISSUE_DATA_PACKET)
     this_data_packet["data"] = data
 
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_data_packet,
-        board_queues[0][0],
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_data_packet, board_queues[0][0])
     invoke_process_run_and_check_errors(file_writer_process)
 
     with open_the_generic_h5_file(file_dir) as actual_file:
         expected_timestamp = this_command["metadata_to_copy_onto_main_file_attributes"][
             UTC_BEGINNING_DATA_ACQUISTION_UUID
         ] + datetime.timedelta(
-            seconds=(this_command["timepoint_to_begin_recording_at"] + DATA_FRAME_PERIOD)
+            seconds=(
+                this_command["timepoint_to_begin_recording_at"]
+                - CONSTRUCT_SENSOR_SAMPLING_PERIOD
+                + DATA_FRAME_PERIOD
+            )
             / CENTIMILLISECONDS_PER_SECOND
         )
         assert actual_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
             "%Y-%m-%d %H:%M:%S.%f"
         )
         actual_tissue_data = get_tissue_dataset_from_file(actual_file)
-        assert actual_tissue_data.shape == (50,)
-        assert actual_tissue_data[0] == 50
-        assert actual_tissue_data[2] == 54
+        assert actual_tissue_data.shape == (51,)
+        assert actual_tissue_data[0] == 48
+        assert actual_tissue_data[2] == 52
 
 
 def test_FileWriterProcess__process_next_data_packet__does_not_write_tissue_data_if_data_chunk_is_all_before_the_timestamp_idx(
@@ -212,10 +213,7 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_for_two
 
     this_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [4]
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_command,
-        from_main_queue,
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     num_data_points = 75
     data = np.zeros((2, num_data_points), dtype=np.int32)
 
@@ -240,25 +238,26 @@ def test_FileWriterProcess__process_next_data_packet__writes_tissue_data_for_two
     next_data_packet["data"] = next_data
 
     board_queues[0][0].put_nowait(this_data_packet)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        next_data_packet,
-        board_queues[0][0],
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(next_data_packet, board_queues[0][0])
     invoke_process_run_and_check_errors(file_writer_process, num_iterations=2)
 
     with open_the_generic_h5_file(file_dir) as actual_file:
         expected_timestamp = this_command["metadata_to_copy_onto_main_file_attributes"][
             UTC_BEGINNING_DATA_ACQUISTION_UUID
         ] + datetime.timedelta(
-            seconds=(this_command["timepoint_to_begin_recording_at"] + DATA_FRAME_PERIOD)
+            seconds=(
+                this_command["timepoint_to_begin_recording_at"]
+                - CONSTRUCT_SENSOR_SAMPLING_PERIOD
+                + DATA_FRAME_PERIOD
+            )
             / CENTIMILLISECONDS_PER_SECOND
         )
         assert actual_file.attrs[str(UTC_FIRST_TISSUE_DATA_POINT_UUID)] == expected_timestamp.strftime(
             "%Y-%m-%d %H:%M:%S.%f"
         )
         actual_tissue_data = get_tissue_dataset_from_file(actual_file)
-        assert actual_tissue_data.shape == (60,)
-        assert actual_tissue_data[0] == 60
+        assert actual_tissue_data.shape == (61,)
+        assert actual_tissue_data[0] == 58
         assert actual_tissue_data[-1] == 1028
 
 
@@ -272,10 +271,7 @@ def test_FileWriterProcess__process_next_data_packet__writes_reference_data_to_a
 
     this_command = dict(GENERIC_BETA_1_START_RECORDING_COMMAND)
     this_command["active_well_indices"] = [4, 0]
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_command,
-        from_main_queue,
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_command, from_main_queue)
     num_data_points = 70
 
     # create and send tissue data for active wells
@@ -286,10 +282,7 @@ def test_FileWriterProcess__process_next_data_packet__writes_reference_data_to_a
             np.arange(len(this_data_packet["data"][0]))
             + GENERIC_BETA_1_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
         )
-        put_object_into_queue_and_raise_error_if_eventually_still_empty(
-            this_data_packet,
-            board_queues[0][0],
-        )
+        put_object_into_queue_and_raise_error_if_eventually_still_empty(this_data_packet, board_queues[0][0])
         invoke_process_run_and_check_errors(file_writer_process)
 
     # create and send ref data
@@ -303,10 +296,7 @@ def test_FileWriterProcess__process_next_data_packet__writes_reference_data_to_a
         data[1, this_index] = this_index * 3
     this_data_packet = dict(GENERIC_REFERENCE_SENSOR_DATA_PACKET)
     this_data_packet["data"] = data
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        this_data_packet,
-        board_queues[0][0],
-    )
+    put_object_into_queue_and_raise_error_if_eventually_still_empty(this_data_packet, board_queues[0][0])
     invoke_process_run_and_check_errors(file_writer_process)
 
     actual_file_4 = open_the_generic_h5_file_as_WellFile(file_dir)
@@ -316,7 +306,7 @@ def test_FileWriterProcess__process_next_data_packet__writes_reference_data_to_a
     expected_timestamp = this_command["metadata_to_copy_onto_main_file_attributes"][
         UTC_BEGINNING_DATA_ACQUISTION_UUID
     ] + datetime.timedelta(
-        seconds=(this_command["timepoint_to_begin_recording_at"] + DATA_FRAME_PERIOD)
+        seconds=(this_command["timepoint_to_begin_recording_at"] - DATA_FRAME_PERIOD)
         / CENTIMILLISECONDS_PER_SECOND
     )
     assert actual_file_0[str(UTC_FIRST_REF_DATA_POINT_UUID)] == expected_timestamp.replace(
@@ -326,14 +316,14 @@ def test_FileWriterProcess__process_next_data_packet__writes_reference_data_to_a
         tzinfo=datetime.timezone.utc
     )
     actual_reference_data_0 = actual_file_0[REFERENCE_SENSOR_READINGS][1, :]
-    assert actual_reference_data_0.shape == (40,)
-    assert actual_reference_data_0[0] == 90
-    assert actual_reference_data_0[2] == 96
+    assert actual_reference_data_0.shape == (41,)
+    assert actual_reference_data_0[0] == 87
+    assert actual_reference_data_0[2] == 93
 
     actual_reference_data_4 = actual_file_4[REFERENCE_SENSOR_READINGS][1, :]
-    assert actual_reference_data_4.shape == (40,)
-    assert actual_reference_data_4[0] == 90
-    assert actual_reference_data_0[39] == 207
+    assert actual_reference_data_4.shape == (41,)
+    assert actual_reference_data_4[0] == 87
+    assert actual_reference_data_0[39] == 204
 
 
 def test_FileWriterProcess__process_next_data_packet__does_not_add_a_data_packet_after_the_stop_recording_timepoint__and_sets_tissue_finalization_status_to_true__if_data_packet_is_completely_after_timepoint(

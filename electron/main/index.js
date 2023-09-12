@@ -131,7 +131,7 @@ const boot_up_flask = function () {
 boot_up_flask();
 
 const CLOUD_ENDPOINT_USER_OPTION = "REPLACETHISWITHENDPOINTDURINGBUILD";
-const CLOUD_ENDPOINT_VALID_OPTIONS = { test: "curibio-test", prod: "curibio" };
+const CLOUD_ENDPOINT_VALID_OPTIONS = { test: "curibio-test", modl: "curibio-modl", prod: "curibio" };
 const CLOUD_DOMAIN = CLOUD_ENDPOINT_VALID_OPTIONS[CLOUD_ENDPOINT_USER_OPTION] || "curibio-test";
 // const CLOUD_API_ENDPOINT = `apiv2.${CLOUD_DOMAIN}.com`;
 const CLOUD_PULSE3D_ENDPOINT = `pulse3d.${CLOUD_DOMAIN}.com`;

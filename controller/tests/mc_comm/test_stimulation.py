@@ -11,7 +11,10 @@ from mantarray_desktop_app import STIM_COMPLETE_SUBPROTOCOL_IDX
 from mantarray_desktop_app import StimulationProtocolUpdateFailedError
 from mantarray_desktop_app import StimulationProtocolUpdateWhileStimulatingError
 from mantarray_desktop_app import StimulationStatusUpdateFailedError
+from mantarray_desktop_app.constants import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import MICRO_TO_BASE_CONVERSION
+from mantarray_desktop_app.constants import NUM_INITIAL_SECONDS_TO_DROP
 from mantarray_desktop_app.constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_PAYLOAD_INDEX
 from mantarray_desktop_app.constants import STIM_MODULE_ID_TO_WELL_IDX
@@ -415,8 +418,15 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     # remove message to main
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
-    # mock so no mag data is produced
-    mocker.patch.object(mc_simulator, "_get_us_since_last_data_packet", autospec=True, return_value=0)
+    # mock so just enough mag data is produced to get through initial buffering
+    mocker.patch.object(
+        mc_simulator,
+        "_get_us_since_last_data_packet",
+        autospec=True,
+        side_effect=[MICRO_TO_BASE_CONVERSION * NUM_INITIAL_SECONDS_TO_DROP + DEFAULT_SAMPLING_PERIOD, 0],
+    )
+    # mock so no mag data is actually sent to file_writer
+    mocker.patch.object(mc_process, "_dump_mag_data_packet", autospec=True)
 
     test_duration_us = get_subprotocol_dur_us(test_subprotocol)
     # mock so one status update is produced
@@ -457,11 +467,21 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     confirm_queue_is_eventually_of_size(to_fw_queue, 2)
     expected_well_statuses = (
         [
-            [expected_global_time_stim_start + test_duration_us - expected_global_time_data_start],
+            [
+                expected_global_time_stim_start
+                - (NUM_INITIAL_SECONDS_TO_DROP * MICRO_TO_BASE_CONVERSION)
+                + test_duration_us
+                - expected_global_time_data_start
+            ],
             [1],
         ],
         [
-            [expected_global_time_stim_start + (test_duration_us * 2) - expected_global_time_data_start],
+            [
+                expected_global_time_stim_start
+                - (NUM_INITIAL_SECONDS_TO_DROP * MICRO_TO_BASE_CONVERSION)
+                + (test_duration_us * 2)
+                - expected_global_time_data_start
+            ],
             [STIM_COMPLETE_SUBPROTOCOL_IDX],
         ],
     )
@@ -529,8 +549,16 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
-    # mock so no mag data is produced
-    mocker.patch.object(mc_simulator, "_get_us_since_last_data_packet", autospec=True, return_value=0)
+    # mock so just enough mag data is produced to get through initial buffering
+    mocker.patch.object(
+        mc_simulator,
+        "_get_us_since_last_data_packet",
+        autospec=True,
+        return_value=MICRO_TO_BASE_CONVERSION * NUM_INITIAL_SECONDS_TO_DROP + DEFAULT_SAMPLING_PERIOD,
+    )
+    # mock so no mag data is actually sent to file_writer
+    mocker.patch.object(mc_process, "_dump_mag_data_packet", autospec=True)
+
     # start data streaming
     set_sampling_period_and_start_streaming(four_board_mc_comm_process_no_handshake, simulator)
     # check no status packets sent to file writer
@@ -573,8 +601,13 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
     assert set(stim_status_msg["well_statuses"].keys()) == set(test_well_indices)
     expected_well_statuses = [
         [
-            expected_global_time_stim_start - expected_global_time_data_start,
-            expected_global_time_stim_start + test_duration_us - expected_global_time_data_start,
+            expected_global_time_stim_start
+            - (NUM_INITIAL_SECONDS_TO_DROP * MICRO_TO_BASE_CONVERSION)
+            - expected_global_time_data_start,
+            expected_global_time_stim_start
+            - (NUM_INITIAL_SECONDS_TO_DROP * MICRO_TO_BASE_CONVERSION)
+            + test_duration_us
+            - expected_global_time_data_start,
         ],
         [0, STIM_COMPLETE_SUBPROTOCOL_IDX],
     ]
@@ -741,8 +774,15 @@ def test_McCommunicationProcess__stim_packets_sent_to_file_writer_after_restarti
     # remove message to main
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
-    # mock so no mag data is produced
-    mocker.patch.object(mc_simulator, "_get_us_since_last_data_packet", autospec=True, return_value=0)
+    # mock so just enough mag data is produced to get through initial buffering
+    mocker.patch.object(
+        mc_simulator,
+        "_get_us_since_last_data_packet",
+        autospec=True,
+        return_value=MICRO_TO_BASE_CONVERSION * NUM_INITIAL_SECONDS_TO_DROP + DEFAULT_SAMPLING_PERIOD,
+    )
+    # mock so no mag data is actually sent to file_writer
+    mocker.patch.object(mc_process, "_dump_mag_data_packet", autospec=True)
     # update this value so no stim statuses sent while starting data stream
     mocked_us_since_subprotocol_start.return_value = 0
 

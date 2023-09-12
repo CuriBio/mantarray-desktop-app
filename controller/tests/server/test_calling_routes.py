@@ -34,6 +34,8 @@ from mantarray_desktop_app.exceptions import LoginFailedError
 from mantarray_desktop_app.main_process import server
 from mantarray_desktop_app.utils.stimulation import get_pulse_duty_cycle_dur_us
 from mantarray_desktop_app.utils.stimulation import SUBPROTOCOL_DUTY_CYCLE_DUR_COMPONENTS
+from pulse3D.constants import MAX_MINI_SKM_EXPERIMENT_ID
+from pulse3D.constants import MAX_VARIABLE_EXPERIMENT_ID
 import pytest
 from tests.fixtures_file_writer import GENERIC_STIM_INFO
 
@@ -598,7 +600,7 @@ def test_start_managed_acquisition__returns_error_code_if_already_running(
     assert response.status_code == 304
 
 
-def test_start_managed_acquisition__returns_200_when_mini_barcode_is_used(
+def test_start_managed_acquisition__returns_no_error_when_mini_barcode_is_used(
     client_and_server_manager_and_shared_values, mocker
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
@@ -608,7 +610,8 @@ def test_start_managed_acquisition__returns_200_when_mini_barcode_is_used(
         well_idx: StimulatorCircuitStatuses.MEDIA.name.lower() for well_idx in range(24)
     }
 
-    test_mini_barcode = "ML22001350-2"
+    exp_id = randint(MAX_VARIABLE_EXPERIMENT_ID + 1, MAX_MINI_SKM_EXPERIMENT_ID)
+    test_mini_barcode = f"ML22001{exp_id}-2"
 
     response = test_client.get(f"/start_managed_acquisition?plate_barcode={test_mini_barcode}")
     assert response.status_code == 200
@@ -828,12 +831,18 @@ def test_start_recording__returns_error_code_and_message_if_stim_barcode_is_not_
     assert response.status.endswith("Request missing 'stim_barcode' parameter")
 
 
-def test_start_recording__returns_200_when_mini_barcode_is_sent(client_and_server_manager_and_shared_values):
+def test_start_recording__returns_no_error_when_mini_barcode_is_sent(
+    client_and_server_manager_and_shared_values,
+):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
     shared_values_dict["stimulation_running"] = [True] * 24
 
-    barcodes = {"plate_barcode": "ML22001350-2", "stim_barcode": MantarrayMcSimulator.default_stim_barcode}
+    exp_id = randint(MAX_VARIABLE_EXPERIMENT_ID + 1, MAX_MINI_SKM_EXPERIMENT_ID)
+    barcodes = {
+        "plate_barcode": f"ML22001{exp_id}-2",
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
+    }
 
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
     assert response.status_code == 200
@@ -1732,7 +1741,9 @@ def test_set_protocols__returns_error_code_if_protocol_assignments_contains_any_
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
-    assert response.status.endswith(f"Protocol assignments contain invalid protocol IDs: {test_invalid_ids}")
+    assert response.status.endswith(
+        f"Protocol assignments contain invalid protocol IDs: {sorted(test_invalid_ids)}"
+    )
 
 
 @pytest.mark.parametrize("test_ids,test_unassigned_ids", [({"A", "B"}, {"A", "B"}), ({"A", "B"}, {"B"})])

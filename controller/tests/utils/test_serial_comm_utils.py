@@ -34,6 +34,7 @@ from mantarray_desktop_app.utils.serial_comm import convert_instrument_event_inf
 from mantarray_desktop_app.utils.serial_comm import convert_stim_bytes_to_dict
 from mantarray_desktop_app.utils.serial_comm import convert_subprotocol_node_dict_to_bytes
 from mantarray_desktop_app.utils.serial_comm import convert_well_name_to_module_id
+from mantarray_desktop_app.utils.serial_comm import parse_instrument_event_info
 import numpy as np
 from pulse3D.constants import BOOT_FLAGS_UUID
 from pulse3D.constants import CHANNEL_FIRMWARE_VERSION_UUID
@@ -141,6 +142,13 @@ def test_parse_metadata_bytes__returns_expected_value():
         "is_stingray": is_stingray,
         **MantarrayMcSimulator.default_event_info,
     }
+
+
+def test_parse_instrument_event_info__parses_default_metadata_values_without_error():
+    event_info_len = 64
+    test_bytes = bytes([0xFF] * event_info_len)
+    actual = parse_instrument_event_info(test_bytes)
+    assert actual["prev_barcode_scanned"] == "N/A"
 
 
 @freeze_time("2021-04-07 13:14:07.234987")

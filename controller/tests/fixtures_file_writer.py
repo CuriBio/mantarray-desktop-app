@@ -27,6 +27,7 @@ from mantarray_desktop_app import RunningFIFOSimulator
 from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app.constants import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import NUM_INITIAL_MICROSECONDS_TO_PAD
 from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
 import numpy as np
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
@@ -42,6 +43,7 @@ from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
+from pulse3D.constants import NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID
 from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import REFERENCE_VOLTAGE_UUID
@@ -200,6 +202,7 @@ GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
         INITIAL_MAGNET_FINDING_PARAMS_UUID: json.dumps(
             dict(MantarrayMcSimulator.initial_magnet_finding_params)
         ),
+        NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID: NUM_INITIAL_MICROSECONDS_TO_PAD,
     }
 )
 GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"] = immutabledict(
@@ -495,13 +498,13 @@ def create_simple_magnetometer_well_dict(start_timepoint, num_data_points):
 
 
 def create_simple_beta_2_data_packet(
-    time_index_start, data_start, well_idxs, num_data_points, is_first_packet_of_stream=False
+    time_index_start, data_start, well_idxs, num_data_points, is_first_packet_of_stream=False, step=1
 ):
     if isinstance(well_idxs, int):
         well_idxs = [well_idxs]
     data_packet = {
         "data_type": "magnetometer",
-        "time_indices": create_simple_1d_array(time_index_start, num_data_points, np.uint64),
+        "time_indices": create_simple_1d_array(time_index_start, num_data_points, np.uint64, step=step),
         "is_first_packet_of_stream": is_first_packet_of_stream,
     }
     for idx in well_idxs:

@@ -50,32 +50,31 @@ export default {
     const stim_barcode = this.state.playback.barcodes.stim_barcode.value;
 
     // use start stim index if available
-    const time_index = this.state.playback.x_time_index;
-    const stim_start_time_idx = this.state.stimulation.stim_start_time_idx;
-    const time_idx_to_use = stim_start_time_idx || time_index;
+    const start_time_idx = this.state.stimulation.stim_start_time_idx || this.state.playback.x_time_index;
 
     // get currently selected platemap
     const { stored_platemaps, current_platemap_name } = JSON.parse(JSON.stringify(this.state.platemap));
     const current_platemap = stored_platemaps.find(({ map_name }) => map_name === current_platemap_name);
 
     // remove unecessary keys from labels to send
-    if (current_platemap)
+    if (current_platemap) {
       current_platemap.labels = current_platemap.labels.map(({ name, wells }) => ({
         name,
         wells,
       }));
+    }
 
     // TODO make start_recording a POST route
     const url = "http://localhost:4567/start_recording";
     const params = {
-      time_index: time_idx_to_use,
+      time_index: start_time_idx,
       recording_name,
       plate_barcode,
       stim_barcode,
       is_hardware_test_recording: false,
-      platemap: current_platemap ? current_platemap : null,
+      platemap: current_platemap || null,
     };
-    context.commit("set_recording_start_time", time_idx_to_use);
+    context.commit("set_recording_start_time", start_time_idx);
     await call_axios_get_from_vuex(url, context, params);
     context.dispatch("transition_playback_state", ENUMS.PLAYBACK_STATES.RECORDING);
     context.commit("flask/ignore_next_system_status_if_matching_status", STATUS.MESSAGE.LIVE_VIEW_ACTIVE, {

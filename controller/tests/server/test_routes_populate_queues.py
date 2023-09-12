@@ -17,6 +17,7 @@ from mantarray_desktop_app import START_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app import STOP_MANAGED_ACQUISITION_COMMUNICATION
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import LIVE_VIEW_ACTIVE_STATE
+from mantarray_desktop_app.constants import NUM_INITIAL_MICROSECONDS_TO_PAD
 from mantarray_desktop_app.constants import RECORDING_STATE
 from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
@@ -35,6 +36,7 @@ from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
+from pulse3D.constants import NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID
 from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import REFERENCE_VOLTAGE_UUID
@@ -1064,9 +1066,15 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     expected_acquisition_timestamp = datetime.datetime(
         year=2020, month=2, day=11, hour=19, minute=3, second=22, microsecond=332598
     )
-    expected_recording_timepoint = GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
+    expected_recording_timepoint = (
+        GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
+        - NUM_INITIAL_MICROSECONDS_TO_PAD
+    )
     expected_recording_timestamp = expected_acquisition_timestamp + datetime.timedelta(
-        seconds=(expected_recording_timepoint / MICRO_TO_BASE_CONVERSION)
+        seconds=(
+            GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
+            / MICRO_TO_BASE_CONVERSION
+        )
     )
 
     shared_values_dict["utc_timestamps_of_beginning_of_data_acquisition"] = [expected_acquisition_timestamp]
@@ -1132,6 +1140,10 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
     assert communication["metadata_to_copy_onto_main_file_attributes"][
         INITIAL_MAGNET_FINDING_PARAMS_UUID
     ] == json.dumps(dict(MantarrayMcSimulator.initial_magnet_finding_params))
+    assert (
+        communication["metadata_to_copy_onto_main_file_attributes"][NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID]
+        == NUM_INITIAL_MICROSECONDS_TO_PAD
+    )
     # metadata values from instrument
     instrument_metadata = shared_values_dict["instrument_metadata"][0]
     assert (
@@ -1166,10 +1178,7 @@ def test_start_recording_command__beta_2_mode__populates_queue__with_defaults__2
         ]
     )
     assert set(communication["active_well_indices"]) == set(range(24))
-    assert (
-        communication["timepoint_to_begin_recording_at"]
-        == GENERIC_BETA_2_START_RECORDING_COMMAND["timepoint_to_begin_recording_at"]
-    )
+    assert communication["timepoint_to_begin_recording_at"] == expected_recording_timepoint
     response_json = response.get_json()
     assert response_json["command"] == "start_recording"
 

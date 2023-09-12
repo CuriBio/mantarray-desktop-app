@@ -51,6 +51,7 @@ from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
+from pulse3D.constants import NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID
 from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import PLATEMAP_LABEL_UUID
@@ -294,6 +295,12 @@ def test_FileWriterProcess__creates_24_files_named_with_timestamp_barcode_well_i
                 this_file.attrs[str(INITIAL_MAGNET_FINDING_PARAMS_UUID)]
                 == start_recording_command["metadata_to_copy_onto_main_file_attributes"][
                     INITIAL_MAGNET_FINDING_PARAMS_UUID
+                ]
+            )
+            assert (
+                this_file.attrs[str(NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID)]
+                == start_recording_command["metadata_to_copy_onto_main_file_attributes"][
+                    NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID
                 ]
             )
             assert get_time_index_dataset_from_file(this_file).shape == (0,)

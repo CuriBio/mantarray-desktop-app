@@ -9,6 +9,7 @@ from mantarray_desktop_app import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
+from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app.constants import POST_STIFFNESS_TO_MM_PER_MT_Z_AXIS_SENSOR_0
 from mantarray_desktop_app.simulators.mc_simulator import MantarrayMcSimulator
@@ -66,7 +67,7 @@ def test_calculate_magnetic_flux_density_from_memsic__returns_correct_value(
 
 @pytest.mark.parametrize("is_beta_2_data", [True, False])
 @pytest.mark.parametrize("compress", [True, False])
-def test_get_force_signal__returns_converts_to_force_correctly(is_beta_2_data, compress, mocker):
+def test_get_force_signal__converts_to_force_correctly(is_beta_2_data, compress, mocker):
     # beta 2
     mocked_mfd_from_memsic = mocker.patch.object(
         data_analyzer, "calculate_magnetic_flux_density_from_memsic", autospec=True
@@ -104,7 +105,10 @@ def test_get_force_signal__returns_converts_to_force_correctly(is_beta_2_data, c
         is_beta_2_data=is_beta_2_data,
     )
 
-    mocked_get_stiffness_factor.assert_called_once_with(mocked_get_experiment_id.return_value, test_well_idx)
+    mocked_get_stiffness_factor.assert_called_once_with(
+        mocked_get_experiment_id.return_value,
+        GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(test_well_idx),
+    )
 
     mocked_filt.assert_called_once_with(test_raw_signal, test_filter_coefficients)
     if compress:
