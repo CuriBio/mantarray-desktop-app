@@ -9,7 +9,7 @@ Fixed:
 - Issue with interprocess comms failing after the app has been running for extended periods of time
 
 
-1.2.0 (unreleased)
+1.2.0 (2023-09-12)
 ------------------
 
 Added:
