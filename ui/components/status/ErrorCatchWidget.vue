@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="div__status-error-catch-background" :style="error_background_cssprops"></div>
-    <span class="div_status-error-catch-title-label">An&nbsp;<wbr />error&nbsp;<wbr />occurred. </span>
+    <span class="div_status-error-catch-title-label">{{ title }}</span>
     <div class="div_status-error-catch-alert-txt" :style="error_catch_alert">
       <p>{{ shutdown_error_message }}</p>
       <textarea
@@ -57,6 +57,8 @@
 <script>
 import ButtonWidget from "@/components/basic_widgets/ButtonWidget.vue";
 import { mapState } from "vuex";
+import { ERRORS } from "@/store/modules/settings/enums";
+
 export default {
   name: "ErrorCatchWidget",
   components: {
@@ -67,6 +69,12 @@ export default {
   },
   computed: {
     ...mapState("settings", ["shutdown_error_message", "installer_link"]),
+    title: function () {
+      const is_sw_fw_compatibility_error = this.shutdown_error_message.includes(
+        ERRORS.FirmwareAndSoftwareNotCompatibleError
+      );
+      return is_sw_fw_compatibility_error ? "Software update required." : "An error occurred.";
+    },
     compute_number_of_rows: function () {
       return Math.ceil(((this.log_filepath.length * 1.0) / 30).toFixed(1));
     },
