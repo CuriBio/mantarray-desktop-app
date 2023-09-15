@@ -39,6 +39,8 @@ numpy = "==1.23.4"
 psutil = "==5.8.0"
 pulse3d = "==0.34.1"
 pyserial = "==3.5"
+python-engineio = "==4.4.1"  # Tanner (9/15/23): pinning due to suspicion that newer versions are causing issues
+python-socketio = "==5.8.0"  # Tanner (9/15/23): pinning due to suspicion that newer versions are causing issues
 requests = "==2.31.0"
 scipy = "==1.9.3"
 semver = "==2.13.0"
