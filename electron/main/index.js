@@ -315,7 +315,10 @@ const exit_app_clean = () => {
 
   const wait_for_subprocess_to_complete_with_timeout = new Promise((resolve) => {
     wait_for_subprocess_to_complete.then(() => resolve());
-    setTimeout(() => resolve("Backend not closed after timeout"), 8000);
+    setTimeout(() => {
+      console.log("Backend not closed after timeout"); // allow-log
+      resolve();
+    }, 8000);
   });
   wait_for_subprocess_to_complete_with_timeout.then(() => {
     console.log("App exiting"); // allow-log
