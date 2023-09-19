@@ -14,6 +14,7 @@ from os import getpid
 import platform
 import queue
 from queue import Queue
+import signal
 import socket
 import sys
 import threading
@@ -127,6 +128,21 @@ def _log_system_info() -> None:
         f"System Alias: {platform.system_alias(uname_sys, uname_release, uname_version)}",
     ):
         logger.info(msg)
+
+
+def _setup_signal_handlers() -> None:
+    def ignore(signal, frame):  # type: ignore
+        logger.error(f"SIGNAL RECEIVED: {signal}, FRAME: {frame}")
+
+    signal.signal(signal.SIGTERM, ignore)
+
+    # TODO remove this
+
+    def sigint(signal, frame):  # type: ignore
+        logger.error(f"SIGINT RECEIVED: {signal}, FRAME: {frame}")
+        raise Exception()
+
+    signal.signal(signal.SIGINT, sigint)
 
 
 def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[str, Any]] = None) -> None:
@@ -352,6 +368,8 @@ def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[
         object_access_for_testing["process_monitor"] = process_monitor_thread
         logger.info("Starting process monitor thread")
         process_monitor_thread.start()
+
+        _setup_signal_handlers()
 
         if start_flask:
             logger.info("Starting Flask SocketIO")
