@@ -89,8 +89,12 @@ const start_python_subprocess = () => {
     const python_subprocess = require("child_process").execFile(script, python_cmd_line_args);
 
     wait_for_subprocess_to_complete = new Promise((resolve) => {
-      python_subprocess.on("close", (code, signal) => {
+      python_subprocess.on("exit", (code, signal) => {
         console.log(`Subprocess exit code: ${code}: termination signal ${signal}`);
+      });
+
+      python_subprocess.on("close", (code, signal) => {
+        console.log(`Subprocess close code: ${code}: termination signal ${signal}`);
         resolve();
       });
     });
