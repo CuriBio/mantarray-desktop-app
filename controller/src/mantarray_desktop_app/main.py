@@ -258,7 +258,7 @@ def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[
             settings_dict = {
                 "recording_directory": os.path.join(os.getcwd(), "recordings"),
                 "mag_analysis_output_dir": os.path.join(os.getcwd(), "analysis"),
-                "log_file_id": uuid.uuid4(),
+                "log_file_id": str(uuid.uuid4()),
             }
 
         fw_update_directory = os.path.join(
