@@ -25,6 +25,13 @@ export default function create_web_socket_plugin(socket) {
   return (store) => {
     // every time a store with this plugin is created, these event handlers get recreated as well
 
+    socket.on("connect", () => {
+      console.log("Connected to WS server");
+    });
+    socket.on("disconnect", (reason) => {
+      console.log("Disconnected from WS server:", reason);
+    });
+
     add_handler_with_error_handling(socket, "waveform_data", (data_json, cb) => {
       if (
         store.state.playback.playback_state === ENUMS.PLAYBACK_STATES.BUFFERING ||
