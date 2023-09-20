@@ -89,9 +89,19 @@ const start_python_subprocess = () => {
     const python_subprocess = require("child_process").execFile(script, python_cmd_line_args);
 
     wait_for_subprocess_to_complete = new Promise((resolve) => {
-      python_subprocess.on("close", (code, signal) =>
-        resolve(`Subprocess exit code: ${code}: termination signal ${signal}`)
-      );
+      python_subprocess.on("error", (error) => {
+        console.log(`Subprocess error: ${error}`);
+      });
+
+      python_subprocess.on("exit", (code, signal) => {
+        console.log(`Subprocess exiting. Code: ${code}, Termination Signal: ${signal}`);
+      });
+
+      python_subprocess.on("close", (code, signal) => {
+        console.log(`Subprocess closing. Code: ${code}, Termination Signal: ${signal}`);
+        // Tanner (9/19/23): close event fires after the child process is entirely terminated and cleaned up, so resolve promise here and not in exit event
+        resolve();
+      });
     });
   } else {
     const PythonShell = require("python-shell").PythonShell; // Eli (4/15/20) experienced odd error where the compiled exe was not able to load package python-shell...but since it's only actually required in development, just moving it to here
@@ -117,7 +127,10 @@ const start_python_subprocess = () => {
     const python_shell = new PythonShell(py_file_name, options);
 
     wait_for_subprocess_to_complete = new Promise((resolve) => {
-      python_shell.on("close", () => resolve("Python shell closed"));
+      python_shell.on("close", () => {
+        console.log("Python shell closed");
+        resolve();
+      });
     });
   }
 };
@@ -310,11 +323,13 @@ const exit_app_clean = () => {
   }
 
   const wait_for_subprocess_to_complete_with_timeout = new Promise((resolve) => {
-    wait_for_subprocess_to_complete.then((msg) => resolve(msg));
-    setTimeout(() => resolve("Backend not closed after timeout"), 8000);
+    wait_for_subprocess_to_complete.then(() => resolve());
+    setTimeout(() => {
+      console.log("Backend not closed after timeout"); // allow-log
+      resolve();
+    }, 8000);
   });
-  wait_for_subprocess_to_complete_with_timeout.then((msg) => {
-    console.log(msg); // allow-log
+  wait_for_subprocess_to_complete_with_timeout.then(() => {
     console.log("App exiting"); // allow-log
     app.exit();
   });

@@ -26,7 +26,6 @@ import uuid
 
 from eventlet.queue import Empty
 from eventlet.queue import LightQueue
-from stdlib_utils import configure_logging
 from stdlib_utils import is_port_in_use
 
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
@@ -47,7 +46,8 @@ from .main_process.server import ServerManagerNotInitializedError
 from .main_process.server import socketio
 from .main_process.shared_values import SharedValues
 from .utils.generic import redact_sensitive_info_from_path
-from .utils.log_formatter import SensitiveFormatter
+from .utils.logging import configure_logging
+from .utils.logging import SensitiveFormatter
 
 
 logger = logging.getLogger(__name__)
@@ -71,7 +71,9 @@ def get_server_port_number() -> int:
 def _set_up_socketio_handlers(
     to_websocket_queue: LightQueue, from_websocket_queue: queue.Queue[Dict[str, Any]]
 ) -> Callable[[], None]:
-    def data_sender() -> None:  # pragma: no cover  # Tanner (6/21/21): code coverage can't follow into start_background_task where this function is run
+    def data_sender() -> (
+        None
+    ):  # pragma: no cover  # Tanner (6/21/21): code coverage can't follow into start_background_task where this function is run
         while True:
             try:
                 item = to_websocket_queue.get(timeout=0.0001)
@@ -256,7 +258,7 @@ def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[
             settings_dict = {
                 "recording_directory": os.path.join(os.getcwd(), "recordings"),
                 "mag_analysis_output_dir": os.path.join(os.getcwd(), "analysis"),
-                "log_file_id": uuid.uuid4(),
+                "log_file_id": str(uuid.uuid4()),
             }
 
         fw_update_directory = os.path.join(
@@ -378,7 +380,7 @@ def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[
 
             logger.info("Socketio shut down")
 
-    except Exception as e:
+    except BaseException as e:
         logger.error(f"ERROR IN MAIN: {repr(e)}")
 
     finally:

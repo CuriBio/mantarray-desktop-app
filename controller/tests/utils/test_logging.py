@@ -3,6 +3,7 @@ import logging
 
 from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import SensitiveFormatter
+from mantarray_desktop_app.utils.logging import _custom_filter
 import pytest
 
 
@@ -32,14 +33,8 @@ def test_SensitiveFormatter__removes_query_params_correctly(test_route):
     ) == base_call.format(params=get_redacted_string(4))
 
 
-def test_SensitiveFormatter__logs_system_status_request_correctly():
-    test_formatter = SensitiveFormatter("%(message)s")
-
+def test_customer_filter__does_not_emit_record_for_system_status_request_when_unnecessary():
     base_call = "<any text here>/system_status<any text here>HTTP/1.1 "
 
-    assert test_formatter.format(logging.makeLogRecord({"msg": base_call + "200 "})) is None
-    test_call_to_log = base_call + "520 "
-    assert test_formatter.format(logging.makeLogRecord({"msg": test_call_to_log})) == test_call_to_log
-
-
-# TODO
+    assert _custom_filter(logging.makeLogRecord({"msg": base_call + "200 "})) is False
+    assert _custom_filter(logging.makeLogRecord({"msg": base_call + "520 "})) is True
