@@ -278,7 +278,7 @@ from .utils.generic import get_current_software_version
 from .utils.generic import get_redacted_string
 from .utils.generic import redact_sensitive_info_from_path
 from .utils.generic import upload_log_files_to_s3
-from .utils.log_formatter import SensitiveFormatter
+from .utils.logging import SensitiveFormatter
 from .utils.mantarray_front_panel import MantarrayFrontPanel
 from .utils.mantarray_front_panel import MantarrayFrontPanelMixIn
 from .utils.serial_comm import convert_module_id_to_well_name

@@ -86,9 +86,7 @@ const start_python_subprocess = () => {
       // allow-log
       "Launching compiled Python EXE at path: " + main_utils.redact_username_from_logs(script)
     );
-    const python_subprocess = require("child_process").execFile(script, python_cmd_line_args, {
-      killSignal: "SIGINT",
-    });
+    const python_subprocess = require("child_process").execFile(script, python_cmd_line_args);
 
     wait_for_subprocess_to_complete = new Promise((resolve) => {
       python_subprocess.on("error", (error) => {
@@ -96,11 +94,12 @@ const start_python_subprocess = () => {
       });
 
       python_subprocess.on("exit", (code, signal) => {
-        console.log(`Subprocess exit code: ${code}: termination signal ${signal}`);
+        console.log(`Subprocess exiting. Code: ${code}, Termination Signal ${signal}`);
       });
 
       python_subprocess.on("close", (code, signal) => {
-        console.log(`Subprocess close code: ${code}: termination signal ${signal}`);
+        console.log(`Subprocess closing. Code: ${code}, Termination Signal ${signal}`);
+        // Tanner (9/19/23): close event fires after the child process is entirely terminated and cleaned up, so resolve promise here and not in exit event
         resolve();
       });
     });

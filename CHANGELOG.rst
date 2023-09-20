@@ -1,12 +1,21 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.2.1 (unreleased)
+1.2.1 (2023-09-20)
 ------------------
+
+Added:
+^^^^^^
+- Improved logging.
+
+Changed:
+^^^^^^^^
+- Title of "software update required" message pop up no longer describes the message as an error.
 
 Fixed:
 ^^^^^^
-- Issue with interprocess comms failing after the app has been running for extended periods of time
+- Issue with error during normal use within 10-30 min of launching the app.
+- Issue with interprocess comms failing after the app has been running for extended periods of time.
 
 
 1.2.0 (2023-09-12)
