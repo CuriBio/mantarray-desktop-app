@@ -24,7 +24,7 @@ def _custom_filter(record: logging.LogRecord) -> bool:
     return not ("/system_status" in log_msg and re.search(r"HTTP\S* 200 ", log_msg))
 
 
-def configure_logging(
+def configure_logging(  # pragma: no cover
     path_to_log_folder: Optional[str] = None,
     log_file_prefix: Optional[str] = None,
     log_level: int = logging.INFO,
