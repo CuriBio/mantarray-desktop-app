@@ -94,11 +94,11 @@ const start_python_subprocess = () => {
       });
 
       python_subprocess.on("exit", (code, signal) => {
-        console.log(`Subprocess exiting. Code: ${code}, Termination Signal ${signal}`);
+        console.log(`Subprocess exiting. Code: ${code}, Termination Signal: ${signal}`);
       });
 
       python_subprocess.on("close", (code, signal) => {
-        console.log(`Subprocess closing. Code: ${code}, Termination Signal ${signal}`);
+        console.log(`Subprocess closing. Code: ${code}, Termination Signal: ${signal}`);
         // Tanner (9/19/23): close event fires after the child process is entirely terminated and cleaned up, so resolve promise here and not in exit event
         resolve();
       });
