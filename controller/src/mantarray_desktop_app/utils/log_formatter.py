@@ -16,9 +16,7 @@ class SensitiveFormatter(logging.Formatter):
     @staticmethod
     def _filter(log_msg: str) -> Any:
         try:
-            if "/system_status" in log_msg and re.search(r"HTTP\S* 200 ", log_msg):
-                return None
-            elif "/set_mantarray_nickname" in log_msg:
+            if "/set_mantarray_nickname" in log_msg:
                 return re.sub(
                     r"(.*set_mantarray_nickname\?nickname=)(.*)( HTTP.*)",
                     lambda match_obj: match_obj[1] + get_redacted_string(len(match_obj[2])) + match_obj[3],

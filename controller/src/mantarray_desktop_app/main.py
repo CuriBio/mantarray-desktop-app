@@ -27,7 +27,6 @@ import uuid
 
 from eventlet.queue import Empty
 from eventlet.queue import LightQueue
-from stdlib_utils import configure_logging
 from stdlib_utils import is_port_in_use
 
 from .constants import COMPILED_EXE_BUILD_TIMESTAMP
@@ -49,6 +48,7 @@ from .main_process.server import socketio
 from .main_process.shared_values import SharedValues
 from .utils.generic import redact_sensitive_info_from_path
 from .utils.log_formatter import SensitiveFormatter
+from .utils.logging_config import configure_logging
 
 
 logger = logging.getLogger(__name__)
