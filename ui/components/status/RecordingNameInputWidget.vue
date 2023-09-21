@@ -72,7 +72,7 @@ export default {
       default() {
         return {
           header: "Important!",
-          msg: "Choose a name for this recording.",
+          msg: "Choose a name for this recording, and set any additional metadata.",
         };
       },
     },
@@ -89,6 +89,7 @@ export default {
         button_names: ["Cancel", "Yes"],
       },
       run_recording_snapshot_current: true,
+      user_defined_metadata: {},
     };
   },
   computed: {
@@ -104,6 +105,10 @@ export default {
     run_recording_snapshot_default: function (new_default) {
       // required because bootstrap modals are always rendered to the page so need a way to change the value as it's changed
       this.run_recording_snapshot_current = new_default;
+    },
+    default_recording_name: function () {
+      // Tanner (9/21/23): whenever this value changes, assume that a new recording has been made and clear the user-defined metadata from the previous recording
+      this.user_defined_metadata = {};
     },
   },
   methods: {
@@ -131,6 +136,7 @@ export default {
         default_name: this.default_recording_name,
         replace_existing,
         snapshot_enabled: this.snapshot_enabled,
+        user_defined_metadata: this.user_defined_metadata,
       });
 
       if (res === 403 && !replace_existing) {

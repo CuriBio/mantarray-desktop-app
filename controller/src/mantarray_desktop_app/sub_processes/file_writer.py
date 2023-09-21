@@ -77,6 +77,9 @@ from ..exceptions import InvalidStopRecordingTimepointError
 from ..exceptions import UnrecognizedCommandFromMainToFileWriterError
 from ..workers.worker_thread import ErrorCatchingThread
 
+# TODO import this from pulse3D
+USER_DEFINED_METADATA_UUID = UUID("acd41862-4b8b-46d9-8090-017a30b66891")
+
 
 def _get_formatted_utc_now() -> str:
     return datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -1325,14 +1328,22 @@ class FileWriterProcess(InfiniteProcess):
 
     def _process_update_name_command(self, comm: Dict[str, str]) -> None:
         """Rename recording directory and h5 files to kick off auto upload."""
+        if self._current_recording_dir is None:
+            raise NotImplementedError("self._current_recording_dir should never be None here")
+
+        old_recording_path = os.path.join(self._file_directory, self._current_recording_dir)
+
+        # first, add user defined metadata
+        for filename in os.listdir(old_recording_path):
+            with h5py.File(filename, "r+") as h5_file:
+                h5_file.attrs[str(USER_DEFINED_METADATA_UUID)] = json.dumps(comm["user_defined_metadata"])
+
         # only perform if new name is different from the original default name
         if self._current_recording_dir == comm["default_name"] != comm["new_name"]:
             new_recording_path = os.path.join(self._file_directory, comm["new_name"])
             if os.path.exists(new_recording_path):
                 # remove current recording if it already exists
                 shutil.rmtree(new_recording_path)
-
-            old_recording_path = os.path.join(self._file_directory, self._current_recording_dir)
 
             # rename directory
             os.rename(old_recording_path, new_recording_path)
