@@ -8,8 +8,8 @@
         v-if="installer_link"
         class="textarea__installer-link"
         name="error_file"
-        :rows="2"
-        cols="76"
+        :rows="3"
+        cols="65"
         spellcheck="false"
         :value.prop="installer_link"
         :disabled="true"
@@ -255,8 +255,8 @@ a:hover {
   font-family: Courier New;
   position: absolute;
   top: 59px;
-  left: 20px;
-  width: 420px;
+  left: 35px;
+  width: 380px;
   background: rgb(17, 17, 17);
   border: 2px solid rgb(17, 17, 17);
   border-radius: 0px;

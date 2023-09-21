@@ -1,6 +1,16 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+
+1.2.2 (unreleased)
+------------------
+
+Fixed:
+^^^^^^
+- "Software update required" message now shows entire URL.
+
+
+
 1.2.1 (2023-09-20)
 ------------------
 
@@ -10,7 +20,7 @@ Added:
 
 Changed:
 ^^^^^^^^
-- Title of "software update required" message pop up no longer describes the message as an error.
+- Title of "software update required" message no longer describes the message as an error.
 
 Fixed:
 ^^^^^^
