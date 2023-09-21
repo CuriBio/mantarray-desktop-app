@@ -2,6 +2,7 @@
 import datetime
 import json
 import os
+from random import randint
 import struct
 import tempfile
 
@@ -1326,7 +1327,7 @@ def test_after_request__redacts_mantarray_nicknames_from_start_recording_log_mes
     )
 
 
-def test_after_request__redacts_recording_folder_path_from_get_recordings_log_message(
+def test_after_request__redacts_recording_folder_path_from_get_recordings_log_message_and_only_logs_the_number_of_recordings(
     client_and_server_manager_and_shared_values, mocker
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
@@ -1336,7 +1337,7 @@ def test_after_request__redacts_recording_folder_path_from_get_recordings_log_me
 
     spied_server_logger = mocker.spy(server.logger, "info")
 
-    test_recording_info_list = [{"recording": "info"}]
+    test_recording_info_list = [{"recording": "info"}] * randint(0, 10)
     mocker.patch.object(
         server, "get_info_of_recordings", autospec=True, return_value=test_recording_info_list
     )
@@ -1352,7 +1353,7 @@ def test_after_request__redacts_recording_folder_path_from_get_recordings_log_me
 
     logged_json = convert_after_request_log_msg_to_json(spied_server_logger.call_args_list[0][0][0])
     assert logged_json == {
-        "recordings_list": test_recording_info_list,
+        "recordings_list": f"<{len(test_recording_info_list)} recordings found>",
         "root_recording_path": redact_sensitive_info_from_path(test_recording_dir),
     }
 

@@ -1097,6 +1097,7 @@ def after_request(response: Response) -> Response:
         elif "login" in rule.rule:
             response_json["user_password"] = get_redacted_string(4)
         elif "get_recordings" in rule.rule:
+            response_json["recordings_list"] = f"<{len(response_json['recordings_list'])} recordings found>"
             response_json["root_recording_path"] = redact_sensitive_info_from_path(
                 response_json["root_recording_path"]
             )
