@@ -1,40 +1,50 @@
 <template>
   <div>
     <div class="div__recording-name-input-background">
-      <span class="span__recording-name-input-label">{{ modal_labels.header }}</span>
-      <div id="customer_id" class="div__recording-name-input-box">
-        <InputWidget
-          :title_label="modal_labels.msg"
-          :placeholder="'Recording File Name'"
-          :invalid_text="error_message"
-          :spellcheck="false"
-          :input_width="400"
-          :dom_id_suffix="'recording-name'"
-          :initial_value="default_recording_name"
-          @update:value="check_recording_name($event)"
-        />
-      </div>
-      <div v-if="beta_2_mode" class="div__toggle-container">
-        <ToggleWidget
-          id="run_recording_snapshot_current"
-          :checked_state="run_recording_snapshot_current"
-          :label="'run_recording_snapshot_current'"
-          @handle_toggle_state="handle_snapshot_toggle"
-        />
-        <span>Show Snapshot For This Recording</span>
-      </div>
-      <div class="div__confirm-button-container">
-        <ButtonWidget
-          :button_widget_width="420"
-          :button_widget_height="50"
-          :button_widget_top="0"
-          :button_widget_left="0"
-          :button_names="['Confirm']"
-          :enabled_color="'#B7B7B7'"
-          :is_enabled="[is_enabled]"
-          :hover_color="['#19ac8a']"
-          @btn-click="handle_click"
-        />
+      <div class="div__outer_container">
+        <span class="span__recording-name-input-label">{{ modal_labels.header }}</span>
+        <div id="recording_name" class="div__recording-name-input-box">
+          <InputWidget
+            :title_label="modal_labels.msg"
+            :placeholder="'Recording File Name'"
+            :invalid_text="error_message"
+            :spellcheck="false"
+            :input_width="400"
+            :dom_id_suffix="'recording-name'"
+            :initial_value="default_recording_name"
+            @update:value="check_recording_name($event)"
+          />
+        </div>
+        <div class="div__metadata_container">
+          <span class="span__metadata_label"
+            >Optionally, add additional metadata to save in the recording:</span
+          >
+          <div class="div__metadata-backdrop">
+            <span>TEST</span>
+          </div>
+        </div>
+        <div v-if="beta_2_mode" class="div__toggle-container">
+          <ToggleWidget
+            id="run_recording_snapshot_current"
+            :checked_state="run_recording_snapshot_current"
+            :label="'run_recording_snapshot_current'"
+            @handle_toggle_state="handle_snapshot_toggle"
+          />
+          <span>Show Snapshot For This Recording</span>
+        </div>
+        <div class="div__confirm-button-container">
+          <ButtonWidget
+            :button_widget_width="700"
+            :button_widget_height="50"
+            :button_widget_top="0"
+            :button_widget_left="0"
+            :button_names="['Confirm']"
+            :enabled_color="'#B7B7B7'"
+            :is_enabled="[is_enabled]"
+            :hover_color="['#19ac8a']"
+            @btn-click="handle_click"
+          />
+        </div>
       </div>
     </div>
     <b-modal
@@ -72,7 +82,7 @@ export default {
       default() {
         return {
           header: "Important!",
-          msg: "Choose a name for this recording, and set any additional metadata.",
+          msg: "Choose a name for this recording.",
         };
       },
     },
@@ -159,8 +169,8 @@ export default {
   pointer-events: all;
   transform: rotate(0deg);
   position: absolute;
-  height: 240px;
-  width: 420px;
+  height: 500px;
+  width: 700px;
   top: 0;
   left: 0;
   visibility: visible;
@@ -169,16 +179,23 @@ export default {
   background: rgb(17, 17, 17);
   z-index: 3;
 }
+
+.div__outer_container {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
 .span__recording-name-input-label {
   pointer-events: all;
   line-height: 100%;
   transform: rotate(0deg);
   overflow: hidden;
-  position: absolute;
-  width: 420px;
-  height: 30px;
-  top: 22.385px;
-  left: 0px;
+  position: relative;
+  height: 10%;
+  padding-top: 3%;
   visibility: visible;
   user-select: none;
   font-family: Muli;
@@ -188,18 +205,55 @@ export default {
   font-size: 17px;
   color: rgb(255, 255, 255);
   text-align: center;
+  width: 100%;
 }
 .div__recording-name-input-box {
-  top: 45px;
-  left: 8px;
-  position: absolute;
+  position: relative;
   z-index: 24;
+  margin-left: 22%;
+  height: 22%;
 }
-.div__confirm-button-container {
-  top: 200px;
-  left: 0px;
-  position: absolute;
+
+.div__metadata_container {
+  height: 43%;
 }
+
+.div__metadata-backdrop {
+  transform: rotate(0deg);
+  box-sizing: border-box;
+  position: relative;
+  height: 80%;
+  max-height: 80%;
+  margin-top: 1%;
+  visibility: visible;
+  border: 0px none #1111;
+  pointer-events: all;
+  align-items: center;
+  overflow-y: scroll;
+  background: #191919;
+  /* width: 870px; */
+}
+
+::-webkit-scrollbar {
+  -webkit-appearance: none;
+  height: 8px;
+  overflow: visible;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #2f2f2f;
+  overflow: visible;
+}
+
+::-webkit-scrollbar-track {
+  background-color: #727171;
+  overflow: visible;
+}
+
+.span__metadata_label {
+  color: rgb(183, 183, 183);
+}
+
 .div__toggle-container {
   font-family: Muli;
   font-size: 16px;
@@ -208,8 +262,13 @@ export default {
   display: flex;
   flex-direction: row;
   justify-content: space-evenly;
-  position: absolute;
-  width: 420px;
-  top: 154px;
+  position: relative;
+  height: 15%;
+  padding-top: 2.5%;
+}
+
+.div__confirm-button-container {
+  height: 10%;
+  position: relative;
 }
 </style>
