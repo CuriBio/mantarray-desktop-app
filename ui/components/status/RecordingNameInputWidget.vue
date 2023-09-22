@@ -16,11 +16,46 @@
           />
         </div>
         <div class="div__metadata_container">
-          <span class="span__metadata_label"
-            >Optionally, add additional metadata to save in the recording:</span
-          >
+          <div class="div__metadata_title">
+            <span class="span__metadata_label"
+              >Optionally, add additional metadata to save in the recording:</span
+            >
+            <div class="div__metadata-add-remove-container">
+              <span class="span__axis-controls-add-remove-kv-button" @click="remove_metadata_kv">
+                <FontAwesomeIcon :icon="['fa', 'minus-circle']" />
+              </span>
+              <span class="span__axis-controls-add-remove-kv-button" @click="add_metadata_kv">
+                <FontAwesomeIcon :icon="['fa', 'plus-circle']" />
+              </span>
+            </div>
+          </div>
           <div class="div__metadata-backdrop">
-            <span>TEST</span>
+            <div
+              v-for="i of Array(user_defined_metadata.length).keys()"
+              :key="`key-value-entry-${i}`"
+              class="div__metadata-row"
+            >
+              <span class="span__metadata_row_label">Key:</span>
+              <div class="div__metadata_input_container">
+                <InputWidget
+                  :placeholder="'Key'"
+                  :spellcheck="false"
+                  :input_width="210"
+                  :dom_id_suffix="`metadata-key-${i}`"
+                  @update:value="update_metadata_key(i, $event)"
+                />
+              </div>
+              <span class="span__metadata_row_label">Value:</span>
+              <div class="div__metadata_input_container">
+                <InputWidget
+                  :placeholder="'Value'"
+                  :spellcheck="false"
+                  :input_width="210"
+                  :dom_id_suffix="`metadata-value-${i}`"
+                  @update:value="update_metadata_value(i, $event)"
+                />
+              </div>
+            </div>
           </div>
         </div>
         <div v-if="beta_2_mode" class="div__toggle-container">
@@ -71,11 +106,15 @@ import StatusWarningWidget from "@/components/status/StatusWarningWidget.vue";
 import ToggleWidget from "@/components/basic_widgets/ToggleWidget.vue";
 import { mapState } from "vuex";
 import { BModal } from "bootstrap-vue";
+import { library } from "@fortawesome/fontawesome-svg-core";
+import { faMinusCircle, faPlusCircle } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+library.add(faMinusCircle, faPlusCircle);
 Vue.component("BModal", BModal);
 
 export default {
   name: "RecordingNameInputWidget",
-  components: { InputWidget, ButtonWidget, StatusWarningWidget, ToggleWidget },
+  components: { InputWidget, ButtonWidget, StatusWarningWidget, ToggleWidget, FontAwesomeIcon },
   props: {
     modal_labels: {
       type: Object,
@@ -99,7 +138,7 @@ export default {
         button_names: ["Cancel", "Yes"],
       },
       run_recording_snapshot_current: true,
-      user_defined_metadata: {},
+      user_defined_metadata: this.get_default_user_defined_metadata(),
     };
   },
   computed: {
@@ -118,7 +157,7 @@ export default {
     },
     default_recording_name: function () {
       // Tanner (9/21/23): whenever this value changes, assume that a new recording has been made and clear the user-defined metadata from the previous recording
-      this.user_defined_metadata = {};
+      this.user_defined_metadata = this.get_default_user_defined_metadata();
     },
   },
   methods: {
@@ -146,7 +185,7 @@ export default {
         default_name: this.default_recording_name,
         replace_existing,
         snapshot_enabled: this.snapshot_enabled,
-        user_defined_metadata: this.user_defined_metadata,
+        user_defined_metadata: this.get_formatted_user_defined_metadata,
       });
 
       if (res === 403 && !replace_existing) {
@@ -157,6 +196,24 @@ export default {
         // reset this value back to the default
         this.run_recording_snapshot_current = this.beta_2_mode && this.run_recording_snapshot_default;
       }
+    },
+    get_default_user_defined_metadata: function () {
+      return [{ key: "", val: "" }];
+    },
+    add_metadata_kv: function () {
+      this.user_defined_metadata.push(this.get_default_user_defined_metadata()[0]);
+    },
+    remove_metadata_kv: function () {
+      this.user_defined_metadata.pop();
+    },
+    update_metadata_key: function (i, new_key) {
+      this.user_defined_metadata[i].key = new_key;
+    },
+    update_metadata_value: function (i, new_val) {
+      this.user_defined_metadata[i].val = new_val;
+    },
+    get_formatted_user_defined_metadata: function () {
+      // TODO
     },
     handle_snapshot_toggle: function (state) {
       this.run_recording_snapshot_current = state;
@@ -250,8 +307,56 @@ export default {
   overflow: visible;
 }
 
+.div__metadata_title {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-evenly;
+}
+
 .span__metadata_label {
   color: rgb(183, 183, 183);
+}
+
+.div__metadata-add-remove-container {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-evenly;
+  width: 10%;
+}
+
+.span__axis-controls-add-remove-kv-button {
+  font-weight: normal;
+  position: relative;
+  color: rgb(183, 183, 183);
+  height: 24px;
+  width: 24px;
+}
+
+.span__axis-controls-add-remove-kv-button:hover {
+  color: #ffffff;
+  transition: color 0.15s;
+}
+
+.div__metadata-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-evenly;
+  width: 90%;
+  height: 50px;
+}
+
+.span__metadata_row_label {
+  width: 10%;
+  text-align: right;
+  padding-top: 13px;
+  color: rgb(183, 183, 183);
+  position: relative;
+}
+
+.div__metadata_input_container {
+  width: 35%;
+  justify-content: center;
+  position: relative;
 }
 
 .div__toggle-container {
