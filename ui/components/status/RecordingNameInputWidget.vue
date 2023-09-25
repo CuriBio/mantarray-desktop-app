@@ -262,7 +262,11 @@ export default {
       });
     },
     get_formatted_user_defined_metadata: function () {
-      // TODO
+      const formatted_meta = {};
+      this.user_defined_metadata.map((meta_info) => {
+        formatted_meta[meta_info.key] = meta_info.val;
+      });
+      return formatted_meta;
     },
     handle_snapshot_toggle: function (state) {
       this.run_recording_snapshot_current = state;
