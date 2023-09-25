@@ -45,6 +45,7 @@ from pulse3D.constants import TIME_OFFSETS
 from pulse3D.constants import TISSUE_SAMPLING_PERIOD_UUID
 from pulse3D.constants import TISSUE_SENSOR_READINGS
 from pulse3D.constants import TOTAL_WELL_COUNT_UUID
+from pulse3D.constants import USER_DEFINED_METADATA_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_FIRST_REF_DATA_POINT_UUID
 from pulse3D.constants import UTC_FIRST_TISSUE_DATA_POINT_UUID
@@ -76,9 +77,6 @@ from ..exceptions import CalibrationFilesMissingError
 from ..exceptions import InvalidStopRecordingTimepointError
 from ..exceptions import UnrecognizedCommandFromMainToFileWriterError
 from ..workers.worker_thread import ErrorCatchingThread
-
-# TODO import this from pulse3D
-USER_DEFINED_METADATA_UUID = UUID("acd41862-4b8b-46d9-8090-017a30b66891")
 
 
 def _get_formatted_utc_now() -> str:
@@ -1335,7 +1333,11 @@ class FileWriterProcess(InfiniteProcess):
 
         # first, add user defined metadata
         for filename in os.listdir(old_recording_path):
-            with h5py.File(filename, "r+") as h5_file:
+            if "calibration" in filename.lower():
+                continue
+
+            file_path = os.path.join(old_recording_path, filename)
+            with h5py.File(file_path, "r+") as h5_file:
                 h5_file.attrs[str(USER_DEFINED_METADATA_UUID)] = json.dumps(comm["user_defined_metadata"])
 
         # only perform if new name is different from the original default name
