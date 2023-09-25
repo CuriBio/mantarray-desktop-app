@@ -123,6 +123,9 @@ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 library.add(faMinusCircle, faPlusCircle);
 Vue.component("BModal", BModal);
 
+const EMPTY_METADATA_ERR_MSG = "Please enter a value";
+const DUPLICATE_METADATA_KEY_ERR_MSG = "Duplicate key";
+
 export default {
   name: "RecordingNameInputWidget",
   components: { InputWidget, ButtonWidget, StatusWarningWidget, ToggleWidget, FontAwesomeIcon },
@@ -216,14 +219,10 @@ export default {
         {
           key: "",
           val: "",
-          key_err: this.get_empty_metadata_error(),
-          val_err: this.get_empty_metadata_error(),
+          key_err: EMPTY_METADATA_ERR_MSG,
+          val_err: EMPTY_METADATA_ERR_MSG,
         },
       ];
-    },
-    get_empty_metadata_error: function () {
-      // TODO just make this a const
-      return "Please enter a value";
     },
     add_metadata_kv: function () {
       this.user_defined_metadata.push(this.get_default_user_defined_metadata()[0]);
@@ -231,6 +230,8 @@ export default {
     remove_metadata_kv: function (idx) {
       if (this.user_defined_metadata.length > 0) {
         this.user_defined_metadata.splice(idx, 1);
+        // If a row was removed, need to check for dups again
+        this.check_duplicate_metadata_keys();
       }
     },
     update_metadata: function (i, type, new_entry) {
@@ -240,14 +241,25 @@ export default {
       const err_key = `${type}_err`;
       row_info[err_key] = "";
       if (new_entry === "") {
-        row_info[err_key] = this.get_empty_metadata_error();
+        row_info[err_key] = EMPTY_METADATA_ERR_MSG;
       }
       if (type === "key") {
         this.check_duplicate_metadata_keys();
       }
     },
     check_duplicate_metadata_keys: function () {
-      // TODO
+      const all_keys = this.user_defined_metadata.map((meta_info) => meta_info.key);
+      all_keys.map((key, idx) => {
+        if (key === "") return; // don't mark empty cells as dups, they have their own error message
+
+        const first_idx_of_key = all_keys.indexOf(key);
+        if (idx !== first_idx_of_key) {
+          this.user_defined_metadata[idx].key_err = DUPLICATE_METADATA_KEY_ERR_MSG;
+          this.user_defined_metadata[first_idx_of_key].key_err = DUPLICATE_METADATA_KEY_ERR_MSG;
+        } else {
+          this.user_defined_metadata[idx].key_err = "";
+        }
+      });
     },
     get_formatted_user_defined_metadata: function () {
       // TODO
