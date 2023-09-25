@@ -7,7 +7,7 @@
           <InputWidget
             :title_label="modal_labels.msg"
             :placeholder="'Recording File Name'"
-            :invalid_text="error_message"
+            :invalid_text="recording_name_error_message"
             :spellcheck="false"
             :input_width="400"
             :dom_id_suffix="'recording-name'"
@@ -38,23 +38,25 @@
               <span class="span__metadata_row_label">Key:</span>
               <div class="div__metadata_input_container">
                 <InputWidget
-                  :placeholder="'Metadata Label'"
+                  :placeholder="'Experiment Name'"
+                  :invalid_text="user_defined_metadata[i].key_err"
                   :spellcheck="false"
                   :input_width="210"
                   :dom_id_suffix="`metadata-key-${i}`"
                   :initial_value="user_defined_metadata[i].key"
-                  @update:value="update_metadata_key(i, $event)"
+                  @update:value="update_metadata(i, 'key', $event)"
                 />
               </div>
               <span class="span__metadata_row_label">Value:</span>
               <div class="div__metadata_input_container">
                 <InputWidget
-                  :placeholder="'Metadata Value'"
+                  :placeholder="'Project 1'"
+                  :invalid_text="user_defined_metadata[i].val_err"
                   :spellcheck="false"
                   :input_width="210"
                   :dom_id_suffix="`metadata-value-${i}`"
                   :initial_value="user_defined_metadata[i].val"
-                  @update:value="update_metadata_value(i, $event)"
+                  @update:value="update_metadata(i, 'val', $event)"
                 />
               </div>
               <span
@@ -139,7 +141,7 @@ export default {
   data: function () {
     return {
       recording_name: this.default_recording_name,
-      error_message: "",
+      recording_name_error_message: "",
       existing_recording_labels: {
         header: "Warning!",
         msg_one: "The name you chose already exists.",
@@ -153,7 +155,10 @@ export default {
   computed: {
     ...mapState("settings", ["run_recording_snapshot_default", "beta_2_mode"]),
     is_enabled: function () {
-      return !this.error_message;
+      return (
+        !this.recording_name_error_message &&
+        !this.user_defined_metadata.some((meta_info) => meta_info.key_err || meta_info.val_err)
+      );
     },
     snapshot_enabled: function () {
       return this.beta_2_mode && this.run_recording_snapshot_current;
@@ -172,7 +177,7 @@ export default {
   methods: {
     check_recording_name: function (recording_name) {
       this.recording_name = recording_name;
-      this.error_message = recording_name ? "" : "Please enter a name";
+      this.recording_name_error_message = recording_name ? "" : "Please enter a name";
     },
     handle_click: async function () {
       if (this.is_enabled) {
@@ -185,7 +190,7 @@ export default {
       if (idx === 1) {
         await this.handle_recording_rename(true);
       } else {
-        this.error_message = "Name already exists";
+        this.recording_name_error_message = "Name already exists";
       }
     },
     handle_recording_rename: async function (replace_existing) {
@@ -194,7 +199,7 @@ export default {
         default_name: this.default_recording_name,
         replace_existing,
         snapshot_enabled: this.snapshot_enabled,
-        user_defined_metadata: this.get_formatted_user_defined_metadata,
+        user_defined_metadata: this.get_formatted_user_defined_metadata(),
       });
 
       if (res === 403 && !replace_existing) {
@@ -207,7 +212,18 @@ export default {
       }
     },
     get_default_user_defined_metadata: function () {
-      return [{ key: "", val: "" }];
+      return [
+        {
+          key: "",
+          val: "",
+          key_err: this.get_empty_metadata_error(),
+          val_err: this.get_empty_metadata_error(),
+        },
+      ];
+    },
+    get_empty_metadata_error: function () {
+      // TODO just make this a const
+      return "Please enter a value";
     },
     add_metadata_kv: function () {
       this.user_defined_metadata.push(this.get_default_user_defined_metadata()[0]);
@@ -217,11 +233,21 @@ export default {
         this.user_defined_metadata.splice(idx, 1);
       }
     },
-    update_metadata_key: function (i, new_key) {
-      this.user_defined_metadata[i].key = new_key;
+    update_metadata: function (i, type, new_entry) {
+      const row_info = this.user_defined_metadata[i];
+      row_info[type] = new_entry;
+
+      const err_key = `${type}_err`;
+      row_info[err_key] = "";
+      if (new_entry === "") {
+        row_info[err_key] = this.get_empty_metadata_error();
+      }
+      if (type === "key") {
+        this.check_duplicate_metadata_keys();
+      }
     },
-    update_metadata_value: function (i, new_val) {
-      this.user_defined_metadata[i].val = new_val;
+    check_duplicate_metadata_keys: function () {
+      // TODO
     },
     get_formatted_user_defined_metadata: function () {
       // TODO
@@ -353,7 +379,7 @@ export default {
   flex-direction: row;
   justify-content: space-evenly;
   width: 90%;
-  height: 50px;
+  height: 70px;
 }
 
 .span__metadata_row_label {
