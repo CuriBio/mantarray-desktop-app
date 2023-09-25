@@ -21,7 +21,7 @@
               >Optionally, add additional metadata to save in the recording:</span
             >
             <div class="div__metadata-add-remove-container">
-              <span class="span__axis-controls-add-remove-kv-button" @click="remove_metadata_kv">
+              <span class="span__axis-controls-add-remove-kv-button" @click="remove_metadata_kv(-1)">
                 <FontAwesomeIcon :icon="['fa', 'minus-circle']" />
               </span>
               <span class="span__axis-controls-add-remove-kv-button" @click="add_metadata_kv">
@@ -38,23 +38,32 @@
               <span class="span__metadata_row_label">Key:</span>
               <div class="div__metadata_input_container">
                 <InputWidget
-                  :placeholder="'Key'"
+                  :placeholder="'Metadata Label'"
                   :spellcheck="false"
                   :input_width="210"
                   :dom_id_suffix="`metadata-key-${i}`"
+                  :initial_value="user_defined_metadata[i].key"
                   @update:value="update_metadata_key(i, $event)"
                 />
               </div>
               <span class="span__metadata_row_label">Value:</span>
               <div class="div__metadata_input_container">
                 <InputWidget
-                  :placeholder="'Value'"
+                  :placeholder="'Metadata Value'"
                   :spellcheck="false"
                   :input_width="210"
                   :dom_id_suffix="`metadata-value-${i}`"
+                  :initial_value="user_defined_metadata[i].val"
                   @update:value="update_metadata_value(i, $event)"
                 />
               </div>
+              <span
+                class="span__axis-controls-add-remove-kv-button"
+                :style="'padding-top: 14px; padding-left: 20px;'"
+                @click="remove_metadata_kv(i)"
+              >
+                <FontAwesomeIcon :icon="['fa', 'minus-circle']" />
+              </span>
             </div>
           </div>
         </div>
@@ -203,8 +212,10 @@ export default {
     add_metadata_kv: function () {
       this.user_defined_metadata.push(this.get_default_user_defined_metadata()[0]);
     },
-    remove_metadata_kv: function () {
-      this.user_defined_metadata.pop();
+    remove_metadata_kv: function (idx) {
+      if (this.user_defined_metadata.length > 0) {
+        this.user_defined_metadata.splice(idx, 1);
+      }
     },
     update_metadata_key: function (i, new_key) {
       this.user_defined_metadata[i].key = new_key;
