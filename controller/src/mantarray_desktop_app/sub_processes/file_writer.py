@@ -1333,7 +1333,7 @@ class FileWriterProcess(InfiniteProcess):
 
         # first, add user defined metadata
         for filename in os.listdir(old_recording_path):
-            if "calibration" in filename.lower():
+            if "calibration" in filename.lower():  # pragma: no cover
                 continue
 
             file_path = os.path.join(old_recording_path, filename)

@@ -55,6 +55,7 @@ from pulse3D.constants import STIM_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import STIM_BARCODE_UUID
 from pulse3D.constants import TISSUE_SAMPLING_PERIOD_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
+from pulse3D.constants import USER_DEFINED_METADATA_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
 from pulse3D.constants import XEM_SERIAL_NUMBER_UUID
@@ -203,6 +204,7 @@ GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
             dict(MantarrayMcSimulator.initial_magnet_finding_params)
         ),
         NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID: NUM_INITIAL_MICROSECONDS_TO_PAD,
+        USER_DEFINED_METADATA_UUID: json.dumps({}),
     }
 )
 GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"] = immutabledict(
@@ -217,6 +219,7 @@ GENERIC_UPDATE_RECORDING_NAME_COMMAND: Dict[str, Any] = immutabledict(
         "new_name": "new_recording_name",
         "default_name": "existing_recording_name",
         "snapshot_enabled": False,
+        "user_defined_metadata": "some_metadata",
     }
 )
 
