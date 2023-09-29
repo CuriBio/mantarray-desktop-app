@@ -39,7 +39,6 @@ def get_cloud_api_tokens(
             "customer_id": customer_id,
             "username": user_name,
             "password": password,
-            "service": "pulse3d",
             "client_type": f"mantarray:{CURRENT_SOFTWARE_VERSION}",
         },
     )

@@ -38,11 +38,7 @@ def test_get_cloud_api_tokens__return_tokens_if_login_successful(mocker):
 
     mocked_post.assert_called_once_with(
         f"https://{CLOUD_API_ENDPOINT}/users/login",
-        json={
-            **test_creds,
-            "service": "pulse3d",
-            "client_type": f"mantarray:{CURRENT_SOFTWARE_VERSION}",
-        },
+        json={**test_creds, "client_type": f"mantarray:{CURRENT_SOFTWARE_VERSION}"},
     )
 
 

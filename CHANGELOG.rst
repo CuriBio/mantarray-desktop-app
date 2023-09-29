@@ -5,6 +5,11 @@ Changelog for Mantarray Desktop App
 1.2.2 (unreleased)
 ------------------
 
+Changed:
+^^^^^^^^
+- Update upload_type in ``/uploads`` request
+- Remove service in ``/login`` request
+
 Fixed:
 ^^^^^^
 - "Software update required" message now shows entire URL.
