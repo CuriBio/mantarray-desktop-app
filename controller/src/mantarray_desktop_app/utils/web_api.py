@@ -34,7 +34,7 @@ def get_cloud_api_tokens(
         password: current user's password.
     """
     response = requests.post(
-        f"https://{CLOUD_API_ENDPOINT}/users/login/user",
+        f"https://{CLOUD_API_ENDPOINT}/users/login",
         json={
             "customer_id": customer_id,
             "username": user_name,

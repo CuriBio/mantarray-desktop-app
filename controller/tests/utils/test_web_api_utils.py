@@ -37,7 +37,7 @@ def test_get_cloud_api_tokens__return_tokens_if_login_successful(mocker):
     assert tokens == expected_tokens
 
     mocked_post.assert_called_once_with(
-        f"https://{CLOUD_API_ENDPOINT}/users/login/user",
+        f"https://{CLOUD_API_ENDPOINT}/users/login",
         json={**test_creds, "service": "mantarray", "client_type": f"mantarray:{CURRENT_SOFTWARE_VERSION}"},
     )
 
