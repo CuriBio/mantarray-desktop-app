@@ -34,11 +34,12 @@ def get_cloud_api_tokens(
         password: current user's password.
     """
     response = requests.post(
-        f"https://{CLOUD_API_ENDPOINT}/users/login",
+        f"https://{CLOUD_API_ENDPOINT}/users/login/user",
         json={
             "customer_id": customer_id,
             "username": user_name,
             "password": password,
+            "service": "mantarray",
             "client_type": f"mantarray:{CURRENT_SOFTWARE_VERSION}",
         },
     )

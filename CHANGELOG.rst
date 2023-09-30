@@ -8,7 +8,7 @@ Changelog for Mantarray Desktop App
 Changed:
 ^^^^^^^^
 - Update upload_type in ``/uploads`` request
-- Remove service in ``/login`` request
+- Update service in ``/login`` request
 
 Fixed:
 ^^^^^^
