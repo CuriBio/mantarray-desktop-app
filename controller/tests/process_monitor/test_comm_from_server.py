@@ -37,6 +37,7 @@ from pulse3D.constants import START_RECORDING_TIME_INDEX_UUID
 from pulse3D.constants import STIM_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import STIM_BARCODE_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
+from pulse3D.constants import USER_DEFINED_METADATA_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
 import pytest
@@ -276,9 +277,16 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
             NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID: GENERIC_BETA_2_START_RECORDING_COMMAND[
                 "metadata_to_copy_onto_main_file_attributes"
             ][NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID],
+            USER_DEFINED_METADATA_UUID: GENERIC_BETA_2_START_RECORDING_COMMAND[
+                "metadata_to_copy_onto_main_file_attributes"
+            ][USER_DEFINED_METADATA_UUID],
         },
     }
-    assert main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS) == expected_start_recording_command
+    actual_start_recording_command = main_to_fw_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert actual_start_recording_command.pop(
+        "metadata_to_copy_onto_main_file_attributes"
+    ) == expected_start_recording_command.pop("metadata_to_copy_onto_main_file_attributes")
+    assert actual_start_recording_command == expected_start_recording_command
 
     expected_stop_recording_command = {
         "communication_type": "recording",
@@ -352,7 +360,6 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
 def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__raises_error_if_unrecognized_command(
     test_comm_type, test_description, test_process_manager_creator, test_monitor, mocker, patch_print
 ):
-
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, *_ = test_monitor(test_process_manager)
 

@@ -503,7 +503,8 @@ def test_update_recording_name__returns_ok_if_recording_name_doesnt_exist(
     mocker.patch.object(os.path, "exists", return_value=False)
 
     response = test_client.post(
-        "/update_recording_name?new_name=new_recording_name&default_name=old_name&snapshot_enabled=true"
+        "/update_recording_name?new_name=new_recording_name&default_name=old_name&snapshot_enabled=true",
+        json={"user_defined_metadata": "any"},
     )
     assert response.status_code == 200
 

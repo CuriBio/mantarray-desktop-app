@@ -704,12 +704,15 @@ def update_recording_name() -> Response:
     ):
         return Response(status="403 Recording name already exists")
 
+    request_body = request.get_json()
+
     comm = {
         "communication_type": "recording",
         "command": "update_recording_name",
         "new_name": new_recording_name,
         "default_name": request.args["default_name"],
         "snapshot_enabled": snapshot_enabled,
+        "user_defined_metadata": request_body["user_defined_metadata"],
     }
 
     response = queue_command_to_main(comm)
