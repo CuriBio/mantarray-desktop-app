@@ -74,7 +74,7 @@ def get_upload_details(access_token: str, file_name: str, file_md5: str, upload_
     route = "uploads" if upload_type == "recording" else "logs"
     response = requests.post(
         f"https://{CLOUD_PULSE3D_ENDPOINT}/{route}",
-        json={"filename": file_name, "md5s": file_md5, "upload_type": "pulse3d"},
+        json={"filename": file_name, "md5s": file_md5, "upload_type": "mantarray"},
         headers={"Authorization": f"Bearer {access_token}"},
     )
     upload_details: Dict[Any, Any] = response.json()
