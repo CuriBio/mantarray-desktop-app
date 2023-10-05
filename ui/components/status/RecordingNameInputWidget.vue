@@ -44,6 +44,7 @@
                   :input_width="210"
                   :dom_id_suffix="`metadata-key-${i}`"
                   :initial_value="user_defined_metadata[i].key"
+                  :container_background_color="'#191919'"
                   @update:value="update_metadata(i, 'key', $event)"
                 />
               </div>
@@ -56,6 +57,7 @@
                   :input_width="210"
                   :dom_id_suffix="`metadata-value-${i}`"
                   :initial_value="user_defined_metadata[i].val"
+                  :container_background_color="'#191919'"
                   @update:value="update_metadata(i, 'val', $event)"
                 />
               </div>
