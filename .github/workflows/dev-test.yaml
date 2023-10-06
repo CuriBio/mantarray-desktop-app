@@ -159,6 +159,9 @@ jobs:
           pipenv install --dev --deploy --sequential
 
       - name: Download zlib Library
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_GIT_PUBLISH_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_GIT_PUBLISH_SECRET_KEY }}
         run: |
           cd controller/
           pipenv run python ../.github/workflows/run_zlib_download.py
