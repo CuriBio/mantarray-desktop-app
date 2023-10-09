@@ -101,6 +101,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_previously_fail
         "thread": mocked_ect.return_value,
         "auto_delete": False,
         "file_name": "test_filename",
+        "file_uploader": mocker.MagicMock(),
     }
 
     file_writer_process.get_upload_threads_container().append(thread_dict)
@@ -137,6 +138,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_fi
         "thread": mocked_ect.return_value,
         "auto_delete": False,
         "file_name": "test_filename",
+        "file_uploader": mocker.MagicMock(),
     }
 
     file_writer_process.get_upload_threads_container().append(thread_dict)
@@ -173,6 +175,7 @@ def test_FileWriterProcess__exits_status_function_correctly_when_newly_failed_fi
         "thread": mocked_ect.return_value,
         "auto_delete": auto_delete,
         "file_name": "test/file/name",
+        "file_uploader": mocker.MagicMock(),
     }
 
     file_writer_process.get_upload_threads_container().append(thread_dict)

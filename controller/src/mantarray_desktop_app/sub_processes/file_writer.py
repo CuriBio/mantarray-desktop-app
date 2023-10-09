@@ -1245,6 +1245,7 @@ class FileWriterProcess(InfiniteProcess):
             "thread": upload_thread,
             "auto_delete": auto_delete,
             "file_name": self._current_recording_dir,
+            "file_uploader": file_uploader,
         }
         self._upload_threads_container.append(thread_dict)
 
@@ -1309,6 +1310,9 @@ class FileWriterProcess(InfiniteProcess):
                 upload_status["error"] = thread.error
                 if not previously_failed_upload:
                     self._process_new_failed_upload_files(sub_dir=file_name)
+
+                failed_action = thread_dict["file_uploader"].current_action
+                upload_status["error_msg"] = f"Failed to {failed_action}"
             else:
                 if previously_failed_upload:
                     shutil.move(

@@ -169,6 +169,9 @@ class FileUploader(WebWorker):
                 raise RecordingUploadMissingPulse3dVersionError(file_name)
             self.pulse3d_version = pulse3d_version
 
+        # store the current action being performed at every step in case an error occurs
+        self.current_action: str = "upload recording"
+
     def job(self) -> None:
         # TODO Tanner (5/27/22): Should probably just pass in the upload type
 
@@ -202,6 +205,8 @@ class FileUploader(WebWorker):
         if self.upload_type == "logs":
             return
 
+        self.current_action = "analyze recording"
+
         # start analysis and wait for analysis to complete
         job_details = start_analysis(self.tokens.access, upload_details["id"], self.pulse3d_version)
 
@@ -214,6 +219,8 @@ class FileUploader(WebWorker):
             "running",
         ):
             sleep(5)
+
+        self.current_action = "download analysis of recording"
 
         # download analysis of file
         download_analysis_from_s3(status_dict["url"], self.file_name)
