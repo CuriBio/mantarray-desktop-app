@@ -27,7 +27,7 @@ setup(
         "stdlib-utils==0.5.2",
         "streamz==0.6.2",
         "wakepy==0.5.0",
-        "werkzeug==2.0.3",
+        "werkzeug==3.0.1",
         "xem-wrapper==0.3.0",
         "pulse3d==0.24.7",
     ],
