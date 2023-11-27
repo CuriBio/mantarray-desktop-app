@@ -704,12 +704,15 @@ def update_recording_name() -> Response:
     ):
         return Response(status="403 Recording name already exists")
 
+    request_body = request.get_json()
+
     comm = {
         "communication_type": "recording",
         "command": "update_recording_name",
         "new_name": new_recording_name,
         "default_name": request.args["default_name"],
         "snapshot_enabled": snapshot_enabled,
+        "user_defined_metadata": request_body["user_defined_metadata"],
     }
 
     response = queue_command_to_main(comm)
@@ -1097,6 +1100,7 @@ def after_request(response: Response) -> Response:
         elif "login" in rule.rule:
             response_json["user_password"] = get_redacted_string(4)
         elif "get_recordings" in rule.rule:
+            response_json["recordings_list"] = f"<{len(response_json['recordings_list'])} recordings found>"
             response_json["root_recording_path"] = redact_sensitive_info_from_path(
                 response_json["root_recording_path"]
             )

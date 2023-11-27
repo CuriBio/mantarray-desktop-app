@@ -1,6 +1,22 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+1.2.2 (unreleased)
+------------------
+
+Changed:
+^^^^^^^^
+- Update upload_type in ``/uploads`` request
+- Update service in ``/login`` request
+- Beta 2 H5 file format version is now 1.5.0. Format changes include adding the following values:
+
+  - USER_DEFINED_METADATA_UUID
+
+Fixed:
+^^^^^^
+- "Software update required" message now shows entire URL.
+
+
 1.2.1 (2023-09-20)
 ------------------
 
@@ -10,7 +26,7 @@ Added:
 
 Changed:
 ^^^^^^^^
-- Title of "software update required" message pop up no longer describes the message as an error.
+- Title of "software update required" message no longer describes the message as an error.
 
 Fixed:
 ^^^^^^

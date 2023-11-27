@@ -118,8 +118,11 @@ def test_send_single_update_recording_name_command__populates_queue(
     shared_values_dict["beta_2_mode"] = True
     shared_values_dict["config_settings"]["recording_directory"] = "/test/recording/directory"
 
+    test_user_defined_metadata = "test_user_defined_metadata"
+
     response = test_client.post(
-        f"/update_recording_name?new_name={test_new_name}&default_name=old_name&snapshot_enabled=false"
+        f"/update_recording_name?new_name={test_new_name}&default_name=old_name&snapshot_enabled=false",
+        json={"user_defined_metadata": test_user_defined_metadata},
     )
     assert response.status_code == 200
 
@@ -127,6 +130,7 @@ def test_send_single_update_recording_name_command__populates_queue(
     assert is_queue_eventually_not_empty(to_main_queue) is True
     communication = to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert communication["new_name"] == expected_new_name
+    assert communication["user_defined_metadata"] == test_user_defined_metadata
 
 
 def test_send_single_initialize_board_command_with_bit_file__populates_queue(

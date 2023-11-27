@@ -20,6 +20,7 @@ const default_state = {
   file_count: 0,
   total_file_count: 0,
   upload_error: false,
+  upload_error_msg: null,
   total_uploaded_files: [],
   shutdown_error_message: "Mantarray software is about to shut down.",
   shutdown_error_status: "",
