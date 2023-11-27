@@ -135,8 +135,8 @@ def test_McCommunicationProcess__handles_successful_completion_of_check_versions
     expected_channel_fw_version = "2.2.2"
     expected_sw_version = "3.3.3"
     expected_latest_versions = {
-        "main-fw": expected_main_fw_version,
-        "channel-fw": expected_channel_fw_version,
+        "main_fw": expected_main_fw_version,
+        "channel_fw": expected_channel_fw_version,
         "sw": expected_sw_version,
     }
 
@@ -271,7 +271,7 @@ def test_McCommunicationProcess__handles_successful_firmware_update(
         mc_process._main_firmware_update_bytes = test_firmware_bytes
     else:
         mc_process._channel_firmware_update_bytes = test_firmware_bytes
-    mc_process._latest_versions = {"main-fw": "2.0.0", "channel-fw": "2.0.0", "sw": "1.0.0"}
+    mc_process._latest_versions = {"main_fw": "2.0.0", "channel_fw": "2.0.0", "sw": "1.0.0"}
 
     # start firmware update
     update_firmware_command = {
@@ -407,7 +407,7 @@ def test_McCommunicationProcess__raises_error_if_begin_firmware_update_command_f
         mc_process._main_firmware_update_bytes = test_firmware_bytes
     else:
         mc_process._channel_firmware_update_bytes = test_firmware_bytes
-    mc_process._latest_versions = {"main-fw": "2.0.0", "channel-fw": "2.0.0", "sw": "1.0.0"}
+    mc_process._latest_versions = {"main_fw": "2.0.0", "channel_fw": "2.0.0", "sw": "1.0.0"}
 
     # set simulator firmware update status
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -447,7 +447,7 @@ def test_McCommunicationProcess__raises_error_if_firmware_update_packet_fails(
         mc_process._main_firmware_update_bytes = test_firmware_bytes
     else:
         mc_process._channel_firmware_update_bytes = test_firmware_bytes
-    mc_process._latest_versions = {"main-fw": "2.0.0", "channel-fw": "2.0.0", "sw": "1.0.0"}
+    mc_process._latest_versions = {"main_fw": "2.0.0", "channel_fw": "2.0.0", "sw": "1.0.0"}
 
     # start firmware update
     update_firmware_command = {
@@ -495,7 +495,7 @@ def test_McCommunicationProcess__raises_error_if_end_firmware_update_command_fai
         mc_process._main_firmware_update_bytes = test_firmware_bytes
     else:
         mc_process._channel_firmware_update_bytes = test_firmware_bytes
-    mc_process._latest_versions = {"main-fw": "2.0.0", "channel-fw": "2.0.0", "sw": "1.0.0"}
+    mc_process._latest_versions = {"main_fw": "2.0.0", "channel_fw": "2.0.0", "sw": "1.0.0"}
 
     # start firmware update
     update_firmware_command = {
@@ -553,7 +553,7 @@ def test_McCommunicationProcess__raises_error_if_firmware_update_timeout_occurs(
         mc_process._main_firmware_update_bytes = test_firmware_bytes
     else:
         mc_process._channel_firmware_update_bytes = test_firmware_bytes
-    mc_process._latest_versions = {"main-fw": "2.0.0", "channel-fw": "2.0.0", "sw": "1.0.0"}
+    mc_process._latest_versions = {"main_fw": "2.0.0", "channel_fw": "2.0.0", "sw": "1.0.0"}
 
     # mock so timeout occurs after end of firmware response received
     mocker.patch.object(mc_comm, "_get_firmware_update_dur_secs", autospec=True, return_value=timeout_value)
