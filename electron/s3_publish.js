@@ -43,3 +43,33 @@ const upload = async () => {
 };
 
 upload();
+
+const axios = require("axios");
+const packageVersionNoPre = require("./package.json").version;
+
+const updateCloud = async () => {
+  console.log("Logging in to CB cloud"); // allow-log
+  try {
+    await axios.post(`https://apiv2.curibio.com/users/login`, {
+      customer_id: "curibio",
+      username: process.env.CLOUD_ACCOUNT_USERNAME,
+      password: process.env.CLOUD_ACCOUNT_PASSWORD,
+      client_type: "ma-controller-ci",
+    });
+  } catch (e) {
+    console.log(`Error logging in: ${e}`); // allow-log
+    process.exit(1);
+  }
+  console.log("Login successful"); // allow-log
+
+  console.log("Updating SW versions in cloud"); // allow-log
+  try {
+    await axios.post(`https://apiv2.curibio.com/mantarray/software/mantarray/${packageVersionNoPre}`);
+  } catch (e) {
+    console.log(`Error updating SW versions: ${e}`); // allow-log
+    process.exit(1);
+  }
+  console.log("SW version update successful"); // allow-log
+};
+
+updateCloud();
