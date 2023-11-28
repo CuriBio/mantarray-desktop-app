@@ -4,6 +4,7 @@ import os
 
 from mantarray_desktop_app import CLOUD_API_ENDPOINT
 from mantarray_desktop_app.constants import CURRENT_SOFTWARE_VERSION
+from mantarray_desktop_app.constants import SOFTWARE_RELEASE_CHANNEL
 from mantarray_desktop_app.exceptions import FirmwareAndSoftwareNotCompatibleError
 from mantarray_desktop_app.exceptions import FirmwareDownloadError
 from mantarray_desktop_app.simulators.mc_simulator import MantarrayMcSimulator
@@ -128,19 +129,19 @@ def test_check_for_local_firmware_versions__return_correctly_if_fw_update_direct
     mocked_listdir = mocker.patch.object(firmware_downloader.os, "listdir", autospec=True)
 
     expected_fw_versions = {
-        "main-fw": "1.1.1" if main_fw_update else "0.0.0",
-        "channel-fw": "2.2.2" if channel_fw_update else "0.0.0",
+        "main_fw": "1.1.1" if main_fw_update else "0.0.0",
+        "channel_fw": "2.2.2" if channel_fw_update else "0.0.0",
     }
 
     mocked_listdir.return_value = [
-        f"{fw_type.split('-')[0]}-{version}.bin"
+        f"{fw_type.split('_')[0]}-{version}.bin"
         for fw_type, version in expected_fw_versions.items()
         if version != "0.0.0"
     ] + [".DS_Store"]
 
     test_fw_update_dir_path = "some/dir"
     assert check_for_local_firmware_versions(test_fw_update_dir_path) == {
-        "latest_versions": {"sw": CURRENT_SOFTWARE_VERSION, **expected_fw_versions},
+        "latest_versions": {"ma_sw": CURRENT_SOFTWARE_VERSION, **expected_fw_versions},
         "download": False,
     }
 
@@ -154,22 +155,23 @@ def test_get_latest_firmware_versions__calls_api_endpoint_correctly_and_returns_
     expected_latest_sw_version = "1.0.2"
     expected_response_dict = {
         "latest_versions": {
-            "main-fw": expected_latest_main_fw_version,
-            "channel-fw": expected_latest_channel_fw_version,
-            "sw": expected_latest_sw_version,
+            "main_fw": expected_latest_main_fw_version,
+            "channel_fw": expected_latest_channel_fw_version,
+            "ma_sw": expected_latest_sw_version,
         },
         "download": True,
     }
 
     mocked_call = mocker.patch.object(firmware_downloader, "call_firmware_download_route", autospec=True)
-    mocked_call.return_value.json.return_value = copy.deepcopy(expected_response_dict)
+    mocked_call.return_value.json.return_value = copy.deepcopy(expected_response_dict["latest_versions"])
 
     test_result_dict = {"latest_versions": {}}
     test_serial_number = MantarrayMcSimulator.default_mantarray_serial_number
     get_latest_firmware_versions(test_result_dict, test_serial_number)
 
+    is_prod = SOFTWARE_RELEASE_CHANNEL == "prod"
     mocked_call.assert_called_once_with(
-        f"https://{CLOUD_API_ENDPOINT}/mantarray/versions/{test_serial_number}",
+        f"https://{CLOUD_API_ENDPOINT}/mantarray/versions/{test_serial_number}/{is_prod}",
         error_message="Error getting latest firmware versions",
     )
 

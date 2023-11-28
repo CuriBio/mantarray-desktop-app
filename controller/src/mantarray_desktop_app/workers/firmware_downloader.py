@@ -13,6 +13,7 @@ from semver import VersionInfo
 
 from ..constants import CLOUD_API_ENDPOINT
 from ..constants import CURRENT_SOFTWARE_VERSION
+from ..constants import SOFTWARE_RELEASE_CHANNEL
 from ..exceptions import FirmwareAndSoftwareNotCompatibleError
 from ..exceptions import FirmwareDownloadError
 
@@ -55,24 +56,25 @@ def check_for_local_firmware_versions(fw_update_dir_path: str) -> Optional[Dict[
     for fw_file_name in os.listdir(fw_update_dir_path):
         if "main" in fw_file_name or "channel" in fw_file_name:
             fw_type, version = os.path.splitext(fw_file_name)[0].split("-")
-            fw_versions[f"{fw_type}-fw"] = version
+            fw_versions[f"{fw_type}_fw"] = version
 
     if not fw_versions:
         return None
 
     # A version must be returned for both FW types, so if a file for one isn't present just set it to 0.0.0 so no update will occur for it
-    fw_versions = {"main-fw": "0.0.0", "channel-fw": "0.0.0", **fw_versions}
+    fw_versions = {"main_fw": "0.0.0", "channel_fw": "0.0.0", **fw_versions}
 
     # set software version to whatever the current version is to ensure that the FW updates run
-    return {"latest_versions": {"sw": CURRENT_SOFTWARE_VERSION, **fw_versions}, "download": False}
+    return {"latest_versions": {"ma_sw": CURRENT_SOFTWARE_VERSION, **fw_versions}, "download": False}
 
 
 def get_latest_firmware_versions(result_dict: Dict[str, Any], serial_number: str) -> None:
+    is_prod = SOFTWARE_RELEASE_CHANNEL == "prod"
     get_versions_response = call_firmware_download_route(
-        f"https://{CLOUD_API_ENDPOINT}/mantarray/versions/{serial_number}",
+        f"https://{CLOUD_API_ENDPOINT}/mantarray/versions/{serial_number}/{is_prod}",
         error_message="Error getting latest firmware versions",
     )
-    result_dict.update({"latest_versions": get_versions_response.json()["latest_versions"], "download": True})
+    result_dict.update({"latest_versions": get_versions_response.json(), "download": True})
 
 
 def check_versions(

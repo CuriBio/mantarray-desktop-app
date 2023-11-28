@@ -265,11 +265,7 @@ def test_MantarrayProcessesMonitor__logs_messages_from_data_analyzer(
     mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
 
     data_analyzer_to_main = test_process_manager.queue_container.from_data_analyzer
-    expected_comm = {
-        "communication_type": "finalized_data",
-        "well_index": 0,
-        "data": np.zeros((2, 10)),
-    }
+    expected_comm = {"communication_type": "finalized_data", "well_index": 0, "data": np.zeros((2, 10))}
     data_analyzer_to_main.put_nowait(expected_comm)
     assert is_queue_eventually_not_empty(data_analyzer_to_main) is True
     invoke_process_run_and_check_errors(monitor_thread)
@@ -343,11 +339,7 @@ def test_MantarrayProcessesMonitor__passes_update_upload_status_data_to_websocke
 
     expected_content = {"key": "value"}
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {
-            "communication_type": "update_upload_status",
-            "content": expected_content,
-        },
-        fw_data_out_queue,
+        {"communication_type": "update_upload_status", "content": expected_content}, fw_data_out_queue
     )
 
     invoke_process_run_and_check_errors(monitor_thread)
@@ -449,10 +441,7 @@ def test_MantarrayProcessesMonitor__handles_non_instrument_related_errors_from_i
         test_process_manager, "hard_stop_and_join_processes", autospec=True
     )
 
-    is_fw_update_error = test_system_status in (
-        DOWNLOADING_UPDATES_STATE,
-        INSTALLING_UPDATES_STATE,
-    )
+    is_fw_update_error = test_system_status in (DOWNLOADING_UPDATES_STATE, INSTALLING_UPDATES_STATE)
     expected_system_status = UPDATE_ERROR_STATE if is_fw_update_error else test_system_status
 
     error_tuple = (Exception(), "error")
@@ -598,11 +587,7 @@ def test_MantarrayProcessesMonitor__correctly_sets_system_status_to_live_view_ac
     data_analyzer_process = test_process_manager.data_analyzer_process
     da_to_main_queue = test_process_manager.queue_container.from_data_analyzer
 
-    dummy_data = {
-        "well5": [1, 2, 3],
-        "earliest_timepoint": 1,
-        "latest_timepoint": 3,
-    }
+    dummy_data = {"well5": [1, 2, 3], "earliest_timepoint": 1, "latest_timepoint": 3}
 
     shared_values_dict["system_status"] = BUFFERING_STATE
     data_analyzer_process._dump_data_into_queue(dummy_data)
@@ -951,10 +936,7 @@ def test_MantarrayProcessesMonitor__enables_sw_auto_install_when_reaching_CALIBR
 
     confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
     ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert ws_message == {
-        "data_type": "sw_update",
-        "data_json": json.dumps({"allow_software_update": True}),
-    }
+    assert ws_message == {"data_type": "sw_update", "data_json": json.dumps({"allow_software_update": True})}
 
 
 @pytest.mark.parametrize(
@@ -1064,9 +1046,9 @@ def test_MantarrayProcessesMonitor__handles_switch_from_CHECKING_FOR_UPDATES_STA
         test_command_response["error"] = "some error msg"
     else:
         test_command_response["latest_versions"] = {
-            "main-fw": test_new_version if main_fw_update else test_current_version,
-            "channel-fw": test_new_version if channel_fw_update else test_current_version,
-            "sw": test_new_version,
+            "main_fw": test_new_version if main_fw_update else test_current_version,
+            "channel_fw": test_new_version if channel_fw_update else test_current_version,
+            "ma_sw": test_new_version,
         }
         test_command_response["download"] = test_download_status
     # process command response
@@ -1225,21 +1207,12 @@ def test_MantarrayProcessesMonitor__handles_switch_from_UPDATES_NEEDED_STATE_in_
     }
 
 
+@pytest.mark.parametrize("main_fw_update,channel_fw_update", [(False, True), (True, False), (True, True)])
 @pytest.mark.parametrize(
-    "main_fw_update,channel_fw_update",
-    [(False, True), (True, False), (True, True)],
-)
-@pytest.mark.parametrize(
-    "error,expected_state",
-    [(True, UPDATE_ERROR_STATE), (False, INSTALLING_UPDATES_STATE)],
+    "error,expected_state", [(True, UPDATE_ERROR_STATE), (False, INSTALLING_UPDATES_STATE)]
 )
 def test_MantarrayProcessesMonitor__handles_switch_from_DOWNLOADING_UPDATES_STATE_in_beta_2_mode_correctly(
-    main_fw_update,
-    channel_fw_update,
-    error,
-    expected_state,
-    test_monitor,
-    test_process_manager_creator,
+    main_fw_update, channel_fw_update, error, expected_state, test_monitor, test_process_manager_creator
 ):
     test_process_manager = test_process_manager_creator(beta_2_mode=True, use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
@@ -1253,10 +1226,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_DOWNLOADING_UPDATES_STAT
     from_ic_queue = test_process_manager.queue_container.from_instrument_comm(board_idx)
     to_ic_queue = test_process_manager.queue_container.to_instrument_comm(board_idx)
 
-    test_command_response = {
-        "communication_type": "firmware_update",
-        "command": "download_firmware_updates",
-    }
+    test_command_response = {"communication_type": "firmware_update", "command": "download_firmware_updates"}
     if error:
         test_command_response["error"] = "error"
     else:
@@ -1285,10 +1255,7 @@ def test_MantarrayProcessesMonitor__handles_switch_from_DOWNLOADING_UPDATES_STAT
 
 
 @pytest.mark.parametrize("download_required", [True, False])
-@pytest.mark.parametrize(
-    "main_fw_update,channel_fw_update",
-    [(False, True), (True, False), (True, True)],
-)
+@pytest.mark.parametrize("main_fw_update,channel_fw_update", [(False, True), (True, False), (True, True)])
 def test_MantarrayProcessesMonitor__handles_firmware_update_completed_commands_correctly(
     main_fw_update, channel_fw_update, download_required, test_monitor, test_process_manager_creator, mocker
 ):
@@ -1340,10 +1307,7 @@ def test_MantarrayProcessesMonitor__handles_firmware_update_completed_commands_c
     # make sure that correct ws message is sent
     confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
     ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert ws_message == {
-        "data_type": "sw_update",
-        "data_json": json.dumps({"allow_software_update": True}),
-    }
+    assert ws_message == {"data_type": "sw_update", "data_json": json.dumps({"allow_software_update": True})}
 
     if download_required:
         mocked_remove.assert_not_called()
@@ -1385,11 +1349,7 @@ def test_MantarrayProcessesMonitor__calls_boot_up_only_once_after_subprocesses_s
     error_queue = TestingQueue()
     the_lock = threading.Lock()
     monitor = MantarrayProcessesMonitor(
-        shared_values_dict,
-        test_process_manager,
-        error_queue,
-        the_lock,
-        boot_up_after_processes_start=True,
+        shared_values_dict, test_process_manager, error_queue, the_lock, boot_up_after_processes_start=True
     )
 
     invoke_process_run_and_check_errors(monitor)
@@ -1408,11 +1368,7 @@ def test_MantarrayProcessesMonitor__doesnt_call_boot_up_after_subprocesses_start
     error_queue = TestingQueue()
     the_lock = threading.Lock()
     monitor = MantarrayProcessesMonitor(
-        shared_values_dict,
-        test_process_manager,
-        error_queue,
-        the_lock,
-        boot_up_after_processes_start=False,
+        shared_values_dict, test_process_manager, error_queue, the_lock, boot_up_after_processes_start=False
     )
 
     invoke_process_run_and_check_errors(monitor)
@@ -1730,26 +1686,14 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_instrument_
 @pytest.mark.parametrize(
     "expected_plate_barcode,test_valid,test_description",
     [
-        (
-            MantarrayMcSimulator.default_plate_barcode,
-            True,
-            "does not update to current valid plate barcode",
-        ),
-        (
-            MantarrayMcSimulator.default_stim_barcode,
-            True,
-            "does not update to current valid stim barcode",
-        ),
+        (MantarrayMcSimulator.default_plate_barcode, True, "does not update to current valid plate barcode"),
+        (MantarrayMcSimulator.default_stim_barcode, True, "does not update to current valid stim barcode"),
         ("M$200190000", False, "does not update to current invalid barcode"),
         ("", None, "does not update to current empty barcode"),
     ],
 )
 def test_MantarrayProcessesMonitor__does_not_update_any_values_or_send_barcode_update_to_frontend__if_new_barcode_matches_current_barcode(
-    expected_plate_barcode,
-    test_valid,
-    test_description,
-    test_monitor,
-    test_process_manager_creator,
+    expected_plate_barcode, test_valid, test_description, test_monitor, test_process_manager_creator
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
@@ -1858,8 +1802,7 @@ def test_MantarrayProcessesMonitor__redacts_mantarray_nickname_from_logged_board
 
 
 def test_MantarrayProcessesMonitor__drains_data_analyzer_data_out_queue_after_receiving_stop_managed_acquisition_command_receipt(
-    test_process_manager_creator,
-    test_monitor,
+    test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)

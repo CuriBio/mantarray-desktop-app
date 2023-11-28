@@ -614,9 +614,9 @@ class MantarrayProcessesMonitor(InfiniteThread):
                         "download"
                     ]
 
-                    required_sw_for_fw = communication["latest_versions"]["sw"]
-                    latest_main_fw = communication["latest_versions"]["main-fw"]
-                    latest_channel_fw = communication["latest_versions"]["channel-fw"]
+                    required_sw_for_fw = communication["latest_versions"]["ma_sw"]
+                    latest_main_fw = communication["latest_versions"]["main_fw"]
+                    latest_channel_fw = communication["latest_versions"]["channel_fw"]
                     min_sw_version_unavailable = _compare_semver(
                         required_sw_for_fw, self._values_to_share_to_server["latest_software_version"]
                     )
