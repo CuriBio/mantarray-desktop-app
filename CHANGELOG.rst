@@ -6,11 +6,13 @@ Changelog for Mantarray Desktop App
 
 Changed:
 ^^^^^^^^
-- Update upload_type in ``/uploads`` request
-- Update service in ``/login`` request
+- Update upload_type in ``/uploads`` request.
+- Update service in ``/login`` request.
 - Beta 2 H5 file format version is now 1.5.0. Format changes include adding the following values:
 
   - USER_DEFINED_METADATA_UUID
+
+- "Stimulation is Running" warning will remain visible until end of stim data is shown in live view.
 
 Fixed:
 ^^^^^^
