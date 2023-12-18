@@ -15,6 +15,7 @@ const state = () => ({
   y_axis_scale: 120,
   delay_blocks: [],
   stim_play_state: false,
+  protocol_completion_timepoints: Array(24).fill(-1), // Tanner (12/15/23): this is only intended to be used for the stim banner at the moment
   x_axis_unit_name: "milliseconds",
   x_axis_time_idx: 0,
   edit_mode: { status: false, label: "", color: "" },

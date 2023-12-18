@@ -35,10 +35,9 @@ export default {
     // useful for testing actions
     return context;
   },
-  async append_stim_waveforms({ state, dispatch }, new_values) {
+  async append_stim_waveforms({ rootState, state, dispatch }, new_values) {
     for (const well_idx in new_values) {
       if (new_values[well_idx] !== undefined && state.plate_waveforms[well_idx] !== undefined) {
-        // real Y values not actually used yet, just need to draw a straight vertical line at each new x value and connect the points at a Y value out of the max zoom window
         const previous_time = state.last_protocol_flag[well_idx];
         const new_well_values = new_values[well_idx][0];
         const protocol_flags = new_values[well_idx][1];
@@ -58,7 +57,7 @@ export default {
             this.commit("stimulation/set_stim_start_time_idx", x);
           }
 
-          const next_x = new_well_values[idx + 1] ? new_well_values[idx + 1] : x;
+          const next_x = new_well_values[idx + 1] || x;
           /*
               Protects against long subprotocols.
               Second x timepoint is a filler value and will be replaced in ContinuousWaveform with last tissue data timepoint
@@ -68,7 +67,11 @@ export default {
           state.stim_waveforms[well_idx].x_data_points.push(x);
           state.stim_waveforms[well_idx].y_data_points.push(101000);
 
-          if (next_x || new_well_values.length == 1 || protocol_flags[idx] == 255) {
+          const end_reached = protocol_flags[idx] == 255;
+
+          rootState.stimulation.protocol_completion_timepoints[well_idx] = end_reached ? x : null;
+
+          if (next_x || new_well_values.length == 1 || end_reached) {
             state.stim_fill_assignments[well_idx].push([
               protocol_flags[idx],
               [
@@ -91,6 +94,12 @@ export default {
         }
       }
     }
+
+    // Tanner (12/15/23): doing this so vue notices that the value changed
+    rootState.stimulation.protocol_completion_timepoints = [
+      ...rootState.stimulation.protocol_completion_timepoints,
+    ];
+
     dispatch("remove_old_stim_data");
   },
   remove_old_stim_data({ rootState }) {
