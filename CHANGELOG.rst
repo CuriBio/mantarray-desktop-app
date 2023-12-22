@@ -4,6 +4,10 @@ Changelog for Mantarray Desktop App
 1.2.2 (unreleased)
 ------------------
 
+Added:
+^^^^^^
+- Ability to view changelog.
+
 Changed:
 ^^^^^^^^
 - Update upload_type in ``/uploads`` request.

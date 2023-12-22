@@ -126,6 +126,9 @@
           <DataAnalysisControl @send_confirmation="send_confirmation" />
         </b-collapse>
       </div>
+      <span class="span__changelog-text" :style="changelog_text_dynamic_top" @click="open_changelog"
+        >View Changelog</span
+      >
       <div class="div__simulation-mode-container">
         <SimulationMode />
       </div>
@@ -163,6 +166,8 @@ import {
 import { ipcRenderer } from "electron";
 import { mapState } from "vuex";
 const log = require("electron-log");
+const shell = require("electron").shell;
+
 import path from "path";
 import Vue from "vue";
 
@@ -211,9 +216,10 @@ export default {
       "recordings_list",
       "root_recording_path",
     ]),
+
     ...mapState("playback", ["data_analysis_state", "playback_state", "start_recording_from_stim"]),
     ...mapState("stimulation", ["stim_play_state"]),
-    ...mapState("flask", ["status_uuid", "log_file_id"]),
+    ...mapState("flask", ["status_uuid", "log_file_id", "simulation_mode"]),
     data_acquisition_dynamic_class: function () {
       return this.data_acquisition_visibility ? "div__accordian-tabs-visible" : "div__accordian-tabs";
     },
@@ -222,6 +228,9 @@ export default {
     },
     data_analysis_dynamic_class: function () {
       return this.data_analysis_visibility ? "div__accordian-tabs-visible" : "div__accordian-tabs";
+    },
+    changelog_text_dynamic_top: function () {
+      return this.simulation_mode ? "top: 850px" : "top: 885px";
     },
   },
   watch: {
@@ -342,6 +351,9 @@ export default {
     close_da_check_modal: function (idx) {
       if (idx === 1) this.handle_tab_visibility(2);
       this.da_check = false;
+    },
+    open_changelog: function () {
+      shell.openExternal("https://github.com/CuriBio/mantarray-desktop-app/blob/main/CHANGELOG.rst");
     },
   },
 };
@@ -570,5 +582,31 @@ body {
   font-size: 9px;
   color: #ffffff;
   text-align: center;
+}
+
+.span__changelog-text {
+  position: absolute;
+  z-index: 99;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  box-sizing: border-box;
+  line-height: 100%;
+  overflow: hidden;
+  width: 286px;
+  height: 20px;
+  left: -0.252101px;
+  padding: 5px;
+  user-select: none;
+  font-family: Muli;
+  font-weight: normal;
+  font-style: normal;
+  text-decoration: none;
+  font-size: 11px;
+  color: #ffffff;
+  text-align: center;
+}
+.span__changelog-text:hover {
+  cursor: pointer;
+  color: rgb(27, 158, 119);
 }
 </style>
