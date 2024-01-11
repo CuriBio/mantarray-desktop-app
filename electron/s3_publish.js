@@ -42,8 +42,6 @@ const upload = async () => {
   }
 };
 
-upload();
-
 const axios = require("axios");
 const packageVersionNoPre = require("./package.json").version;
 
@@ -72,4 +70,9 @@ const updateCloud = async () => {
   console.log("SW version update successful"); // allow-log
 };
 
-updateCloud();
+const run = async () => {
+  await upload();
+  await updateCloud();
+};
+
+run();
