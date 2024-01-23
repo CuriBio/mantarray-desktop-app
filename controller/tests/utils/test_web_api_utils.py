@@ -22,12 +22,9 @@ class TestWebWorker(WebWorker):
         pass
 
 
-def test_get_cloud_api_tokens__return_tokens_if_login_successful(mocker):
-    mocked_post = mocker.patch.object(web_api.requests, "post", autospec=True)
-    mocked_post.return_value.status_code = 200
-
+def test_get_cloud_api_tokens__return_tokens_if_login_successful(mocker, patched_requests_session):
     expected_tokens = AuthTokens(access="access", refresh="refresh")
-    mocked_post.return_value.json.return_value = {
+    patched_requests_session.post.return_value.json.return_value = {
         "tokens": {
             "access": {"token": expected_tokens.access},
             "refresh": {"token": expected_tokens.refresh},
@@ -35,20 +32,21 @@ def test_get_cloud_api_tokens__return_tokens_if_login_successful(mocker):
         "usage_quota": {"jobs_reached": False},
     }
 
+    patched_requests_session.post.return_value.status_code = 200
+
     test_creds = {"customer_id": "cid", "username": "user", "password": "pw"}
 
-    tokens, _ = get_cloud_api_tokens(*test_creds.values())
+    tokens, _ = get_cloud_api_tokens(*test_creds.values(), patched_requests_session)
     assert tokens == expected_tokens
 
-    mocked_post.assert_called_once_with(
+    patched_requests_session.post.assert_called_once_with(
         f"https://{CLOUD_API_ENDPOINT}/users/login",
         json={**test_creds, "service": "mantarray", "client_type": f"mantarray:{CURRENT_SOFTWARE_VERSION}"},
     )
 
 
-def test_get_cloud_api_tokens__raises_error_if_login_fails(mocker):
-    mocked_post = mocker.patch.object(web_api.requests, "post", autospec=True)
-    mocked_post.return_value.status_code = error_status_code = 401
+def test_get_cloud_api_tokens__raises_error_if_login_fails(mocker, patched_requests_session):
+    patched_requests_session.post.return_value.status_code = error_status_code = 401
 
     test_creds = {"customer_id": "cid", "username": "user", "password": "pw"}
 

@@ -32,6 +32,7 @@ def get_cloud_api_tokens(
         customer_id: current user's customer account id.
         user_name: current user.
         password: current user's password.
+        session: request session to persist cookies, requires default to create new session for log file upload and validating user credentials in flask server
     """
     response = session.post(
         f"https://{CLOUD_API_ENDPOINT}/users/login",
