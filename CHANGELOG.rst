@@ -7,6 +7,7 @@ Changelog for Mantarray Desktop App
 Added:
 ^^^^^^
 - Ability to view changelog.
+- Cookie persistence using request session.
 
 Changed:
 ^^^^^^^^

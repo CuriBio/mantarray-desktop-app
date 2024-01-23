@@ -61,7 +61,9 @@ def get_file_md5(file_path: str) -> str:
     return md5s
 
 
-def get_upload_details(access_token: str, file_name: str, file_md5: str, upload_type: str) -> Dict[Any, Any]:
+def get_upload_details(
+    session: requests.Session, access_token: str, file_name: str, file_md5: str, upload_type: str
+) -> Dict[Any, Any]:
     """Post to generate post specific parameters.
 
     Args:
@@ -72,7 +74,7 @@ def get_upload_details(access_token: str, file_name: str, file_md5: str, upload_
     """
     # Tanner (7/5/22): sending mantarray as upload type for both kinds of uploads for now
     route = "uploads" if upload_type == "recording" else "logs"
-    response = requests.post(
+    response = session.post(
         f"https://{CLOUD_PULSE3D_ENDPOINT}/{route}",
         json={"filename": file_name, "md5s": file_md5, "upload_type": "mantarray"},
         headers={"Authorization": f"Bearer {access_token}"},
@@ -99,7 +101,9 @@ def upload_file_to_s3(file_path: str, file_name: str, upload_details: Dict[Any, 
         raise PresignedUploadFailedError(f"{response.status_code} {response.reason}")
 
 
-def start_analysis(access_token: str, upload_id: str, version: str) -> Dict[str, Any]:
+def start_analysis(
+    session: requests.Session, access_token: str, upload_id: str, version: str
+) -> Dict[str, Any]:
     """Post to start cloud analysis of an uploaded file.
 
     Args:
@@ -110,7 +114,7 @@ def start_analysis(access_token: str, upload_id: str, version: str) -> Dict[str,
     Returns:
         The ID of the job created to run analysis on the uploaded file
     """
-    response = requests.post(
+    response = session.post(
         f"https://{CLOUD_PULSE3D_ENDPOINT}/jobs",
         json={"upload_id": upload_id, "version": version},
         headers={"Authorization": f"Bearer {access_token}"},
@@ -197,7 +201,9 @@ class FileUploader(WebWorker):
 
         # upload file
         file_md5 = get_file_md5(zipped_file_path)
-        upload_details = get_upload_details(self.tokens.access, self.file_name, file_md5, self.upload_type)
+        upload_details = get_upload_details(
+            self.session, self.tokens.access, self.file_name, file_md5, self.upload_type
+        )
 
         upload_file_to_s3(zipped_file_path, self.file_name, upload_details)
 
@@ -208,7 +214,9 @@ class FileUploader(WebWorker):
         self.current_action = "analyze recording"
 
         # start analysis and wait for analysis to complete
-        job_details = start_analysis(self.tokens.access, upload_details["id"], self.pulse3d_version)
+        job_details = start_analysis(
+            self.session, self.tokens.access, upload_details["id"], self.pulse3d_version
+        )
 
         if error_type := job_details.get("error"):
             # if job fails because job limit has been reached, error will be returned and needs to be raised
@@ -227,7 +235,7 @@ class FileUploader(WebWorker):
 
     def get_analysis_status(self, job_id: str) -> Dict[str, str]:
         response = self.request_with_refresh(
-            lambda: requests.get(
+            lambda: self.session.get(
                 f"https://{CLOUD_PULSE3D_ENDPOINT}/jobs",
                 params={"job_ids": job_id},
                 headers={"Authorization": f"Bearer {self.tokens.access}"},
