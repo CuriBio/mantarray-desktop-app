@@ -24,7 +24,7 @@ def _get_tokens(response_json: Dict[str, Any]) -> AuthTokens:
 
 
 def get_cloud_api_tokens(
-    customer_id: str, user_name: str, password: str
+    customer_id: str, user_name: str, password: str, session: requests.Session = requests.Session()
 ) -> Tuple[AuthTokens, Dict[str, Any]]:
     """Login and get tokens.
 
@@ -33,7 +33,7 @@ def get_cloud_api_tokens(
         user_name: current user.
         password: current user's password.
     """
-    response = requests.post(
+    response = session.post(
         f"https://{CLOUD_API_ENDPOINT}/users/login",
         json={
             "customer_id": customer_id,
@@ -50,9 +50,9 @@ def get_cloud_api_tokens(
     return _get_tokens(response_json["tokens"]), response_json["usage_quota"]
 
 
-def refresh_cloud_api_tokens(refresh_token: str) -> AuthTokens:
+def refresh_cloud_api_tokens(session: requests.Session, refresh_token: str) -> AuthTokens:
     """Use refresh token to get new set of auth tokens."""
-    response = requests.post(
+    response = session.post(
         f"https://{CLOUD_API_ENDPOINT}/users/refresh", headers={"Authorization": f"Bearer {refresh_token}"}
     )
     if response.status_code != 201:
@@ -82,12 +82,12 @@ class WebWorker(ABC):
         self.customer_id = customer_id
         self.user_name = user_name
         self.password = password
-
+        self.session = requests.Session()
         self.tokens: AuthTokens
 
     def __call__(self) -> None:
         """Login and then do the job."""
-        tokens, _ = get_cloud_api_tokens(self.customer_id, self.user_name, self.password)
+        tokens, _ = get_cloud_api_tokens(self.customer_id, self.user_name, self.password, self.session)
         self.tokens = tokens
         self.job()
 
@@ -102,7 +102,7 @@ class WebWorker(ABC):
         # if auth token expired then request will return 401 code
         if response.status_code == 401:
             # get new tokens and try request once more
-            self.tokens = refresh_cloud_api_tokens(self.tokens.refresh)
+            self.tokens = refresh_cloud_api_tokens(self.session, self.tokens.refresh)
             response = request_func()
             # Tanner (5/26/22): could add error handling if request fails again or if refresh fails
 

@@ -158,7 +158,7 @@ def fixture_test_process_manager_creator(mocker):
                         "recording_directory": recording_dir,
                         "mag_analysis_output_dir": mag_analysis_output_dir,
                     },
-                },
+                }
             )
             if use_testing_queues:
                 mocker.patch.object(
@@ -185,9 +185,7 @@ def fixture_test_process_manager_creator(mocker):
     clear_the_server_manager()
 
 
-def start_processes_and_wait_for_start_ups_to_complete(
-    test_manager: MantarrayProcessesManager,
-) -> None:
+def start_processes_and_wait_for_start_ups_to_complete(test_manager: MantarrayProcessesManager) -> None:
     timeout_seconds = 12
     test_manager.start_processes()
     start_time = perf_counter()
@@ -293,9 +291,13 @@ def fixture_patched_firmware_folder(mocker):
         os.path.join(PATH_TO_CURRENT_FILE, "test_firmware", patched_firmware)
     )
     mocker.patch.object(
-        process_manager,
-        "get_latest_firmware",
-        autospec=True,
-        return_value=patched_firmware_path,
+        process_manager, "get_latest_firmware", autospec=True, return_value=patched_firmware_path
     )
     yield patched_firmware_path
+
+
+@pytest.fixture(scope="function", name="patched_requests_session")
+def fixture_patched_requests_session(mocker):
+    mock_session = mocker.patch.object(requests, "Session", autospec=True)
+    mock_session.return_value = mock_session
+    return mock_session

@@ -22,6 +22,7 @@ from mantarray_desktop_app.workers.file_uploader import upload_file_to_s3
 import pytest
 import requests
 
+from ..fixtures import fixture_patched_requests_session
 from ..fixtures_file_writer import TEST_CUSTOMER_ID
 from ..fixtures_file_writer import TEST_USER_NAME
 
@@ -34,6 +35,8 @@ TEST_PULSE3D_VERSION = "6.7.9"
 
 RECORDING_UPLOAD_TYPE = "recording"
 LOG_UPLOAD_TYPE = "logs"
+
+__fixtures__ = [fixture_patched_requests_session]
 
 
 @pytest.fixture(scope="function", name="create_file_uploader")
@@ -59,6 +62,7 @@ def fixture_create_file_uploader():
         )
         if create_tokens:
             test_file_uploader.tokens = AuthTokens(access="test_access_token", refresh="test_refresh_token")
+
         return test_file_uploader
 
     yield _foo
@@ -80,16 +84,17 @@ def test_get_file_md5__creates_and_returns_file_md5_value_correctly(mocker):
 
 @pytest.mark.parametrize("upload_type,expected_route", [("recording", "uploads"), ("logs", "logs")])
 def test_get_upload_details__requests_and_returns_upload_details_correctly(
-    upload_type, expected_route, mocker
+    upload_type, expected_route, mocker, patched_requests_session
 ):
-    mocked_post = mocker.patch.object(requests, "post", autospec=True)
-    expected_upload_details = mocked_post.return_value.json()
+    expected_upload_details = patched_requests_session.post.return_value.json()
 
     test_access_token = "token"
     test_file_md5 = "hash"
 
-    actual = get_upload_details(test_access_token, TEST_FILENAME, test_file_md5, upload_type)
-    mocked_post.assert_called_once_with(
+    actual = get_upload_details(
+        patched_requests_session, test_access_token, TEST_FILENAME, test_file_md5, upload_type
+    )
+    patched_requests_session.post.assert_called_once_with(
         f"https://{CLOUD_PULSE3D_ENDPOINT}/{expected_route}",
         json={"filename": TEST_FILENAME, "md5s": test_file_md5, "upload_type": "mantarray"},
         headers={"Authorization": f"Bearer {test_access_token}"},
@@ -99,12 +104,12 @@ def test_get_upload_details__requests_and_returns_upload_details_correctly(
 
 def test_upload_file_to_s3__uploads_file_correctly(mocker):
     mocked_open = mocker.patch("builtins.open", autospec=True)
-    mocked_post = mocker.patch.object(requests, "post", autospec=True)
 
+    mocked_post = mocker.patch.object(requests, "post", autospec=True)
     mocked_post.return_value.status_code = 204
 
     expected_open_file = mocked_open.return_value.__enter__()
-    test_url = "website.com"
+    test_url = "https://website.com"
     test_data = {"key": "val"}
     test_upload_details = {"params": {"url": test_url, "fields": test_data}}
 
@@ -118,8 +123,8 @@ def test_upload_file_to_s3__uploads_file_correctly(mocker):
 
 def test_upload_file_to_s3__raises_error_if_upload_fails(mocker):
     mocker.patch("builtins.open", autospec=True)
-    mocked_post = mocker.patch.object(requests, "post", autospec=True)
 
+    mocked_post = mocker.patch.object(requests, "post", autospec=True)
     mocked_post.return_value.status_code = error_code = 400
     mocked_post.return_value.reason = error_reason = "BAD REQUEST"
 
@@ -129,15 +134,17 @@ def test_upload_file_to_s3__raises_error_if_upload_fails(mocker):
         upload_file_to_s3(TEST_FILEPATH, TEST_FILENAME, test_upload_details)
 
 
-def test_start_analysis__starts_analysis_job_correctly__and_returns_job_id_and_usage(mocker):
-    mocked_post = mocker.patch.object(requests, "post", autospec=True)
+def test_start_analysis__starts_analysis_job_correctly__and_returns_job_id_and_usage(
+    mocker, patched_requests_session
+):
+    mocked_post = patched_requests_session.post
     mocked_post.return_value.json.return_value = {"id": "test_id", "usage_quota": {"jobs_reached": False}}
 
     test_access_token = "token"
     test_id = "id"
     test_version = "1.2.3"
 
-    job_details = start_analysis(test_access_token, test_id, test_version)
+    job_details = start_analysis(patched_requests_session, test_access_token, test_id, test_version)
 
     assert job_details["id"] == mocked_post.return_value.json()["id"]
     assert job_details["usage_quota"] == mocked_post.return_value.json()["usage_quota"]
@@ -195,12 +202,11 @@ def test_FileUploader_init__raises_error_if_uploading_a_recording_and_pulse3d_ve
 
 
 def test_FileUploader_get_analysis_status__requests_with_refresh__and_returns_analysis_status_correctly(
-    create_file_uploader, mocker
+    create_file_uploader, mocker, patched_requests_session
 ):
     expected_status_dict = {"status": "pending"}
 
-    mocked_get = mocker.patch.object(requests, "get", autospec=True)
-    mocked_get.return_value.json.return_value = {"jobs": [expected_status_dict]}
+    patched_requests_session.get.return_value.json.return_value = {"jobs": [expected_status_dict]}
 
     test_file_uploader = create_file_uploader(create_tokens=True)
 
@@ -209,16 +215,16 @@ def test_FileUploader_get_analysis_status__requests_with_refresh__and_returns_an
     actual = test_file_uploader.get_analysis_status(test_id)
     assert actual == expected_status_dict
 
-    mocked_get.assert_called_once_with(
+    patched_requests_session.get.assert_called_once_with(
         f"https://{CLOUD_PULSE3D_ENDPOINT}/jobs",
         params={"job_ids": test_id},
         headers={"Authorization": f"Bearer {test_file_uploader.tokens.access}"},
     )
 
 
-def test_FileUploader_get_analysis_status__makes_request_with_refresh(create_file_uploader, mocker):
-    mocked_get = mocker.patch.object(requests, "get", autospec=True)
-
+def test_FileUploader_get_analysis_status__makes_request_with_refresh(
+    create_file_uploader, mocker, patched_requests_session
+):
     test_file_uploader = create_file_uploader(create_tokens=True)
 
     mocked_rwr = mocker.patch.object(test_file_uploader, "request_with_refresh", autospec=True)
@@ -227,16 +233,17 @@ def test_FileUploader_get_analysis_status__makes_request_with_refresh(create_fil
     test_file_uploader.get_analysis_status("job_id")
     request_func = mocked_rwr.call_args[0][0]
 
-    mocked_get.assert_not_called()
+    patched_requests_session.get.assert_not_called()
     request_func()
-    mocked_get.assert_called_once()
+    patched_requests_session.get.assert_called_once()
 
 
-def test_FileUploader_get_analysis_status__raises_error_if_job_route_errored(mocker, create_file_uploader):
+def test_FileUploader_get_analysis_status__raises_error_if_job_route_errored(
+    mocker, create_file_uploader, patched_requests_session
+):
     expected_error_msg = "err_msg"
 
-    mocked_get = mocker.patch.object(requests, "get", autospec=True)
-    mocked_get.return_value.json.return_value = {"error": expected_error_msg}
+    patched_requests_session.get.return_value.json.return_value = {"error": expected_error_msg}
 
     test_file_uploader = create_file_uploader(create_tokens=True)
 
@@ -263,12 +270,13 @@ def test_FileUploader__raises_error_if_start_analysis_returns_error_from_post(mo
         test_file_uploader()
 
 
-def test_FileUploader_get_analysis_status__raises_error_if_analysis_job_errored(mocker, create_file_uploader):
+def test_FileUploader_get_analysis_status__raises_error_if_analysis_job_errored(
+    mocker, create_file_uploader, patched_requests_session
+):
     expected_error_msg = "err_msg"
     expected_status_dict = {"error_info": expected_error_msg}
 
-    mocked_get = mocker.patch.object(requests, "get", autospec=True)
-    mocked_get.return_value.json.return_value = {"jobs": [expected_status_dict]}
+    patched_requests_session.get.return_value.json.return_value = {"jobs": [expected_status_dict]}
 
     test_file_uploader = create_file_uploader(create_tokens=True)
 
@@ -328,7 +336,7 @@ def test_FileUploader__sleeps_in_between_polling_analysis_status_until_analysis_
 
 @pytest.mark.parametrize("user_dir_exists", [True, False])
 def test_FileUploader__runs_upload_procedure_correctly_for_recording(
-    user_dir_exists, create_file_uploader, mocker
+    user_dir_exists, create_file_uploader, mocker, patched_requests_session
 ):
     mocker.patch.object(os.path, "exists", autospec=True, return_value=user_dir_exists)
     mocked_makedirs = mocker.patch.object(os, "makedirs", autospec=True)
@@ -369,16 +377,22 @@ def test_FileUploader__runs_upload_procedure_correctly_for_recording(
         TEST_FILEPATH, tmp_dir, os.path.join(TEST_ZIPDIR, TEST_USER_NAME)
     )
 
-    mocked_get_tokens.assert_called_once_with(TEST_CUSTOMER_ID, TEST_USER_NAME, TEST_PASSWORD)
+    mocked_get_tokens.assert_called_once_with(
+        TEST_CUSTOMER_ID, TEST_USER_NAME, TEST_PASSWORD, patched_requests_session
+    )
     mocked_get_file_md5.assert_called_once_with(expected_zipped_file_path)
     mocked_get_upload_details.assert_called_once_with(
-        expected_access_token, expected_zipped_file_name, expected_md5, RECORDING_UPLOAD_TYPE
+        patched_requests_session,
+        expected_access_token,
+        expected_zipped_file_name,
+        expected_md5,
+        RECORDING_UPLOAD_TYPE,
     )
     mocked_upload_file.assert_called_once_with(
         expected_zipped_file_path, expected_zipped_file_name, expected_upload_details
     )
     mocked_start_analysis.assert_called_once_with(
-        expected_access_token, expected_upload_details["id"], TEST_PULSE3D_VERSION
+        patched_requests_session, expected_access_token, expected_upload_details["id"], TEST_PULSE3D_VERSION
     )
     mocked_get_analysis_status.assert_called_once_with(mocked_start_analysis.return_value["id"])
     mocked_download_analaysis.assert_called_once_with(
@@ -386,7 +400,9 @@ def test_FileUploader__runs_upload_procedure_correctly_for_recording(
     )
 
 
-def test_FileUploader__runs_upload_procedure_correctly_for_log_files(mocker, create_file_uploader):
+def test_FileUploader__runs_upload_procedure_correctly_for_log_files(
+    mocker, create_file_uploader, patched_requests_session
+):
     mocked_get_tokens = mocker.patch.object(web_api, "get_cloud_api_tokens", autospec=True)
     mocked_get_tokens.return_value = (AuthTokens(access="", refresh=""), {"jobs_reached": False})
     mocked_create_zip_file = mocker.patch.object(file_uploader, "create_zip_file", autospec=True)
@@ -413,10 +429,16 @@ def test_FileUploader__runs_upload_procedure_correctly_for_log_files(mocker, cre
         test_file_uploader()
 
     mocked_create_zip_file.assert_called_once_with(TEST_LOGPATH, tmp_dir, TEST_ZIPDIR)
-    mocked_get_tokens.assert_called_once_with(TEST_CUSTOMER_ID, TEST_USER_NAME, TEST_PASSWORD)
+    mocked_get_tokens.assert_called_once_with(
+        TEST_CUSTOMER_ID, TEST_USER_NAME, TEST_PASSWORD, patched_requests_session
+    )
     mocked_get_file_md5.assert_called_once_with(expected_zipped_file_path)
     mocked_get_upload_details.assert_called_once_with(
-        expected_access_token, expected_zipped_file_name, expected_md5, LOG_UPLOAD_TYPE
+        patched_requests_session,
+        expected_access_token,
+        expected_zipped_file_name,
+        expected_md5,
+        LOG_UPLOAD_TYPE,
     )
     mocked_upload_file.assert_called_once_with(
         expected_zipped_file_path, expected_zipped_file_name, expected_upload_details

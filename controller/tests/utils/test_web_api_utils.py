@@ -10,6 +10,10 @@ from mantarray_desktop_app.utils.web_api import refresh_cloud_api_tokens
 from mantarray_desktop_app.utils.web_api import WebWorker
 import pytest
 
+from ..fixtures import fixture_patched_requests_session
+
+__fixtures__ = [fixture_patched_requests_session]
+
 
 class TestWebWorker(WebWorker):
     """Simple subclass that implements abstract methods and nothing else."""
@@ -52,33 +56,32 @@ def test_get_cloud_api_tokens__raises_error_if_login_fails(mocker):
         get_cloud_api_tokens(*test_creds.values())
 
 
-def test_refresh_cloud_api_tokens__return_tokens_if_refresh_successful(mocker):
-    mocked_post = mocker.patch.object(web_api.requests, "post", autospec=True)
-    mocked_post.return_value.status_code = 201
+def test_refresh_cloud_api_tokens__return_tokens_if_refresh_successful(mocker, patched_requests_session):
+    patched_requests_session.post.return_value.status_code = 201
 
     expected_tokens = AuthTokens(access="new_access", refresh="new_refresh")
-    mocked_post.return_value.json.return_value = {
+    patched_requests_session.post.return_value.json.return_value = {
         "access": {"token": expected_tokens.access},
         "refresh": {"token": expected_tokens.refresh},
     }
 
     test_refresh_token = "old_refresh"
 
-    new_tokens = refresh_cloud_api_tokens(test_refresh_token)
+    new_tokens = refresh_cloud_api_tokens(patched_requests_session, test_refresh_token)
     assert new_tokens == expected_tokens
 
-    mocked_post.assert_called_once_with(
+    patched_requests_session.post.assert_called_once_with(
         f"https://{CLOUD_API_ENDPOINT}/users/refresh",
         headers={"Authorization": f"Bearer {test_refresh_token}"},
     )
 
 
-def test_refresh_cloud_api_tokens__raises_error_if_refresh_fails(mocker):
-    mocked_post = mocker.patch.object(web_api.requests, "post", autospec=True)
-    mocked_post.return_value.status_code = error_status_code = 401
+def test_refresh_cloud_api_tokens__raises_error_if_refresh_fails(mocker, patched_requests_session):
+    # mocked_post = mocker.patch.object(requests.Session, "post", autospec=True)
+    patched_requests_session.post.return_value.status_code = error_status_code = 401
 
     with pytest.raises(RefreshFailedError, match=str(error_status_code)):
-        refresh_cloud_api_tokens("refresh")
+        refresh_cloud_api_tokens(patched_requests_session, "refresh")
 
 
 def test_WebWorker__cannot_instantiate_if_abstract_methods_not_implemented():
@@ -99,17 +102,16 @@ def test_WebWorker__does_not_run_when_created(mocker):
     spied_job.assert_not_called()
 
 
-def test_WebWorker__runs_correctly_when_called(mocker):
+def test_WebWorker__runs_correctly_when_called(mocker, patched_requests_session):
     mocked_get_tokens = mocker.patch.object(web_api, "get_cloud_api_tokens", autospec=True)
     mocked_get_tokens.return_value = (AuthTokens(access="", refresh=""), {"jobs_reached": False})
     spied_job = mocker.spy(TestWebWorker, "job")
 
     test_creds = {"customer_id": "cid", "user_name": "user", "password": "pw"}
-
     test_ww = TestWebWorker(*test_creds.values())
     test_ww()
 
-    mocked_get_tokens.assert_called_once_with(*test_creds.values())
+    mocked_get_tokens.assert_called_once_with(*test_creds.values(), patched_requests_session)
     spied_job.assert_called_once_with(test_ww)
 
 
@@ -129,7 +131,7 @@ def test_WebWorker_request_with_refresh__immediately_returns_response_if_no_auth
 
 
 def test_WebWorker_request_with_refresh__gets_new_auth_tokens_and_tries_request_again_if_first_request_encounters_auth_error(
-    mocker,
+    mocker, patched_requests_session
 ):
     mocked_request_func = mocker.Mock()
     mocked_request_func.return_value.status_code = 401
@@ -145,4 +147,4 @@ def test_WebWorker_request_with_refresh__gets_new_auth_tokens_and_tries_request_
     assert test_ww.tokens == new_tokens
 
     assert mocked_request_func.call_args_list == [mocker.call()] * 2
-    mocked_refresh_tokens.assert_called_once_with(initial_tokens.refresh)
+    mocked_refresh_tokens.assert_called_once_with(patched_requests_session, initial_tokens.refresh)
