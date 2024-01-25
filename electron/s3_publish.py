@@ -22,12 +22,10 @@ def get_version():
 
 
 def upload(bucket, parsed_args):
-    for file_name in [
-        os.path.join(parsed_args.build_dir, parsed_args.file),
-        f"{os.path.join(parsed_args.build_dir, parsed_args.file)}.blockmap",
-        f"{os.path.join(parsed_args.build_dir, parsed_args.channel)}.yml",
-    ]:
-        _upload_file_to_s3(bucket, f"software/mantarray/{file_name}", file_name)
+    for file_name in [parsed_args.file, f"{parsed_args.file}.blockmap", f"{parsed_args.channel}.yml"]:
+        _upload_file_to_s3(
+            bucket, f"software/mantarray/{file_name}", os.path.join(parsed_args.build_dir, file_name)
+        )
 
 
 def _upload_file_to_s3(bucket, key, file) -> None:
