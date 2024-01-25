@@ -18,7 +18,7 @@ To use this independently, you'll still need to generate the static files for ex
 def get_version():
     with open("package.json") as f:
         package_dict = json.loads(f.read())
-        return package_dict["version"]
+        return package_dict["version"].split("-pre")[0]
 
 
 def upload(bucket, parsed_args):
