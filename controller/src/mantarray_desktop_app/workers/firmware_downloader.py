@@ -18,6 +18,9 @@ from ..exceptions import FirmwareAndSoftwareNotCompatibleError
 from ..exceptions import FirmwareDownloadError
 
 
+IS_PROD = SOFTWARE_RELEASE_CHANNEL == "prod"
+
+
 def call_firmware_download_route(url: str, error_message: str, **kwargs: Any) -> Response:
     try:
         response = requests.get(url, **kwargs)
@@ -38,7 +41,7 @@ def call_firmware_download_route(url: str, error_message: str, **kwargs: Any) ->
 
 def verify_software_firmware_compatibility(main_fw_version: str) -> None:
     check_sw_response = call_firmware_download_route(
-        f"https://{CLOUD_API_ENDPOINT}/mantarray/software-range/{main_fw_version}",
+        f"https://{CLOUD_API_ENDPOINT}/mantarray/software-range/{main_fw_version}/{IS_PROD}",
         error_message="Error checking software/firmware compatibility",
     )
     range = check_sw_response.json()
@@ -69,9 +72,8 @@ def check_for_local_firmware_versions(fw_update_dir_path: str) -> Optional[Dict[
 
 
 def get_latest_firmware_versions(result_dict: Dict[str, Any], serial_number: str) -> None:
-    is_prod = SOFTWARE_RELEASE_CHANNEL == "prod"
     get_versions_response = call_firmware_download_route(
-        f"https://{CLOUD_API_ENDPOINT}/mantarray/versions/{serial_number}/{is_prod}",
+        f"https://{CLOUD_API_ENDPOINT}/mantarray/versions/{serial_number}/{IS_PROD}",
         error_message="Error getting latest firmware versions",
     )
     result_dict.update({"latest_versions": get_versions_response.json(), "download": True})
