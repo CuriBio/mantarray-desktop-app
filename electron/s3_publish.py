@@ -10,11 +10,6 @@ import boto3
 import requests
 
 
-"""
-To use this independently, you'll still need to generate the static files for export manually before running this script.
-"""
-
-
 def get_version():
     with open("package.json") as f:
         package_dict = json.loads(f.read())
