@@ -270,7 +270,6 @@ jobs:
           CLOUD_ACCOUNT_USERNAME: ${{ secrets.CLOUD_ACCOUNT_USERNAME }}
           CLOUD_ACCOUNT_PASSWORD: ${{ secrets.CLOUD_ACCOUNT_PASSWORD }}
         run: |
-          cd controller/
-          pipenv shell
-          cd ../electron
+          cd electron/
+          pip install boto3==1.17.32 requests==2.31.0
           python s3_publish.py --file="${{steps.product-name.outputs.prop}}-Setup-${{env.RELEASE_CHANNEL}}-${{steps.software-version.outputs.prop}}.exe" --build-dir=dist --channel=${{env.RELEASE_CHANNEL}}
