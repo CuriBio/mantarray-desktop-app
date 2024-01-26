@@ -46,7 +46,9 @@ def verify_software_firmware_compatibility(main_fw_version: str) -> None:
     )
     range = check_sw_response.json()
 
-    if not (range["min_sw"] <= VersionInfo.parse(CURRENT_SOFTWARE_VERSION) <= range["max_sw"]):
+    current_version_no_pre = CURRENT_SOFTWARE_VERSION.split("-pre")[0]
+
+    if not (range["min_sw"] <= VersionInfo.parse(current_version_no_pre) <= range["max_sw"]):
         raise FirmwareAndSoftwareNotCompatibleError(range["max_sw"])
 
 
