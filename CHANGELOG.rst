@@ -21,6 +21,7 @@ Changed:
 Fixed:
 ^^^^^^
 - "Software update required" message now shows entire URL.
+- Pressing "Save Changes" button of settings form while the button is disabled no longer closes the form.
 
 
 1.2.1 (2023-09-20)
