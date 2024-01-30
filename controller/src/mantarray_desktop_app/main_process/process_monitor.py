@@ -66,8 +66,8 @@ from ..exceptions import InstrumentError
 from ..exceptions import UnrecognizedCommandFromServerToMainError
 from ..exceptions import UnrecognizedMantarrayNamingCommandError
 from ..exceptions import UnrecognizedRecordingCommandError
-from ..utils.generic import _compare_semver
 from ..utils.generic import _create_start_recording_command
+from ..utils.generic import _semver_gt
 from ..utils.generic import _trim_barcode
 from ..utils.generic import redact_sensitive_info
 from ..utils.generic import redact_sensitive_info_from_path
@@ -254,9 +254,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             shared_values_dict["latest_software_version"] = communication["version"]
             # send message to FE if an update is available
             try:
-                software_update_available = _compare_semver(
-                    communication["version"], CURRENT_SOFTWARE_VERSION
-                )
+                software_update_available = _semver_gt(communication["version"], CURRENT_SOFTWARE_VERSION)
             except ValueError:
                 software_update_available = False
             self._queue_websocket_message(
@@ -614,19 +612,22 @@ class MantarrayProcessesMonitor(InfiniteThread):
                         "download"
                     ]
 
+                    # remove prerelease component so that unstable builds can get FW updates correctly
+                    latest_version_no_pre = self._values_to_share_to_server["latest_software_version"].split(
+                        "-pre"
+                    )[0]
+
                     required_sw_for_fw = communication["latest_versions"]["ma_sw"]
                     latest_main_fw = communication["latest_versions"]["main_fw"]
                     latest_channel_fw = communication["latest_versions"]["channel_fw"]
-                    min_sw_version_unavailable = _compare_semver(
-                        required_sw_for_fw, self._values_to_share_to_server["latest_software_version"]
-                    )
-                    main_fw_update_needed = _compare_semver(
+                    min_sw_version_unavailable = _semver_gt(required_sw_for_fw, latest_version_no_pre)
+                    main_fw_update_needed = _semver_gt(
                         latest_main_fw,
                         self._values_to_share_to_server["instrument_metadata"][board_idx][
                             MAIN_FIRMWARE_VERSION_UUID
                         ],
                     )
-                    channel_fw_update_needed = _compare_semver(
+                    channel_fw_update_needed = _semver_gt(
                         latest_channel_fw,
                         self._values_to_share_to_server["instrument_metadata"][board_idx][
                             CHANNEL_FIRMWARE_VERSION_UUID

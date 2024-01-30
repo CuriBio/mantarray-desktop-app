@@ -494,7 +494,7 @@ def upload_log_files_to_s3(config_settings: Dict[str, str]) -> None:
             logger.info("Successfully uploaded session logs to s3")
 
 
-def _compare_semver(version_a: str, version_b: str) -> bool:
+def _semver_gt(version_a: str, version_b: str) -> bool:
     """Determine if Version A is greater than Version B."""
     return VersionInfo.parse(version_a) > VersionInfo.parse(version_b)  # type: ignore
 

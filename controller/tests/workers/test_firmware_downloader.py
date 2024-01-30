@@ -193,8 +193,9 @@ def test_verify_software_firmware_compatibility__does_not_raise_error_if_current
     test_main_fw = random_semver()
     verify_software_firmware_compatibility(test_main_fw)
 
+    is_prod = SOFTWARE_RELEASE_CHANNEL == "prod"
     mocked_call.assert_called_once_with(
-        f"https://{CLOUD_API_ENDPOINT}/mantarray/software-range/{test_main_fw}",
+        f"https://{CLOUD_API_ENDPOINT}/mantarray/software-range/{test_main_fw}/{is_prod}",
         error_message="Error checking software/firmware compatibility",
     )
 
