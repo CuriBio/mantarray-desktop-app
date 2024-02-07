@@ -69,6 +69,7 @@ export default {
       "file_count",
       "total_file_count",
       "upload_error",
+      "upload_error_msg",
       "total_uploaded_files",
       "root_downloads_path",
       "job_limit_reached",
@@ -107,9 +108,10 @@ export default {
     upload_error: function () {
       if (this.upload_error === "generic") {
         this.status = false;
+        const error_msg = this.upload_error_msg || "There was an error with auto-upload of recording";
         this.modal_labels = {
           header: "Error!",
-          msg_one: `There was an error uploading recording: ${this.last_file_name}.`,
+          msg_one: `${error_msg}: ${this.last_file_name}.`,
           msg_two: "Will automatically retry next start up.",
           button_names: ["Close"],
         };

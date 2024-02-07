@@ -45,6 +45,7 @@ from pulse3D.constants import TIME_OFFSETS
 from pulse3D.constants import TISSUE_SAMPLING_PERIOD_UUID
 from pulse3D.constants import TISSUE_SENSOR_READINGS
 from pulse3D.constants import TOTAL_WELL_COUNT_UUID
+from pulse3D.constants import USER_DEFINED_METADATA_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_FIRST_REF_DATA_POINT_UUID
 from pulse3D.constants import UTC_FIRST_TISSUE_DATA_POINT_UUID
@@ -1244,6 +1245,7 @@ class FileWriterProcess(InfiniteProcess):
             "thread": upload_thread,
             "auto_delete": auto_delete,
             "file_name": self._current_recording_dir,
+            "file_uploader": file_uploader,
         }
         self._upload_threads_container.append(thread_dict)
 
@@ -1308,6 +1310,9 @@ class FileWriterProcess(InfiniteProcess):
                 upload_status["error"] = thread.error
                 if not previously_failed_upload:
                     self._process_new_failed_upload_files(sub_dir=file_name)
+
+                failed_action = thread_dict["file_uploader"].current_action
+                upload_status["error_msg"] = f"Failed to {failed_action}"
             else:
                 if previously_failed_upload:
                     shutil.move(
@@ -1325,14 +1330,26 @@ class FileWriterProcess(InfiniteProcess):
 
     def _process_update_name_command(self, comm: Dict[str, str]) -> None:
         """Rename recording directory and h5 files to kick off auto upload."""
+        if self._current_recording_dir is None:
+            raise NotImplementedError("self._current_recording_dir should never be None here")
+
+        old_recording_path = os.path.join(self._file_directory, self._current_recording_dir)
+
+        # first, add user defined metadata
+        for filename in os.listdir(old_recording_path):
+            if "calibration" in filename.lower():  # pragma: no cover
+                continue
+
+            file_path = os.path.join(old_recording_path, filename)
+            with h5py.File(file_path, "r+") as h5_file:
+                h5_file.attrs[str(USER_DEFINED_METADATA_UUID)] = json.dumps(comm["user_defined_metadata"])
+
         # only perform if new name is different from the original default name
         if self._current_recording_dir == comm["default_name"] != comm["new_name"]:
             new_recording_path = os.path.join(self._file_directory, comm["new_name"])
             if os.path.exists(new_recording_path):
                 # remove current recording if it already exists
                 shutil.rmtree(new_recording_path)
-
-            old_recording_path = os.path.join(self._file_directory, self._current_recording_dir)
 
             # rename directory
             os.rename(old_recording_path, new_recording_path)

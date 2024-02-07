@@ -1,6 +1,29 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+1.2.2 (unreleased)
+------------------
+
+Added:
+^^^^^^
+- Ability to view changelog.
+
+Changed:
+^^^^^^^^
+- Update upload_type in ``/uploads`` request.
+- Update service in ``/login`` request.
+- Beta 2 H5 file format version is now 1.5.0. Format changes include adding the following values:
+
+  - USER_DEFINED_METADATA_UUID
+
+- "Stimulation is Running" warning will remain visible until end of stim data is shown in live view.
+
+Fixed:
+^^^^^^
+- "Software update required" message now shows entire URL.
+- Pressing "Save Changes" button of settings form while the button is disabled no longer closes the form.
+
+
 1.2.1 (2023-09-20)
 ------------------
 
@@ -10,7 +33,7 @@ Added:
 
 Changed:
 ^^^^^^^^
-- Title of "software update required" message pop up no longer describes the message as an error.
+- Title of "software update required" message no longer describes the message as an error.
 
 Fixed:
 ^^^^^^

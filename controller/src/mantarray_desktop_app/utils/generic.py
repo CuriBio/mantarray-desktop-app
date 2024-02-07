@@ -47,6 +47,7 @@ from pulse3D.constants import STIM_BARCODE_IS_FROM_SCANNER_UUID
 from pulse3D.constants import STIM_BARCODE_UUID
 from pulse3D.constants import TISSUE_SAMPLING_PERIOD_UUID
 from pulse3D.constants import USER_ACCOUNT_ID_UUID
+from pulse3D.constants import USER_DEFINED_METADATA_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
 from pulse3D.constants import XEM_SERIAL_NUMBER_UUID
@@ -405,6 +406,7 @@ def _create_start_recording_command(
                     dict(instrument_metadata[INITIAL_MAGNET_FINDING_PARAMS_UUID])
                 ),
                 NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID: NUM_INITIAL_MICROSECONDS_TO_PAD,
+                USER_DEFINED_METADATA_UUID: json.dumps({}),
             }
         )
     else:
@@ -492,7 +494,7 @@ def upload_log_files_to_s3(config_settings: Dict[str, str]) -> None:
             logger.info("Successfully uploaded session logs to s3")
 
 
-def _compare_semver(version_a: str, version_b: str) -> bool:
+def _semver_gt(version_a: str, version_b: str) -> bool:
     """Determine if Version A is greater than Version B."""
     return VersionInfo.parse(version_a) > VersionInfo.parse(version_b)  # type: ignore
 

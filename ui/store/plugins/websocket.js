@@ -108,13 +108,15 @@ export default function create_web_socket_plugin(socket) {
       if (status.error) {
         const is_usage_error = status.error.includes("UsageError");
         store.commit("settings/set_upload_error", is_usage_error ? "usage" : "generic");
+        store.commit("settings/set_upload_error_msg", status.error_msg);
         // error is sent as string "CloudAnalysisJobFailedError('UsageError')"
         // UsageError returned when jobs limit has been reached
         if (is_usage_error) {
           store.commit("settings/set_file_count");
         }
-      } else store.commit("settings/set_file_count");
-
+      } else {
+        store.commit("settings/set_file_count");
+      }
       store.commit("settings/set_file_name", status.file_name);
       /* istanbul ignore else */
       if (cb) cb("commit done"); // this callback is only used for testing. The backend will not send a callback

@@ -37,8 +37,10 @@ jsonschema = "==4.1.0"  # Tanner (11/8/21): latest version is having issues in c
 nptyping = "==1.4.4"  # Tanner (4/7/22): pinned for pulse3D
 numpy = "==1.23.4"
 psutil = "==5.8.0"
-pulse3d = "==0.34.1"
+pulse3d = "==0.34.3"
 pyserial = "==3.5"
+python-engineio = "==4.6.1"  # Tanner (9/25/23): pinning to avoid new versions breaking things
+python-socketio = "==5.8.0"  # Tanner (9/25/23): pinning to avoid new versions breaking things
 requests = "==2.31.0"
 scipy = "==1.9.3"
 semver = "==2.13.0"

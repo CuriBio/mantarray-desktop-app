@@ -327,10 +327,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         board_idx = 0
         log_msg = f"Microcontroller Communication Process beginning teardown at {_get_formatted_utc_now()}"
         put_log_message_into_queue(
-            logging.INFO,
-            log_msg,
-            self._board_queues[board_idx][1],
-            self.get_logging_level(),
+            logging.INFO, log_msg, self._board_queues[board_idx][1], self.get_logging_level()
         )
         board = self._board_connections[board_idx]
         if board is not None:
@@ -684,7 +681,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 if self._latest_versions is None:
                     raise NotImplementedError("_latest_versions should never be None here")
                 bytes_to_send += convert_semver_str_to_bytes(
-                    self._latest_versions[f"{self._firmware_update_type}-fw"]
+                    self._latest_versions[f"{self._firmware_update_type}_fw"]
                 )
                 # store correct firmware bytes
                 if self._firmware_update_type == "channel":

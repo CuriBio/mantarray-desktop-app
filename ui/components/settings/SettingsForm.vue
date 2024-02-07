@@ -291,11 +291,13 @@ export default {
   },
   methods: {
     async save_changes() {
-      this.$store.dispatch("settings/update_settings", this.user_settings);
-      // storing separate and is always able to be saved
-      this.$store.commit("settings/set_recording_snapshot_state", this.user_settings.recording_snapshot);
-      // close modal always on save changes
-      this.$emit("close_modal", true);
+      if (this.is_user_logged_in) {
+        this.$store.dispatch("settings/update_settings", this.user_settings);
+        // storing separate and is always able to be saved
+        this.$store.commit("settings/set_recording_snapshot_state", this.user_settings.recording_snapshot);
+        // close modal always on save changes
+        this.$emit("close_modal", true);
+      }
     },
     async login_user() {
       const { status, data } = await this.$store.dispatch("settings/login_user", this.user_details);

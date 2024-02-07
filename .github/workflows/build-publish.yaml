@@ -203,6 +203,9 @@ jobs:
           pipenv install --dev --deploy --sequential
 
       - name: Download zlib Library
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_GIT_PUBLISH_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_GIT_PUBLISH_SECRET_KEY }}
         run: |
           cd controller/
           pipenv run python ../.github/workflows/run_zlib_download.py
@@ -264,6 +267,9 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CI_IAM_GIT_PUBLISH_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_IAM_GIT_PUBLISH_SECRET_KEY }}
+          CLOUD_ACCOUNT_USERNAME: ${{ secrets.CLOUD_ACCOUNT_USERNAME }}
+          CLOUD_ACCOUNT_PASSWORD: ${{ secrets.CLOUD_ACCOUNT_PASSWORD }}
         run: |
           cd electron/
-          node s3_publish.js --file="${{steps.product-name.outputs.prop}}-Setup-${{env.RELEASE_CHANNEL}}-${{steps.software-version.outputs.prop}}.exe" --buildDir=./dist --channel=${{env.RELEASE_CHANNEL}}
+          pip install boto3==1.17.32 requests==2.31.0
+          python s3_publish.py --file="${{steps.product-name.outputs.prop}}-Setup-${{env.RELEASE_CHANNEL}}-${{steps.software-version.outputs.prop}}.exe" --build-dir=dist --channel=${{env.RELEASE_CHANNEL}}
