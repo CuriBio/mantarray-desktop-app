@@ -1,12 +1,19 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.2.2 (unreleased)
+
+1.2.3 (unreleased)
+------------------
+
+
+
+1.2.2 (2024-02-06)
 ------------------
 
 Added:
 ^^^^^^
-- Ability to view changelog.
+- User-defined metadata can be included in recording files.
+- Ability to view MA controller changelog.
 
 Changed:
 ^^^^^^^^
