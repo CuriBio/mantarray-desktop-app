@@ -9,7 +9,7 @@ Fixed:
 - Dropdown overflow syling.
 
 
-1.2.2 (2024-02-07)
+1.2.2 (2024-02-06)
 ------------------
 
 Added:
