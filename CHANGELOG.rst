@@ -1,10 +1,12 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-
 1.2.3 (unreleased)
 ------------------
 
+Fixed:
+^^^^^^
+- Dropdown overflow syling.
 
 
 1.2.2 (2024-02-06)
