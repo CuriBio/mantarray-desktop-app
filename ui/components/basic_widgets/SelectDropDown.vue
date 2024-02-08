@@ -25,7 +25,7 @@
       </div>
       <div class="arrow" :class="{ expanded: visible }"></div>
       <div :class="{ hidden: !visible, visible }">
-        <ul>
+        <ul class="ul__dropdown-content-container">
           <li v-for="item in options_list" :key="item.id" :value="item" @click="change_selection(item.id)">
             <span :style="'color:' + item.color">{{ item.letter }}</span
             >{{ item.name }}
@@ -131,26 +131,22 @@ export default {
       this.$emit("selection-changed", idx);
     },
     toggle() {
-      this.visible = !this.visible;
+      if (this.dropdown_options.length > 1) this.visible = !this.visible;
     },
     get_dropdown_options() {
-      const list = [];
-      for (let i = 0; i < this.options_text.length; i++) {
-        let name;
-        typeof this.options_text[i] === "string"
-          ? (name = {
+      this.dropdown_options = this.options_text.map((opt, i) =>
+        typeof opt === "string"
+          ? {
               id: i,
-              name: this.options_text[i],
-            })
-          : (name = {
+              name: opt,
+            }
+          : {
               id: i,
-              name: this.options_text[i].label,
-              letter: this.options_text[i].letter + " ",
-              color: this.options_text[i].color,
-            });
-        list.push(name);
-      }
-      this.dropdown_options = list;
+              name: opt.label,
+              letter: opt.letter + " ",
+              color: opt.color,
+            }
+      );
     },
     filter_options() {
       this.options_list = this.dropdown_options.filter((option) => option !== this.chosen_option);
@@ -264,11 +260,33 @@ li:hover {
 .visible {
   visibility: visible;
 }
+
+.ul__dropdown-content-container {
+  max-height: 450px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
 .div__chosen-option-container {
   width: 255px;
   height: 20px;
   line-height: 1.5;
   overflow: hidden;
   position: relative;
+}
+
+::-webkit-scrollbar {
+  -webkit-appearance: none;
+  height: 5px;
+  overflow: visible;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #2f2f2f;
+  overflow: visible;
+}
+
+::-webkit-scrollbar-track {
+  background-color: #727171;
+  overflow: visible;
 }
 </style>
