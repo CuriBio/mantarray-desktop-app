@@ -120,9 +120,16 @@ export default {
       ![STIM_STATUS.ERROR, STIM_STATUS.SHORT_CIRCUIT_ERROR, STIM_STATUS.CONFIG_CHECK_COMPLETE].includes(
         status
       )
-    )
+    ) {
       state.stim_status = STIM_STATUS.NO_PROTOCOLS_ASSIGNED;
-    else state.stim_status = status;
+    } else if (
+      state.stim_status === STIM_STATUS.CONFIG_CHECK_NEEDED &&
+      status !== STIM_STATUS.CONFIG_CHECK_IN_PROGRESS
+    ) {
+      state.stim_status = STIM_STATUS.CONFIG_CHECK_NEEDED;
+    } else {
+      state.stim_status = status;
+    }
   },
   set_edit_mode(state, { label, letter }) {
     state.edit_mode.status = true;
