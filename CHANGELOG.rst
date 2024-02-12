@@ -6,7 +6,10 @@ Changelog for Mantarray Desktop App
 
 Fixed:
 ^^^^^^
-- Dropdown overflow syling.
+- Dropdown overflow styling.
+- Barcode change warning now displays in the correct position.
+- Barcode change while stimulating now correctly requires another stim configuration check before restarting stimulation.
+- Can no longer manually edit barcodes while stimulating.
 
 
 1.2.2 (2024-02-06)

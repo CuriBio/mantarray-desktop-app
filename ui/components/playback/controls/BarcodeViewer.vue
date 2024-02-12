@@ -95,6 +95,7 @@ export default {
   computed: {
     ...mapState("playback", ["playback_state", "barcodes", "barcode_warning"]),
     ...mapState("flask", ["barcode_manual_mode"]),
+    ...mapState("stimulation", ["stim_play_state"]),
     barcode_info: function () {
       return this.barcodes[this.barcode_type];
     },
@@ -108,14 +109,22 @@ export default {
       return this.barcode_type == "plate_barcode" ? "width: 110px;" : "width: 105px;";
     },
     tooltip_text: function () {
-      return this.active_processes ? "Cannot edit barcodes while live view is active." : "Click to edit";
+      if (this.is_data_streaming) {
+        return "Cannot edit barcodes while live view is active.";
+      } else if (this.stim_play_state) {
+        return "Cannot edit barcodes while stimulation is running.";
+      }
+      return "Click to edit";
     },
-    active_processes: function () {
+    is_data_streaming: function () {
       return (
         this.playback_state === this.playback_state_enums.RECORDING ||
         this.playback_state === this.playback_state_enums.BUFFERING ||
         this.playback_state === this.playback_state_enums.LIVE_VIEW_ACTIVE
       );
+    },
+    active_processes: function () {
+      return this.stim_play_state || this.is_data_streaming;
     },
     is_disabled: function () {
       return this.active_processes || !this.barcode_manual_mode;
@@ -269,7 +278,8 @@ input:focus {
   background-color: rgb(0, 0, 0, 0.5);
 }
 
-/* Center the edit-plate-barcode-modal pop-up dialog within the viewport */
+/* Center these modal pop-up dialogs within the viewport */
+#barcode-warning,
 #edit-plate-barcode-modal {
   position: fixed;
   margin: 5% auto;

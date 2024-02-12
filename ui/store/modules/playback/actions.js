@@ -195,25 +195,28 @@ export default {
     const result = TextValidation_plate_barcode.validate(new_value, type, this.state.settings.beta_2_mode);
     const is_valid = result == "";
 
-    // stop all running processes if either barcode changes regardless of validity
-    if (this.state.stimulation.stim_play_state) {
-      await this.dispatch("stimulation/stop_stimulation");
-      commit("set_barcode_warning", true);
-    }
+    // if this is the first barcode scanned, can skip these
+    if (state.barcodes[type].value) {
+      // stop all running processes if either barcode changes regardless of validity
+      if (this.state.stimulation.stim_play_state) {
+        await this.dispatch("stimulation/stop_stimulation");
+        commit("set_barcode_warning", true);
+      }
 
-    if (state.playback_state === ENUMS.PLAYBACK_STATES.LIVE_VIEW_ACTIVE) {
-      await dispatch("stop_live_view");
-      commit("set_barcode_warning", true);
-    } else if (state.playback_state === ENUMS.PLAYBACK_STATES.RECORDING) {
-      await dispatch("stop_recording");
-      await dispatch("stop_live_view");
+      if (state.playback_state === ENUMS.PLAYBACK_STATES.LIVE_VIEW_ACTIVE) {
+        await dispatch("stop_live_view");
+        commit("set_barcode_warning", true);
+      } else if (state.playback_state === ENUMS.PLAYBACK_STATES.RECORDING) {
+        await dispatch("stop_recording");
+        await dispatch("stop_live_view");
 
-      commit("set_barcode_warning", true);
-    }
+        commit("set_barcode_warning", true);
+      }
 
-    // require new stim configuration check if either new barcode changes
-    if (is_valid && state.barcodes[type].value !== new_value) {
-      this.commit("stimulation/set_stim_status", STIM_STATUS.CONFIG_CHECK_NEEDED);
+      // require new stim configuration check if either new barcode changes
+      if (is_valid && state.barcodes[type].value !== new_value) {
+        this.commit("stimulation/set_stim_status", STIM_STATUS.CONFIG_CHECK_NEEDED);
+      }
     }
 
     commit("set_barcode", { type, new_value, is_valid });
