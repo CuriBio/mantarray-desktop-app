@@ -863,6 +863,7 @@ def test_start_recording__returns_no_error_when_mini_barcode_is_sent(
         ("M*2020172144", "barcode contains invalid year: '2020'"),
         ("M*2021000144", "barcode contains invalid Julian date: '000'"),
         ("M*2021367144", "barcode contains invalid Julian date: '367'"),
+        ("M*2021172200", "variable stiffness barcodes are not allowed"),
     ],
 )
 def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
@@ -897,6 +898,7 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
         ("ML22444199-1", "barcode contains invalid Julian date: '444'"),
         ("ML22123999-1", "barcode contains invalid experiment id: '999'"),
         ("ML22123199-2", "barcode contains invalid last digit: '2'"),
+        ("ML22123299-1", "variable stiffness barcodes are not allowed"),
     ],
 )
 def test_start_recording__returns_error_code_and_message_if_new_barcode_beta_1_mode_scheme_is_invalid(
@@ -926,6 +928,7 @@ def test_start_recording__returns_error_code_and_message_if_new_barcode_beta_1_m
         ("M*22444199-2", "barcode contains invalid Julian date: '444'"),
         ("M*22123999-2", "barcode contains invalid experiment id: '999'"),
         ("M*22123199-1", "barcode contains invalid last digit: '1'"),
+        ("M*22123299-2", "variable stiffness barcodes are not allowed"),
     ],
 )
 def test_start_recording__returns_error_code_and_message_if_new_barcode_beta_2_mode_scheme_is_invalid(
