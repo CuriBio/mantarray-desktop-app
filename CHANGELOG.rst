@@ -10,6 +10,7 @@ Changed:
 
 Fixed:
 ^^^^^^
+- Handle network errors when logging in.
 - Dropdown overflow styling.
 - Barcode change warning now displays in the correct position.
 - Barcode change while stimulating now correctly requires another stim configuration check before restarting stimulation.
