@@ -1,5 +1,5 @@
 <template>
-  <div class="div__plate-barcode">
+  <div class="div__plate-barcode" :style="dynamic_container_style">
     <span class="span__plate-barcode-text" :style="dynamic_label_style"
       >{{ barcode_label }}:<!-- original MockFlow ID: cmpDb2bac556f7cfa22b31a3731d355864c9 --></span
     >
@@ -33,6 +33,9 @@
           <FontAwesomeIcon :icon="['fa', 'pencil-alt']" />
         </div>
       </span>
+    </div>
+    <div v-if="barcode_type == 'plate_barcode'" class="div__barcode-description">
+      {{ barcode_description }}
     </div>
     <b-modal id="edit-plate-barcode-modal" size="sm" hide-footer hide-header hide-header-close>
       <StatusWarningWidget
@@ -101,6 +104,29 @@ export default {
     },
     barcode_label: function () {
       return this.barcode_type == "plate_barcode" ? "Plate Barcode" : "Stim Lid Barcode";
+    },
+    barcode_description: function () {
+      if (this.barcode_info.valid) {
+        const experiment_id = parseInt(this.barcode_info.value.split("-")[0].slice(-3));
+        if (experiment_id <= 99) {
+          return "Cardiac (1x)";
+        } else if (experiment_id <= 199) {
+          return "SkM (12x)";
+        } else if (experiment_id <= 299) {
+          return "Variable";
+        } else if (experiment_id <= 399) {
+          return "Mini Cardiac (1x)";
+        } else if (experiment_id <= 499) {
+          return "Mini SkM (12x)";
+        } else {
+          return "Cardiac";
+        }
+      } else {
+        return "Invalid";
+      }
+    },
+    dynamic_container_style: function () {
+      return this.barcode_type == "plate_barcode" ? "height: 46px;" : "height: 34px;";
     },
     dynamic_label_style: function () {
       return this.barcode_type == "plate_barcode" ? "left: 17px;" : "left: 0px;";
@@ -171,10 +197,17 @@ export default {
   top: 0px;
   left: 0px;
   width: 287px;
-  height: 34px;
   background: #1c1c1c;
   -webkit-box-sizing: content-box;
   box-sizing: content-box;
+}
+
+.div__barcode-description {
+  position: absolute;
+  top: 32px;
+  color: #cccc;
+  left: 138px;
+  font-size: 12px;
 }
 
 .span__plate-barcode-text {
