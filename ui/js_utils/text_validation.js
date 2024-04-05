@@ -252,7 +252,7 @@ export class TextValidation {
     if ((beta_2_mode && barcode[11] !== "2") || (!beta_2_mode && barcode[11] !== "1")) {
       return " ";
     }
-    return this._check_var_stiffness(experiment_id);
+    return "";
   }
   /**
    * Returns the feedback text for the old plate barcode validation
@@ -285,20 +285,6 @@ export class TextValidation {
 
     const experiment_id = parseInt(barcode.slice(-3));
     if (Number.isNaN(experiment_id)) {
-      return " ";
-    }
-    return this._check_var_stiffness(experiment_id);
-  }
-
-  /**
-   * Returns the feedback text for whether or not this is an experiment ID for a variable stiffness plate
-   *
-   * @param  {int} experiment_id The uuidtext on which the validation rules are verified
-   * @return {string} The string is either empty on valid or invalid text
-   *
-   */
-  _check_var_stiffness(experiment_id) {
-    if (200 <= experiment_id && experiment_id <= 299) {
       return " ";
     }
     return "";

@@ -34,8 +34,6 @@ from pulse3D.constants import MAIN_FIRMWARE_VERSION_UUID
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 from pulse3D.constants import MANTARRAY_SERIAL_NUMBER_UUID
 from pulse3D.constants import MAX_MINI_SKM_EXPERIMENT_ID
-from pulse3D.constants import MAX_SKM_EXPERIMENT_ID
-from pulse3D.constants import MAX_VARIABLE_EXPERIMENT_ID
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
 from pulse3D.constants import NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID
 from pulse3D.constants import PLATE_BARCODE_IS_FROM_SCANNER_UUID
@@ -53,7 +51,6 @@ from pulse3D.constants import USER_DEFINED_METADATA_UUID
 from pulse3D.constants import UTC_BEGINNING_DATA_ACQUISTION_UUID
 from pulse3D.constants import UTC_BEGINNING_RECORDING_UUID
 from pulse3D.constants import XEM_SERIAL_NUMBER_UUID
-from pulse3D.utils import get_experiment_id
 from semver import VersionInfo
 from stdlib_utils import get_current_file_abs_directory
 from stdlib_utils import is_frozen_as_exe
@@ -284,7 +281,7 @@ def _check_new_barcode(barcode: str, beta_2_mode: bool) -> str:
     last_digit = int(barcode[-1])
     if last_digit != 1 + int(beta_2_mode):
         return f"barcode contains invalid last digit: '{last_digit}'"
-    return _check_var_stiffness(barcode)
+    return ""
 
 
 def _check_old_barcode(barcode: str) -> str:
@@ -295,12 +292,6 @@ def _check_old_barcode(barcode: str) -> str:
         return f"barcode contains invalid year: '{barcode[2:6]}'"
     if not 0 < int(barcode[6:9]) < 366:
         return f"barcode contains invalid Julian date: '{barcode[6:9]}'"
-    return _check_var_stiffness(barcode)
-
-
-def _check_var_stiffness(barcode: str) -> str:
-    if MAX_SKM_EXPERIMENT_ID < get_experiment_id(barcode) <= MAX_VARIABLE_EXPERIMENT_ID:
-        return "variable stiffness barcodes are not allowed"
     return ""
 
 
