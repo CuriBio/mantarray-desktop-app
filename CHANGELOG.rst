@@ -4,9 +4,9 @@ Changelog for Mantarray Desktop App
 1.2.3 (unreleased)
 ------------------
 
-Changed:
-^^^^^^^^
-- Barcodes for plates with variable post stiffness are no longer allowed.
+Added:
+^^^^^^
+- Post stiffness display under plate barcode display.
 
 Fixed:
 ^^^^^^
