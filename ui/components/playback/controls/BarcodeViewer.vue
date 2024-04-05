@@ -119,7 +119,7 @@ export default {
         } else if (experiment_id <= 499) {
           return "Mini SkM (12x)";
         } else {
-          return "Cardiac";
+          return "Cardiac (1x)";
         }
       } else {
         return "Invalid";
