@@ -517,10 +517,12 @@ class MantarrayProcessesMonitor(InfiniteThread):
             elif command == "start_stim_checks":
                 key = "stimulator_circuit_statuses"
                 stimulator_circuit_statuses = communication[key]
-                self._values_to_share_to_server[key] = stimulator_circuit_statuses
-                self._queue_websocket_message(
-                    {"data_type": key, "data_json": json.dumps(stimulator_circuit_statuses)}
-                )
+                status_combined = {
+                    well_idx: max(statuses.values())
+                    for well_idx, statuses in stimulator_circuit_statuses.items()
+                }
+                self._values_to_share_to_server[key] = status_combined
+                self._queue_websocket_message({"data_type": key, "data_json": json.dumps(status_combined)})
         elif communication_type == "board_connection_status_change":
             board_idx = communication["board_index"]
             self._values_to_share_to_server["in_simulation_mode"] = not communication["is_connected"]
