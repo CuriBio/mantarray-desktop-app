@@ -851,16 +851,24 @@ class McCommunicationProcess(InstrumentCommProcess):
             elif prev_command["command"] == "start_stim_checks":
                 stimulator_check_dict = convert_stimulator_check_bytes_to_dict(response_data)
 
-                stimulator_circuit_statuses: Dict[int, str] = {}
-                adc_readings: Dict[int, Tuple[int, int]] = {}
+                stimulator_circuit_statuses: Dict[int, Dict[str, str]] = {}
+                adc_readings: Dict[int, Dict[str, Tuple[int, int]]] = {}
 
-                for module_id, (adc8, adc9, status_int) in enumerate(zip(*stimulator_check_dict.values())):
+                for module_id, (
+                    adc8_pos,
+                    adc9_pos,
+                    status_int_pos,
+                    adc8_neg,
+                    adc9_neg,
+                    status_int_neg,
+                ) in enumerate(zip(*stimulator_check_dict.values())):
                     well_idx = STIM_MODULE_ID_TO_WELL_IDX[module_id]
                     if well_idx not in prev_command["well_indices"]:
                         continue
-                    status_str = list(StimulatorCircuitStatuses)[status_int + 1].name.lower()
-                    stimulator_circuit_statuses[well_idx] = status_str
-                    adc_readings[well_idx] = (adc8, adc9)
+                    status_str_pos = list(StimulatorCircuitStatuses)[status_int_pos + 1].name.lower()
+                    status_str_neg = list(StimulatorCircuitStatuses)[status_int_neg + 1].name.lower()
+                    stimulator_circuit_statuses[well_idx] = {"pos": status_str_pos, "neg": status_str_neg}
+                    adc_readings[well_idx] = {"pos": (adc8_pos, adc9_pos), "neg": (adc8_neg, adc9_neg)}
 
                 prev_command["stimulator_circuit_statuses"] = stimulator_circuit_statuses
                 prev_command["adc_readings"] = adc_readings

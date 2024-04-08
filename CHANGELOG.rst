@@ -7,6 +7,7 @@ Changelog for Mantarray Desktop App
 Added:
 ^^^^^^
 - Post stiffness display under plate barcode display.
+- Biphasic stim check.
 
 Fixed:
 ^^^^^^
