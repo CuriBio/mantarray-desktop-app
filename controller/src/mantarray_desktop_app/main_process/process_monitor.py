@@ -518,7 +518,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 key = "stimulator_circuit_statuses"
                 stimulator_circuit_statuses = communication[key]
                 status_combined = {
-                    well_idx: max(statuses.values())
+                    well_idx: list(StimulatorCircuitStatuses)[max(statuses.values()) + 1].name.lower()
                     for well_idx, statuses in stimulator_circuit_statuses.items()
                 }
                 self._values_to_share_to_server[key] = status_combined

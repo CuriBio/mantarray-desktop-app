@@ -83,7 +83,6 @@ from ..constants import SERIAL_COMM_STOP_DATA_STREAMING_PACKET_TYPE
 from ..constants import SERIAL_COMM_STOP_STIM_PACKET_TYPE
 from ..constants import STIM_COMPLETE_SUBPROTOCOL_IDX
 from ..constants import STIM_MODULE_ID_TO_WELL_IDX
-from ..constants import StimulatorCircuitStatuses
 from ..constants import STM_VID
 from ..exceptions import FirmwareAndSoftwareNotCompatibleError
 from ..exceptions import FirmwareGoingDormantError
@@ -865,9 +864,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     well_idx = STIM_MODULE_ID_TO_WELL_IDX[module_id]
                     if well_idx not in prev_command["well_indices"]:
                         continue
-                    status_str_pos = list(StimulatorCircuitStatuses)[status_int_pos + 1].name.lower()
-                    status_str_neg = list(StimulatorCircuitStatuses)[status_int_neg + 1].name.lower()
-                    stimulator_circuit_statuses[well_idx] = {"pos": status_str_pos, "neg": status_str_neg}
+                    stimulator_circuit_statuses[well_idx] = {"pos": status_int_pos, "neg": status_int_neg}
                     adc_readings[well_idx] = {"pos": (adc8_pos, adc9_pos), "neg": (adc8_neg, adc9_neg)}
 
                 prev_command["stimulator_circuit_statuses"] = stimulator_circuit_statuses

@@ -1935,13 +1935,18 @@ def test_MantarrayProcessesMonitor__passes_stim_status_check_results_from_mc_com
     queue_to_server_ws = test_process_manager.queue_container.to_websocket
 
     test_wells = range(randint(0, 3), randint(20, 24))
-    possible_stim_statuses = [member.name.lower() for member in StimulatorCircuitStatuses]
     stim_check_results = {
-        well_idx: {"pos": choice(possible_stim_statuses), "neg": choice(possible_stim_statuses)}
+        well_idx: {
+            "pos": choice(list(StimulatorCircuitStatuses)),
+            "neg": choice(list(StimulatorCircuitStatuses)),
+        }
         for well_idx in test_wells
     }
 
-    combined_results = {well_idx: max(res["pos"], res["neg"]) for well_idx, res in stim_check_results.items()}
+    combined_results = {
+        well_idx: list(StimulatorCircuitStatuses)[max(res["pos"], res["neg"]) + 1].name.lower()
+        for well_idx, res in stim_check_results.items()
+    }
 
     # values in this dict don't matter, just the keys
     adc_readings = {well_idx: None for well_idx in test_wells}

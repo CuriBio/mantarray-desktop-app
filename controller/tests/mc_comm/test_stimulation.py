@@ -18,7 +18,6 @@ from mantarray_desktop_app.constants import NUM_INITIAL_SECONDS_TO_DROP
 from mantarray_desktop_app.constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_PAYLOAD_INDEX
 from mantarray_desktop_app.constants import STIM_MODULE_ID_TO_WELL_IDX
-from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.simulators import mc_simulator
 from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_circuit_status
 from mantarray_desktop_app.utils.stimulation import get_subprotocol_dur_us
@@ -128,8 +127,7 @@ def test_McCommunicationProcess__processes_start_stim_checks_command__and_sends_
     for well_idx in test_well_indices:
         well_readings = adc_readings[well_idx]
         status_int = convert_adc_readings_to_circuit_status(*well_readings)
-        status = list(StimulatorCircuitStatuses)[status_int + 1].name.lower()
-        stimulator_circuit_statuses[well_idx] = {"pos": status, "neg": status}
+        stimulator_circuit_statuses[well_idx] = {"pos": status_int, "neg": status_int}
     assert msg_to_main["stimulator_circuit_statuses"] == stimulator_circuit_statuses
 
     assert msg_to_main["adc_readings"] == {

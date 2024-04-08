@@ -9,6 +9,10 @@ Added:
 - Post stiffness display under plate barcode display.
 - Biphasic stim check.
 
+Changed:
+^^^^^^^^
+- Titles of live view screens.
+
 Fixed:
 ^^^^^^
 - Handle network errors when logging in.
