@@ -64,7 +64,7 @@
         >
       </div>
     </div>
-    <div v-if="is_user_logged_in && !invalid_creds_found" class="div__logged_in_text">
+    <div v-if="is_user_logged_in && !invalid_creds_found && !network_error" class="div__logged_in_text">
       <FontAwesomeIcon :icon="['fa', 'check']" style="margin-right: 7px" />Logged in
     </div>
     <span class="span__settingsform-record-file-settings">
@@ -214,6 +214,7 @@ export default {
   data() {
     return {
       disable_settings: true,
+      network_error: false,
       invalid_creds_found: false,
       account_locked: false,
       show_auto_delete: false,
@@ -266,11 +267,19 @@ export default {
       return errors;
     },
     login_err_text: function () {
-      if (this.account_locked) return "*Account locked. Too many failed attempts.";
-      else if (this.invalid_creds_found)
+      if (this.account_locked) {
+        return "*Account locked. Too many failed attempts.";
+      }
+      if (this.invalid_creds_found) {
         return "*Invalid credentials. Account will be locked after 10 failed attempts.";
-      else if (!this.is_login_enabled) return "*All fields required";
-      else return "";
+      }
+      if (this.network_error) {
+        return "*Network Error. Please check this PC's internet connection status";
+      }
+      if (!this.is_login_enabled) {
+        return "*All fields required";
+      }
+      return "";
     },
     is_user_logged_in: function () {
       return this.user_account.username && this.user_account.username !== "";
@@ -303,7 +312,11 @@ export default {
       const { status, data } = await this.$store.dispatch("settings/login_user", this.user_details);
       // Currently, error-handling by resetting inputs to force user to try again if axios request fails
       if (status === 200) {
-        this.$store.commit("settings/set_job_limit_reached", data.usage_quota.jobs_reached);
+        if (data.err === "network") {
+          this.network_error = true;
+        } else {
+          this.$store.commit("settings/set_job_limit_reached", data.usage_quota.jobs_reached);
+        }
       } else if (status === 401) {
         this.invalid_creds_found = true;
         this.account_locked = data.includes("Account locked");
@@ -314,6 +327,7 @@ export default {
     },
     on_update_input: function (new_value, field) {
       // reset error messages when input changes
+      this.network_error = false;
       this.invalid_creds_found = false;
       this.account_locked = false;
       this.user_details = { ...this.user_details, [field]: new_value };

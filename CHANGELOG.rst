@@ -1,12 +1,34 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.2.2 (unreleased)
+1.2.3 (unreleased)
 ------------------
 
 Added:
 ^^^^^^
-- Ability to view changelog.
+- Post stiffness display under plate barcode display.
+- Biphasic stim check.
+
+Changed:
+^^^^^^^^
+- Titles of live view screens.
+
+Fixed:
+^^^^^^
+- Handle network errors when logging in.
+- Dropdown overflow styling.
+- Barcode change warning now displays in the correct position.
+- Barcode change while stimulating now correctly requires another stim configuration check before restarting stimulation.
+- Can no longer manually edit barcodes while stimulating.
+
+
+1.2.2 (2024-02-06)
+------------------
+
+Added:
+^^^^^^
+- User-defined metadata can be included in recording files.
+- Ability to view MA controller changelog.
 
 Changed:
 ^^^^^^^^

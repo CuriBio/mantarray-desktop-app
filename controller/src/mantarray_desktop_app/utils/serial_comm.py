@@ -83,11 +83,7 @@ def _get_checksum_bytes(packet: bytes) -> bytes:
     return crc32(packet).to_bytes(SERIAL_COMM_CHECKSUM_LENGTH_BYTES, byteorder="little")
 
 
-def create_data_packet(
-    timestamp: int,
-    packet_type: int,
-    packet_payload: bytes = bytes(0),
-) -> bytes:
+def create_data_packet(timestamp: int, packet_type: int, packet_payload: bytes = bytes(0)) -> bytes:
     """Create a data packet to send to the PC."""
     packet_base = convert_to_timestamp_bytes(timestamp) + bytes([packet_type])
     packet_remainder_size = len(packet_base) + len(packet_payload) + SERIAL_COMM_CHECKSUM_LENGTH_BYTES
@@ -104,10 +100,7 @@ def create_data_packet(
 
 def validate_checksum(comm_from_pc: bytes) -> bool:
     expected_checksum = crc32(comm_from_pc[:-SERIAL_COMM_CHECKSUM_LENGTH_BYTES])
-    actual_checksum = int.from_bytes(
-        comm_from_pc[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:],
-        byteorder="little",
-    )
+    actual_checksum = int.from_bytes(comm_from_pc[-SERIAL_COMM_CHECKSUM_LENGTH_BYTES:], byteorder="little")
     return actual_checksum == expected_checksum
 
 
@@ -225,15 +218,16 @@ def get_serial_comm_timestamp() -> int:
 
 
 def convert_stimulator_check_bytes_to_dict(stimulator_check_bytes: bytes) -> Dict[str, List[int]]:
-    stimulator_checks_as_ints = struct.unpack("<" + "HHB" * 24, stimulator_check_bytes)
+    stimulator_checks_as_ints = struct.unpack("<" + "HHB" * 24 * 2, stimulator_check_bytes)
     # convert to lists of adc8, adc9, and status where the index of each list is the module id. Only creating an array here to reshape easily
     stimulator_checks_list = (
         np.array(stimulator_checks_as_ints, copy=False)
-        .reshape((3, len(stimulator_checks_as_ints) // 3), order="F")
+        .reshape((6, len(stimulator_checks_as_ints) // 6), order="F")
         .tolist()
     )
     stimulator_checks_dict = {
-        key: stimulator_checks_list[i] for i, key in enumerate(["adc8", "adc9", "status"])
+        key: stimulator_checks_list[i]
+        for i, key in enumerate(["adc8_pos", "adc9_pos", "status_pos", "adc8_neg", "adc9_neg", "status_neg"])
     }
     return stimulator_checks_dict
 

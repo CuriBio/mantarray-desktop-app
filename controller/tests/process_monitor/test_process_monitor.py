@@ -1935,8 +1935,18 @@ def test_MantarrayProcessesMonitor__passes_stim_status_check_results_from_mc_com
     queue_to_server_ws = test_process_manager.queue_container.to_websocket
 
     test_wells = range(randint(0, 3), randint(20, 24))
-    possible_stim_statuses = [member.name.lower() for member in StimulatorCircuitStatuses]
-    stim_check_results = {well_idx: choice(possible_stim_statuses) for well_idx in test_wells}
+    stim_check_results = {
+        well_idx: {
+            "pos": choice(list(StimulatorCircuitStatuses)),
+            "neg": choice(list(StimulatorCircuitStatuses)),
+        }
+        for well_idx in test_wells
+    }
+
+    combined_results = {
+        well_idx: list(StimulatorCircuitStatuses)[max(res["pos"], res["neg"]) + 1].name.lower()
+        for well_idx, res in stim_check_results.items()
+    }
 
     # values in this dict don't matter, just the keys
     adc_readings = {well_idx: None for well_idx in test_wells}
@@ -1956,13 +1966,13 @@ def test_MantarrayProcessesMonitor__passes_stim_status_check_results_from_mc_com
         copy.deepcopy(test_comm), instrument_comm_to_main
     )
     invoke_process_run_and_check_errors(monitor_thread)
-    assert shared_values_dict["stimulator_circuit_statuses"] == stim_check_results
+    assert shared_values_dict["stimulator_circuit_statuses"] == combined_results
 
     confirm_queue_is_eventually_of_size(queue_to_server_ws, 1)
     ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert ws_message == {
         "data_type": "stimulator_circuit_statuses",
-        "data_json": json.dumps(stim_check_results),
+        "data_json": json.dumps(combined_results),
     }
 
     # convert all well idxs to well names

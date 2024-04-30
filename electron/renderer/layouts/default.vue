@@ -55,8 +55,8 @@
               <!-- Default view is waveform screen -->
               <NuxtLink to="/">
                 <img
-                  v-b-popover.hover.bottom="'Click to view Live View'"
-                  :title="'Live View'"
+                  v-b-popover.hover.bottom="'Click to view'"
+                  :title="'Contraction Trace Live View'"
                   src="../assets/img/waveform-screen-view.png"
                 />
               </NuxtLink>
@@ -64,8 +64,8 @@
             <div class="div__heatmap-screen-view">
               <NuxtLink to="/heatmap">
                 <img
-                  v-b-popover.hover.bottom="'Click to view Heat Map'"
-                  :title="'Heat Map'"
+                  v-b-popover.hover.bottom="'Click to view'"
+                  :title="'Heat Map Live View'"
                   src="../assets/img/heatmap-screen-view.png"
                 />
               </NuxtLink>

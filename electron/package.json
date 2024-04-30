@@ -1,6 +1,6 @@
 {
   "name": "MantarrayController",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Desktop application for controlling the Mantarray instrument.",
   "author": {
     "name": "Curi Bio",
@@ -62,7 +62,6 @@
     "@xpda-dev/webpack-step": "~0.1.6",
     "axios-mock-adapter": "~1.20.0",
     "browser-env": "~3.3.0",
-    "canvas": "~2.9.3",
     "cross-env": "~7.0.3",
     "deepmerge": "~4.2.2",
     "electron": "~19.0.7",

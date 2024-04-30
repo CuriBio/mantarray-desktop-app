@@ -399,6 +399,7 @@ class StimulatorCircuitStatuses(IntEnum):
     OPEN = 1
     SHORT = 2
     ERROR = 3
+    NOT_CHECKED = 4
 
 
 class StimProtocolStatuses(IntEnum):

@@ -396,6 +396,8 @@ def login_user() -> Response:
         auth_response = validate_user_credentials(request.args)
     except LoginFailedError as e:
         return Response(json.dumps(str(e)), status=f"401 {repr(e)}")
+    except requests.exceptions.ConnectionError:  # pragma: no cover
+        return Response(json.dumps({"err": "network"}), mimetype="application/json")
 
     queue_command_to_main(
         {

@@ -212,7 +212,6 @@ export class TextValidation {
     ) {
       return " ";
     }
-
     return barcode.includes("-")
       ? this._check_new_barcode(barcode, beta_2_mode)
       : this._check_old_barcode(barcode);
@@ -245,7 +244,8 @@ export class TextValidation {
       return " ";
     }
     // check that experiment code is between 0 and 499 inclusive
-    if (parseInt(barcode.slice(7, 10)) < 0 || parseInt(barcode.slice(7, 10)) > 499) {
+    const experiment_id = parseInt(barcode.slice(7, 10));
+    if (experiment_id < 0 || experiment_id > 499) {
       return " ";
     }
     // check if in beta one or two mode. if last digit invalid then mark the barcode as invalid
@@ -282,8 +282,14 @@ export class TextValidation {
     if (day < 1 || day > 366) {
       return " ";
     }
+
+    const experiment_id = parseInt(barcode.slice(-3));
+    if (Number.isNaN(experiment_id)) {
+      return " ";
+    }
     return "";
   }
+
   /**
    * Returns the feedback text for the uuidBase57 encoding validation
    *

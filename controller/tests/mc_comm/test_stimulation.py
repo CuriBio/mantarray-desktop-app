@@ -18,7 +18,6 @@ from mantarray_desktop_app.constants import NUM_INITIAL_SECONDS_TO_DROP
 from mantarray_desktop_app.constants import SERIAL_COMM_CHECKSUM_LENGTH_BYTES
 from mantarray_desktop_app.constants import SERIAL_COMM_PAYLOAD_INDEX
 from mantarray_desktop_app.constants import STIM_MODULE_ID_TO_WELL_IDX
-from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.simulators import mc_simulator
 from mantarray_desktop_app.utils.serial_comm import convert_adc_readings_to_circuit_status
 from mantarray_desktop_app.utils.stimulation import get_subprotocol_dur_us
@@ -52,11 +51,7 @@ __fixtures__ = [
 ]
 
 
-def set_stimulation_protocols(
-    mc_fixture,
-    simulator,
-    stim_info,
-):
+def set_stimulation_protocols(mc_fixture, simulator, stim_info):
     mc_process = mc_fixture["mc_process"]
     from_main_queue = mc_fixture["board_queues"][0][0]
     to_main_queue = mc_fixture["board_queues"][0][1]
@@ -132,12 +127,11 @@ def test_McCommunicationProcess__processes_start_stim_checks_command__and_sends_
     for well_idx in test_well_indices:
         well_readings = adc_readings[well_idx]
         status_int = convert_adc_readings_to_circuit_status(*well_readings)
-        status = list(StimulatorCircuitStatuses)[status_int + 1].name.lower()
-        stimulator_circuit_statuses[well_idx] = status
+        stimulator_circuit_statuses[well_idx] = {"pos": status_int, "neg": status_int}
     assert msg_to_main["stimulator_circuit_statuses"] == stimulator_circuit_statuses
 
     assert msg_to_main["adc_readings"] == {
-        well_idx: adc_reading
+        well_idx: {"pos": adc_reading, "neg": adc_reading}
         for well_idx, adc_reading in enumerate(adc_readings)
         if well_idx in test_well_indices
     }
@@ -304,13 +298,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
                 "protocol_id": "A",
                 "stimulation_type": "C",
                 "run_until_stopped": False,
-                "subprotocols": [
-                    {
-                        "type": "loop",
-                        "num_iterations": 1,
-                        "subprotocols": [test_subprotocol],
-                    }
-                ],
+                "subprotocols": [{"type": "loop", "num_iterations": 1, "subprotocols": [test_subprotocol]}],
             }
         ],
         "protocol_assignments": {
@@ -389,11 +377,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
                 "stimulation_type": "V",
                 "run_until_stopped": False,
                 "subprotocols": [
-                    {
-                        "type": "loop",
-                        "num_iterations": 1,
-                        "subprotocols": [test_subprotocol] * 2,
-                    }
+                    {"type": "loop", "num_iterations": 1, "subprotocols": [test_subprotocol] * 2}
                 ],
             }
         ],
@@ -518,13 +502,7 @@ def test_McCommunicationProcess__handles_stimulation_status_comm_from_instrument
                 "protocol_id": "A",
                 "stimulation_type": "C",
                 "run_until_stopped": False,
-                "subprotocols": [
-                    {
-                        "type": "loop",
-                        "num_iterations": 1,
-                        "subprotocols": [test_subprotocol],
-                    }
-                ],
+                "subprotocols": [{"type": "loop", "num_iterations": 1, "subprotocols": [test_subprotocol]}],
             }
         ],
         "protocol_assignments": {
@@ -640,11 +618,7 @@ def test_McCommunicationProcess__protocols_can_be_updated_and_stimulation_can_be
                 "stimulation_type": "C",
                 "run_until_stopped": False,
                 "subprotocols": [
-                    {
-                        "type": "loop",
-                        "num_iterations": 1,
-                        "subprotocols": [test_first_subprotocol],
-                    }
+                    {"type": "loop", "num_iterations": 1, "subprotocols": [test_first_subprotocol]}
                 ],
             }
         ],
@@ -721,24 +695,14 @@ def test_McCommunicationProcess__stim_packets_sent_to_file_writer_after_restarti
                 "protocol_id": "A",
                 "stimulation_type": "C",
                 "run_until_stopped": True,
-                "subprotocols": [
-                    {
-                        "type": "loop",
-                        "num_iterations": 1,
-                        "subprotocols": [test_subprotocol],
-                    }
-                ],
+                "subprotocols": [{"type": "loop", "num_iterations": 1, "subprotocols": [test_subprotocol]}],
             },
             {
                 "protocol_id": "B",
                 "stimulation_type": "C",
                 "run_until_stopped": True,
                 "subprotocols": [
-                    {
-                        "type": "loop",
-                        "num_iterations": 1,
-                        "subprotocols": [get_random_stim_pulse()],
-                    }
+                    {"type": "loop", "num_iterations": 1, "subprotocols": [get_random_stim_pulse()]}
                 ],
             },
         ],

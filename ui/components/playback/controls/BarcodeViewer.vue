@@ -1,5 +1,5 @@
 <template>
-  <div class="div__plate-barcode">
+  <div class="div__plate-barcode" :style="dynamic_container_style">
     <span class="span__plate-barcode-text" :style="dynamic_label_style"
       >{{ barcode_label }}:<!-- original MockFlow ID: cmpDb2bac556f7cfa22b31a3731d355864c9 --></span
     >
@@ -33,6 +33,9 @@
           <FontAwesomeIcon :icon="['fa', 'pencil-alt']" />
         </div>
       </span>
+    </div>
+    <div v-if="barcode_type == 'plate_barcode'" class="div__barcode-description">
+      {{ barcode_description }}
     </div>
     <b-modal id="edit-plate-barcode-modal" size="sm" hide-footer hide-header hide-header-close>
       <StatusWarningWidget
@@ -95,11 +98,35 @@ export default {
   computed: {
     ...mapState("playback", ["playback_state", "barcodes", "barcode_warning"]),
     ...mapState("flask", ["barcode_manual_mode"]),
+    ...mapState("stimulation", ["stim_play_state"]),
     barcode_info: function () {
       return this.barcodes[this.barcode_type];
     },
     barcode_label: function () {
       return this.barcode_type == "plate_barcode" ? "Plate Barcode" : "Stim Lid Barcode";
+    },
+    barcode_description: function () {
+      if (this.barcode_info.valid) {
+        const experiment_id = parseInt(this.barcode_info.value.split("-")[0].slice(-3));
+        if (experiment_id <= 99) {
+          return "Cardiac (1x)";
+        } else if (experiment_id <= 199) {
+          return "SkM (12x)";
+        } else if (experiment_id <= 299) {
+          return "Variable";
+        } else if (experiment_id <= 399) {
+          return "Mini Cardiac (1x)";
+        } else if (experiment_id <= 499) {
+          return "Mini SkM (12x)";
+        } else {
+          return "Cardiac (1x)";
+        }
+      } else {
+        return "Invalid";
+      }
+    },
+    dynamic_container_style: function () {
+      return this.barcode_type == "plate_barcode" ? "height: 46px;" : "height: 34px;";
     },
     dynamic_label_style: function () {
       return this.barcode_type == "plate_barcode" ? "left: 17px;" : "left: 0px;";
@@ -108,14 +135,22 @@ export default {
       return this.barcode_type == "plate_barcode" ? "width: 110px;" : "width: 105px;";
     },
     tooltip_text: function () {
-      return this.active_processes ? "Cannot edit barcodes while live view is active." : "Click to edit";
+      if (this.is_data_streaming) {
+        return "Cannot edit barcodes while live view is active.";
+      } else if (this.stim_play_state) {
+        return "Cannot edit barcodes while stimulation is running.";
+      }
+      return "Click to edit";
     },
-    active_processes: function () {
+    is_data_streaming: function () {
       return (
         this.playback_state === this.playback_state_enums.RECORDING ||
         this.playback_state === this.playback_state_enums.BUFFERING ||
         this.playback_state === this.playback_state_enums.LIVE_VIEW_ACTIVE
       );
+    },
+    active_processes: function () {
+      return this.stim_play_state || this.is_data_streaming;
     },
     is_disabled: function () {
       return this.active_processes || !this.barcode_manual_mode;
@@ -162,10 +197,17 @@ export default {
   top: 0px;
   left: 0px;
   width: 287px;
-  height: 34px;
   background: #1c1c1c;
   -webkit-box-sizing: content-box;
   box-sizing: content-box;
+}
+
+.div__barcode-description {
+  position: absolute;
+  top: 32px;
+  color: #cccc;
+  left: 138px;
+  font-size: 12px;
 }
 
 .span__plate-barcode-text {
@@ -269,7 +311,8 @@ input:focus {
   background-color: rgb(0, 0, 0, 0.5);
 }
 
-/* Center the edit-plate-barcode-modal pop-up dialog within the viewport */
+/* Center these modal pop-up dialogs within the viewport */
+#barcode-warning,
 #edit-plate-barcode-modal {
   position: fixed;
   margin: 5% auto;

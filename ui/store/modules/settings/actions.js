@@ -31,7 +31,7 @@ export default {
 
     const { status, data } = await call_axios_get_from_vuex(url, context, params);
 
-    if (status === 200) {
+    if (status === 200 && !data.err) {
       this.commit("settings/set_user_account", user_details);
     }
 
