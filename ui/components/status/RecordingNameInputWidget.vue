@@ -186,6 +186,8 @@ export default {
         this.recording_name_error_message = "Please enter a name";
       } else if (recording_name.length > 240) {
         this.recording_name_error_message = "Must be 240 characters or less";
+      } else if (recording_name.search(/[<>:"/\\|?*]/) !== -1) {
+        this.recording_name_error_message = "Invalid character";
       } else {
         this.recording_name_error_message = "";
       }
