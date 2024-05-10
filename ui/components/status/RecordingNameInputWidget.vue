@@ -182,7 +182,13 @@ export default {
   methods: {
     check_recording_name: function (recording_name) {
       this.recording_name = recording_name;
-      this.recording_name_error_message = recording_name ? "" : "Please enter a name";
+      if (recording_name.length === 0 || recording_name.trim().length === 0) {
+        this.recording_name_error_message = "Please enter a name";
+      } else if (recording_name.length > 240) {
+        this.recording_name_error_message = "Must be 240 characters or less";
+      } else {
+        this.recording_name_error_message = "";
+      }
     },
     handle_click: async function () {
       if (this.is_enabled) {
