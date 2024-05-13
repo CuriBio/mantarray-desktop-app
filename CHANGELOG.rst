@@ -1,7 +1,15 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.2.3 (unreleased)
+1.2.4 (unreleased)
+------------------
+
+Changed:
+^^^^^^^^
+- Max recording name length is 240 characters.
+- Prevent using forbidden characters ``<>:"/\|?*`` in recording names.
+
+1.2.3 (2024-04-29)
 ------------------
 
 Added:
