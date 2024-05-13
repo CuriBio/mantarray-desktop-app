@@ -158,7 +158,9 @@ export default {
   },
   watch: {
     barcode_warning: function () {
-      if (this.barcode_warning) this.$bvModal.show("barcode-warning");
+      if (this.barcode_warning) {
+        this.$bvModal.show("barcode-warning");
+      }
     },
   },
   methods: {
