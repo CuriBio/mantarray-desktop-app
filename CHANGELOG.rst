@@ -9,6 +9,10 @@ Changed:
 - Max recording name length is 240 characters.
 - Prevent using forbidden characters ``<>:"/\|?*`` in recording names.
 
+Fixed:
+^^^^^^
+- Recording time limit not reset if a barcode change warning occurs during a recording.
+
 1.2.3 (2024-04-29)
 ------------------
 
