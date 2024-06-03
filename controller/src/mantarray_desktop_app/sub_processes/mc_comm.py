@@ -28,6 +28,7 @@ from pulse3D.constants import DATETIME_STR_FORMAT
 import serial
 import serial.tools.list_ports as list_ports
 from stdlib_utils import create_metrics_stats
+from stdlib_utils import is_system_windows
 from stdlib_utils import put_log_message_into_queue
 from wakepy import set_keepawake
 from wakepy import unset_keepawake
@@ -45,6 +46,7 @@ from ..constants import PERFOMANCE_LOGGING_PERIOD_SECS
 from ..constants import SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE
 from ..constants import SERIAL_COMM_BAUD_RATE
 from ..constants import SERIAL_COMM_BEGIN_FIRMWARE_UPDATE_PACKET_TYPE
+from ..constants import SERIAL_COMM_BUFFER_RX_SIZE
 from ..constants import SERIAL_COMM_CF_UPDATE_COMPLETE_PACKET_TYPE
 from ..constants import SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE
 from ..constants import SERIAL_COMM_END_FIRMWARE_UPDATE_PACKET_TYPE
@@ -446,6 +448,9 @@ class McCommunicationProcess(InstrumentCommProcess):
                     timeout=0,
                     stopbits=serial.STOPBITS_ONE,
                 )
+                if is_system_windows():  # pragma: no cover
+                    conn_msg += f". Setting buffer size to {SERIAL_COMM_BUFFER_RX_SIZE}"
+                    serial_conn.set_buffer_size(rx_size=SERIAL_COMM_BUFFER_RX_SIZE)
                 return serial_conn, conn_msg
         # create simulator as no serial connection could be made
         creating_sim_msg = "No board detected. Creating simulator."
