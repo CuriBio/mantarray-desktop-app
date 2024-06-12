@@ -1071,7 +1071,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         except InstrumentBadDataError:  # pragma: no cover
             self._update_performance_metrics(new_performance_tracking_values)
             self._handle_performance_logging(force=True)
-            sleep(0.02)  # sleep to ensure that this message is processed by process monitor
+            sleep(0.05)  # sleep to ensure that this message is processed by process monitor
             raise
 
         new_performance_tracking_values["sorting_duration"] = _get_dur_of_data_sort_secs(
