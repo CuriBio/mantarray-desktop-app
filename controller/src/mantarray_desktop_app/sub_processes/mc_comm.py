@@ -91,6 +91,7 @@ from ..exceptions import FirmwareGoingDormantError
 from ..exceptions import FirmwareUpdateCommandFailedError
 from ..exceptions import FirmwareUpdateTimeoutError
 from ..exceptions import IncorrectInstrumentConnectedError
+from ..exceptions import InstrumentBadDataError
 from ..exceptions import InstrumentDataStreamingAlreadyStartedError
 from ..exceptions import InstrumentDataStreamingAlreadyStoppedError
 from ..exceptions import InstrumentFirmwareError
@@ -333,11 +334,13 @@ class McCommunicationProcess(InstrumentCommProcess):
         board = self._board_connections[board_idx]
         if board is not None:
             # log any data in cache, flush and log remaining serial data
+            cache_data = list(self._serial_packet_cache)
+            buffer_data = list(board.read_all())
             put_log_message_into_queue(
                 logging.INFO,
                 f"Duration (seconds) since events: {self._get_dur_since_events()}. "
-                f"Remaining serial data in cache: {list(self._serial_packet_cache)}, "
-                f"in buffer: {list(board.read_all())}",
+                f"Remaining serial data in cache ({len(cache_data)} bytes): {cache_data}, "
+                f"in buffer ({len(buffer_data)} bytes): {buffer_data}",
                 self._board_queues[board_idx][1],
                 self.get_logging_level(),
             )
@@ -1063,7 +1066,14 @@ class McCommunicationProcess(InstrumentCommProcess):
             )
         self._timepoints_of_prev_actions["packet_sort"] = perf_counter()
         # sort packets by into packet type groups: magnetometer data, stim status, other
-        sorted_packet_dict = sort_serial_packets(bytearray(self._serial_packet_cache))
+        try:
+            sorted_packet_dict = sort_serial_packets(bytearray(self._serial_packet_cache))
+        except InstrumentBadDataError:
+            self._update_performance_metrics(new_performance_tracking_values)
+            self._handle_performance_logging(force=True)
+            sleep(0.02)  # sleep to ensure that this message is processed by process monitor
+            raise
+
         new_performance_tracking_values["sorting_duration"] = _get_dur_of_data_sort_secs(
             self._timepoints_of_prev_actions["packet_sort"]  # type: ignore
         )
@@ -1403,12 +1413,15 @@ class McCommunicationProcess(InstrumentCommProcess):
         for metric_name, metric_value in new_performance_tracking_values.items():
             self._performance_tracking_values[metric_name].append(metric_value)
 
-    def _handle_performance_logging(self) -> None:
-        if logging.DEBUG >= self._logging_level:  # pragma: no cover
+    def _handle_performance_logging(self, force: bool = False) -> None:
+        if logging.DEBUG >= self._logging_level or force:  # pragma: no cover
             performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
             for metric_name, metric_values in self._performance_tracking_values.items():
-                performance_metrics[metric_name] = None
-                if len(metric_values) > 2:
-                    performance_metrics[metric_name] = create_metrics_stats(metric_values)
+                performance_metrics[metric_name] = {"n": len(metric_values)}
+                try:
+                    performance_metrics[metric_name] |= create_metrics_stats(metric_values)
+                except Exception:
+                    performance_metrics[metric_name] |= {"error": "creating stats"}
+
             self._send_performance_metrics(performance_metrics)
         self._reset_performance_tracking_values()
