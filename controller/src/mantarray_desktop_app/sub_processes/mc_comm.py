@@ -1068,7 +1068,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         # sort packets by into packet type groups: magnetometer data, stim status, other
         try:
             sorted_packet_dict = sort_serial_packets(bytearray(self._serial_packet_cache))
-        except InstrumentBadDataError:
+        except InstrumentBadDataError:  # pragma: no cover
             self._update_performance_metrics(new_performance_tracking_values)
             self._handle_performance_logging(force=True)
             sleep(0.02)  # sleep to ensure that this message is processed by process monitor
