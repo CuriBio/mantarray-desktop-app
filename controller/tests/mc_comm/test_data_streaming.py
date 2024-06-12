@@ -130,9 +130,7 @@ def test_McCommunicationProcess__raises_error_when_set_sampling_period_command_r
 
 
 def test_McCommunicationProcess__processes_start_managed_acquisition_command__and_raises_error_when_already_streaming(
-    four_board_mc_comm_process_no_handshake,
-    mantarray_mc_simulator_no_beacon,
-    patch_print,
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, patch_print
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     from_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
@@ -174,8 +172,7 @@ def test_McCommunicationProcess__processes_stop_data_streaming_command__when_dat
 
     # put simulator in data streaming mode
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        {"command": "set_data_streaming_status", "data_streaming_status": True},
-        testing_queue,
+        {"command": "set_data_streaming_status", "data_streaming_status": True}, testing_queue
     )
 
     expected_response = {"communication_type": "acquisition_manager", "command": "stop_managed_acquisition"}
@@ -194,9 +191,7 @@ def test_McCommunicationProcess__processes_stop_data_streaming_command__when_dat
 
 
 def test_McCommunicationProcess__processes_stop_data_streaming_command__and_raises_error_when_not_streaming(
-    four_board_mc_comm_process_no_handshake,
-    mantarray_mc_simulator_no_beacon,
-    patch_print,
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, patch_print
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     from_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][0]
@@ -216,9 +211,7 @@ def test_McCommunicationProcess__processes_stop_data_streaming_command__and_rais
 
 
 def test_McCommunicationProcess__reads_all_bytes_from_instrument__and_does_not_sort_packets_if_not_at_least_one_full_packet_is_present(
-    four_board_mc_comm_process_no_handshake,
-    mantarray_mc_simulator_no_beacon,
-    mocker,
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     to_fw_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][2]
@@ -263,9 +256,7 @@ def test_McCommunicationProcess__reads_all_bytes_from_instrument__and_does_not_s
 
 
 def test_McCommunicationProcess__tries_to_read_one_more_time_if_first_read_fails(
-    four_board_mc_comm_process_no_handshake,
-    mantarray_mc_simulator_no_beacon,
-    mocker,
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
@@ -307,9 +298,7 @@ def test_McCommunicationProcess__tries_to_read_one_more_time_if_first_read_fails
 
 
 def test_McCommunicationProcess__processes_non_stream_packet_immediately(
-    four_board_mc_comm_process_no_handshake,
-    mantarray_mc_simulator_no_beacon,
-    mocker,
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     to_main_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][1]
@@ -350,9 +339,7 @@ def test_McCommunicationProcess__processes_non_stream_packet_immediately(
 
 
 def test_McCommunicationProcess__correctly_indicates_which_packet_is_the_first_of_the_stream(
-    four_board_mc_comm_process_no_handshake,
-    mantarray_mc_simulator_no_beacon,
-    mocker,
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     to_fw_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][2]
@@ -389,9 +376,7 @@ def test_McCommunicationProcess__correctly_indicates_which_packet_is_the_first_o
 
 
 def test_McCommunicationProcess__does_not_parse_data_packets_before_one_second_of_data_is_present__all_channels_enabled(
-    four_board_mc_comm_process_no_handshake,
-    mantarray_mc_simulator_no_beacon,
-    mocker,
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     to_fw_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][2]
@@ -422,9 +407,7 @@ def test_McCommunicationProcess__does_not_parse_data_packets_before_one_second_o
 
 
 def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_data_to_file_writer_correctly__when_at_least_one_second_of_data_with_all_channels_enabled_is_present(
-    four_board_mc_comm_process_no_handshake,
-    mantarray_mc_simulator_no_beacon,
-    mocker,
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     to_fw_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][2]
@@ -465,7 +448,7 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
         channel_dict = {
             "time_offsets": np.zeros(
                 (SERIAL_COMM_NUM_SENSORS_PER_WELL, expected_num_packets), dtype=np.uint16
-            ),
+            )
         }
         for channel_id in range(SERIAL_COMM_NUM_DATA_CHANNELS):
             channel_dict[channel_id] = expected_data * np.uint16(well_idx + 1)
@@ -498,9 +481,7 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
 
 
 def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_data_to_file_writer_correctly__when_one_second_of_data_is_present(
-    four_board_mc_comm_process_no_handshake,
-    mantarray_mc_simulator_no_beacon,
-    mocker,
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     to_fw_queue = four_board_mc_comm_process_no_handshake["board_queues"][0][2]
@@ -580,9 +561,7 @@ def test_McCommunicationProcess__handles_read_of_only_data_packets__and_sends_da
 
 
 def test_McCommunicationProcess__handles_one_second_read_with_two_interrupting_packets_correctly(
-    four_board_mc_comm_process_no_handshake,
-    mantarray_mc_simulator_no_beacon,
-    mocker,
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     _, to_main_queue, to_fw_queue = four_board_mc_comm_process_no_handshake["board_queues"][0]
@@ -668,14 +647,10 @@ def test_McCommunicationProcess__handles_one_second_read_with_two_interrupting_p
         actual_time_offsets = actual_fw_item[key]["time_offsets"]
         actual_data = actual_fw_item[key][expected_sensor_axis_id]
         np.testing.assert_array_equal(
-            actual_time_offsets,
-            expected_item["time_offsets"],
-            err_msg=f"Failure at '{key}' key",
+            actual_time_offsets, expected_item["time_offsets"], err_msg=f"Failure at '{key}' key"
         )
         np.testing.assert_array_equal(
-            actual_data,
-            expected_item[expected_sensor_axis_id],
-            err_msg=f"Failure at at '{key}' key",
+            actual_data, expected_item[expected_sensor_axis_id], err_msg=f"Failure at at '{key}' key"
         )
 
 
@@ -690,12 +665,7 @@ def test_McCommunicationProcess__handles_incomplete_read_of_packet_immediately_f
     # mocking so no barcode messages are sent from mc_comm to main
     mocker.patch.object(simulator, "_handle_barcode", autospec=True)
     # mocking to ensure no data packets are sent
-    mocker.patch.object(
-        mc_simulator,
-        "_get_us_since_last_data_packet",
-        autospec=True,
-        return_value=0,
-    )
+    mocker.patch.object(mc_simulator, "_get_us_since_last_data_packet", autospec=True, return_value=0)
 
     set_connection_and_register_simulator(
         four_board_mc_comm_process_no_handshake, mantarray_mc_simulator_no_beacon
@@ -793,10 +763,7 @@ def test_McCommunicationProcess__updates_performance_metrics_after_parsing_data(
     expected_secs_between_reading = [randint(1, 50) for _ in range(test_num_iterations - 1)]
     expected_secs_between_reading = list(range(test_num_iterations - 1))
     mocked_since_last_read = mocker.patch.object(
-        mc_comm,
-        "_get_secs_since_last_data_read",
-        autospec=True,
-        side_effect=expected_secs_between_reading,
+        mc_comm, "_get_secs_since_last_data_read", autospec=True, side_effect=expected_secs_between_reading
     )
     expected_read_durs = [randint(1, 50) for _ in range(test_num_iterations)]
     mocked_data_read_dur = mocker.patch.object(
@@ -826,14 +793,8 @@ def test_McCommunicationProcess__updates_performance_metrics_after_parsing_data(
         side_effect=[
             {
                 "num_packets_sorted": num_packets,
-                "magnetometer_stream_info": {
-                    "raw_bytes": bytearray(0),
-                    "num_packets": num_packets,
-                },
-                "stim_stream_info": {
-                    "raw_bytes": bytearray(0),
-                    "num_packets": 0,
-                },
+                "magnetometer_stream_info": {"raw_bytes": bytearray(0), "num_packets": num_packets},
+                "stim_stream_info": {"raw_bytes": bytearray(0), "num_packets": 0},
                 "other_packet_info": [],
                 "unread_bytes": bytearray(0),
             }
@@ -891,7 +852,7 @@ def test_McCommunicationProcess__updates_performance_metrics_after_parsing_data(
         ("mag_data_parsing_duration", expected_parse_durs),
         ("num_mag_packets_parsed", expected_num_packets_parsed),
     ):
-        assert actual[name] == create_metrics_stats(mc_measurements), name
+        assert actual[name] == {"n": len(mc_measurements)} | create_metrics_stats(mc_measurements), name
 
     # values created in parent class
     assert "idle_iteration_time_ns" not in actual
