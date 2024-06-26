@@ -154,7 +154,8 @@ jobs:
         # Eli (10/28/20): The --sequential flag was found to be necessary on windows due to issues where scipy wouldn't recognize that it had been installed. Also, when this was part of a set of multiple run commands using the pipe, when it errored it didn't cause the whole step to fail, so separating it out into its own step
         run: |
           cd controller/
-          pipenv install --dev --deploy --sequential
+          pipenv install -v --dev --deploy --sequential
+          pipenv run pip install setuptools==69.5.1
 
       - name: Download zlib Library
         env:
