@@ -1,13 +1,14 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.2.4 (unreleased)
+1.2.4 (2024-07-17)
 ------------------
 
 Changed:
 ^^^^^^^^
 - Max recording name length is 240 characters.
 - Prevent using forbidden characters ``<>:"/\|?*`` in recording names.
+- Serial buffer size is now 1MB.
 
 Fixed:
 ^^^^^^
