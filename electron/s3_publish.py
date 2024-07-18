@@ -41,7 +41,7 @@ def _upload_file_to_s3(bucket, key, file) -> None:
         print(f"Successfully uploaded {bucket}/{key}")  # allow-print
 
 
-def update_cloud():
+def update_cloud(release_channel):
     print("Getting controller version")  # allow-print
     controller_version_no_pre = get_version()
     print(f"Found controller version: {controller_version_no_pre}")  # allow-print
@@ -64,8 +64,9 @@ def update_cloud():
     access_token = response_json["tokens"]["access"]["token"]
 
     print("Updating SW versions in cloud")  # allow-print
+    is_prod = release_channel == "prod"
     response = requests.post(
-        f"https://apiv2.curibio.com/mantarray/software/mantarray/{controller_version_no_pre}",
+        f"https://apiv2.curibio.com/mantarray/software/mantarray/{controller_version_no_pre}/{is_prod}",
         headers={"Authorization": f"Bearer {access_token}"},
     )
     response_json = response.json()
@@ -83,4 +84,4 @@ if __name__ == "__main__":
     parsed_args = parser.parse_args(sys.argv[1:])
 
     upload("downloads.curibio.com", parsed_args)
-    update_cloud()
+    update_cloud(parsed_args.channel)

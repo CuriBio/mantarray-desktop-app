@@ -200,13 +200,16 @@ export default {
       // stop all running processes if either barcode changes regardless of validity
       if (this.state.stimulation.stim_play_state) {
         await this.dispatch("stimulation/stop_stimulation");
+        console.log("Barcode change detected while stimulating"); // allow-log
         commit("set_barcode_warning", true);
       }
 
       if (state.playback_state === ENUMS.PLAYBACK_STATES.LIVE_VIEW_ACTIVE) {
+        console.log("Barcode change detected while live view active"); // allow-log
         await dispatch("stop_live_view");
         commit("set_barcode_warning", true);
       } else if (state.playback_state === ENUMS.PLAYBACK_STATES.RECORDING) {
+        console.log("Barcode change detected while recording"); // allow-log
         await dispatch("stop_recording");
         await dispatch("stop_live_view");
 

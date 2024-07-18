@@ -45,6 +45,7 @@ prof/
 .idea/
 .~c9*
 .vscode/
+pyrightconfig.json
 
 # Python
 *.py[cod]

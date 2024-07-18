@@ -115,7 +115,7 @@
       viewBox="0 0 72 72"
       :class="svg__playback_desktop_player_controls_record_button__active__dynamic_class"
       :title="record_title"
-      @click="on_stop_record_click()"
+      @click="on_stop_record_click(true)"
     >
       <!-- original mockflow ID: id="cmpD065153341d021afab2bfa7dccd1fae68"-->
       <path d="M36,10A26,26,0,1,1,10,36,26.1,26.1,0,0,1,36,10M36,0A36,36,0,1,0,72,36,36,36,0,0,0,36,0Z">
@@ -202,7 +202,7 @@
       <StatusWarningWidget
         id="recording-limit"
         :modal_labels="recording_limit_labels"
-        @handle_confirmation="$bvModal.hide('recording-limit-warning')"
+        @handle_confirmation="close_recording_time_limit_warning"
       />
     </b-modal>
     <b-modal
@@ -538,10 +538,24 @@ export default {
         if (new_state === this.playback_state_enums.LIVE_VIEW_ACTIVE) {
           // then start stimulation once ensured that live view has started
           // TODO is it necessary to check this condition again?
-          if (this.start_recording_from_stim) this.$store.dispatch(`stimulation/create_protocol_message`);
+          if (this.start_recording_from_stim) {
+            this.$store.dispatch(`stimulation/create_protocol_message`);
+          }
         } else if (new_state === this.playback_state_enums.RECORDING) {
           this.$store.commit("playback/set_start_recording_from_stim", false);
         }
+      }
+      if (new_state === this.playback_state_enums.RECORDING) {
+        this.recording_timer = setTimeout(() => {
+          if (this.playback_state === this.playback_state_enums.RECORDING) {
+            console.log("Recording time limit reached, stopping recording"); // allow-log
+            this.on_stop_record_click(false);
+            this.$bvModal.show("recording-limit-warning");
+          }
+        }, 10 * 60e3);
+      } else if (this.recording_timer !== null) {
+        clearTimeout(this.recording_timer);
+        this.recording_timer = null;
       }
     },
     stim_start_time_idx() {
@@ -595,19 +609,13 @@ export default {
     },
     start_recording: function () {
       this.$store.dispatch("playback/start_recording", this.default_recording_name);
-
-      this.recording_timer = setTimeout(() => {
-        if (this.playback_state === this.playback_state_enums.RECORDING) {
-          this.on_stop_record_click();
-          this.$bvModal.show("recording-limit-warning");
-        }
-      }, 10 * 60e3);
     },
-    on_stop_record_click: async function () {
-      clearTimeout(this.recording_timer);
+    on_stop_record_click: async function (show_prompt) {
       await this.$store.dispatch("playback/stop_recording");
       await this.$store.dispatch("playback/stop_live_view");
-      this.$bvModal.show("recording-name-input-prompt-message");
+      if (show_prompt) {
+        this.$bvModal.show("recording-name-input-prompt-message");
+      }
 
       if (this.auto_upload) {
         this.$store.commit("settings/set_total_file_count");
@@ -661,6 +669,10 @@ export default {
     },
     close_recording_name_input() {
       this.$bvModal.hide("recording-name-input-prompt-message");
+    },
+    close_recording_time_limit_warning() {
+      this.$bvModal.hide("recording-limit-warning");
+      this.$bvModal.show("recording-name-input-prompt-message");
     },
   },
 };
