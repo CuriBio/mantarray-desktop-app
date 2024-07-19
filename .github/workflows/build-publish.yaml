@@ -183,7 +183,7 @@ jobs:
           echo ${{steps.product-name.outputs.prop}}
 
       - name: Install pipenv # no known reason for this specific version of pipenv, just pinning it for good practice
-        run: pip install pipenv==2020.11.15
+        run: pip install pipenv==2024.0.1
 
       - name: Setup Pipenv
         env:
