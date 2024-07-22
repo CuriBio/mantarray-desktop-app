@@ -183,7 +183,7 @@ jobs:
           echo ${{steps.product-name.outputs.prop}}
 
       - name: Install pipenv # no known reason for this specific version of pipenv, just pinning it for good practice
-        run: pip install pipenv==2020.11.15
+        run: pip install pipenv==2024.0.1
 
       - name: Setup Pipenv
         env:
@@ -197,11 +197,9 @@ jobs:
       - name: Install Python Dependencies
         env:
           PIPENV_CACHE_DIR: ./.pipenv_cache
-        # Eli (10/28/20): The --sequential flag was found to be necessary on windows due to issues where scipy wouldn't recognize that it had been installed. Also, when this was part of a set of multiple run commands using the pipe, when it errored it didn't cause the whole step to fail, so separating it out into its own step
         run: |
           cd controller/
-          pipenv install -v --dev --deploy --sequential
-          pipenv run pip install setuptools==69.5.1
+          pipenv install -v --dev --deploy
 
       - name: Download zlib Library
         env:
