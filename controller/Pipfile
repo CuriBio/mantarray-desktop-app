@@ -10,7 +10,7 @@ cython = "==0.29.33"
 freezegun = "==1.0.0"
 pefile = "==2022.5.30" # Eli (3/1/21): this must be explicitly specified when using a Linux dev environment so that it will be included in a Windows build environment
 pre-commit = "==2.11.1"
-pyinstaller = "==5.7.0"
+pyinstaller = "==6.9.0"
 pytest = "==7.2.1"
 pytest-cov = "==4.0.0"
 pytest-mock = "==3.10.0"
