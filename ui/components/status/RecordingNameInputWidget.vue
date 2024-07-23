@@ -40,6 +40,7 @@
                 <InputWidget
                   :placeholder="'Experiment Name'"
                   :invalid_text="user_defined_metadata[i].key_err"
+                  :warning_text="user_defined_metadata[i].key_warning"
                   :spellcheck="false"
                   :input_width="210"
                   :dom_id_suffix="`metadata-key-${i}`"
@@ -53,6 +54,7 @@
                 <InputWidget
                   :placeholder="'Project 1'"
                   :invalid_text="user_defined_metadata[i].val_err"
+                  :warning_text="user_defined_metadata[i].val_warning"
                   :spellcheck="false"
                   :input_width="210"
                   :dom_id_suffix="`metadata-value-${i}`"
@@ -126,6 +128,7 @@ library.add(faMinusCircle, faPlusCircle);
 Vue.component("BModal", BModal);
 
 const EMPTY_METADATA_ERR_MSG = "Please enter a value";
+const EMPTY_METADATA_WARNING = "Empty row, will be ignored";
 const DUPLICATE_METADATA_KEY_ERR_MSG = "Duplicate key";
 
 export default {
@@ -229,8 +232,10 @@ export default {
         {
           key: "",
           val: "",
-          key_err: EMPTY_METADATA_ERR_MSG,
-          val_err: EMPTY_METADATA_ERR_MSG,
+          key_err: "",
+          val_err: "",
+          key_warning: EMPTY_METADATA_WARNING,
+          val_warning: " ",
         },
       ];
     },
@@ -244,16 +249,30 @@ export default {
         this.check_duplicate_metadata_keys();
       }
     },
-    update_metadata: function (i, type, new_entry) {
+    update_metadata: function (i, type_, new_entry) {
       const row_info = this.user_defined_metadata[i];
-      row_info[type] = new_entry;
+      row_info[type_] = new_entry;
 
-      const err_key = `${type}_err`;
+      const other_type = type_ === "key" ? "val" : "key";
+      const err_key = `${type_}_err`;
       row_info[err_key] = "";
       if (new_entry === "") {
-        row_info[err_key] = EMPTY_METADATA_ERR_MSG;
+        if (row_info[other_type] === "") {
+          row_info[err_key] = "";
+          row_info[`${other_type}_err`] = "";
+          row_info["key_warning"] = EMPTY_METADATA_WARNING;
+          row_info["val_warning"] = " ";
+        } else {
+          row_info[err_key] = EMPTY_METADATA_ERR_MSG;
+        }
+      } else {
+        if (row_info[other_type] === "") {
+          row_info[`${other_type}_err`] = EMPTY_METADATA_ERR_MSG;
+        }
+        row_info[`${type_}_warning`] = "";
+        row_info[`${other_type}_warning`] = "";
       }
-      if (type === "key") {
+      if (type_ === "key") {
         this.check_duplicate_metadata_keys();
       }
     },
@@ -274,7 +293,9 @@ export default {
     get_formatted_user_defined_metadata: function () {
       const formatted_meta = {};
       this.user_defined_metadata.map((meta_info) => {
-        formatted_meta[meta_info.key] = meta_info.val;
+        if (meta_info.key !== "" && meta_info.val !== "") {
+          formatted_meta[meta_info.key] = meta_info.val;
+        }
       });
       return formatted_meta;
     },
