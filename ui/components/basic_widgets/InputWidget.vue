@@ -7,11 +7,7 @@
 
       <div
         class="div__input-controls-content-widget"
-        :class="[
-          !input_is_valid
-            ? 'div__input-controls-content-widget--invalid'
-            : 'div__input-controls-content-widget--valid',
-        ]"
+        :class="dynamic__input_widget_class"
         :style="dynamic__input_widget_style"
       >
         <span
@@ -38,9 +34,9 @@
         v-show="display_text_message"
         :id="`input-widget-feedback-${dom_id_suffix}`"
         class="div__input-controls-content-feedback"
-        :style="`width: ${input_width}px; top: ${input_feedback_top}px;`"
+        :style="`width: ${input_width}px; top: ${input_feedback_top}px; color: ${display_text_color};`"
       >
-        {{ invalid_text }}
+        {{ invalid_text || warning_text }}
       </div>
     </div>
   </div>
@@ -66,6 +62,7 @@ export default {
     title_label: { type: String, default: "" }, // title_text (str) (optional, defaults to empty string "")
     placeholder: { type: String, default: "" }, // placeholder (str)
     invalid_text: { type: String, default: "" }, // invalid_text (str)
+    warning_text: { type: String, default: "" }, // warning_text (str)
     spellcheck: { type: Boolean, default: true }, // spellcheck (optional bool=True)
     initial_value: { type: String, default: "" }, // field_value (str) (optional, defaults to empty string "")
     top_adjust: { type: Number, default: 0 },
@@ -95,6 +92,12 @@ export default {
       const base = this.title_label !== "" ? 40 : 0;
       return base + this.top_adjust;
     },
+    display_text_color: function () {
+      if (this.invalid_text) {
+        return "rgb(229, 74, 74)";
+      }
+      return "rgb(252, 186, 3)";
+    },
     input_feedback_top: function () {
       return this.input_height + this.top_adjust + 4 + (this.title_label !== "" ? 40 : 0);
     },
@@ -104,6 +107,14 @@ export default {
         `width: ${input_width_background}px; height: ${this.input_height_background}px;` +
         `background: ${this.container_background_color}; border: 2px solid ${this.container_background_color};`
       );
+    },
+    dynamic__input_widget_class: function () {
+      if (this.invalid_text) {
+        return "div__input-controls-content-widget--invalid";
+      } else if (this.warning_text) {
+        return "div__input-controls-content-widget--warning";
+      }
+      return "div__input-controls-content-widget--valid";
     },
     dynamic__input_widget_style: function () {
       return `width: ${this.input_width}px; height: ${this.input_height}px; top: ${this.input_widget_top}px;`;
@@ -212,6 +223,12 @@ body {
   border-color: #bd3532;
 }
 
+.div__input-controls-content-widget--warning {
+  border-width: thin;
+  border-style: solid;
+  border-color: #fcba03;
+}
+
 .div__input-controls-content-widget--valid {
   border-width: thin;
   border-style: solid;
@@ -224,7 +241,6 @@ body {
   padding: 0px;
   margin: 0px;
   overflow-wrap: break-word;
-  color: rgb(229, 74, 74);
   font-family: Muli;
   position: absolute;
   left: 0px;

@@ -1,6 +1,14 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+1.2.5 (unreleased)
+------------------
+
+Changed:
+^^^^^^^^
+- Empty user-defined metadata rows will now be ignored instead of blocking confirm button.
+
+
 1.2.4 (2024-07-17)
 ------------------
 
@@ -13,6 +21,7 @@ Changed:
 Fixed:
 ^^^^^^
 - Recording time limit not reset if a barcode change warning occurs during a recording.
+
 
 1.2.3 (2024-04-29)
 ------------------
