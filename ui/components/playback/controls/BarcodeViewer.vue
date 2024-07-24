@@ -1,8 +1,12 @@
 <template>
   <div class="div__plate-barcode" :style="dynamic_container_style">
-    <span class="span__plate-barcode-text" :style="dynamic_label_style"
-      >{{ barcode_label }}:<!-- original MockFlow ID: cmpDb2bac556f7cfa22b31a3731d355864c9 --></span
+    <span
+      v-b-popover.hover.top="edit_barcode_tooltip_text"
+      class="span__plate-barcode-text"
+      :style="dynamic_label_style"
     >
+      {{ barcode_label }}:
+    </span>
     <input
       id="plateinfo"
       :disabled="is_disabled"
@@ -23,7 +27,7 @@
       class="div__disabled-input-popover"
     />
     <div
-      v-b-popover.hover.top="tooltip_text"
+      v-b-popover.hover.top="switch_mode_tooltip_text"
       :title="barcode_label"
       class="input__plate-barcode-manual-entry-enable"
     >
@@ -60,6 +64,13 @@ import StatusWarningWidget from "@/components/status/StatusWarningWidget.vue";
 import Vue from "vue";
 import { VBPopover } from "bootstrap-vue";
 Vue.directive("b-popover", VBPopover);
+
+const get_dur_since = (now, then) => {
+  now = now.getTime();
+  then = then.getTime();
+  const diff = Math.floor((now - then) / 1000);
+  return `${Math.floor(diff / 3600)}H ${Math.floor(diff / 60) % 60}M ${diff % 60}s`;
+};
 
 library.add(faPencilAlt);
 library.add(faHdd);
@@ -99,6 +110,8 @@ export default {
         msg_two: "All processes have been stopped.",
         button_names: ["Okay"],
       },
+      now_time: null,
+      now_time_interval: null,
     };
   },
   computed: {
@@ -107,6 +120,9 @@ export default {
     ...mapState("stimulation", ["stim_play_state"]),
     barcode_info: function () {
       return this.barcodes[this.barcode_type];
+    },
+    barcode_entry_time: function () {
+      return this.barcode_info.entry_time;
     },
     barcode_label: function () {
       return this.barcode_type == "plate_barcode" ? "Plate Barcode" : "Stim Lid Barcode";
@@ -143,14 +159,34 @@ export default {
     dynamic_entry_style: function () {
       return this.barcode_type == "plate_barcode" ? "width: 110px;" : "width: 105px;";
     },
-    tooltip_text: function () {
+    edit_barcode_tooltip_text: function () {
+      let msg = "";
+      if (this.barcode_entry_time !== null && this.barcode_info.value && this.now_time !== null) {
+        const prefix = this.barcode_manual_mode ? "Manually entered" : "Scanned";
+
+        msg += `${prefix} ${get_dur_since(this.now_time, this.barcode_entry_time)} ago. `;
+      }
+      if (this.barcode_manual_mode) {
+        if (this.is_data_streaming) {
+          if (this.playback_state === this.playback_state_enums.CALIBRATING) {
+            msg += "Cannot edit barcodes while calibrating.";
+          } else {
+            msg += "Cannot edit barcodes while live view is active.";
+          }
+        } else if (this.stim_play_state) {
+          msg += "Cannot edit barcodes while stimulation is running.";
+        }
+      }
+      return msg;
+    },
+    switch_mode_tooltip_text: function () {
       if (this.is_data_streaming) {
         if (this.playback_state === this.playback_state_enums.CALIBRATING) {
-          return "Cannot edit barcodes while calibrating.";
+          return "Cannot switch barcode entry mode while calibrating.";
         }
-        return "Cannot edit barcodes while live view is active.";
+        return "Cannot switch barcode entry mode while live view is active.";
       } else if (this.stim_play_state) {
-        return "Cannot edit barcodes while stimulation is running.";
+        return "Cannot switch barcode entry mode while stimulation is running.";
       }
       return this.barcode_manual_mode ? "Enter automatic mode" : "Enter manual mode";
     },
@@ -170,6 +206,13 @@ export default {
     },
   },
   watch: {
+    barcode_entry_time: function () {
+      if (this.now_time_interval) {
+        clearInterval(this.now_time_interval);
+      }
+      this.now_time = this.barcode_entry_time;
+      this.now_time_interval = setInterval(this.update_now, 1000);
+    },
     barcode_warning: function () {
       if (this.barcode_warning) {
         this.$bvModal.show("barcode-warning");
@@ -194,6 +237,7 @@ export default {
       }
     },
     handle_manual_barcode_input: function (event) {
+      this.$store.commit("playback/set_barcode_entry_time", this.barcode_type);
       this.set_barcode_manually(this.barcode_type, event.target.value);
     },
     set_barcode_manually: function (barcode_type, new_barcode) {
@@ -205,6 +249,9 @@ export default {
     close_warning_modal() {
       this.$bvModal.hide("barcode-warning");
       this.$store.commit("playback/set_barcode_warning", false);
+    },
+    update_now() {
+      this.now_time = new Date();
     },
   },
 };
@@ -275,7 +322,7 @@ export default {
   font-size: 15px;
   background-color: #000000;
   color: #b7b7b7;
-  font-family: Anonymous Pro;
+  font-family: anonymous pro;
   font-weight: normal;
   box-shadow: none;
   border: none;

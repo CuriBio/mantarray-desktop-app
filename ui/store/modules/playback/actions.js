@@ -212,7 +212,6 @@ export default {
         console.log("Barcode change detected while recording"); // allow-log
         await dispatch("stop_recording");
         await dispatch("stop_live_view");
-
         commit("set_barcode_warning", true);
       }
 

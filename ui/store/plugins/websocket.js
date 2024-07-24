@@ -101,14 +101,14 @@ export default function create_web_socket_plugin(socket) {
       if (!store.state.flask.barcode_manual_mode) {
         const message = JSON.parse(message_json);
         for (const barcode_type in store.state.playback.barcodes)
-          if (
-            message[barcode_type] &&
-            message[barcode_type] !== store.state.playback.barcodes[barcode_type].value
-          ) {
-            store.dispatch("playback/validate_barcode", {
-              type: barcode_type,
-              new_value: message[barcode_type],
-            });
+          if (message[barcode_type]) {
+            store.commit("playback/set_barcode_entry_time", barcode_type);
+            if (message[barcode_type] !== store.state.playback.barcodes[barcode_type].value) {
+              store.dispatch("playback/validate_barcode", {
+                type: barcode_type,
+                new_value: message[barcode_type],
+              });
+            }
           }
       }
 
