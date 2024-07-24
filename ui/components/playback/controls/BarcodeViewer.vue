@@ -14,7 +14,7 @@
         barcode_info.valid ? `input__plate-barcode-entry-valid` : `input__plate-barcode-entry-invalid`,
       ]"
       :value="barcode_info.value"
-      @input="set_barcode_manually"
+      @input="handle_manual_barcode_input"
     />
     <div
       v-if="barcode_manual_mode && active_processes"
@@ -23,14 +23,13 @@
       class="div__disabled-input-popover"
     />
     <div
-      v-show="!barcode_manual_mode"
       v-b-popover.hover.top="tooltip_text"
       :title="barcode_label"
       class="input__plate-barcode-manual-entry-enable"
     >
       <span class="input__plate-barcode-manual-entry-enable-icon">
         <div id="edit-plate-barcode" @click="active_processes || $bvModal.show('edit-plate-barcode-modal')">
-          <FontAwesomeIcon :icon="['fa', 'pencil-alt']" />
+          <FontAwesomeIcon :icon="['fa', barcode_manual_mode ? 'hdd' : 'pencil-alt']" />
         </div>
       </span>
     </div>
@@ -39,7 +38,7 @@
     </div>
     <b-modal id="edit-plate-barcode-modal" size="sm" hide-footer hide-header hide-header-close>
       <StatusWarningWidget
-        :modal_labels="barcode_manual_labels"
+        :modal_labels="barcode_mode_switch_labels"
         @handle_confirmation="handle_manual_mode_choice"
       />
     </b-modal>
@@ -55,7 +54,7 @@
 import { mapState } from "vuex";
 import playback_module from "@/store/modules/playback";
 import { library } from "@fortawesome/fontawesome-svg-core";
-import { faPencilAlt } from "@fortawesome/free-solid-svg-icons";
+import { faPencilAlt, faHdd } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import StatusWarningWidget from "@/components/status/StatusWarningWidget.vue";
 import Vue from "vue";
@@ -63,6 +62,7 @@ import { VBPopover } from "bootstrap-vue";
 Vue.directive("b-popover", VBPopover);
 
 library.add(faPencilAlt);
+library.add(faHdd);
 /**
  * @vue-data {String} playback_state_enums - Current state of playback
  * @vue-computed {String} playback_state - Current value in Vuex store
@@ -80,11 +80,17 @@ export default {
   data() {
     return {
       playback_state_enums: playback_module.ENUMS.PLAYBACK_STATES,
+      barcode_automatic_labels: {
+        header: "Warning!",
+        msg_one: "Do you want to switch to automatic barcode scanning?",
+        msg_two:
+          "This will disable manual barcode editing and clear the current barcodes until the next automatic barcode scan.",
+        button_names: ["Cancel", "Yes"],
+      },
       barcode_manual_labels: {
         header: "Warning!",
-        msg_one: "Do you want to enable manual barcode editing?",
-        msg_two:
-          "Once enabled, all barcodes must be entered manually. This should only be done if the barcode scanner is malfunctioning. Scanning cannot be re-enabled until software is restarted.",
+        msg_one: "Do you want to switch to manual barcode editing?",
+        msg_two: "While active, all barcodes must be entered manually. Scanned barcodes will be ignored.",
         button_names: ["Cancel", "Yes"],
       },
       barcode_warning_labels: {
@@ -125,6 +131,9 @@ export default {
         return "Invalid";
       }
     },
+    barcode_mode_switch_labels: function () {
+      return this.barcode_manual_mode ? this.barcode_automatic_labels : this.barcode_manual_labels;
+    },
     dynamic_container_style: function () {
       return this.barcode_type == "plate_barcode" ? "height: 46px;" : "height: 34px;";
     },
@@ -136,17 +145,21 @@ export default {
     },
     tooltip_text: function () {
       if (this.is_data_streaming) {
+        if (this.playback_state === this.playback_state_enums.CALIBRATING) {
+          return "Cannot edit barcodes while calibrating.";
+        }
         return "Cannot edit barcodes while live view is active.";
       } else if (this.stim_play_state) {
         return "Cannot edit barcodes while stimulation is running.";
       }
-      return "Click to edit";
+      return this.barcode_manual_mode ? "Enter automatic mode" : "Enter manual mode";
     },
     is_data_streaming: function () {
       return (
         this.playback_state === this.playback_state_enums.RECORDING ||
         this.playback_state === this.playback_state_enums.BUFFERING ||
-        this.playback_state === this.playback_state_enums.LIVE_VIEW_ACTIVE
+        this.playback_state === this.playback_state_enums.LIVE_VIEW_ACTIVE ||
+        this.playback_state === this.playback_state_enums.CALIBRATING
       );
     },
     active_processes: function () {
@@ -164,18 +177,29 @@ export default {
     },
   },
   methods: {
-    handle_manual_mode_choice(choice) {
-      const bool_choice = Boolean(choice);
+    handle_manual_mode_choice(switched) {
+      switched = Boolean(switched);
       this.$bvModal.hide("edit-plate-barcode-modal");
-      this.$store.commit("flask/set_barcode_manual_mode", bool_choice);
-      if (bool_choice) {
-        console.log("Barcode Set Manually"); // allow-log
+      if (!switched) {
+        return;
+      }
+      const new_barcode_manual_mode = !this.barcode_manual_mode;
+      this.$store.commit("flask/set_barcode_manual_mode", new_barcode_manual_mode);
+      if (new_barcode_manual_mode) {
+        console.log("Barcode entry mode set to manual"); // allow-log
+      } else {
+        console.log("Barcode entry mode set to automatic, clearing barcodes"); // allow-log
+        this.set_barcode_manually("plate_barcode", "");
+        this.set_barcode_manually("stim_barcode", "");
       }
     },
-    set_barcode_manually: function (event) {
+    handle_manual_barcode_input: function (event) {
+      this.set_barcode_manually(this.barcode_type, event.target.value);
+    },
+    set_barcode_manually: function (barcode_type, new_barcode) {
       this.$store.dispatch("playback/validate_barcode", {
-        type: this.barcode_type,
-        new_value: event.target.value,
+        type: barcode_type,
+        new_value: new_barcode,
       });
     },
     close_warning_modal() {

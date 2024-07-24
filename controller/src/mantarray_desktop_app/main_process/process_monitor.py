@@ -569,8 +569,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             barcode_type = "stim_barcode" if barcode.startswith("MS") else "plate_barcode"
             if board_idx not in self._values_to_share_to_server["barcodes"]:
                 self._values_to_share_to_server["barcodes"][board_idx] = dict()
-            elif self._values_to_share_to_server["barcodes"][board_idx].get(barcode_type, None) == barcode:
-                return
+
             # TODO Tanner (2/7/22): consider removing barcode_status after Beta 1 mode phased out
             valid = communication.get("valid", None)
             barcode_status: uuid.UUID

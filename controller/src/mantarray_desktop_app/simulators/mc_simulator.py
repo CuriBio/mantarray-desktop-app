@@ -102,6 +102,7 @@ from ..utils.stimulation import StimulationProtocolManager
 
 MAGIC_WORD_LEN = len(SERIAL_COMM_MAGIC_WORD_BYTES)
 AVERAGE_MC_REBOOT_DURATION_SECONDS = MAX_MC_REBOOT_DURATION_SECONDS / 2
+SIMULATOR_BARCODE_SEND_PERIOD_SECS = 5
 
 
 def _perf_counter_us() -> int:
@@ -118,6 +119,10 @@ def _get_secs_since_last_handshake(last_time: float) -> float:
 
 
 def _get_secs_since_last_status_beacon(last_time: float) -> float:
+    return perf_counter() - last_time
+
+
+def _get_secs_since_last_barcode_scan(last_time: float) -> float:
     return perf_counter() - last_time
 
 
@@ -212,7 +217,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         self._num_wells = num_wells
         # simulator values (not set in _handle_boot_up_config)
         self._time_of_last_status_beacon_secs: Optional[float] = None
-        self._ready_to_send_barcode = False
+        self._time_of_last_barcode_send_secs: Optional[float] = None
         self._timepoint_of_last_data_packet_us: Optional[int] = None
         self._time_index_us = 0
         self._is_first_data_stream = True
@@ -511,7 +516,8 @@ class MantarrayMcSimulator(InfiniteProcess):
             response_body += bytes([not self._is_streaming_data])
             if self._is_streaming_data and self._is_first_data_stream:
                 self._is_first_data_stream = False
-                self._ready_to_send_barcode = True
+                if self._time_of_last_barcode_send_secs is None:
+                    self._send_barcodes()
             self._is_streaming_data = False
         elif packet_type == SERIAL_COMM_GET_METADATA_PACKET_TYPE:
             response_body += convert_metadata_to_bytes(self._metadata_dict)
@@ -611,14 +617,22 @@ class MantarrayMcSimulator(InfiniteProcess):
             raise SerialCommTooManyMissedHandshakesError()
 
     def _handle_barcode(self) -> None:
-        if self._ready_to_send_barcode:
-            self._send_data_packet(
-                SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE, bytes(self.default_plate_barcode, encoding="ascii")
-            )
-            self._send_data_packet(
-                SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE, bytes(self.default_stim_barcode, encoding="ascii")
-            )
-            self._ready_to_send_barcode = False
+        if self._time_of_last_barcode_send_secs is None:
+            return
+        if (
+            _get_secs_since_last_barcode_scan(self._time_of_last_barcode_send_secs)
+            >= SIMULATOR_BARCODE_SEND_PERIOD_SECS
+        ):
+            self._send_barcodes()
+
+    def _send_barcodes(self) -> None:
+        self._time_of_last_barcode_send_secs = perf_counter()
+        self._send_data_packet(
+            SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE, bytes(self.default_plate_barcode, encoding="ascii")
+        )
+        self._send_data_packet(
+            SERIAL_COMM_BARCODE_FOUND_PACKET_TYPE, bytes(self.default_stim_barcode, encoding="ascii")
+        )
 
     def _handle_manual_stim_stop(self) -> None:
         num_status_updates = 0
