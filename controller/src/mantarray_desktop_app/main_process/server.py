@@ -27,7 +27,6 @@ from immutabledict import immutabledict
 from mantarray_desktop_app.main_process.shared_values import SharedValues
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
-from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
 from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
 import requests
 from semver import VersionInfo
@@ -625,6 +624,8 @@ def start_recording() -> Response:
         barcodes=barcodes,
         platemap_info=platemap_info,
         is_hardware_test_recording=is_hardware_test_recording,
+        plate_barcode_entry_time=request.args.get("plate_barcode_entry_time"),
+        stim_barcode_entry_time=request.args.get("stim_barcode_entry_time"),
     )
 
     to_main_queue = get_server_to_main_queue()
@@ -638,11 +639,8 @@ def start_recording() -> Response:
     ):
         if this_attr_name == "adc_offsets":
             continue
-        if (
-            METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith("UTC Timestamp")
-            and this_attr_value is not None
-        ):
-            this_attr_value = this_attr_value.strftime("%Y-%m-%dT%H:%M:%S.%f")
+        if isinstance(this_attr_value, datetime):
+            this_attr_value = this_attr_value.strftime("%Y-%m-%d %H:%M:%S.%f")
             comm_dict["metadata_to_copy_onto_main_file_attributes"][this_attr_name] = this_attr_value
         if isinstance(this_attr_value, UUID):
             this_attr_value = str(this_attr_value)

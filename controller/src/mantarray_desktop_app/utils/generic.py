@@ -68,7 +68,9 @@ from ..constants import GENERIC_24_WELL_DEFINITION
 from ..constants import MICRO_TO_BASE_CONVERSION
 from ..constants import MICROSECONDS_PER_CENTIMILLISECOND
 from ..constants import NUM_INITIAL_MICROSECONDS_TO_PAD
+from ..constants import PLATE_BARCODE_ENTRY_TIME
 from ..constants import REFERENCE_VOLTAGE
+from ..constants import STIM_BARCODE_ENTRY_TIME
 from ..exceptions import RecordingFolderDoesNotExistError
 from ..workers.file_uploader import FileUploader
 
@@ -319,6 +321,8 @@ def _create_start_recording_command(
     platemap_info: Optional[Dict[str, Any]] = None,
     is_calibration_recording: bool = False,
     is_hardware_test_recording: bool = False,
+    plate_barcode_entry_time: str | None = None,
+    stim_barcode_entry_time: str | None = None,
 ) -> Dict[str, Any]:
     board_idx = 0  # board index 0 hardcoded for now
 
@@ -345,6 +349,9 @@ def _create_start_recording_command(
     if not barcodes:
         barcodes = {"plate_barcode": NOT_APPLICABLE_H5_METADATA, "stim_barcode": NOT_APPLICABLE_H5_METADATA}
 
+    plate_barcode_entry_time = _process_barcode_entry_time(plate_barcode_entry_time)  # type: ignore
+    stim_barcode_entry_time = _process_barcode_entry_time(stim_barcode_entry_time)  # type: ignore
+
     barcode_match_dict: Dict[str, Union[bool, UUID]] = {}
     for barcode_type, barcode in barcodes.items():
         if isinstance(barcode, str):
@@ -353,6 +360,10 @@ def _create_start_recording_command(
             )
         else:
             barcode_match_dict[barcode_type] = NOT_APPLICABLE_H5_METADATA
+            if barcode_type == "plate_barcode":  # pragma: no cover:
+                plate_barcode_entry_time = NOT_APPLICABLE_H5_METADATA
+            else:  # pragma: no cover
+                stim_barcode_entry_time = NOT_APPLICABLE_H5_METADATA
 
     customer_id = shared_values_dict["config_settings"].get("customer_id", NOT_APPLICABLE_H5_METADATA)
     user_name = shared_values_dict["config_settings"].get("user_name", NOT_APPLICABLE_H5_METADATA)
@@ -391,8 +402,10 @@ def _create_start_recording_command(
             MANTARRAY_NICKNAME_UUID: shared_values_dict["mantarray_nickname"][board_idx],
             PLATE_BARCODE_UUID: barcodes["plate_barcode"],
             PLATE_BARCODE_IS_FROM_SCANNER_UUID: barcode_match_dict["plate_barcode"],
+            PLATE_BARCODE_ENTRY_TIME: plate_barcode_entry_time,
             STIM_BARCODE_UUID: barcodes["stim_barcode"],
             STIM_BARCODE_IS_FROM_SCANNER_UUID: barcode_match_dict["stim_barcode"],
+            STIM_BARCODE_ENTRY_TIME: stim_barcode_entry_time,
         },
     }
     if shared_values_dict["beta_2_mode"]:
@@ -431,6 +444,15 @@ def _create_start_recording_command(
         comm_dict["recording_name"] = recording_name
 
     return comm_dict
+
+
+def _process_barcode_entry_time(datetime_str: str | None) -> datetime.datetime | UUID:  # pragma: no cover
+    if datetime_str is None:
+        return NOT_APPLICABLE_H5_METADATA  # type: ignore
+    try:
+        return datetime.datetime.fromisoformat(datetime_str[:-1] + "+00:00")
+    except Exception:
+        return NOT_APPLICABLE_H5_METADATA  # type: ignore
 
 
 def _check_scanned_barcode_vs_user_value(

@@ -68,8 +68,8 @@ Vue.directive("b-popover", VBPopover);
 const get_dur_since = (now, then) => {
   now = now.getTime();
   then = then.getTime();
-  const diff = Math.floor((now - then) / 1000);
-  return `${Math.floor(diff / 3600)}H ${Math.floor(diff / 60) % 60}M ${diff % 60}s`;
+  const diff_secs = Math.floor((now - then) / 1000);
+  return `${Math.floor(diff_secs / 3600)}H ${Math.floor(diff_secs / 60) % 60}M ${diff_secs % 60}s`;
 };
 
 library.add(faPencilAlt);

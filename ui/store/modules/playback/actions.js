@@ -73,6 +73,8 @@ export default {
       stim_barcode,
       is_hardware_test_recording: false,
       platemap: current_platemap || null,
+      plate_barcode_entry_time: this.state.playback.barcodes.plate_barcode.entry_time,
+      stim_barcode_entry_time: this.state.playback.barcodes.stim_barcode.entry_time,
     };
     context.commit("set_recording_start_time", start_time_idx);
     await call_axios_get_from_vuex(url, context, params);
