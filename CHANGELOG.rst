@@ -4,10 +4,20 @@ Changelog for Mantarray Desktop App
 1.2.5 (unreleased)
 ------------------
 
+Added:
+^^^^^^
+- Hovering over "Plate Barcode:" or "Stim Lid Barcode:" labels will display a tooltip showing how long
+  ago the barcode was scanned or manually entered, if any barcode is present.
+
 Changed:
 ^^^^^^^^
+- Can now switch back to automatic barcode scanning mode from manual entry mode. Switching back to automatic
+  scanning will clear any manually entered barcodes.
 - Empty user-defined metadata rows will now be ignored instead of blocking confirm button.
+- MAV1 H5 file format version is now 1.6.0. Format changes include adding the following values:
 
+  - ``plate_barcode_entry_time``
+  - ``stim_barcode_entry_time``
 
 1.2.4 (2024-07-17)
 ------------------
