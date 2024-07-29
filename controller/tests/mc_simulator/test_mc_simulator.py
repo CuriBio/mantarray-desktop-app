@@ -74,9 +74,7 @@ def test_MantarrayMcSimulator__class_attributes():
     assert MantarrayMcSimulator.global_timer_offset_secs == 2.5
 
 
-def test_MantarrayMcSimulator__super_is_called_during_init__with_default_logging_value(
-    mocker,
-):
+def test_MantarrayMcSimulator__super_is_called_during_init__with_default_logging_value(mocker):
     mocked_init = mocker.patch.object(InfiniteProcess, "__init__")
 
     input_queue = Queue()
@@ -88,9 +86,7 @@ def test_MantarrayMcSimulator__super_is_called_during_init__with_default_logging
     mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
 
 
-def test_MantarrayMcSimulator__init__sets_default_metadata_values(
-    mantarray_mc_simulator,
-):
+def test_MantarrayMcSimulator__init__sets_default_metadata_values(mantarray_mc_simulator):
     simulator = mantarray_mc_simulator["simulator"]
     metadata_dict = simulator._metadata_dict
     assert isinstance(metadata_dict, dict)
@@ -116,15 +112,9 @@ def test_MantarrayMcSimulator_hard_stop__clears_all_queues_and_returns_lists_of_
         simulator,
     ) = mantarray_mc_simulator_no_beacon.values()
 
-    test_testing_queue_item_1 = {
-        "command": "add_read_bytes",
-        "read_bytes": b"first test bytes",
-    }
+    test_testing_queue_item_1 = {"command": "add_read_bytes", "read_bytes": b"first test bytes"}
     testing_queue.put_nowait(test_testing_queue_item_1)
-    test_testing_queue_item_2 = {
-        "command": "add_read_bytes",
-        "read_bytes": b"second test bytes",
-    }
+    test_testing_queue_item_2 = {"command": "add_read_bytes", "read_bytes": b"second test bytes"}
     testing_queue.put_nowait(test_testing_queue_item_2)
     confirm_queue_is_eventually_of_size(testing_queue, 2)
 
@@ -141,10 +131,7 @@ def test_MantarrayMcSimulator_hard_stop__clears_all_queues_and_returns_lists_of_
     assert actual["fatal_error_reporter"] == [test_error_item]
     assert actual["input_queue"] == [test_input_item]
     assert actual["output_queue"] == [test_output_item]
-    assert actual["testing_queue"] == [
-        test_testing_queue_item_1,
-        test_testing_queue_item_2,
-    ]
+    assert actual["testing_queue"] == [test_testing_queue_item_1, test_testing_queue_item_2]
 
     confirm_queue_is_eventually_empty(input_queue)
     confirm_queue_is_eventually_empty(output_queue)
@@ -152,9 +139,7 @@ def test_MantarrayMcSimulator_hard_stop__clears_all_queues_and_returns_lists_of_
     confirm_queue_is_eventually_empty(testing_queue)
 
 
-def test_MantarrayMcSimulator_read__no_timeout__gets_next_available_bytes(
-    mantarray_mc_simulator_no_beacon,
-):
+def test_MantarrayMcSimulator_read__no_timeout__gets_next_available_bytes(mantarray_mc_simulator_no_beacon):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
@@ -297,9 +282,7 @@ def test_MantarrayMcSimulator_in_waiting__setter_raises_error(
         simulator.in_waiting = 0
 
 
-def test_MantarrayMcSimulator_write__puts_object_into_input_queue(
-    mocker,
-):
+def test_MantarrayMcSimulator_write__puts_object_into_input_queue(mantarray_mc_simulator_no_beacon):
     input_queue = Queue()
     output_queue = Queue()
     error_queue = Queue()
@@ -380,9 +363,7 @@ def test_MantarrayMcSimulator__handles_reads_of_size_less_than_next_packet_in_qu
     # add test bytes as initial bytes to be read
     test_item_1 = b"12345"
     test_item_2 = b"67890"
-    test_items = [
-        {"command": "add_read_bytes", "read_bytes": [test_item_1, test_item_2]},
-    ]
+    test_items = [{"command": "add_read_bytes", "read_bytes": [test_item_1, test_item_2]}]
     handle_putting_multiple_objects_into_empty_queue(test_items, testing_queue)
     invoke_process_run_and_check_errors(simulator)
 

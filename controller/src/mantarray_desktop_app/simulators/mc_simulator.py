@@ -434,7 +434,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         if self._is_stimulating:
             self._handle_stimulation_packets()
         self._check_handshake()
-        self._handle_barcode()
+        self._handle_barcodes()
 
     def _handle_comm_from_pc(self) -> None:
         try:
@@ -516,8 +516,8 @@ class MantarrayMcSimulator(InfiniteProcess):
             response_body += bytes([not self._is_streaming_data])
             if self._is_streaming_data and self._is_first_data_stream:
                 self._is_first_data_stream = False
-                if self._time_of_last_barcode_send_secs is None:
-                    self._send_barcodes()
+                if self._time_of_last_barcode_send_secs is None:  # pragma: no cover
+                    self._time_of_last_barcode_send_secs = 0
             self._is_streaming_data = False
         elif packet_type == SERIAL_COMM_GET_METADATA_PACKET_TYPE:
             response_body += convert_metadata_to_bytes(self._metadata_dict)
@@ -616,7 +616,7 @@ class MantarrayMcSimulator(InfiniteProcess):
         ):
             raise SerialCommTooManyMissedHandshakesError()
 
-    def _handle_barcode(self) -> None:
+    def _handle_barcodes(self) -> None:
         if self._time_of_last_barcode_send_secs is None:
             return
         if (
