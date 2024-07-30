@@ -28,6 +28,8 @@ from mantarray_desktop_app import SERIAL_COMM_NUM_DATA_CHANNELS
 from mantarray_desktop_app.constants import DEFAULT_SAMPLING_PERIOD
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import NUM_INITIAL_MICROSECONDS_TO_PAD
+from mantarray_desktop_app.constants import PLATE_BARCODE_ENTRY_TIME
+from mantarray_desktop_app.constants import STIM_BARCODE_ENTRY_TIME
 from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
 import numpy as np
 from pulse3D.constants import ADC_GAIN_SETTING_UUID
@@ -79,10 +81,7 @@ TEST_USER_NAME = "test_user"
 
 GENERIC_ADC_OFFSET_VALUES: Dict[int, Dict[str, int]] = dict()
 for this_well_idx in range(24):
-    GENERIC_ADC_OFFSET_VALUES[this_well_idx] = {
-        "construct": this_well_idx * 2,
-        "ref": this_well_idx * 2 + 1,
-    }
+    GENERIC_ADC_OFFSET_VALUES[this_well_idx] = {"construct": this_well_idx * 2, "ref": this_well_idx * 2 + 1}
 GENERIC_ADC_OFFSET_VALUES = immutabledict(GENERIC_ADC_OFFSET_VALUES)
 
 GENERIC_STIM_PROTOCOL_ASSIGNMENTS: Dict[str, Optional[str]] = {
@@ -150,6 +149,7 @@ GENERIC_BASE_START_RECORDING_COMMAND: Dict[str, Any] = {
                 socket.gethostname().encode(encoding="UTF-8")
             ).hexdigest(),
             PLATE_BARCODE_IS_FROM_SCANNER_UUID: True,
+            PLATE_BARCODE_ENTRY_TIME: NOT_APPLICABLE_H5_METADATA,
         }
     ),
 }
@@ -205,6 +205,7 @@ GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attribut
         ),
         NUM_INITIAL_MICROSECONDS_TO_REMOVE_UUID: NUM_INITIAL_MICROSECONDS_TO_PAD,
         USER_DEFINED_METADATA_UUID: json.dumps({}),
+        STIM_BARCODE_ENTRY_TIME: NOT_APPLICABLE_H5_METADATA,
     }
 )
 GENERIC_BETA_2_START_RECORDING_COMMAND["metadata_to_copy_onto_main_file_attributes"] = immutabledict(
@@ -250,11 +251,7 @@ for i in range(50):
     GENERIC_NUMPY_ARRAY_FOR_TISSUE_DATA_PACKET[0, i] = i * CONSTRUCT_SENSOR_SAMPLING_PERIOD
     GENERIC_NUMPY_ARRAY_FOR_TISSUE_DATA_PACKET[1, i] = i * 10
 GENERIC_TISSUE_DATA_PACKET = immutabledict(
-    {
-        "well_index": 4,
-        "is_reference_sensor": False,
-        "data": GENERIC_NUMPY_ARRAY_FOR_TISSUE_DATA_PACKET,
-    }
+    {"well_index": 4, "is_reference_sensor": False, "data": GENERIC_NUMPY_ARRAY_FOR_TISSUE_DATA_PACKET}
 )
 
 GENERIC_NUMPY_ARRAY_FOR_REFERENCE_DATA_PACKET = np.zeros((2, 50), dtype=np.int32)
@@ -286,9 +283,7 @@ def open_the_generic_h5_file(
 
     actual_file = h5py.File(
         os.path.join(
-            file_dir,
-            f"{plate_barcode}__{timestamp_str}",
-            f"{plate_barcode}__{timestamp_str}__{well_name}.h5",
+            file_dir, f"{plate_barcode}__{timestamp_str}", f"{plate_barcode}__{timestamp_str}__{well_name}.h5"
         ),
         "r",
     )
@@ -310,10 +305,8 @@ def open_the_generic_h5_file_as_WellFile(
 
     actual_file = WellFile(
         os.path.join(
-            file_dir,
-            f"{plate_barcode}__{timestamp_str}",
-            f"{plate_barcode}__{timestamp_str}__{well_name}.h5",
-        ),
+            file_dir, f"{plate_barcode}__{timestamp_str}", f"{plate_barcode}__{timestamp_str}__{well_name}.h5"
+        )
     )
     return actual_file
 
@@ -328,20 +321,9 @@ def generate_fw_from_main_to_main_board_and_error_queues(num_boards: int = 4, qu
 
 @pytest.fixture(scope="function", name="four_board_file_writer_process")
 def fixture_four_board_file_writer_process():
-    (
-        from_main,
-        to_main,
-        board_queues,
-        error_queue,
-    ) = generate_fw_from_main_to_main_board_and_error_queues()
+    (from_main, to_main, board_queues, error_queue) = generate_fw_from_main_to_main_board_and_error_queues()
     with tempfile.TemporaryDirectory() as tmp_dir:
-        fw_process = FileWriterProcess(
-            board_queues,
-            from_main,
-            to_main,
-            error_queue,
-            file_directory=tmp_dir,
-        )
+        fw_process = FileWriterProcess(board_queues, from_main, to_main, error_queue, file_directory=tmp_dir)
         fw_items_dict = {
             "fw_process": fw_process,
             "board_queues": board_queues,
@@ -359,20 +341,11 @@ def fixture_four_board_file_writer_process():
 
 @pytest.fixture(scope="function", name="runnable_four_board_file_writer_process")
 def fixture_runnable_four_board_file_writer_process():
-    (
-        from_main,
-        to_main,
-        board_queues,
-        error_queue,
-    ) = generate_fw_from_main_to_main_board_and_error_queues(queue_type=MPQueue)
+    (from_main, to_main, board_queues, error_queue) = generate_fw_from_main_to_main_board_and_error_queues(
+        queue_type=MPQueue
+    )
     with tempfile.TemporaryDirectory() as tmp_dir:
-        fw_process = FileWriterProcess(
-            board_queues,
-            from_main,
-            to_main,
-            error_queue,
-            file_directory=tmp_dir,
-        )
+        fw_process = FileWriterProcess(board_queues, from_main, to_main, error_queue, file_directory=tmp_dir)
         fw_items_dict = {
             "fw_process": fw_process,
             "board_queues": board_queues,

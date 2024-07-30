@@ -32,7 +32,6 @@ from pulse3D.constants import ADC_TISSUE_OFFSET_UUID
 from pulse3D.constants import CENTIMILLISECONDS_PER_SECOND
 from pulse3D.constants import IS_CALIBRATION_FILE_UUID
 from pulse3D.constants import METADATA_UUID_DESCRIPTIONS
-from pulse3D.constants import NOT_APPLICABLE_H5_METADATA
 from pulse3D.constants import PLATE_BARCODE_UUID
 from pulse3D.constants import PLATEMAP_LABEL_UUID
 from pulse3D.constants import PLATEMAP_NAME_UUID
@@ -108,9 +107,7 @@ def get_stimulation_dataset_from_file(the_file: h5py.File) -> h5py.Dataset:
 
 
 def get_data_slice_within_timepoints(
-    time_value_arr: NDArray[(2, Any), int],
-    min_timepoint: int,
-    max_timepoint: Optional[int] = None,
+    time_value_arr: NDArray[(2, Any), int], min_timepoint: int, max_timepoint: Optional[int] = None
 ) -> Tuple[NDArray[(2, Any), int], int, int]:
     """Get just the section of data that is relevant.
 
@@ -136,9 +133,7 @@ def get_data_slice_within_timepoints(
 
 
 def _find_bounds(
-    time_arr: NDArray[(1, Any), int],
-    min_timepoint: int,
-    max_timepoint: Optional[int] = None,
+    time_arr: NDArray[(1, Any), int], min_timepoint: int, max_timepoint: Optional[int] = None
 ) -> Tuple[int, int]:
     length_of_data = time_arr.shape[0]
     last_valid_index_in_packet = length_of_data - 1
@@ -344,10 +339,7 @@ class FileWriterProcess(InfiniteProcess):
     def get_recording_finalization_statuses(
         self,
     ) -> Tuple[Tuple[Dict[int, bool], ...], Tuple[Dict[int, bool], ...]]:
-        return (
-            self._tissue_data_finalized_for_recording,
-            self._reference_data_finalized_for_recording,
-        )
+        return (self._tissue_data_finalized_for_recording, self._reference_data_finalized_for_recording)
 
     def close_all_files(self) -> None:
         """Close all open H5 files.
@@ -618,10 +610,7 @@ class FileWriterProcess(InfiniteProcess):
                     this_file.attrs[str(ADC_REF_OFFSET_UUID)] = this_attr_value[this_well_idx]["ref"]
                     continue
                 # apply custom formatting to UTC datetime value
-                if (
-                    METADATA_UUID_DESCRIPTIONS[this_attr_name].startswith("UTC Timestamp")
-                    and this_attr_value != NOT_APPLICABLE_H5_METADATA
-                ):
+                if isinstance(this_attr_value, datetime.datetime):
                     this_attr_value = this_attr_value.strftime("%Y-%m-%d %H:%M:%S.%f")
                 # UUIDs must be stored as strings
                 this_attr_name = str(this_attr_name)
@@ -639,11 +628,7 @@ class FileWriterProcess(InfiniteProcess):
                 data_dtype = "uint16"
                 # beta 2 files must also store time indices and time offsets
                 this_file.create_dataset(
-                    TIME_INDICES,
-                    (0,),
-                    maxshape=(max_data_len,),
-                    dtype="uint64",
-                    chunks=True,
+                    TIME_INDICES, (0,), maxshape=(max_data_len,), dtype="uint64", chunks=True
                 )
                 this_file.create_dataset(
                     TIME_OFFSETS,
@@ -653,11 +638,7 @@ class FileWriterProcess(InfiniteProcess):
                     chunks=True,
                 )
                 this_file.create_dataset(
-                    STIMULATION_READINGS,
-                    (2, 0),
-                    maxshape=(2, max_data_len),
-                    dtype="int64",
-                    chunks=True,
+                    STIMULATION_READINGS, (2, 0), maxshape=(2, max_data_len), dtype="int64", chunks=True
                 )
             else:
                 data_shape = (0,)  # type: ignore  # mypy doesn't like this for some reason
@@ -665,18 +646,10 @@ class FileWriterProcess(InfiniteProcess):
                 data_dtype = "int32"
             # create datasets present in files for both beta versions
             this_file.create_dataset(
-                REFERENCE_SENSOR_READINGS,
-                data_shape,
-                maxshape=maxshape,
-                dtype=data_dtype,
-                chunks=True,
+                REFERENCE_SENSOR_READINGS, data_shape, maxshape=maxshape, dtype=data_dtype, chunks=True
             )
             this_file.create_dataset(
-                TISSUE_SENSOR_READINGS,
-                data_shape,
-                maxshape=maxshape,
-                dtype=data_dtype,
-                chunks=True,
+                TISSUE_SENSOR_READINGS, data_shape, maxshape=maxshape, dtype=data_dtype, chunks=True
             )
             this_file.swmr_mode = True
 
@@ -755,9 +728,7 @@ class FileWriterProcess(InfiniteProcess):
                 # update finalization status
                 for dataset in datasets:
                     last_index_of_valid_data = _find_last_valid_data_index(
-                        latest_timepoint,
-                        dataset.shape[0] - 1,
-                        stop_recording_timepoint,
+                        latest_timepoint, dataset.shape[0] - 1, stop_recording_timepoint
                     )
                     new_data = dataset[: last_index_of_valid_data + 1]
                     dataset.resize(new_data.shape)
@@ -1203,10 +1174,7 @@ class FileWriterProcess(InfiniteProcess):
                     performance_metrics[name] = create_metrics_stats(fw_measurements)
 
             put_log_message_into_queue(
-                logging.INFO,
-                performance_metrics,
-                self._to_main_queue,
-                self.get_logging_level(),
+                logging.INFO, performance_metrics, self._to_main_queue, self.get_logging_level()
             )
         self._reset_performance_tracking_values()
 

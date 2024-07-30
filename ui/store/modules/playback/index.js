@@ -18,10 +18,12 @@ const default_state = {
     plate_barcode: {
       value: null,
       valid: false,
+      entry_time: null,
     },
     stim_barcode: {
       value: null,
       valid: false,
+      entry_time: null,
     },
   },
   tooltips_delay: 2000,

@@ -724,7 +724,7 @@ def test_McCommunicationProcess__stim_packets_sent_to_file_writer_after_restarti
         mc_simulator, "_get_us_since_subprotocol_start", autospec=True, return_value=test_duration_us
     )
     # mock so no barcode sent
-    mocker.patch.object(simulator, "_handle_barcode", autospec=True)
+    mocker.patch.object(simulator, "_handle_barcodes", autospec=True)
 
     # send start stimulation command
     put_object_into_queue_and_raise_error_if_eventually_still_empty(

@@ -219,8 +219,7 @@ def get_random_stim_pulse(*, pulse_type=None, total_subprotocol_dur_us=None, fre
     duty_cycle_dur_comps = all_pulse_components - charge_components - {"postphase_interval"}
 
     min_dur_per_duty_cycle_comp = max(
-        1,
-        (pulse_dur_us - MAX_POSTPHASE_INTERVAL_DUR_MICROSECONDS) // len(duty_cycle_dur_comps),
+        1, (pulse_dur_us - MAX_POSTPHASE_INTERVAL_DUR_MICROSECONDS) // len(duty_cycle_dur_comps)
     )
     max_dur_per_duty_cycle_comp = min(
         math.floor(pulse_dur_us * STIM_MAX_DUTY_CYCLE_PERCENTAGE), STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS
@@ -281,7 +280,7 @@ def create_random_stim_info():
                             )
                             for _ in range(randint(1, 2))
                         ],
-                    },
+                    }
                 ],
             }
             for pid in protocol_ids[1:]
@@ -352,6 +351,11 @@ def fixture_mantarray_mc_simulator():
 class MantarrayMcSimulatorNoBeacons(MantarrayMcSimulator):
     def _send_status_beacon(self, truncate=False) -> None:
         self._time_of_last_status_beacon_secs = time.perf_counter()
+
+    def _handle_barcodes(self) -> None:
+        super()._handle_barcodes()
+        if self._time_of_last_barcode_send_secs is not None:
+            self._time_of_last_barcode_send_secs = float("inf")
 
     def start(self) -> None:
         raise NotImplementedError("This class is only for unit tests not requiring a running process")
