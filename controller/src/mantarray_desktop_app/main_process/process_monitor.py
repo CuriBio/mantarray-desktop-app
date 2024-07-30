@@ -48,6 +48,7 @@ from ..constants import DOWNLOADING_UPDATES_STATE
 from ..constants import GENERIC_24_WELL_DEFINITION
 from ..constants import INSTALLING_UPDATES_STATE
 from ..constants import INSTRUMENT_INITIALIZING_STATE
+from ..constants import InvalidStimulatorCircuitStatus
 from ..constants import LIVE_VIEW_ACTIVE_STATE
 from ..constants import MICRO_TO_BASE_CONVERSION
 from ..constants import RECORDING_STATE
@@ -62,6 +63,7 @@ from ..constants import UPDATE_ERROR_STATE
 from ..constants import UPDATES_COMPLETE_STATE
 from ..constants import UPDATES_NEEDED_STATE
 from ..exceptions import FirmwareAndSoftwareNotCompatibleError
+from ..exceptions import InstrumentBadDataError
 from ..exceptions import InstrumentError
 from ..exceptions import UnrecognizedCommandFromServerToMainError
 from ..exceptions import UnrecognizedMantarrayNamingCommandError
@@ -517,10 +519,27 @@ class MantarrayProcessesMonitor(InfiniteThread):
             elif command == "start_stim_checks":
                 key = "stimulator_circuit_statuses"
                 stimulator_circuit_statuses = communication[key]
-                status_combined = {
-                    well_idx: list(StimulatorCircuitStatuses)[max(statuses.values()) + 1].name.lower()
-                    for well_idx, statuses in stimulator_circuit_statuses.items()
-                }
+                status_combined = {}
+                bad_statuses = {}
+                for well_idx, statuses in stimulator_circuit_statuses.items():
+                    try:
+                        status_combined[well_idx] = StimulatorCircuitStatuses.from_int(
+                            max(statuses.values())
+                        ).name.lower()
+                    except InvalidStimulatorCircuitStatus:  # pragma: no cover
+                        bad_statuses[
+                            GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
+                        ] = statuses
+                if bad_statuses:  # pragma: no cover
+                    self._queue_websocket_message(
+                        {
+                            "data_type": "error",
+                            "data_json": json.dumps({"error_type": InstrumentBadDataError.__name__}),
+                        }
+                    )
+                    raise InvalidStimulatorCircuitStatus(
+                        f"Invalid stimulator circuit statuses reported: {bad_statuses}"
+                    )
                 self._values_to_share_to_server[key] = status_combined
                 self._queue_websocket_message({"data_type": key, "data_json": json.dumps(status_combined)})
         elif communication_type == "board_connection_status_change":
