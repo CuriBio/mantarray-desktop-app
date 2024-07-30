@@ -393,6 +393,10 @@ VALID_SUBPROTOCOL_TYPES = frozenset(["delay", "monophasic", "biphasic", "loop"])
 STIM_PULSE_BYTES_LEN = 29
 
 
+class InvalidStimulatorCircuitStatus(Exception):
+    pass
+
+
 # Stim Checks
 class StimulatorCircuitStatuses(IntEnum):
     CALCULATING = -1
@@ -401,6 +405,14 @@ class StimulatorCircuitStatuses(IntEnum):
     SHORT = 2
     ERROR = 3
     NOT_CHECKED = 4
+
+    @classmethod
+    def from_int(cls, status: int) -> "StimulatorCircuitStatuses":
+        cls_list: list["StimulatorCircuitStatuses"] = list(cls)
+        try:
+            return cls_list[status + 1]
+        except IndexError as e:  # pragma: no cover
+            raise InvalidStimulatorCircuitStatus from e
 
 
 class StimProtocolStatuses(IntEnum):

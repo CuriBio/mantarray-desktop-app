@@ -8,6 +8,7 @@ Added:
 ^^^^^^
 - Hovering over "Plate Barcode:" or "Stim Lid Barcode:" labels will display a tooltip showing how long
   ago the barcode was scanned or manually entered, if any barcode is present.
+- Better handling of errors during Stimulation Configuration Check.
 
 Changed:
 ^^^^^^^^
