@@ -162,7 +162,7 @@ export default {
     edit_barcode_tooltip_text: function () {
       let msg = "";
       if (this.barcode_entry_time !== null && this.barcode_info.value && this.now_time !== null) {
-        const prefix = this.barcode_manual_mode ? "Manually entered" : "Scanned";
+        const prefix = this.barcode_manual_mode ? "Manually entered" : "Automatically scanned";
 
         msg += `${prefix} ${get_dur_since(this.now_time, this.barcode_entry_time)} ago. `;
       }
@@ -188,7 +188,7 @@ export default {
       } else if (this.stim_play_state) {
         return "Cannot switch barcode entry mode while stimulation is running.";
       }
-      return this.barcode_manual_mode ? "Enter automatic mode" : "Enter manual mode";
+      return this.barcode_manual_mode ? "Switch to automatic mode" : "Switch to manual mode";
     },
     is_data_streaming: function () {
       return (
