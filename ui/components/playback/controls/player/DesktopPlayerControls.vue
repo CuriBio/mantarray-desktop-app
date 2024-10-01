@@ -552,7 +552,7 @@ export default {
             this.on_stop_record_click(false);
             this.$bvModal.show("recording-limit-warning");
           }
-        }, 10 * 60e3);
+        }, 60 * 60e3);
       } else if (this.recording_timer !== null) {
         clearTimeout(this.recording_timer);
         this.recording_timer = null;
