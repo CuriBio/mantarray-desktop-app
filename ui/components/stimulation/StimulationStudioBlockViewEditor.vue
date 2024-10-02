@@ -1,5 +1,6 @@
 <template>
   <div class="div__BlockViewEditor-background">
+    <div class="div__spacer" />
     <div class="div__Editor-background">
       <div class="div__setting-panel-container">
         <span :key="current_letter" class="span__protocol-letter" :style="'color:' + current_color">{{
@@ -392,14 +393,7 @@ export default {
   height: 166px;
 }
 
-.div__Tabs-panel {
-  background: rgb(17, 17, 17);
-  width: 200px;
+.div__spacer {
   height: 28px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-  cursor: pointer;
 }
 </style>
