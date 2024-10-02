@@ -227,7 +227,9 @@ export default {
     },
     close_del_protocol_modal(idx) {
       this.$bvModal.hide("del-protocol-modal");
-      if (idx === 0) this.handle_protocol_editor_reset();
+      if (idx === 0) {
+        this.handle_protocol_editor_reset();
+      }
     },
     handle_stop_setting(idx) {
       const setting = this.stop_options_array[idx];
@@ -235,7 +237,9 @@ export default {
 
       this.disabled_time = idx === 1;
 
-      if (this.disabled_time) this.handle_rest_duration("0");
+      if (this.disabled_time) {
+        this.handle_rest_duration("0");
+      }
 
       this.set_stop_setting(setting.includes("Stopped"));
     },
