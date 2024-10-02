@@ -1,19 +1,5 @@
 <template>
   <div class="div__BlockViewEditor-background">
-    <div class="div__Tabs-panel">
-      <span
-        :id="'Basic'"
-        :class="active_tab === 'Advanced' ? 'span__Inactive-Tab-labels' : 'span__Active-Tab-label'"
-        @click="toggle_tab($event.target.id)"
-        >Basic</span
-      >
-      <span
-        :id="'Advanced'"
-        :class="active_tab === 'Basic' ? 'span__Inactive-Tab-labels' : 'span__Active-Tab-label'"
-        @click="toggle_tab($event.target.id)"
-        >Advanced</span
-      >
-    </div>
     <div class="div__Editor-background">
       <div class="div__setting-panel-container">
         <span :key="current_letter" class="span__protocol-letter" :style="'color:' + current_color">{{
@@ -103,7 +89,6 @@ Vue.component("BModal", BModal);
 library.add(faTrashAlt);
 
 /**
- * @vue-data {String} active_tab - Shows current selected tab
  * @vue-data {Boolean} disabled - Disables the name and time input fields
  * @vue-data {String} current_letter - Next available letter in alphabet
  * @vue-data {String} current_color -  Next available color in alphabet
@@ -117,7 +102,6 @@ library.add(faTrashAlt);
  * @vue-data {Array} protocol_list - All available protocols from Vuex
  * @vue-event {Event} update_protocols - Gets called when a change to the available protocol list occurs to update next available color/letter assignment and dropdown options
  * @vue-event {Event} handle_trash_modal - Toggle view of delete popover on trash icon
- * @vue-event {Event} toggle_tab - Toggles which tab is active
  * @vue-event {Event} handle_delete - Confirms and commits the deletion of protocol to state
  * @vue-event {Event} handle_stop_setting - Currently just assigns the new stop setting to local state
  * @vue-event {Event} handle_rest_duration - Commits the new delay input to state
@@ -134,7 +118,6 @@ export default {
   },
   data() {
     return {
-      active_tab: "Basic",
       disabled_time: false,
       current_letter: "",
       current_color: "",
@@ -218,9 +201,6 @@ export default {
       const { letter, color } = this.get_next_protocol;
       this.current_letter = letter;
       this.current_color = color;
-    },
-    toggle_tab(tab) {
-      tab === "Basic" ? (this.active_tab = "Basic") : (this.active_tab = "Advanced");
     },
     open_del_modal() {
       this.$bvModal.show("del-protocol-modal");
