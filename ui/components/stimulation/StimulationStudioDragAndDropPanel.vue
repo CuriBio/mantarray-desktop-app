@@ -594,7 +594,7 @@ img {
 .dropdown-container {
   position: absolute;
   z-index: 2;
-  top: 412px;
+  top: 384px;
   left: 1184px;
 }
 

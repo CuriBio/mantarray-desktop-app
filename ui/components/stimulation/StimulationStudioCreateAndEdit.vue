@@ -6,10 +6,15 @@
     <span class="span__stimulationstudio-layout-subheader-label">Select/Create Protocol</span>
     <div class="div__stimulationstudio-select-dropdown-container">
       <SelectDropDown
-        :options_text="protocol_list"
+        :options_text="
+          protocol_list.map((p) => {
+            return { ...p, show_delete_option: p.letter !== '' };
+          })
+        "
         :input_width="input_width"
         :input_height="input_height"
         @selection-changed="selected_protocol_change"
+        @handle-delete="handle_delete"
       />
     </div>
     <canvas class="canvas__stimulationstudio-button-separator" />
@@ -121,6 +126,9 @@ export default {
       } else await this.edit_selected_protocol(selected_protocol);
 
       this.$emit("handle_selection_change", selected_protocol);
+    },
+    handle_delete(item) {
+      this.$bvModal.show("del-protocol-modal");
     },
     disable_selection_btn(idx) {
       return this.disable_edits || (this.selected_protocol_idx === 0 && idx === 0);
