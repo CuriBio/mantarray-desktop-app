@@ -27,13 +27,13 @@
       <div :class="{ hidden: !visible, visible }">
         <ul class="ul__dropdown-content-container">
           <li v-for="item in options_list" :key="item.id" :value="item" @click="change_selection(item.id)">
-            <span :style="`width: ${item.show_delete_option ? '97' : '100'}%; display: inline-block;`">
+            <span :style="`width: ${show_delete_option(item) ? '97' : '100'}%; display: inline-block;`">
               <span :style="'color:' + item.color">
                 {{ item.letter }}
               </span>
               {{ item.name }}
             </span>
-            <span v-if="item.show_delete_option" class="span__dropdown-delete-icon">
+            <span v-if="show_delete_option(item)" class="span__dropdown-delete-icon">
               <FontAwesomeIcon
                 id="trash_icon"
                 class="trash-icon"
@@ -59,6 +59,7 @@ export default {
     title_label: { type: String, default: "" }, // title_text (str) (optional, defaults to empty string "")
     value: { type: String, default: "" }, // field_value (str) (optional, defaults to empty string "")
     options_text: { type: Array, required: true },
+    show_delete_option: { type: Function, default: (item) => false },
     input_width: { type: Number, default: 210 },
     options_idx: { type: Number, default: 0 },
     input_height: { type: Number, default: 0 }, // This prop is utilized by the parent component
@@ -167,12 +168,13 @@ export default {
               name: opt.label,
               letter: opt.letter + " ",
               color: opt.color,
-              show_delete_option: opt.show_delete_option,
             }
       );
     },
     filter_options() {
-      this.options_list = this.dropdown_options.filter((option) => option !== this.chosen_option);
+      this.options_list = this.dropdown_options.filter((option) => {
+        return option !== this.chosen_option;
+      });
     },
   },
 };

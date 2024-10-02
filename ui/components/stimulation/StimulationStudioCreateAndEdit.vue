@@ -6,11 +6,8 @@
     <span class="span__stimulationstudio-layout-subheader-label">Select/Create Protocol</span>
     <div class="div__stimulationstudio-select-dropdown-container">
       <SelectDropDown
-        :options_text="
-          protocol_list.map((p) => {
-            return { ...p, show_delete_option: p.letter !== '' };
-          })
-        "
+        :options_text="protocol_list"
+        :show_delete_option="show_delete_option"
         :input_width="input_width"
         :input_height="input_height"
         @selection-changed="selected_protocol_change"
@@ -123,7 +120,9 @@ export default {
       if (idx === 0) {
         this.set_edit_mode_off();
         this.reset_protocol_editor();
-      } else await this.edit_selected_protocol(selected_protocol);
+      } else {
+        await this.edit_selected_protocol(selected_protocol);
+      }
 
       this.$emit("handle_selection_change", selected_protocol);
     },
@@ -175,6 +174,9 @@ export default {
     },
     handle_export() {
       this.handle_export_protocol();
+    },
+    show_delete_option(p) {
+      return p.letter.trim().length !== 0;
     },
   },
 };
