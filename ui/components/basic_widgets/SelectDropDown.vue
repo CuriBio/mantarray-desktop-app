@@ -27,8 +27,20 @@
       <div :class="{ hidden: !visible, visible }">
         <ul class="ul__dropdown-content-container">
           <li v-for="item in options_list" :key="item.id" :value="item" @click="change_selection(item.id)">
-            <span :style="'color:' + item.color">{{ item.letter }}</span
-            >{{ item.name }}
+            <span :style="`width: ${show_delete_option(item) ? '97' : '100'}%; display: inline-block;`">
+              <span :style="'color:' + item.color">
+                {{ item.letter }}
+              </span>
+              {{ item.name }}
+            </span>
+            <span v-if="show_delete_option(item)" class="span__dropdown-delete-icon">
+              <FontAwesomeIcon
+                id="trash_icon"
+                class="trash-icon"
+                :icon="['fa', 'trash-alt']"
+                @click="handle_delete(item)"
+              />
+            </span>
           </li>
         </ul>
       </div>
@@ -36,12 +48,18 @@
   </div>
 </template>
 <script>
+import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+
 export default {
   name: "SelectDropDown",
+  components: {
+    FontAwesomeIcon,
+  },
   props: {
     title_label: { type: String, default: "" }, // title_text (str) (optional, defaults to empty string "")
     value: { type: String, default: "" }, // field_value (str) (optional, defaults to empty string "")
     options_text: { type: Array, required: true },
+    show_delete_option: { type: Function, default: (item) => false },
     input_width: { type: Number, default: 210 },
     options_idx: { type: Number, default: 0 },
     input_height: { type: Number, default: 0 }, // This prop is utilized by the parent component
@@ -130,8 +148,13 @@ export default {
       this.chosen_option = this.dropdown_options[idx];
       this.$emit("selection-changed", idx);
     },
+    handle_delete(item) {
+      this.$emit("handle-delete", item);
+    },
     toggle() {
-      if (this.dropdown_options.length > 1) this.visible = !this.visible;
+      if (this.dropdown_options.length > 1) {
+        this.visible = !this.visible;
+      }
     },
     get_dropdown_options() {
       this.dropdown_options = this.options_text.map((opt, i) =>
@@ -149,7 +172,9 @@ export default {
       );
     },
     filter_options() {
-      this.options_list = this.dropdown_options.filter((option) => option !== this.chosen_option);
+      this.options_list = this.dropdown_options.filter((option) => {
+        return option !== this.chosen_option;
+      });
     },
   },
 };
@@ -259,6 +284,15 @@ li:hover {
 }
 .visible {
   visibility: visible;
+}
+.span__dropdown-delete-icon {
+  width: 3%;
+  display: inline-flex;
+  justify-content: right;
+}
+.span__dropdown-delete-icon:hover {
+  cursor: pointer;
+  color: #a0a0a0c9;
 }
 
 .ul__dropdown-content-container {

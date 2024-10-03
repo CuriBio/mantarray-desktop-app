@@ -391,14 +391,19 @@ export default {
 
   async handle_protocol_editor_reset({ commit, state }) {
     const { protocol_list, edit_mode, protocol_assignments } = state;
-    const { status, label } = edit_mode;
+    const { status, letter } = edit_mode;
 
     if (status) {
-      protocol_list.map((protocol, idx) => {
-        if (protocol.label === label) protocol_list.splice(idx, 1);
-      });
+      for (const [i, protocol] of protocol_list.entries()) {
+        if (protocol.letter === letter) {
+          protocol_list.splice(i, 1);
+          break;
+        }
+      }
       for (const well in protocol_assignments) {
-        if (protocol_assignments[well].label === label) delete protocol_assignments[well];
+        if (protocol_assignments[well].letter === letter) {
+          delete protocol_assignments[well];
+        }
       }
       await commit("set_edit_mode_off");
     }

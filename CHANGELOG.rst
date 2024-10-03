@@ -20,6 +20,16 @@ Changed:
   - ``plate_barcode_entry_time``
   - ``stim_barcode_entry_time``
 
+- The dropdown list of stimulation procotols in the Stimulation Studio now has a trash icon next to each
+  protocol to allow for easier deletion of protocols.
+- Remove unused "Basic" and "Advanced" tabs from Stimulation Studio.
+
+Fixed:
+^^^^^^
+- HeatMap "Display" dropdown switches back to "Twitch Frequency" after selecting "Twitch Force" while Live
+  View is running.
+
+
 1.2.4 (2024-07-17)
 ------------------
 

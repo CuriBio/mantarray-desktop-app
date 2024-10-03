@@ -187,7 +187,6 @@ export default {
     return {
       checkbox_options: [{ text: "", value: "autoscale" }],
       label: "",
-      keyplaceholder: "Twitch Frequency",
       error_text: "An ID is required",
       entry_width: 201,
       disallow_entry: false,
@@ -206,6 +205,7 @@ export default {
       playback_state_enums: playback_module.ENUMS.PLAYBACK_STATES,
       metric_selection_idx: 0,
       max_min_placeholder: { min: 0, max: 1 },
+      metric_names: ["Twitch Frequency"],
     };
   },
   computed: {
@@ -219,9 +219,6 @@ export default {
       stored_auto_scale: "auto_scale",
     }),
     ...mapState("playback", ["playback_state"]),
-    metric_names: function () {
-      return Object.keys(this.well_values);
-    },
     ...mapState("gradient", ["gradients", "gradient_theme_idx", "gradient_range_min", "gradient_range_max"]),
     ...mapGetters("gradient", {
       gradient_map: "gradient_color_mapping",
@@ -308,6 +305,7 @@ export default {
       min: Math.floor(this.gradient_range_min),
       max: Math.ceil(this.gradient_range_max),
     };
+    this.metric_names = Object.keys(this.well_values);
   },
   methods: {
     set_auto_scale: function (new_value) {
