@@ -20,8 +20,9 @@ Changed:
   - ``plate_barcode_entry_time``
   - ``stim_barcode_entry_time``
 
-- The dropdown list of stimulation procotols in the stimulation studio page now has a trash icon next to each
+- The dropdown list of stimulation procotols in the Stimulation Studio now has a trash icon next to each
   protocol to allow for easier deletion of protocols.
+- Remove unused "Basic" and "Advanced" tabs from Stimulation Studio.
 
 Fixed:
 ^^^^^^
