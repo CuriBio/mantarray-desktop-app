@@ -9,6 +9,8 @@ Added:
 - Hovering over "Plate Barcode:" or "Stim Lid Barcode:" labels will display a tooltip showing how long
   ago the barcode was scanned or manually entered, if any barcode is present.
 - Better handling of errors during Stimulation Configuration Check.
+- The dropdown list of stimulation procotols in the Stimulation Studio now has a trash icon next to each
+  protocol to allow for easier deletion of protocols.
 
 Changed:
 ^^^^^^^^
@@ -20,8 +22,6 @@ Changed:
   - ``plate_barcode_entry_time``
   - ``stim_barcode_entry_time``
 
-- The dropdown list of stimulation procotols in the Stimulation Studio now has a trash icon next to each
-  protocol to allow for easier deletion of protocols.
 - Remove unused "Basic" and "Advanced" tabs from Stimulation Studio.
 
 Fixed:
