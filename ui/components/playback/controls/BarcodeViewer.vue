@@ -1,31 +1,46 @@
 <template>
-  <div class="div__plate-barcode" :style="dynamic_container_style">
-    <span
-      v-b-popover.hover.top="edit_barcode_tooltip_text"
-      class="span__plate-barcode-text"
-      :style="dynamic_label_style"
-    >
-      {{ barcode_label }}:
-    </span>
-    <input
-      id="plateinfo"
-      :disabled="is_disabled"
-      type="text"
-      spellcheck="false"
-      class="input__plate-barcode-entry"
-      :style="dynamic_entry_style"
-      :class="[
-        barcode_info.valid ? `input__plate-barcode-entry-valid` : `input__plate-barcode-entry-invalid`,
-      ]"
-      :value="barcode_info.value"
-      @input="handle_manual_barcode_input"
-    />
+  <div>
     <div
-      v-if="barcode_manual_mode && active_processes"
-      v-b-popover.hover.top="tooltip_text"
-      :title="barcode_label"
-      class="div__disabled-input-popover"
-    />
+      v-b-popover.hover.top="edit_barcode_tooltip_text"
+      class="div__plate-barcode"
+      :style="dynamic_container_style"
+    >
+      <span class="span__plate-barcode-text" :style="dynamic_label_style"> {{ barcode_label }}: </span>
+      <input
+        id="plateinfo"
+        :disabled="is_disabled"
+        type="text"
+        spellcheck="false"
+        class="input__plate-barcode-entry"
+        :style="dynamic_entry_style"
+        :class="[
+          barcode_info.valid ? `input__plate-barcode-entry-valid` : `input__plate-barcode-entry-invalid`,
+        ]"
+        :value="barcode_info.value"
+        @input="handle_manual_barcode_input"
+      />
+      <div
+        v-if="barcode_manual_mode && active_processes"
+        v-b-popover.hover.top="tooltip_text"
+        :title="barcode_label"
+        class="div__disabled-input-popover"
+      />
+      <div v-if="barcode_type == 'plate_barcode'" class="div__barcode-description">
+        {{ barcode_description }}
+      </div>
+      <b-modal id="edit-plate-barcode-modal" size="sm" hide-footer hide-header hide-header-close>
+        <StatusWarningWidget
+          :modal_labels="barcode_mode_switch_labels"
+          @handle_confirmation="handle_manual_mode_choice"
+        />
+      </b-modal>
+      <b-modal id="barcode-warning" size="sm" hide-footer hide-header hide-header-close>
+        <StatusWarningWidget
+          :modal_labels="barcode_warning_labels"
+          @handle_confirmation="close_warning_modal"
+        />
+      </b-modal>
+    </div>
     <div
       v-b-popover.hover.top="switch_mode_tooltip_text"
       :title="barcode_label"
@@ -37,21 +52,6 @@
         </div>
       </span>
     </div>
-    <div v-if="barcode_type == 'plate_barcode'" class="div__barcode-description">
-      {{ barcode_description }}
-    </div>
-    <b-modal id="edit-plate-barcode-modal" size="sm" hide-footer hide-header hide-header-close>
-      <StatusWarningWidget
-        :modal_labels="barcode_mode_switch_labels"
-        @handle_confirmation="handle_manual_mode_choice"
-      />
-    </b-modal>
-    <b-modal id="barcode-warning" size="sm" hide-footer hide-header hide-header-close>
-      <StatusWarningWidget
-        :modal_labels="barcode_warning_labels"
-        @handle_confirmation="close_warning_modal"
-      />
-    </b-modal>
   </div>
 </template>
 <script>

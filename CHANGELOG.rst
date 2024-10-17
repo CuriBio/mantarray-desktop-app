@@ -6,7 +6,7 @@ Changelog for Mantarray Desktop App
 
 Added:
 ^^^^^^
-- Hovering over "Plate Barcode:" or "Stim Lid Barcode:" labels will display a tooltip showing how long
+- Hovering over a barcode display will show a tooltip with how long
   ago the barcode was scanned or manually entered, if any barcode is present.
 - Better handling of errors during Stimulation Configuration Check.
 - The dropdown list of stimulation procotols in the Stimulation Studio now has a trash icon next to each
