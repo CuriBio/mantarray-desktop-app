@@ -760,7 +760,6 @@ def test_McCommunicationProcess__updates_performance_metrics_after_parsing_data(
     mocker.patch.object(mc_comm, "SERIAL_COMM_PACKET_METADATA_LENGTH_BYTES", 0)
 
     # create expected values for metric creation
-    expected_secs_between_reading = [randint(1, 50) for _ in range(test_num_iterations - 1)]
     expected_secs_between_reading = list(range(test_num_iterations - 1))
     mocked_since_last_read = mocker.patch.object(
         mc_comm, "_get_secs_since_last_data_read", autospec=True, side_effect=expected_secs_between_reading
@@ -829,11 +828,12 @@ def test_McCommunicationProcess__updates_performance_metrics_after_parsing_data(
     )
 
     # reset before creating metrics
+    mc_process._iterations_since_last_logging[0] = 1
     mc_process._reset_timepoints_of_prev_actions()
     mc_process._reset_performance_tracking_values()
 
     # run mc_process to create metrics
-    invoke_process_run_and_check_errors(mc_process, num_iterations=PERFOMANCE_LOGGING_PERIOD_SECS)
+    invoke_process_run_and_check_errors(mc_process, num_iterations=test_num_iterations)
     # check that related metrics use same timepoints
     assert mocked_since_last_read.call_args_list == mocked_data_read_dur.call_args_list[:-1]
     assert mocked_since_last_sort.call_args_list == mocked_packet_sort_dur.call_args_list[:-1]
