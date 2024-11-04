@@ -524,13 +524,11 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._register_magic_word(board_idx)
         else:
             self._handle_data_stream()
-
-            if self._is_data_streaming or self._is_stimulating:
-                # handle performance logging if ready
-                self._iterations_since_last_logging[board_idx] += 1
-                if self._iterations_since_last_logging[board_idx] > self._iterations_per_logging_cycle:
-                    self._handle_performance_logging()
-                    self._iterations_since_last_logging[board_idx] = 0
+            # handle performance logging if ready
+            self._iterations_since_last_logging[board_idx] += 1
+            if self._iterations_since_last_logging[board_idx] > self._iterations_per_logging_cycle:
+                self._handle_performance_logging()
+                self._iterations_since_last_logging[board_idx] = 0
 
         self._handle_beacon_tracking()
         self._handle_command_tracking()
