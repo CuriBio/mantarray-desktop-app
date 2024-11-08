@@ -96,7 +96,7 @@
     <div class="div__settingsform-dropdown">
       <SmallDropDown
         :input_height="25"
-        :input_width="130"
+        :input_width="135"
         :disable_selection="!is_user_logged_in"
         :options_text="sorted_pulse3d_versions"
         :options_idx="pulse3d_focus_idx"
@@ -588,7 +588,7 @@ export default {
   transform: rotate(0deg);
   /* overflow: hidden; */
   position: absolute;
-  width: 130px;
+  width: 135px;
   height: 34px;
   top: 527px;
   left: calc(961px - 566px);
