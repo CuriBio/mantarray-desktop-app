@@ -16,6 +16,7 @@ Changed:
 ^^^^^^^^
 - Can now switch back to automatic barcode scanning mode from manual entry mode. Switching back to automatic
   scanning will clear any manually entered barcodes.
+- P3d versions marked testing and deprecated are now available to use in auto-upload.
 - Empty user-defined metadata rows will now be ignored instead of blocking confirm button.
 - MAV1 H5 file format version is now 1.6.0. Format changes include adding the following values:
 

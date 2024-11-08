@@ -96,10 +96,10 @@
     <div class="div__settingsform-dropdown">
       <SmallDropDown
         :input_height="25"
-        :input_width="80"
+        :input_width="135"
         :disable_selection="!is_user_logged_in"
         :options_text="sorted_pulse3d_versions"
-        :options_idx="user_settings.pulse3d_focus_idx"
+        :options_idx="pulse3d_focus_idx"
         :dom_id_suffix="'pulse3d_version'"
         @selection-changed="handle_pulse3d_selection_change"
       />
@@ -178,7 +178,7 @@
 </template>
 <script>
 import Vue from "vue";
-import { mapState } from "vuex";
+import { mapState, mapMutations } from "vuex";
 import { library } from "@fortawesome/fontawesome-svg-core";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { faCheck as fa_check } from "@fortawesome/free-solid-svg-icons";
@@ -218,10 +218,11 @@ export default {
       invalid_creds_found: false,
       account_locked: false,
       show_auto_delete: false,
+      pulse3d_focus_idx: 0,
       user_settings: {
         auto_upload: false,
-        pulse3d_focus_idx: 0,
         auto_delete: false,
+        pulse3d_version: "Error",
         recording_snapshot: true,
       },
       user_details: {
@@ -242,8 +243,8 @@ export default {
       "beta_2_mode",
       "user_account",
       "stored_customer_id",
-      "pulse3d_versions",
-      "pulse3d_version_selection_index",
+      "pulse3d_version_info",
+      "selected_pulse3d_version",
       "job_limit_reached",
       "stored_usernames",
       "auto_upload",
@@ -251,7 +252,28 @@ export default {
       "run_recording_snapshot_default",
     ]),
     sorted_pulse3d_versions: function () {
-      return semver_sort.desc(this.pulse3d_versions);
+      const mapped_versions = {};
+      this.pulse3d_version_info.map((info) => {
+        mapped_versions[info.version] = info;
+      });
+      const external_versions = semver_sort.desc(
+        this.pulse3d_version_info.filter(({ state }) => state === "external").map(({ version }) => version)
+      );
+      const testing_versions = semver_sort.desc(
+        this.pulse3d_version_info.filter(({ state }) => state === "testing").map(({ version }) => version)
+      );
+      const deprecated_versions = semver_sort.desc(
+        this.pulse3d_version_info.filter(({ state }) => state === "deprecated").map(({ version }) => version)
+      );
+      const version_list = [...external_versions, ...testing_versions, ...deprecated_versions];
+      return version_list.map((v) => {
+        const version_info = mapped_versions[v];
+        if (version_info.state !== "external") {
+          return version_info.version + ` [ ${version_info.state} ]`;
+        } else {
+          return version_info.version;
+        }
+      });
     },
     is_login_enabled: function () {
       return !Object.values(this.input_err_text).some((val) => val !== "");
@@ -295,10 +317,18 @@ export default {
       this.user_details.customer_id = this.stored_customer_id;
     },
     account_locked: function (locked_state) {
-      if (locked_state) this.$bvModal.show("account-locked-warning");
+      if (locked_state) {
+        this.$bvModal.show("account-locked-warning");
+      }
+    },
+    sorted_pulse3d_versions: function () {
+      if (this.selected_pulse3d_version === "Error") {
+        this.set_selected_pulse3d_version(this.sorted_pulse3d_versions[0].split(" ")[0]);
+      }
     },
   },
   methods: {
+    ...mapMutations("settings", ["set_selected_pulse3d_version"]),
     async save_changes() {
       if (this.is_user_logged_in) {
         this.$store.dispatch("settings/update_settings", this.user_settings);
@@ -343,13 +373,18 @@ export default {
       this.user_settings.auto_delete = this.auto_delete;
       this.user_settings.auto_upload = this.auto_upload;
       this.user_settings.recording_snapshot = this.run_recording_snapshot_default;
-      this.user_settings.pulse3d_focus_idx = this.pulse3d_version_selection_index;
+      this.user_settings.pulse3d_version = this.selected_pulse3d_version;
+      const selected_version = this.sorted_pulse3d_versions
+        .map((v) => v.split(" ")[0])
+        .indexOf(this.selected_pulse3d_version);
+      this.pulse3d_focus_idx = selected_version === -1 ? 0 : selected_version;
     },
     handle_toggle_state: function (state, label) {
       this.user_settings[label] = state;
     },
     handle_pulse3d_selection_change: function (idx) {
-      this.user_settings.pulse3d_focus_idx = idx;
+      this.user_settings.pulse3d_version = this.sorted_pulse3d_versions[idx].split(" ")[0];
+      this.pulse3d_focus_idx = idx;
     },
   },
 };
@@ -553,7 +588,7 @@ export default {
   transform: rotate(0deg);
   /* overflow: hidden; */
   position: absolute;
-  width: 80px;
+  width: 135px;
   height: 34px;
   top: 527px;
   left: calc(961px - 566px);

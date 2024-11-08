@@ -58,11 +58,11 @@ export default {
   set_beta_2_mode(state, bool) {
     state.beta_2_mode = bool;
   },
-  set_pulse3d_versions(state, versions) {
-    state.pulse3d_versions = versions;
+  set_pulse3d_version_info(state, version_info) {
+    state.pulse3d_version_info = version_info;
   },
-  set_pulse3d_version_selection_index(state, idx) {
-    state.pulse3d_version_selection_index = idx;
+  set_selected_pulse3d_version(state, version) {
+    state.selected_pulse3d_version = version;
   },
   set_software_update_available(state, bool) {
     state.software_update_available = bool;

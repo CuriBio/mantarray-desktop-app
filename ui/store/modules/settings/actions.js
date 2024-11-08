@@ -2,21 +2,20 @@ import { call_axios_get_from_vuex, call_axios_post_from_vuex } from "@/js_utils/
 
 export default {
   async update_settings(context, user_details) {
-    const { auto_upload, auto_delete, pulse3d_focus_idx } = user_details;
-    const selected_pulse3d_version = this.state.settings.pulse3d_versions[pulse3d_focus_idx];
+    const { auto_upload, auto_delete, pulse3d_version } = user_details;
 
     const url = "http://localhost:4567/update_settings";
     const params = {
       auto_upload,
       auto_delete,
-      pulse3d_version: selected_pulse3d_version,
+      pulse3d_version,
     };
 
     const { status } = await call_axios_get_from_vuex(url, context, params);
     if (status === 204) {
       this.commit("settings/set_auto_upload", auto_upload);
       this.commit("settings/set_auto_delete", auto_delete);
-      this.commit("settings/set_pulse3d_version_selection_index", pulse3d_focus_idx);
+      this.commit("settings/set_selected_pulse3d_version", pulse3d_version);
     }
   },
   async login_user(context, user_details) {
