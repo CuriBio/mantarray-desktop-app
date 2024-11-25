@@ -25,7 +25,7 @@
       </div>
       <div class="arrow" :class="{ expanded: visible }"></div>
       <div :class="{ hidden: !visible, visible }">
-        <ul class="ul__dropdown-content-container">
+        <ul class="ul__dropdown-content-container" :style="'max-height: ' + max_height + 'px;'">
           <li v-for="item in options_list" :key="item.id" :value="item" @click="change_selection(item.id)">
             <span :style="`width: ${show_delete_option(item) ? '97' : '100'}%; display: inline-block;`">
               <span :style="'color:' + item.color">
@@ -63,6 +63,7 @@ export default {
     input_width: { type: Number, default: 210 },
     options_idx: { type: Number, default: 0 },
     input_height: { type: Number, default: 0 }, // This prop is utilized by the parent component
+    max_height: { type: Number, default: 450 },
   },
   data() {
     return {

@@ -194,7 +194,7 @@ export default {
   data: function () {
     return {
       package_version: "",
-      current_year: "2022", // TODO look into better ways of handling this. Not sure if just using the system's current year is the best approach
+      current_year: "2024", // TODO look into better ways of handling this. Not sure if just using the system's current year is the best approach
       beta_2_mode: process.env.SPECTRON || undefined,
       pulse3d_version_info: undefined,
       log_dir_name: undefined,
