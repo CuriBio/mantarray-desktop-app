@@ -24,6 +24,7 @@ Changed:
   - ``stim_barcode_entry_time``
 
 - Remove unused "Basic" and "Advanced" tabs from Stimulation Studio.
+- Stim pulse images
 
 Fixed:
 ^^^^^^

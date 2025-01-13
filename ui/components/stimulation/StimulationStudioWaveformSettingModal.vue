@@ -2,7 +2,7 @@
   <div
     id="cmpD2f15f130a7c848b6dfa50e77a7bd35ad"
     class="div__stimulationstudio-current-settings-background"
-    :style="pulse_type === 'Monophasic' ? 'height: 550px; margin-top: 100px;' : 'height: 840px;'"
+    :style="pulse_type === 'Monophasic' ? 'height: 570px; margin-top: 100px;' : 'height: 840px;'"
   >
     <span id="cmpD5b2290fff52de686574ddc4481707a03" class="span__stimulationstudio-current-settings-title"
       >{{ pulse_type }}&nbsp;<wbr />Pulse&nbsp;<wbr />Details
@@ -274,7 +274,7 @@
     <div class="div__pulse-diagram-container">
       <img
         :src="require(`@/assets/img/${pulse_type}-diagram-Current.png`)"
-        :class="pulse_type === 'Monophasic' ? 'img__mononphasic-diagram' : 'None'"
+        :class="pulse_type === 'Monophasic' ? 'img__mononphasic-diagram' : 'img__biphasic-diagram'"
       />
     </div>
     <div
@@ -286,7 +286,7 @@
         <li v-for="key in diagram_keys[pulse_type]" :key="key">{{ key }}</li>
       </ol>
     </div>
-    <div class="button-container" :style="pulse_type === 'Monophasic' ? 'top: 543px;' : 'top: 790px;'">
+    <div class="button-container" :style="pulse_type === 'Monophasic' ? 'top: 565px;' : 'top: 790px;'">
       <ButtonWidget
         :id="'button-widget-id'"
         :button_widget_width="950"
@@ -399,14 +399,22 @@ export default {
       input_pulse_frequency: "",
       max_pulse_duration_for_freq: 50,
       diagram_keys: {
-        Monophasic: ["A. Phase Duration", `B. Phase Current`, "C. Total Active Duration"],
+        Monophasic: [
+          "A. Stimulus Duration",
+          "B. Current",
+          "C. Pulse Frequency",
+          "D. Total Active Duration",
+          "E. Number of Cycles",
+        ],
         Biphasic: [
-          "A. Phase 1 Duration",
+          "A. Phase 1 Stimulus Duration",
           "B. Phase 1 Current",
           "C. Interphase Interval",
-          "D. Phase 2 Duration",
+          "D. Phase 2 Stimulus Duration",
           "E. Phase 2 Current",
-          "F. Total Active Duration",
+          "F. Pulse Frequency",
+          "G. Active Duration",
+          "H. Number of Cycles",
         ],
       },
       calculated_active_dur: "",
@@ -872,9 +880,9 @@ canvas {
 
 .canvas__monophasic-vertical-divider {
   transform: rotate(90deg);
-  left: 300px;
-  top: 300px;
-  width: 440px;
+  left: 286px;
+  top: 311px;
+  width: 470px;
 }
 
 .div__pulse-diagram-container {
@@ -900,22 +908,24 @@ canvas {
   position: absolute;
   height: 150px;
   left: 560px;
-  top: 470px;
+  top: 585px;
   width: 370px;
-  font-size: 15px;
+  font-size: 14px;
   color: rgb(183, 183, 183);
   text-align: left;
 }
 
+.img__biphasic-diagram {
+  width: 383px;
+}
+
 .img__mononphasic-diagram {
-  width: 350px;
-  margin-left: 50px;
-  max-width: 260px;
-  max-height: 300px;
+  width: 260px;
+  margin-left: 60px;
 }
 
 .div__mononphasic-diagram-descriptors {
-  top: 430px;
+  top: 426px;
   font-size: 14px;
 }
 
