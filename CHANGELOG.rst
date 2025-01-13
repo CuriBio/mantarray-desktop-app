@@ -25,6 +25,7 @@ Changed:
 
 - Remove unused "Basic" and "Advanced" tabs from Stimulation Studio.
 - Stim pulse images
+- Barcode label (underneath plate barcode display)
 
 Fixed:
 ^^^^^^
