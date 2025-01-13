@@ -131,20 +131,20 @@ export default {
       if (this.barcode_info.valid) {
         const experiment_id = parseInt(this.barcode_info.value.split("-")[0].slice(-3));
         if (experiment_id <= 99) {
-          return "Cardiac (1x)";
+          return "Standard Plate (1x)";
         } else if (experiment_id <= 199) {
-          return "SkM (12x)";
+          return "Standard Plate (12x)";
         } else if (experiment_id <= 299) {
-          return "Variable";
+          return "Standard Plate (Variable)";
         } else if (experiment_id <= 399) {
-          return "Mini Cardiac (1x)";
+          return "Mini Plate (1x)";
         } else if (experiment_id <= 499) {
-          return "Mini SkM (12x)";
+          return "Mini Plate (12x)";
         } else {
-          return "Cardiac (1x)";
+          return "Invalid barcode";
         }
       } else {
-        return "Invalid";
+        return "Invalid barcode";
       }
     },
     barcode_mode_switch_labels: function () {
