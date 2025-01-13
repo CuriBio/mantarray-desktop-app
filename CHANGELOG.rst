@@ -31,6 +31,7 @@ Fixed:
 - HeatMap "Display" dropdown switches back to "Twitch Frequency" after selecting "Twitch Force" while Live
   View is running.
 - Dropdowns in Plate Map Editor page growing too tall
+- Issue with deletion of one stim protocol resulting in deletion of other stim protocols
 
 
 1.2.4 (2024-07-17)
