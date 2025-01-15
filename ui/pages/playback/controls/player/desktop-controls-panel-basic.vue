@@ -189,7 +189,7 @@ export default {
     return {
       // package_version: module.exports.version,
       package_version: "0.0.0", // Eli (7/13/20): This only displays the application version when running from a built application---otherwise it displays the version of Electron that is installed
-      current_year: "2022",
+      current_year: "2025",
       confirmation_request: false,
       beta_2_mode: true,
       log_dir_name: "C:\\Users\\username\\AppData\\Roaming\\MantarrayController\\logs_flask",
