@@ -16,6 +16,7 @@ files:
 win:
   target: "nsis"
   artifactName: "MantarrayController-Setup-prod-${version}.${ext}"
+nsis:
   oneClick: false
   perMachine: false
 publish:
