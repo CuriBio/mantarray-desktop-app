@@ -16,6 +16,8 @@ files:
 win:
   target: "nsis"
   artifactName: "MantarrayController-Setup-prod-${version}.${ext}"
+  oneClick: false
+  perMachine: false
 publish:
   provider: "s3"
   bucket: "downloads.curibio.com"
