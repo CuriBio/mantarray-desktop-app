@@ -1,6 +1,14 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+1.2.6 (unreleased)
+------------------
+
+Changed:
+^^^^^^^^
+- Installer now prompts whether to install for only the current user or for all users
+
+
 1.2.5 (unreleased)
 ------------------
 
