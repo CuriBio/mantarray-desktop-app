@@ -42,7 +42,9 @@ export default function create_web_socket_plugin(socket) {
       }
 
       /* istanbul ignore else */
-      if (cb) cb("action done"); // this callback is only used for testing. The backend will not send a callback
+      if (cb) {
+        cb("done");
+      } // this callback is only used for testing. The backend will not send a callback
     });
 
     add_handler_with_error_handling(socket, "twitch_metrics", (metrics_json, cb) => {
@@ -56,7 +58,9 @@ export default function create_web_socket_plugin(socket) {
       }
 
       /* istanbul ignore else */
-      if (cb) cb("commit done"); // this callback is only used for testing. The backend will not send a callback
+      if (cb) {
+        cb("done");
+      } // this callback is only used for testing. The backend will not send a callback
     });
 
     add_handler_with_error_handling(socket, "recording_snapshot_data", (data_json, cb) => {
@@ -70,36 +74,48 @@ export default function create_web_socket_plugin(socket) {
       store.commit("playback/set_is_recording_snapshot_running", false);
 
       /* istanbul ignore else */
-      if (cb) cb("action done"); // this callback is only used for testing. The backend will not send a callback
+      if (cb) {
+        cb("done");
+      } // this callback is only used for testing. The backend will not send a callback
     });
 
     add_handler_with_error_handling(socket, "stimulation_data", (stim_json, cb) => {
       // Tanner (12/20/21): may want to put the same checks here as are in the waveform_data handler once stim waveforms are sent instead of subprotocol indices
       store.dispatch("data/append_stim_waveforms", JSON.parse(stim_json));
       /* istanbul ignore else */
-      if (cb) cb("action done"); // this callback is only used for testing. The backend will not send a callback
+      if (cb) {
+        cb("done");
+      } // this callback is only used for testing. The backend will not send a callback
     });
 
     add_handler_with_error_handling(socket, "stimulator_circuit_statuses", (message_json, cb) => {
       store.dispatch("data/check_stimulator_circuit_statuses", JSON.parse(message_json));
 
       /* istanbul ignore else */
-      if (cb) cb("action done"); // this callback is only used for testing. The backend will not send a callback
+      if (cb) {
+        cb("done");
+      } // this callback is only used for testing. The backend will not send a callback
     });
 
     add_handler_with_error_handling(socket, "barcode", (message_json, cb) => {
       if (!store.state.flask.barcode_manual_mode) {
         const message = JSON.parse(message_json);
         for (const barcode_type in store.state.playback.barcodes)
-          if (message[barcode_type])
-            store.dispatch("playback/validate_barcode", {
-              type: barcode_type,
-              new_value: message[barcode_type],
-            });
+          if (message[barcode_type]) {
+            store.commit("playback/set_barcode_entry_time", barcode_type);
+            if (message[barcode_type] !== store.state.playback.barcodes[barcode_type].value) {
+              store.dispatch("playback/validate_barcode", {
+                type: barcode_type,
+                new_value: message[barcode_type],
+              });
+            }
+          }
       }
 
       /* istanbul ignore else */
-      if (cb) cb("action done"); // this callback is only used for testing. The backend will not send a callback
+      if (cb) {
+        cb("done");
+      } // this callback is only used for testing. The backend will not send a callback
     });
 
     add_handler_with_error_handling(socket, "upload_status", (status_json, cb) => {
@@ -119,7 +135,9 @@ export default function create_web_socket_plugin(socket) {
       }
       store.commit("settings/set_file_name", status.file_name);
       /* istanbul ignore else */
-      if (cb) cb("commit done"); // this callback is only used for testing. The backend will not send a callback
+      if (cb) {
+        cb("done");
+      } // this callback is only used for testing. The backend will not send a callback
     });
 
     add_handler_with_error_handling(socket, "sw_update", (message_json, cb) => {
@@ -134,7 +152,9 @@ export default function create_web_socket_plugin(socket) {
       }
 
       /* istanbul ignore else */
-      if (cb) cb("commit done"); // this callback is only used for testing. The backend will not send a callback
+      if (cb) {
+        cb("done");
+      } // this callback is only used for testing. The backend will not send a callback
     });
 
     add_handler_with_error_handling(socket, "fw_update", (message_json, cb) => {
@@ -145,7 +165,9 @@ export default function create_web_socket_plugin(socket) {
       }
 
       /* istanbul ignore else */
-      if (cb) cb("commit done"); // this callback is only used for testing. The backend will not send a callback
+      if (cb) {
+        cb("done");
+      } // this callback is only used for testing. The backend will not send a callback
     });
 
     add_handler_with_error_handling(socket, "prompt_user_input", (message_json, cb) => {
@@ -155,7 +177,9 @@ export default function create_web_socket_plugin(socket) {
       }
 
       /* istanbul ignore else */
-      if (cb) cb("commit done"); // this callback is only used for testing. The backend will not send a callback
+      if (cb) {
+        cb("done");
+      } // this callback is only used for testing. The backend will not send a callback
     });
 
     add_handler_with_error_handling(socket, "local_analysis", (message_json, cb) => {
@@ -169,20 +193,26 @@ export default function create_web_socket_plugin(socket) {
       store.commit("playback/set_data_analysis_state", ENUMS.DATA_ANALYSIS_STATE.COMPLETE);
 
       /* istanbul ignore else */
-      if (cb) cb("commit done"); // this callback is only used for testing. The backend will not send a callback
+      if (cb) {
+        cb("done");
+      } // this callback is only used for testing. The backend will not send a callback
     });
 
     add_handler_with_error_handling(socket, "corrupt_files_alert", (_, cb) => {
       store.commit("data/set_h5_warning");
       /* istanbul ignore else */
-      if (cb) cb("commit done"); // this callback is only used for testing. The backend will not send a callback
+      if (cb) {
+        cb("done");
+      } // this callback is only used for testing. The backend will not send a callback
     });
 
     add_handler_with_error_handling(socket, "error", (message_json, cb) => {
       const message = JSON.parse(message_json);
       store.commit("settings/set_shutdown_error_status", message);
       /* istanbul ignore else */
-      if (cb) cb("commit done"); // this callback is only used for testing. The backend will not send a callback
+      if (cb) {
+        cb("done");
+      } // this callback is only used for testing. The backend will not send a callback
     });
   };
 }

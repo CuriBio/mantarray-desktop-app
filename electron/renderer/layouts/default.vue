@@ -194,9 +194,9 @@ export default {
   data: function () {
     return {
       package_version: "",
-      current_year: "2022", // TODO look into better ways of handling this. Not sure if just using the system's current year is the best approach
+      current_year: "2025", // TODO look into better ways of handling this. Not sure if just using the system's current year is the best approach
       beta_2_mode: process.env.SPECTRON || undefined,
-      pulse3d_versions: undefined,
+      pulse3d_version_info: undefined,
       log_dir_name: undefined,
       data_acquisition_visibility: true,
       stim_studio_visibility: false,
@@ -301,14 +301,14 @@ export default {
       this.$store.commit("settings/set_confirmation_request", true);
     });
 
-    ipcRenderer.on("pulse3d_versions_response", (_, pulse3d_versions) => {
-      this.pulse3d_versions = pulse3d_versions;
-      if (pulse3d_versions) {
+    ipcRenderer.on("pulse3d_versions_response", (_, pulse3d_version_info) => {
+      this.pulse3d_version_info = pulse3d_version_info;
+      if (pulse3d_version_info) {
         // only update values if versions were actually retrieved
-        this.$store.commit("settings/set_pulse3d_versions", pulse3d_versions);
+        this.$store.commit("settings/set_pulse3d_version_info", pulse3d_version_info);
       }
     });
-    if (this.pulse3d_versions === undefined) {
+    if (this.pulse3d_version_info === undefined) {
       ipcRenderer.send("pulse3d_versions_request");
     }
 

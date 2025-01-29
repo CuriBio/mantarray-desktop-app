@@ -32,8 +32,8 @@ const default_state = {
   allow_sw_update_install: false,
   user_cred_input_needed: false,
   confirmation_request: false,
-  pulse3d_versions: ["Error"],
-  pulse3d_version_selection_index: 0,
+  pulse3d_version_info: [{ version: "Error", state: "external" }],
+  selected_pulse3d_version: "Error",
   job_limit_reached: false,
 };
 

@@ -6,6 +6,7 @@
         :options_text="platemap_names"
         :input_width="300"
         :input_height="45"
+        :max_height="300"
         :options_idx="map_options_idx"
         @selection-changed="handle_map_dropdown_selection"
       />
@@ -17,6 +18,7 @@
         :options_text="well_assignment_names"
         :input_width="300"
         :input_height="45"
+        :max_height="300"
         :options_idx="assignment_options_idx"
         @selection-changed="handle_well_dropdown_selection"
       />

@@ -37,7 +37,7 @@ CLOUD_PULSE3D_ENDPOINT = f"pulse3d.{CLOUD_DOMAIN}.com"
 
 # File Versions
 CURRENT_BETA1_HDF5_FILE_FORMAT_VERSION = "0.4.2"
-CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION = "1.5.0"
+CURRENT_BETA2_HDF5_FILE_FORMAT_VERSION = "1.6.0"
 
 # General
 DEFAULT_SERVER_PORT_NUMBER = 4567
@@ -393,6 +393,10 @@ VALID_SUBPROTOCOL_TYPES = frozenset(["delay", "monophasic", "biphasic", "loop"])
 STIM_PULSE_BYTES_LEN = 29
 
 
+class InvalidStimulatorCircuitStatus(Exception):
+    pass
+
+
 # Stim Checks
 class StimulatorCircuitStatuses(IntEnum):
     CALCULATING = -1
@@ -401,6 +405,14 @@ class StimulatorCircuitStatuses(IntEnum):
     SHORT = 2
     ERROR = 3
     NOT_CHECKED = 4
+
+    @classmethod
+    def from_int(cls, status: int) -> "StimulatorCircuitStatuses":
+        cls_list: list["StimulatorCircuitStatuses"] = list(cls)
+        try:
+            return cls_list[status + 1]
+        except IndexError as e:  # pragma: no cover
+            raise InvalidStimulatorCircuitStatus from e
 
 
 class StimProtocolStatuses(IntEnum):
@@ -476,3 +488,6 @@ POST_STIFFNESS_TO_MM_PER_MT_Z_AXIS_SENSOR_0 = immutabledict(
 
 # Recording Snapshot
 RECORDING_SNAPSHOT_DUR_SECS = 5 + (NUM_INITIAL_MICROSECONDS_TO_PAD / MICRO_TO_BASE_CONVERSION)
+
+PLATE_BARCODE_ENTRY_TIME = "plate_barcode_entry_time"
+STIM_BARCODE_ENTRY_TIME = "stim_barcode_entry_time"

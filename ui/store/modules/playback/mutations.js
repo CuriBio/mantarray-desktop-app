@@ -41,6 +41,9 @@ export default {
     state.barcodes[type].value = new_value;
     state.barcodes[type].valid = is_valid;
   },
+  set_barcode_entry_time(state, type) {
+    state.barcodes[type].entry_time = new Date();
+  },
   set_tooltips_delay(state, new_value) {
     state.tooltips_delay = new_value;
   },

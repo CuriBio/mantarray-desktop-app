@@ -168,7 +168,7 @@ def test_McCommunicationProcess__processes_stop_data_streaming_command__when_dat
     )
 
     # mocking so no barcode messages are sent from mc_comm to main
-    mocker.patch.object(simulator, "_handle_barcode", autospec=True)
+    mocker.patch.object(simulator, "_handle_barcodes", autospec=True)
 
     # put simulator in data streaming mode
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -663,7 +663,7 @@ def test_McCommunicationProcess__handles_incomplete_read_of_packet_immediately_f
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
     # mocking so no barcode messages are sent from mc_comm to main
-    mocker.patch.object(simulator, "_handle_barcode", autospec=True)
+    mocker.patch.object(simulator, "_handle_barcodes", autospec=True)
     # mocking to ensure no data packets are sent
     mocker.patch.object(mc_simulator, "_get_us_since_last_data_packet", autospec=True, return_value=0)
 

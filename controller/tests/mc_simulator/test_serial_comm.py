@@ -59,11 +59,7 @@ from ..helpers import get_full_packet_size_from_payload_len
 from ..helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 
-__fixtures__ = [
-    fixture_patch_print,
-    fixture_mantarray_mc_simulator,
-    fixture_mantarray_mc_simulator_no_beacon,
-]
+__fixtures__ = [fixture_patch_print, fixture_mantarray_mc_simulator, fixture_mantarray_mc_simulator_no_beacon]
 
 
 def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_on_first_iteration__with_random_truncation(
@@ -74,12 +70,7 @@ def test_MantarrayMcSimulator__makes_status_beacon_available_to_read_on_first_it
     simulator = mantarray_mc_simulator["simulator"]
 
     expected_cms_since_init = 0
-    mocker.patch.object(
-        simulator,
-        "get_cms_since_init",
-        autospec=True,
-        return_value=expected_cms_since_init,
-    )
+    mocker.patch.object(simulator, "get_cms_since_init", autospec=True, return_value=expected_cms_since_init)
 
     expected_initial_beacon = create_data_packet(
         expected_cms_since_init, SERIAL_COMM_STATUS_BEACON_PACKET_TYPE, DEFAULT_SIMULATOR_STATUS_CODES
@@ -205,10 +196,7 @@ def test_MantarrayMcSimulator__discards_commands_from_pc_during_reboot_period__a
 
     reboot_times = [AVERAGE_MC_REBOOT_DURATION_SECONDS - 1, AVERAGE_MC_REBOOT_DURATION_SECONDS]
     mocker.patch.object(
-        mc_simulator,
-        "_get_secs_since_reboot_command",
-        autospec=True,
-        side_effect=reboot_times,
+        mc_simulator, "_get_secs_since_reboot_command", autospec=True, side_effect=reboot_times
     )
 
     spied_reset = mocker.spy(simulator, "_reset_start_time")
@@ -410,10 +398,7 @@ def test_MantarrayMcSimulator__processes_start_data_streaming_command(
     )
 
     # need to send command once before data is being streamed and once after to test the response in both cases
-    for response_byte_value in (
-        SERIAL_COMM_COMMAND_SUCCESS_BYTE,
-        SERIAL_COMM_COMMAND_FAILURE_BYTE,
-    ):
+    for response_byte_value in (SERIAL_COMM_COMMAND_SUCCESS_BYTE, SERIAL_COMM_COMMAND_FAILURE_BYTE):
         # send start streaming command
         expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
         test_start_data_streaming_command = create_data_packet(
@@ -440,7 +425,7 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
 
     # mock so no data packets or barcodes will be sent
     mocker.patch.object(mc_simulator, "_get_us_since_last_data_packet", autospec=True, return_value=0)
-    mocker.patch.object(simulator, "_handle_barcode", autospec=True)
+    mocker.patch.object(simulator, "_send_barcodes", autospec=True)
 
     # set arbitrary sampling period
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
@@ -459,10 +444,7 @@ def test_MantarrayMcSimulator__processes_stop_data_streaming_command(
     )
 
     # need to send command once while data is being streamed and once after it stops to test the response in both cases
-    for response_byte_value in (
-        SERIAL_COMM_COMMAND_SUCCESS_BYTE,
-        SERIAL_COMM_COMMAND_FAILURE_BYTE,
-    ):
+    for response_byte_value in (SERIAL_COMM_COMMAND_SUCCESS_BYTE, SERIAL_COMM_COMMAND_FAILURE_BYTE):
         # send stop streaming command
         expected_pc_timestamp = randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE)
         test_stop_data_streaming_command = create_data_packet(
@@ -606,14 +588,11 @@ def test_MantarrayMcSimulator__processes_begin_firmware_update_command__when_alr
         )
 
 
-def test_MantarrayMcSimulator__processes_successful_firmware_update_packet(
-    mantarray_mc_simulator_no_beacon,
-):
+def test_MantarrayMcSimulator__processes_successful_firmware_update_packet(mantarray_mc_simulator_no_beacon):
     simulator = mantarray_mc_simulator_no_beacon["simulator"]
 
     expected_firmware_len = randint(
-        SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES,
-        int(SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES * 1.5),
+        SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES, int(SERIAL_COMM_MAX_PAYLOAD_LENGTH_BYTES * 1.5)
     )
     begin_firmware_update_command = create_data_packet(
         randint(0, SERIAL_COMM_MAX_TIMESTAMP_VALUE),

@@ -1,6 +1,40 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+1.2.5 (2024-01-28)
+------------------
+
+Added:
+^^^^^^
+- Hovering over a barcode display will show a tooltip with how long
+  ago the barcode was scanned or manually entered, if any barcode is present.
+- Better handling of errors during Stimulation Configuration Check.
+- The dropdown list of stimulation procotols in the Stimulation Studio now has a trash icon next to each
+  protocol to allow for easier deletion of protocols.
+
+Changed:
+^^^^^^^^
+- Can now switch back to automatic barcode scanning mode from manual entry mode. Switching back to automatic
+  scanning will clear any manually entered barcodes.
+- P3d versions marked testing and deprecated are now available to use in auto-upload.
+- Empty user-defined metadata rows will now be ignored instead of blocking confirm button.
+- MAV1 H5 file format version is now 1.6.0. Format changes include adding the following values:
+
+  - ``plate_barcode_entry_time``
+  - ``stim_barcode_entry_time``
+
+- Remove unused "Basic" and "Advanced" tabs from Stimulation Studio.
+- Stim pulse images
+- Barcode label (underneath plate barcode display)
+
+Fixed:
+^^^^^^
+- HeatMap "Display" dropdown switches back to "Twitch Frequency" after selecting "Twitch Force" while Live
+  View is running.
+- Dropdowns in Plate Map Editor page growing too tall
+- Issue with deletion of one stim protocol resulting in deletion of other stim protocols
+
+
 1.2.4 (2024-07-17)
 ------------------
 
@@ -13,6 +47,7 @@ Changed:
 Fixed:
 ^^^^^^
 - Recording time limit not reset if a barcode change warning occurs during a recording.
+
 
 1.2.3 (2024-04-29)
 ------------------

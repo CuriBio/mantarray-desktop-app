@@ -1683,50 +1683,6 @@ def test_MantarrayProcessesMonitor__updates_to_new_barcode_sent_from_instrument_
     assert barcode_msg == expected_barcode_message
 
 
-@pytest.mark.parametrize(
-    "expected_plate_barcode,test_valid,test_description",
-    [
-        (MantarrayMcSimulator.default_plate_barcode, True, "does not update to current valid plate barcode"),
-        (MantarrayMcSimulator.default_stim_barcode, True, "does not update to current valid stim barcode"),
-        ("M$200190000", False, "does not update to current invalid barcode"),
-        ("", None, "does not update to current empty barcode"),
-    ],
-)
-def test_MantarrayProcessesMonitor__does_not_update_any_values_or_send_barcode_update_to_frontend__if_new_barcode_matches_current_barcode(
-    expected_plate_barcode, test_valid, test_description, test_monitor, test_process_manager_creator
-):
-    test_process_manager = test_process_manager_creator(use_testing_queues=True)
-    monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
-
-    expected_board_idx = 0
-    barcode_type = (
-        "stim_barcode"
-        if expected_plate_barcode == MantarrayMcSimulator.default_stim_barcode
-        else "plate_barcode"
-    )
-    expected_dict = {barcode_type: expected_plate_barcode, "barcode_status": None}
-    shared_values_dict["barcodes"] = {expected_board_idx: expected_dict}
-
-    from_instrument_comm_queue = test_process_manager.queue_container.from_instrument_comm(expected_board_idx)
-    queue_to_server_ws = test_process_manager.queue_container.to_websocket
-
-    barcode_comm = {
-        "communication_type": "barcode_comm",
-        "barcode": expected_plate_barcode,
-        "board_idx": expected_board_idx,
-    }
-    if test_valid is not None:
-        barcode_comm["valid"] = test_valid
-    if test_valid is False:
-        # specifically want test_valid to be False here, not None since invalid barcodes have trailing `\x00`
-        barcode_comm["barcode"] += chr(0)
-    put_object_into_queue_and_raise_error_if_eventually_still_empty(barcode_comm, from_instrument_comm_queue)
-    invoke_process_run_and_check_errors(monitor_thread)
-
-    assert shared_values_dict["barcodes"][expected_board_idx] == expected_dict
-    confirm_queue_is_eventually_empty(queue_to_server_ws)
-
-
 def test_MantarrayProcessesMonitor__trims_beta_1_plate_barcode_string_before_storing_in_shared_values_dict(
     test_monitor, test_process_manager_creator
 ):

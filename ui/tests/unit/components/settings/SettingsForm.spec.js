@@ -182,7 +182,7 @@ describe("SettingsForm.vue", () => {
       store.commit("settings/set_pulse3d_versions", ["12.34.56", "0.24.6", "1.0.0"]);
       store.commit("settings/set_auto_upload", true);
       store.commit("settings/set_auto_delete", true);
-      store.commit("settings/set_pulse3d_version_selection_index", 1);
+      store.commit("settings/set_selected_pulse3d_version", 1);
       store.commit("settings/set_recording_snapshot_state", false);
 
       await wrapper.find(".div__settings-tool-tip-cancel-btn").trigger("click");

@@ -15,7 +15,7 @@
         class="span__small-dropdown-controls-content-input-txt-widget"
         :style="'width: ' + input_width + 'px;'"
       >
-        <span class="span__small-controls-content-input-txt-widget">{{ chosen_option.name }}</span>
+        <span class="span__small-controls-content-input-txt-widget">{{ (chosen_option || {}).name }}</span>
       </div>
       <div class="arrow" :class="{ expanded: visible }" />
       <div :class="{ hidden: !visible, visible }">
