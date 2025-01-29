@@ -9,7 +9,7 @@ Changed:
 - Installer now prompts whether to install for only the current user or for all users
 
 
-1.2.5 (unreleased)
+1.2.5 (2024-01-28)
 ------------------
 
 Added:
