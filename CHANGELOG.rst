@@ -1,7 +1,7 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.2.6 (unreleased)
+1.2.6 (2025-02-25)
 ------------------
 
 Changed:
