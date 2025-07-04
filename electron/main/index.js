@@ -193,6 +193,11 @@ ipcMain.once("sw_version_request", (event) => {
   event.reply("sw_version_response", get_current_app_version());
 });
 
+ipcMain.once("close_app_from_error", (_) => {
+  console.log("User acknowledged error and initiated shutdown");
+  exit_app_clean();
+});
+
 const post_latest_software_version = (version) => {
   let awaiting_response = false;
   const post_interval_id = setInterval(() => {

@@ -39,15 +39,25 @@
         and then wait 10 seconds before attempting to use again.
       </p>
     </div>
+    <div class="div_status-error-ack" :style="error_ack_cssprops">
+      <CheckBoxWidget
+        :checkbox_options="checkbox_options"
+        :reset="false"
+        :initial_selected="false"
+        @checkbox-selected="set_error_acknowledged"
+      />
+      <p style="margin-bottom: 2px; padding-left: 10px">Acknowledge Error</p>
+    </div>
     <div class="div__error-button" :style="error_catch_button_cssprops">
       <ButtonWidget
         :button_widget_width="450"
         :button_widget_height="50"
         :button_widget_top="0"
         :button_widget_left="0"
-        :button_names="['Okay']"
+        :button_names="['Shut down']"
         :enabled_color="'#B7B7B7'"
         :hover_color="['#FFFFFF']"
+        :is_enabled="error_acknowledged"
         @btn-click="process_ok"
       >
       </ButtonWidget>
@@ -56,6 +66,7 @@
 </template>
 <script>
 import ButtonWidget from "@/components/basic_widgets/ButtonWidget.vue";
+import CheckBoxWidget from "@/components/basic_widgets/CheckBoxWidget.vue";
 import { mapState } from "vuex";
 import { ERRORS } from "@/store/modules/settings/enums";
 
@@ -63,9 +74,16 @@ export default {
   name: "ErrorCatchWidget",
   components: {
     ButtonWidget,
+    CheckBoxWidget,
   },
   props: {
     log_filepath: { type: String, default: "" },
+  },
+  data() {
+    return {
+      checkbox_options: [{ text: "", value: "error_ack" }],
+      error_acknowledged: false,
+    };
   },
   computed: {
     ...mapState("settings", ["shutdown_error_message", "installer_link"]),
@@ -79,9 +97,9 @@ export default {
       return Math.ceil(((this.log_filepath.length * 1.0) / 30).toFixed(1));
     },
     error_background_cssprops: function () {
-      let height = 250 + this.compute_number_of_rows * 12;
+      let height = 280 + this.compute_number_of_rows * 12;
       if (this.installer_link) {
-        height += 25;
+        height += 35;
       }
       return `height: ${height}px;`;
     },
@@ -100,10 +118,17 @@ export default {
       }
       return `top: ${top}px;`;
     },
-    error_catch_button_cssprops: function () {
-      let top = 250 + this.compute_number_of_rows * 12;
+    error_ack_cssprops: function () {
+      let top = 235 + this.compute_number_of_rows * 12;
       if (this.installer_link) {
-        top += 25;
+        top += 35;
+      }
+      return `top: ${top}px;`;
+    },
+    error_catch_button_cssprops: function () {
+      let top = 280 + this.compute_number_of_rows * 12;
+      if (this.installer_link) {
+        top += 35;
       }
       return `top: ${top}px; left: 0px; position: absolute`;
     },
@@ -113,6 +138,9 @@ export default {
     },
   },
   methods: {
+    set_error_acknowledged: function (checked) {
+      this.error_acknowledged = checked;
+    },
     process_ok: function () {
       this.$emit("ok-clicked");
     },
@@ -288,6 +316,34 @@ a:hover {
   left: 0px;
   width: 450px;
   height: 66px;
+  overflow: hidden;
+  visibility: visible;
+  user-select: none;
+  text-align: center;
+  font-size: 15px;
+  letter-spacing: normal;
+  font-weight: normal;
+  font-style: normal;
+  text-decoration: none;
+  z-index: 5;
+  pointer-events: all;
+}
+
+.div_status-error-ack {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+  transform: rotate(0deg);
+  padding: 0px;
+  margin: 0px;
+  overflow-wrap: break-word;
+  color: rgb(183, 183, 183);
+  font-family: Muli;
+  position: absolute;
+  left: 145px;
+  width: 180px;
+  height: 25px;
   overflow: hidden;
   visibility: visible;
   user-select: none;

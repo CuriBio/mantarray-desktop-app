@@ -912,7 +912,7 @@ describe("store/data", () => {
 
         const additional_text = latest_compatible_sw_version
           ? ". Please download the installer for the correct version here:"
-          : ". Mantarray Controller is about to shutdown.";
+          : ". Mantarray Controller is about to shut down.";
 
         expect(store.state.settings.shutdown_error_status).toBe(ERRORS[error_type] + additional_text);
       }
