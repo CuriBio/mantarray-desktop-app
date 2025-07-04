@@ -263,7 +263,9 @@ export default {
     ...mapState("playback", ["playback_state", "enable_stim_controls", "barcodes"]),
     ...mapState("data", ["stimulator_circuit_statuses"]),
     is_start_stop_button_enabled: function () {
-      if (this.is_stim_in_waiting) return false;
+      if (this.is_stim_in_waiting) {
+        return false;
+      }
 
       if (!this.play_state) {
         // if starting stim make sure initial magnetometer calibration has been completed and
@@ -274,6 +276,7 @@ export default {
           this.assigned_open_circuits.length === 0 &&
           this.barcodes.plate_barcode.valid &&
           this.barcodes.stim_barcode.valid &&
+          !this.is_empty_protocol_assigned &&
           ![
             STIM_STATUS.ERROR,
             STIM_STATUS.NO_PROTOCOLS_ASSIGNED,
@@ -296,6 +299,14 @@ export default {
         Object.keys(this.protocol_assignments).includes(well.toString())
       );
     },
+    is_empty_protocol_assigned: function () {
+      return Object.values(this.protocol_assignments).some((info) => {
+        const info_safe = info || {};
+        const protocol = info_safe.protocol || {};
+        const subprotocols = protocol.subprotocols || [];
+        return subprotocols.length === 0;
+      });
+    },
     start_stim_label: function () {
       if (this.stim_status === STIM_STATUS.ERROR || this.stim_status === STIM_STATUS.SHORT_CIRCUIT_ERROR) {
         return "Cannot start a stimulation with error";
@@ -313,7 +324,9 @@ export default {
       } else if (this.playback_state === playback_module.ENUMS.PLAYBACK_STATES.CALIBRATING) {
         return "Cannot start stimulation while calibrating instrument";
       } else if (this.assigned_open_circuits.length !== 0) {
-        return "Cannot start stimulation with a protocol assigned to a well with an open circuit.";
+        return "Cannot start stimulation with a protocol assigned to a well with an open circuit";
+      } else if (this.is_empty_protocol_assigned) {
+        return "Cannot start stimulation with an empty protocol assigned";
       } else {
         return "Start Stimulation";
       }
