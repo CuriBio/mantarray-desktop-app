@@ -182,7 +182,6 @@ from .exceptions import InvalidStopRecordingTimepointError
 from .exceptions import LocalServerPortAlreadyInUseError
 from .exceptions import MismatchedScriptTypeError
 from .exceptions import MultiprocessingNotSetToSpawnError
-from .exceptions import RecordingFolderDoesNotExistError
 from .exceptions import SamplingPeriodUpdateWhileDataStreamingError
 from .exceptions import ScriptDoesNotContainEndCommandError
 from .exceptions import SerialCommCommandResponseTimeoutError
@@ -402,7 +401,6 @@ __all__ = [
     "DEFAULT_SERVER_PORT_NUMBER",
     "MantarrayFrontPanelMixIn",
     "MantarrayFrontPanel",
-    "RecordingFolderDoesNotExistError",
     "VALID_CONFIG_SETTINGS",
     "FIRMWARE_VERSION_WIRE_OUT_ADDRESS",
     "SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS",

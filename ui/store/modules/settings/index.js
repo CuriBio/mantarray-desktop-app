@@ -14,6 +14,8 @@ const default_state = {
   root_downloads_path: "C:\\Users\\username\\Downloads",
   root_recording_path: "C:\\Users\\username\\AppData\\Roaming\\MantarrayController\\recordings",
   data_analysis_directory: "C:\\Users\\username\\AppData\\Roaming\\MantarrayController\\time_force_data",
+  choosing_recording_dir: false,
+  new_recording_path: null,
   recordings_list: [],
   failed_recordings: [],
   selected_recordings_for_analysis: [],

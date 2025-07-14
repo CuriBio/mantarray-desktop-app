@@ -215,6 +215,8 @@ export default {
       "allow_sw_update_install",
       "recordings_list",
       "root_recording_path",
+      "new_recording_path",
+      "choosing_recording_dir",
     ]),
 
     ...mapState("playback", ["data_analysis_state", "playback_state", "start_recording_from_stim"]),
@@ -245,9 +247,20 @@ export default {
         this.handle_tab_visibility(0);
       }
     },
+    choosing_recording_dir(choosing) {
+      if (choosing) {
+        ipcRenderer.send("open_file_picker", {
+          file_type: "recording_dir",
+          current_file: this.new_recording_path || this.root_recording_path,
+        });
+      }
+    },
   },
   created: async function () {
-    ipcRenderer.on("logs_flask_dir_response", (e, log_dir_name) => {
+    ipcRenderer.on("logs_flask_dir_response", (e, info) => {
+      const { log_dir_name, recording_dir_name } = info;
+      this.$store.commit("settings/set_root_recording_dir", recording_dir_name);
+
       this.$store.commit("settings/set_log_path", log_dir_name);
       this.log_dir_name = log_dir_name;
       const filename_prefix = path.basename(log_dir_name);
@@ -329,6 +342,15 @@ export default {
     if (this.request_stored_accounts) {
       ipcRenderer.send("stored_accounts_request");
     }
+
+    ipcRenderer.on("file_picked", (_, res) => {
+      if (res.file_type === "recording_dir") {
+        this.$store.commit("settings/set_choosing_recording_dir", false);
+        if (res.new_file) {
+          this.$store.commit("settings/set_new_recording_dir", res.new_file);
+        }
+      }
+    });
   },
   methods: {
     send_confirmation: function (idx) {

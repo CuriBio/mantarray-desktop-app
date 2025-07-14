@@ -71,7 +71,6 @@ from ..constants import NUM_INITIAL_MICROSECONDS_TO_PAD
 from ..constants import PLATE_BARCODE_ENTRY_TIME
 from ..constants import REFERENCE_VOLTAGE
 from ..constants import STIM_BARCODE_ENTRY_TIME
-from ..exceptions import RecordingFolderDoesNotExistError
 from ..workers.file_uploader import FileUploader
 
 logger = logging.getLogger(__name__)
@@ -111,15 +110,18 @@ class CommandTracker:
         return bool(self._command_order)
 
 
-def validate_settings(settings_dict: Dict[str, Any]) -> None:
-    """Check if potential new user configuration settings are valid.
+def validate_recording_directory(rec_dir: str) -> bool:
+    try:
+        if not os.path.isdir(rec_dir):
+            logger.info("Recording folder does not exist")
+            return False
+        with tempfile.TemporaryFile(dir=rec_dir) as tf:
+            tf.write(b"test")
+    except Exception:
+        logger.exception("Error validating recording directory")
+        return False
 
-    Args:
-        settings_dict: dictionary containing the new user configuration settings.
-    """
-    if recording_directory := settings_dict.get("recording_directory"):
-        if not os.path.isdir(recording_directory):
-            raise RecordingFolderDoesNotExistError(recording_directory)
+    return True
 
 
 def validate_user_credentials(request_args: Dict[str, Any]) -> Optional[Tuple[AuthTokens, Dict[str, Any]]]:

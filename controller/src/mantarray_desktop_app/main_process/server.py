@@ -56,7 +56,6 @@ from ..constants import VALID_STIMULATION_TYPES
 from ..exceptions import InvalidSubprotocolError
 from ..exceptions import LocalServerPortAlreadyInUseError
 from ..exceptions import LoginFailedError
-from ..exceptions import RecordingFolderDoesNotExistError
 from ..exceptions import ServerManagerNotInitializedError
 from ..exceptions import ServerManagerSingletonAlreadySetError
 from ..sub_processes.ok_comm import check_mantarray_serial_number
@@ -69,7 +68,7 @@ from ..utils.generic import get_current_software_version
 from ..utils.generic import get_info_of_recordings
 from ..utils.generic import get_redacted_string
 from ..utils.generic import redact_sensitive_info_from_path
-from ..utils.generic import validate_settings
+from ..utils.generic import validate_recording_directory
 from ..utils.generic import validate_user_credentials
 from ..utils.stimulation import validate_stim_subprotocol
 
@@ -369,11 +368,6 @@ def update_settings() -> Response:
     except KeyError:
         return Response(status="400 User is not logged in")
 
-    try:
-        validate_settings(request.args)
-    except RecordingFolderDoesNotExistError as e:
-        return Response(status=f"400 {repr(e)}")
-
     queue_command_to_main(
         {
             "communication_type": "update_user_settings",
@@ -382,6 +376,19 @@ def update_settings() -> Response:
     )
 
     return Response(status=204)
+
+
+@flask_app.route("/update_recording_dir", methods=["GET"])
+def update_recording_dir() -> Response:
+    rec_dir = request.args["recording_directory"]
+
+    success = validate_recording_directory(rec_dir)
+
+    if success:
+        settings = {"recording_directory": rec_dir}
+        queue_command_to_main({"communication_type": "update_user_settings", "content": settings})
+
+    return Response(json.dumps({"success": success}), mimetype="application/json", status=200)
 
 
 @flask_app.route("/login", methods=["GET"])
