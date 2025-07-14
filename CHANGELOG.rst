@@ -1,12 +1,20 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+1.2.7 (unreleased)
+------------------
+
+Added:
+^^^^^^
+- New option in settings form which allows changing the directory that recording files are saved to.
+
+
 1.2.6 (2025-02-25)
 ------------------
 
 Changed:
 ^^^^^^^^
-- Installer now prompts whether to install for only the current user or for all users
+- Installer now prompts whether to install for only the current user or for all users.
 
 
 1.2.5 (2024-01-28)
