@@ -154,7 +154,7 @@
     <div
       class="div__settings-tool-tip-save-btn"
       :class="[
-        is_user_logged_in || (new_recording_dir_selected && !invalid_recording_dir)
+        (is_user_logged_in || new_recording_dir_selected) && !invalid_recording_dir
           ? 'div__settings-tool-tip-save-btn-enable'
           : 'div__settings-tool-tip-save-btn-disable',
       ]"
@@ -163,7 +163,7 @@
       <span
         class="span__settings-tool-tip-save-btn-txt"
         :class="[
-          is_user_logged_in || (new_recording_dir_selected && !invalid_recording_dir)
+          (is_user_logged_in || new_recording_dir_selected) && !invalid_recording_dir
             ? 'span__settings-tool-tip-save-btn-txt-enable'
             : 'span__settings-tool-tip-save-btn-txt-disable',
         ]"
@@ -353,19 +353,25 @@ export default {
   methods: {
     ...mapMutations("settings", ["set_selected_pulse3d_version", "set_choosing_recording_dir"]),
     async save_changes() {
-      let enabled = false;
+      if (this.invalid_recording_dir) {
+        return;
+      }
+      let close = false;
+      if (this.new_recording_dir_selected) {
+        const success = await this.$store.dispatch("settings/update_rec_dir", this.new_recording_path);
+        this.invalid_recording_dir = !success;
+        if (!success) {
+          return;
+        }
+        close = true;
+      }
       if (this.is_user_logged_in) {
-        enabled = true;
+        close = true;
         this.$store.dispatch("settings/update_settings", this.user_settings);
         // storing separate and is always able to be saved
         this.$store.commit("settings/set_recording_snapshot_state", this.user_settings.recording_snapshot);
       }
-      if (this.new_recording_dir_selected && !this.invalid_recording_dir) {
-        const success = await this.$store.dispatch("settings/update_rec_dir", this.new_recording_path);
-        this.invalid_recording_dir = !success;
-        enabled = success;
-      }
-      if (enabled) {
+      if (close) {
         // close modal always on save changes
         this.$emit("close_modal", true);
       }

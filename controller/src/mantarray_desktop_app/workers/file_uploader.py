@@ -139,6 +139,7 @@ class FileUploader(WebWorker):
     """Initiate and handle file upload process.
 
     Args:
+        upload_type: 'recording' or 'logs'
         file_directory: root recording directory.
         file_name: sub directory for h5 files to create zip file name.
         zipped_recordings_dir: static zipped recording directory to store zip files.
@@ -149,6 +150,7 @@ class FileUploader(WebWorker):
 
     def __init__(
         self,
+        upload_type: str,
         file_directory: str,
         file_name: str,
         zipped_recordings_dir: str,
@@ -161,7 +163,7 @@ class FileUploader(WebWorker):
         self.file_directory = file_directory
         self.file_name = file_name
         self.zipped_recordings_dir = zipped_recordings_dir
-        self.upload_type = "recording" if "recording" in self.file_directory else "logs"
+        self.upload_type = upload_type
 
         # this value is only needed for recording uploads
         if self.upload_type == "recording":

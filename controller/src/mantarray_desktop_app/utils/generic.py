@@ -509,7 +509,7 @@ def upload_log_files_to_s3(config_settings: Dict[str, str]) -> None:
     with tempfile.TemporaryDirectory() as zipped_dir:
         try:
             file_uploader = FileUploader(
-                file_directory, sub_dir_name, zipped_dir, customer_id, user_name, user_password
+                "logs", file_directory, sub_dir_name, zipped_dir, customer_id, user_name, user_password
             )
             file_uploader()
         except Exception as e:
