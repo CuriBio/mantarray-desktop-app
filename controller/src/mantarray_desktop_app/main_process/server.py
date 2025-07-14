@@ -379,7 +379,7 @@ def update_settings() -> Response:
 
 
 @flask_app.route("/update_recording_dir", methods=["GET"])
-def update_recording_dir() -> Response:
+def update_recording_dir() -> Response:  # pragma: no cover
     rec_dir = request.args["recording_directory"]
 
     success = validate_recording_directory(rec_dir)

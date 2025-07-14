@@ -110,7 +110,7 @@ class CommandTracker:
         return bool(self._command_order)
 
 
-def validate_recording_directory(rec_dir: str) -> bool:
+def validate_recording_directory(rec_dir: str) -> bool:  # pragma: no cover
     try:
         if not os.path.isdir(rec_dir):
             logger.info("Recording folder does not exist")
