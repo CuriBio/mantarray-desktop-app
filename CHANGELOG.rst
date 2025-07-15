@@ -8,6 +8,11 @@ Added:
 ^^^^^^
 - New option in settings form which allows changing the directory that recording files are saved to.
 
+Changed:
+^^^^^^^^
+- Failed upload message no longer mentions that a retry will be performed, now points to Pulse dashboard
+  for more info.
+
 
 1.2.6 (2025-02-25)
 ------------------
