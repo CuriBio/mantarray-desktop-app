@@ -1,9 +1,10 @@
 /* eslint-disable */
 import { EventEmitter } from "events";
-import { BrowserWindow, app, screen, ipcMain } from "electron";
+import { BrowserWindow, app, screen, ipcMain, dialog } from "electron";
 const DEV_SERVER_URL = process.env.DEV_SERVER_URL;
 const isProduction = process.env.NODE_ENV === "production";
 const isDev = process.env.NODE_ENV === "development";
+import path from "path";
 
 import main_utils from "./utils.js"; // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
 
@@ -120,10 +121,31 @@ export default class BrowserWinHandler {
       });
     });
     ipcMain.once("logs_flask_dir_request", (event) => {
-      event.reply("logs_flask_dir_response", get_flask_logs_full_path(store));
+      event.reply("logs_flask_dir_response", {
+        log_dir_name: get_flask_logs_full_path(store),
+        recording_dir_name: path.join(path.dirname(store.path), "recordings"),
+      });
     });
     ipcMain.once("log_file_id_request", (event) => {
       event.reply("log_file_id_response", main_utils.FILENAME_PREFIX);
+    });
+
+    ipcMain.on("open_file_picker", (event, info) => {
+      const { file_type, current_file } = info;
+      dialog
+        .showOpenDialog(this.browserWindow, {
+          title: "Choose Recording Save Location",
+          defaultPath: current_file,
+          properties: ["openDirectory"],
+        })
+        .then((result) => {
+          const first_file = result.filePaths[0] || null;
+          const new_file = result.canceled ? null : first_file;
+          event.reply("file_picked", { file_type, new_file });
+        })
+        .catch(() => {
+          event.reply("file_picked", { file_type, new_file: null });
+        });
     });
   }
 

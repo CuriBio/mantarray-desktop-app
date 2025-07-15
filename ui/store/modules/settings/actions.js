@@ -18,6 +18,17 @@ export default {
       this.commit("settings/set_selected_pulse3d_version", pulse3d_version);
     }
   },
+  async update_rec_dir(context, new_dir) {
+    const url = "http://localhost:4567/update_recording_dir";
+    const params = { recording_directory: new_dir };
+
+    const { data } = await call_axios_get_from_vuex(url, context, params);
+    const success = data.success;
+    if (success) {
+      this.commit("settings/set_root_recording_dir", new_dir);
+    }
+    return success;
+  },
   async login_user(context, user_details) {
     const { customer_id, username, password } = user_details;
 

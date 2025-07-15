@@ -16,7 +16,6 @@ from mantarray_desktop_app import INSTRUMENT_INITIALIZING_STATE
 from mantarray_desktop_app import LIVE_VIEW_ACTIVE_STATE
 from mantarray_desktop_app import MantarrayMcSimulator
 from mantarray_desktop_app import RECORDING_STATE
-from mantarray_desktop_app import RecordingFolderDoesNotExistError
 from mantarray_desktop_app import SERVER_INITIALIZING_STATE
 from mantarray_desktop_app import SERVER_READY_STATE
 from mantarray_desktop_app import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
@@ -723,19 +722,6 @@ def test_start_data_analysis__returns_empty_204_response_if_successful(
         "/start_data_analysis", json={"selected_recordings": ["recording_1", "recording_2"]}
     )
     assert response.status_code == 204
-
-
-def test_update_settings__returns_error_message_when_recording_directory_does_not_exist(
-    client_and_server_manager_and_shared_values,
-):
-    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    #  mock a user being logged in
-    shared_values_dict["user_creds"] = {}
-    test_dir = "fake_dir/fake_sub_dir"
-
-    response = test_client.get(f"/update_settings?recording_directory={test_dir}")
-    assert response.status_code == 400
-    assert response.status.endswith(f"{repr(RecordingFolderDoesNotExistError(test_dir))}")
 
 
 def test_update_settings__returns_error_message_when_user_is_not_logged_in(

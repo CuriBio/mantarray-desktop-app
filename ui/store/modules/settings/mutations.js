@@ -84,6 +84,15 @@ export default {
   set_data_analysis_directory(state, directory) {
     state.data_analysis_directory = directory;
   },
+  set_choosing_recording_dir(state, bool) {
+    state.choosing_recording_dir = bool;
+  },
+  set_new_recording_dir(state, new_recording_path) {
+    state.new_recording_path = new_recording_path;
+  },
+  set_root_recording_dir(state, root_recording_path) {
+    state.root_recording_path = root_recording_path;
+  },
   set_failed_recordings(state, recordings) {
     state.failed_recordings = [...recordings];
   },

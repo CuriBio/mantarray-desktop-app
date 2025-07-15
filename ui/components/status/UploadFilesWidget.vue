@@ -112,7 +112,7 @@ export default {
         this.modal_labels = {
           header: "Error!",
           msg_one: `${error_msg}: ${this.last_file_name}.`,
-          msg_two: "Will automatically retry next start up.",
+          msg_two: "If upload was successful, analysis status can be found on the Pulse dashboard.",
           button_names: ["Close"],
         };
       } else if (this.upload_error === "usage") {

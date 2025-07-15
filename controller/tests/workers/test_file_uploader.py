@@ -49,6 +49,7 @@ def fixture_create_file_uploader():
         create_tokens=False,
     ):
         test_file_uploader = FileUploader(
+            "recording" if "recording" in file_directory else "logs",
             file_directory,
             file_name,
             zipped_recordings_dir,

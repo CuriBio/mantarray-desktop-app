@@ -231,6 +231,7 @@ def test_upload_log_files_to_s3__successful_upload(mocker):
     generic.upload_log_files_to_s3(config_settings)
 
     mocked_uploader.assert_called_once_with(
+        "logs",
         os.path.dirname(config_settings["log_directory"]),
         os.path.basename(config_settings["log_directory"]),
         mocked_tempdir.return_value.__enter__(),
@@ -268,6 +269,7 @@ def test_upload_log_files_to_s3__error_during_upload(mocker):
     generic.upload_log_files_to_s3(config_settings)
 
     mocked_uploader.assert_called_once_with(
+        "logs",
         os.path.dirname(config_settings["log_directory"]),
         os.path.basename(config_settings["log_directory"]),
         mocked_tempdir.return_value.__enter__(),

@@ -135,6 +135,17 @@
         class="div__tooltip-container"
       />
     </div>
+    <div class="div__settings-select-recording-dir-container">
+      <span class="span__settings-select-recording-dir-label"> Save To: </span>
+      <span
+        v-b-popover.hover.bottom="effective_recording_path"
+        class="span__settings-select-recording-dir-display"
+        :style="invalid_recording_dir ? 'border-color: red' : null"
+      >
+        {{ effective_recording_path }}
+      </span>
+      <span class="span__settings-select-recording-dir" @click="open_file_picker"> ... </span>
+    </div>
 
     <canvas class="canvas__settings-file-upload-separator" />
     <div class="div__settings-tool-tip-cancel-btn" @click="cancel_changes">
@@ -143,7 +154,7 @@
     <div
       class="div__settings-tool-tip-save-btn"
       :class="[
-        is_user_logged_in
+        (is_user_logged_in || new_recording_dir_selected) && !invalid_recording_dir
           ? 'div__settings-tool-tip-save-btn-enable'
           : 'div__settings-tool-tip-save-btn-disable',
       ]"
@@ -152,7 +163,7 @@
       <span
         class="span__settings-tool-tip-save-btn-txt"
         :class="[
-          is_user_logged_in
+          (is_user_logged_in || new_recording_dir_selected) && !invalid_recording_dir
             ? 'span__settings-tool-tip-save-btn-txt-enable'
             : 'span__settings-tool-tip-save-btn-txt-disable',
         ]"
@@ -230,6 +241,7 @@ export default {
         password: "",
         username: "",
       },
+      invalid_recording_dir: false,
       account_locked_labels: {
         header: "Warning!",
         msg_one: "This account has been locked because it has reached the maximum login attempts.",
@@ -250,6 +262,8 @@ export default {
       "auto_upload",
       "auto_delete",
       "run_recording_snapshot_default",
+      "root_recording_path",
+      "new_recording_path",
     ]),
     sorted_pulse3d_versions: function () {
       const mapped_versions = {};
@@ -306,6 +320,12 @@ export default {
     is_user_logged_in: function () {
       return this.user_account.username && this.user_account.username !== "";
     },
+    effective_recording_path: function () {
+      return this.new_recording_path || this.root_recording_path;
+    },
+    new_recording_dir_selected: function () {
+      return this.new_recording_path !== this.root_recording_path && this.new_recording_path != null;
+    },
   },
   watch: {
     job_limit_reached: function () {
@@ -326,14 +346,32 @@ export default {
         this.set_selected_pulse3d_version(this.sorted_pulse3d_versions[0].split(" ")[0]);
       }
     },
+    new_recording_path() {
+      this.invalid_recording_dir = false;
+    },
   },
   methods: {
-    ...mapMutations("settings", ["set_selected_pulse3d_version"]),
+    ...mapMutations("settings", ["set_selected_pulse3d_version", "set_choosing_recording_dir"]),
     async save_changes() {
+      if (this.invalid_recording_dir) {
+        return;
+      }
+      let close = false;
+      if (this.new_recording_dir_selected) {
+        const success = await this.$store.dispatch("settings/update_rec_dir", this.new_recording_path);
+        this.invalid_recording_dir = !success;
+        if (!success) {
+          return;
+        }
+        close = true;
+      }
       if (this.is_user_logged_in) {
+        close = true;
         this.$store.dispatch("settings/update_settings", this.user_settings);
         // storing separate and is always able to be saved
         this.$store.commit("settings/set_recording_snapshot_state", this.user_settings.recording_snapshot);
+      }
+      if (close) {
         // close modal always on save changes
         this.$emit("close_modal", true);
       }
@@ -364,6 +402,7 @@ export default {
     },
     cancel_changes() {
       this.reset_to_stored_state();
+      this.$store.commit("settings/set_new_recording_dir", null);
       this.user_details = { ...this.user_account };
       // if user is logged in and just wants to close the modal, then set to true and still save to YAML
       this.$emit("close_modal", this.is_user_logged_in);
@@ -386,6 +425,9 @@ export default {
       this.user_settings.pulse3d_version = this.sorted_pulse3d_versions[idx].split(" ")[0];
       this.pulse3d_focus_idx = idx;
     },
+    open_file_picker() {
+      this.set_choosing_recording_dir(true);
+    },
   },
 };
 </script>
@@ -395,7 +437,7 @@ export default {
   left: 0px;
   background-color: rgba(0, 0, 0);
   width: 700px;
-  height: 723px;
+  height: 765px;
   position: absolute;
   overflow: hidden;
   pointer-events: none;
@@ -673,7 +715,7 @@ export default {
   position: absolute;
   width: 180px;
   height: 55px;
-  top: 639px;
+  top: 680px;
   left: 362px;
   visibility: visible;
   z-index: 55;
@@ -719,7 +761,7 @@ export default {
   position: absolute;
   width: 180px;
   height: 55px;
-  top: 639px;
+  top: 680px;
   left: 160px;
   visibility: visible;
   z-index: 55;
@@ -752,6 +794,53 @@ export default {
 .span__settings-tool-tip-save-btn-txt-disable,
 .span__settings-tool-tip-login-btn-txt-disable {
   color: #6e6f72;
+}
+
+.div__settings-select-recording-dir-container {
+  position: absolute;
+  display: flex;
+  top: 605px;
+  height: 35px;
+  left: 50px;
+  width: 600px;
+  z-index: 2;
+}
+
+.span__settings-select-recording-dir-label {
+  display: block;
+  height: 35px;
+  color: rgb(183, 183, 183);
+  margin-right: 15px;
+  padding-top: 5px;
+}
+
+.span__settings-select-recording-dir-display {
+  flex: 1;
+  display: block;
+  height: 35px;
+  color: rgb(183, 183, 183);
+  border: 1px solid white;
+  width: 0; /* not sure why this makes the below options work correctly without expanding the container size, but it does */
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  padding-left: 5px;
+  padding-top: 5px;
+  padding-right: 5px;
+  text-align: left;
+}
+
+.span__settings-select-recording-dir {
+  padding-top: 5px;
+  display: block;
+  height: 35px;
+  width: 40px;
+  background-color: rgb(183, 183, 183);
+  cursor: pointer;
+  color: #000000;
+}
+.span__settings-select-recording-dir:hover {
+  background-color: #b7b7b7c9;
 }
 
 .span__settings-tool-tip-btn-txt-enable,
@@ -794,7 +883,7 @@ export default {
   position: absolute;
   width: 512px;
   height: 1px;
-  top: 612px;
+  top: 660px;
   left: 95px;
   visibility: visible;
   background-color: #878d99;

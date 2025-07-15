@@ -67,10 +67,6 @@ class UnrecognizedSimulatorTestCommandError(Exception):
     pass
 
 
-class RecordingFolderDoesNotExistError(Exception):
-    pass
-
-
 class InvalidStopRecordingTimepointError(Exception):
     pass
 

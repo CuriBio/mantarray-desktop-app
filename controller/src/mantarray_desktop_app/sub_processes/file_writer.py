@@ -1194,6 +1194,7 @@ class FileWriterProcess(InfiniteProcess):
         user_name = self._user_settings["user_name"]
 
         file_uploader = FileUploader(
+            "recording",
             self._file_directory,
             self._current_recording_dir,
             self._zipped_files_dir,

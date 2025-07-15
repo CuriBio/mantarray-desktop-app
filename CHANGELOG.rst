@@ -1,15 +1,28 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+1.2.7 (unreleased)
+------------------
+
+Added:
+^^^^^^
+- New option in settings form which allows changing the directory that recording files are saved to.
+
+Changed:
+^^^^^^^^
+- Failed upload message no longer mentions that a retry will be performed, now points to Pulse dashboard
+  for more info.
+
+
 1.2.6 (2025-02-25)
 ------------------
 
 Changed:
 ^^^^^^^^
-- Installer now prompts whether to install for only the current user or for all users
+- Installer now prompts whether to install for only the current user or for all users.
 
 
-1.2.5 (2024-01-28)
+1.2.5 (2025-01-28)
 ------------------
 
 Added:

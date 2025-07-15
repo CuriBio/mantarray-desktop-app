@@ -146,7 +146,6 @@ jobs:
         run: |
           cd controller/
           pipenv --python ${{ matrix.python-version }}
-          pipenv run pip freeze
 
       - name: Install Python Dependencies
         env:
@@ -154,6 +153,7 @@ jobs:
         run: |
           cd controller/
           pipenv install -v --dev --deploy
+          pipenv run pip freeze
 
       - name: Download zlib Library
         env:
