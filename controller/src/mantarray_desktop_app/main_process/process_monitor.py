@@ -230,9 +230,14 @@ class MantarrayProcessesMonitor(InfiniteThread):
         elif communication_type == "update_user_settings":
             new_values = communication["content"]
             if new_recording_directory := new_values.get("recording_directory"):
-                to_file_writer_queue = process_manager.queue_container.to_file_writer
-                to_file_writer_queue.put_nowait(
+                process_manager.queue_container.to_file_writer.put_nowait(
                     {"command": "update_directory", "new_directory": new_recording_directory}
+                )
+                process_manager.queue_container.to_data_analyzer.put_nowait(
+                    {
+                        "communication_type": "update_directory",
+                        "new_directory": os.path.join(new_recording_directory, "time_force_data"),
+                    }
                 )
 
                 scrubbed_recordings_dir = redact_sensitive_info_from_path(new_recording_directory)
@@ -246,8 +251,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 }
 
             if "customer_id" in new_values or "auto_upload_on_completion" in new_values:
-                to_file_writer_queue = process_manager.queue_container.to_file_writer
-                to_file_writer_queue.put_nowait(
+                process_manager.queue_container.to_file_writer.put_nowait(
                     {"command": "update_user_settings", "config_settings": new_values}
                 )
 

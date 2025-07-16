@@ -68,7 +68,6 @@ def run_magnet_finding_alg(
                 if is_recording_snapshot:
                     analysis_dfs.append(df)
                 else:
-                    # defaults to directory under //MantarrayController//time_force_data
                     output_path = os.path.join(output_dir, f"{recording_name}.csv")
                     df.to_csv(output_path)
 
