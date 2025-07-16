@@ -136,7 +136,19 @@
       />
     </div>
     <div class="div__settings-select-recording-dir-container">
-      <span class="span__settings-select-recording-dir-label"> Save To: </span>
+      <span class="span__settings-select-recording-dir-label">Save To:</span>
+      <span
+        v-b-popover.hover.bottom="
+          'Select the directory in which to save H5 recording files and output Data Analysis results'
+        "
+        class="span__settings-select-recording-dir-info"
+      >
+        <svg>
+          <path
+            d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"
+          ></path>
+        </svg>
+      </span>
       <span
         v-b-popover.hover.bottom="effective_recording_path"
         class="span__settings-select-recording-dir-display"
@@ -810,7 +822,15 @@ export default {
   display: block;
   height: 35px;
   color: rgb(183, 183, 183);
-  margin-right: 15px;
+  padding-top: 5px;
+}
+
+.span__settings-select-recording-dir-info {
+  height: 35px;
+  width: 20px;
+  margin-left: 5px;
+  margin-right: 10px;
+  fill: #b7b7b7;
   padding-top: 5px;
 }
 

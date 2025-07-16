@@ -436,6 +436,16 @@ class DataAnalyzerProcess(InfiniteProcess):
                 raise UnrecognizedCommandFromMainToDataAnalyzerError(
                     f"Invalid command: {communication['command']} for communication_type: {communication_type}"
                 )
+        elif communication_type == "update_directory":  # pragma: no cover
+            self._mag_finder_output_dir = communication["new_directory"]
+            self._check_dirs()
+            self._comm_to_main_queue.put_nowait(
+                {
+                    "communication_type": "command_receipt",
+                    "command": "update_directory",
+                    "new_directory": communication["new_directory"],
+                }
+            )
         else:
             raise UnrecognizedCommandFromMainToDataAnalyzerError(communication_type)
 

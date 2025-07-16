@@ -6,7 +6,8 @@ Changelog for Mantarray Desktop App
 
 Added:
 ^^^^^^
-- New option in settings form which allows changing the directory that recording files are saved to.
+- New option in settings form which allows changing the directory that recording files are saved to and data analysis
+  results are output to.
 
 Changed:
 ^^^^^^^^
