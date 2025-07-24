@@ -7,6 +7,7 @@ Changelog for Mantarray Desktop App
 Fixed:
 ^^^^^^
 - Start stim button is disabled if an empty protocol is assigned to any well.
+- Error modal is no longer hidden when clicking outside of it.
 - Recording timer when recording started with stimulation.
 
 
