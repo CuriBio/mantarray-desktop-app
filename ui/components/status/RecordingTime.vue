@@ -5,7 +5,7 @@
       {{ recording_info }}&nbsp;<wbr />
     </span>
     <!-- original Mockflow ID: cmpD6f15d306b7fda903e3d16885f3ca36aa-->
-    <span class="span__time-text">{{ recoded_time }}</span>
+    <span class="span__time-text">{{ recording_duration }}</span>
     <!--</div>-->
   </div>
 </template>
@@ -14,7 +14,7 @@ import { mapGetters, mapState } from "vuex";
 import playback_module from "@/store/modules/playback";
 /**
  * @vue-data {String} recording_info - String with default value
- * @vue-data {String} recoded_time - String with empty string
+ * @vue-data {String} recording_duration - String with empty string
  * @vue-data {String} playback_state_enums - Playback status in Vuex store.
  * @vue-computed {Int} x_time_index - Current value of time index in Vuex store
  * @vue-computed {Int} recording_start_time - Current value of the recording start time in Vuex store
@@ -24,7 +24,7 @@ export default {
   data: function () {
     return {
       recording_info: "Not Recording",
-      recoded_time: "",
+      recording_duration: "",
       playback_state_enums: playback_module.ENUMS.PLAYBACK_STATES,
     };
   },
@@ -48,17 +48,24 @@ export default {
     },
     update_text_time() {
       if (this.playback_state === this.playback_state_enums.RECORDING) {
-        const current_diff_in_us = this.x_time_index - this.recording_start_time;
-        let current_diff_in_ms = current_diff_in_us / 1000;
-        const ms = current_diff_in_ms % 1000;
-        current_diff_in_ms = (current_diff_in_ms - ms) / 1000;
-        const secs = current_diff_in_ms % 60;
-        current_diff_in_ms = (current_diff_in_ms - secs) / 60;
-        const mins = current_diff_in_ms % 60;
-        const hrs = (current_diff_in_ms - mins) / 60;
-
         this.recording_info = "Recording:";
-        this.recoded_time =
+
+        let ms = 0;
+        let secs = 0;
+        let mins = 0;
+        let hrs = 0;
+        const current_diff_in_us = this.x_time_index - this.recording_start_time;
+        if (current_diff_in_us > 0) {
+          const current_diff_in_ms = Math.round(current_diff_in_us / 1000);
+          ms = current_diff_in_ms % 1000;
+          const current_diff_in_secs = (current_diff_in_ms - ms) / 1000;
+          secs = current_diff_in_secs % 60;
+          const current_diff_in_mins = (current_diff_in_secs - secs) / 60;
+          mins = current_diff_in_mins % 60;
+          hrs = (current_diff_in_mins - mins) / 60;
+        }
+
+        this.recording_duration =
           this.pad(hrs).toString() +
           ":" +
           this.pad(mins).toString() +
@@ -68,7 +75,7 @@ export default {
           this.pad(ms, 3).toString();
       } else {
         this.recording_info = "Not Recording";
-        this.recoded_time = "";
+        this.recording_duration = "";
       }
     },
   },

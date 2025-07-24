@@ -1,7 +1,16 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.2.7 (unreleased)
+1.2.8 (unreleased)
+------------------
+
+Fixed:
+^^^^^^
+- Start stim button is disabled if an empty protocol is assigned to any well.
+- Recording timer when recording started with stimulation.
+
+
+1.2.7 (2025-07-24)
 ------------------
 
 Added:
