@@ -16,7 +16,7 @@ Fixed:
 ^^^^^^
 - Start stim button is now disabled if an empty protocol is assigned to any well.
 - Error modal is no longer hidden when clicking outside of it.
-- Recording timer incorrect formatting when recording started with stimulation.
+- Recording timer no longer has incorrect formatting when recording is started with stimulation.
 
 
 1.2.7 (2025-07-24)
