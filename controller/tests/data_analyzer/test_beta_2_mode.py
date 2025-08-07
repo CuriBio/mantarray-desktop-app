@@ -180,8 +180,7 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
     # set arbitrary sampling period
     test_sampling_period = 1000
     set_sampling_period(four_board_analyzer_process_beta_2_mode, test_sampling_period)
-    test_barcode = TEST_START_MANAGED_ACQUISITION_COMMUNICATION["barcode"]
-    test_barcode[-1] = final_plate_barcode_char
+    test_barcode = TEST_START_MANAGED_ACQUISITION_COMMUNICATION["barcode"][:-1] + final_plate_barcode_char
 
     # start managed_acquisition
     put_object_into_queue_and_raise_error_if_eventually_still_empty(

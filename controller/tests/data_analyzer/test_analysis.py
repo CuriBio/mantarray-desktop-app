@@ -121,9 +121,7 @@ def test_get_force_signal__converts_to_force_correctly(is_beta_2_data, compress,
         mocked_array.assert_called_once_with(
             [filter_and_compress_res[0], mocked_mfd_from_memsic.return_value], dtype=np.float64
         )
-        mocked_displacement_from_mfd.assert_called_once_with(
-            mocked_array.return_value, mocked_get_stiffness_factor.return_value
-        )
+        mocked_displacement_from_mfd.assert_called_once_with(mocked_array.return_value, test_barcode[-2:])
         mocked_voltage_from_gmr.assert_not_called()
         mocked_displacement_from_voltage.assert_not_called()
         displacement_res = mocked_displacement_from_mfd.return_value
