@@ -8,6 +8,10 @@ Added:
 ^^^^^^
 - ML barcodes may now also have ``5`` as the final character.
 
+Changed:
+^^^^^^^^
+- Update Live View conversion factors.
+
 Fixed:
 ^^^^^^
 - Start stim button is now disabled if an empty protocol is assigned to any well.

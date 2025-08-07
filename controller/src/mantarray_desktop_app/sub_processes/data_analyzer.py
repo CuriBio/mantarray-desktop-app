@@ -53,11 +53,11 @@ from ..constants import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from ..constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
 from ..constants import DEFAULT_SAMPLING_PERIOD
 from ..constants import GENERIC_24_WELL_DEFINITION
+from ..constants import MAGNET_TYPE_TO_MM_PER_MT_Z_AXIS_SENSOR_0
 from ..constants import MICRO_TO_BASE_CONVERSION
 from ..constants import MICROSECONDS_PER_CENTIMILLISECOND
 from ..constants import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from ..constants import PERFOMANCE_LOGGING_PERIOD_SECS
-from ..constants import POST_STIFFNESS_TO_MM_PER_MT_Z_AXIS_SENSOR_0
 from ..constants import RECORDING_SNAPSHOT_DUR_SECS
 from ..constants import REF_INDEX_TO_24_WELL_INDEX
 from ..constants import SERIAL_COMM_DEFAULT_DATA_CHANNEL
@@ -79,11 +79,9 @@ def _get_post_stiffness_factor_for_well(plate_barcode: str, well_idx: int) -> in
 
 
 def calculate_displacement_from_magnetic_flux_density(
-    magnetic_flux_data: NDArray[(2, Any), np.float64], post_stiffness_factor: int
+    magnetic_flux_data: NDArray[(2, Any), np.float64], magnet_type: str
 ) -> NDArray[(2, Any), np.float64]:
     """Convert magnetic flux density to displacement.
-
-    Conversion values were obtained 06/13/2022 by Kevin Gray
 
     Args:
         magnetic_flux_data: time and magnetic flux density numpy array.
@@ -95,7 +93,7 @@ def calculate_displacement_from_magnetic_flux_density(
     time = magnetic_flux_data[0, :]
 
     # calculate displacement
-    sample_in_mm = sample_in_milliteslas * POST_STIFFNESS_TO_MM_PER_MT_Z_AXIS_SENSOR_0[post_stiffness_factor]
+    sample_in_mm = sample_in_milliteslas * MAGNET_TYPE_TO_MM_PER_MT_Z_AXIS_SENSOR_0[magnet_type]
 
     return np.vstack((time, sample_in_mm)).astype(np.float64)
 
@@ -119,7 +117,7 @@ def get_force_signal(
             [filtered_memsic[0], calculate_magnetic_flux_density_from_memsic(filtered_memsic[1])],
             dtype=np.float64,
         )
-        displacement = calculate_displacement_from_magnetic_flux_density(mfd, post_stiffness_factor)
+        displacement = calculate_displacement_from_magnetic_flux_density(mfd, plate_barcode[-2:])
     else:
         filtered_gmr = apply_noise_filtering(raw_signal, filter_coefficients)
         if compress:

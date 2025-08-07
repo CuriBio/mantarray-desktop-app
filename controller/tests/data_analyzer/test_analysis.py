@@ -10,8 +10,8 @@ from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
+from mantarray_desktop_app.constants import MAGNET_TYPE_TO_MM_PER_MT_Z_AXIS_SENSOR_0
 from mantarray_desktop_app.constants import MICRO_TO_BASE_CONVERSION
-from mantarray_desktop_app.constants import POST_STIFFNESS_TO_MM_PER_MT_Z_AXIS_SENSOR_0
 from mantarray_desktop_app.simulators.mc_simulator import MantarrayMcSimulator
 from mantarray_desktop_app.sub_processes import data_analyzer
 from mantarray_desktop_app.sub_processes.data_analyzer import check_for_new_twitches
@@ -50,15 +50,14 @@ __fixtures__ = [
 
 
 @pytest.mark.parametrize(
-    "test_post_stiffness_factor,expected_conversion_factor",
-    list(POST_STIFFNESS_TO_MM_PER_MT_Z_AXIS_SENSOR_0.items()),
+    "test_magnet_type,expected_conversion_factor", list(MAGNET_TYPE_TO_MM_PER_MT_Z_AXIS_SENSOR_0.items())
 )
 def test_calculate_magnetic_flux_density_from_memsic__returns_correct_value(
-    test_post_stiffness_factor, expected_conversion_factor
+    test_magnet_type, expected_conversion_factor
 ):
     test_mfd = np.array([list(range(15)), [randint(0, 100) for _ in range(15)]], dtype=np.float64)
     actual = data_analyzer.calculate_displacement_from_magnetic_flux_density(
-        test_mfd.copy(), test_post_stiffness_factor
+        test_mfd.copy(), test_magnet_type
     )
 
     test_mfd[1] *= expected_conversion_factor
