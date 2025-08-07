@@ -45,9 +45,7 @@ def fill_da_input_data_queue(input_queue, num_seconds):
     for seconds in range(num_seconds):
         data_packet = copy.deepcopy(SIMPLE_BETA_2_CONSTRUCT_DATA_FROM_ALL_WELLS)
         data_packet["time_indices"] = np.arange(
-            seconds * single_packet_duration,
-            (seconds + 1) * single_packet_duration,
-            DEFAULT_SAMPLING_PERIOD,
+            seconds * single_packet_duration, (seconds + 1) * single_packet_duration, DEFAULT_SAMPLING_PERIOD
         )
         for well_idx in range(24):
             data_packet[well_idx] = {"time_offsets": np.zeros((2, 100), dtype=np.uint16)}
@@ -162,8 +160,9 @@ def test_DataAnalyzerProcess_beta_2_performance__single_data_packet_per_well_wit
 
 
 @freeze_time("2021-06-15 16:39:10.120589")
+@pytest.mark.parametrize("final_plate_barcode_char", ["2", "5"])
 def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_retrieves_a_data_packet_from_file_writer__and_sends_data_available_message_to_main(
-    four_board_analyzer_process_beta_2_mode, mocker
+    final_plate_barcode_char, four_board_analyzer_process_beta_2_mode, mocker
 ):
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
@@ -181,12 +180,11 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
     # set arbitrary sampling period
     test_sampling_period = 1000
     set_sampling_period(four_board_analyzer_process_beta_2_mode, test_sampling_period)
-
-    test_barcode = TEST_START_MANAGED_ACQUISITION_COMMUNICATION["barcode"]
+    test_barcode = TEST_START_MANAGED_ACQUISITION_COMMUNICATION["barcode"][:-1] + final_plate_barcode_char
 
     # start managed_acquisition
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION), from_main_queue
+        {**TEST_START_MANAGED_ACQUISITION_COMMUNICATION, "barcode": test_barcode}, from_main_queue
     )
     invoke_process_run_and_check_errors(da_process)
     confirm_queue_is_eventually_of_size(to_main_queue, 1)

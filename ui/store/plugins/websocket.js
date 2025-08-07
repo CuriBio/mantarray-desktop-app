@@ -38,7 +38,11 @@ export default function create_web_socket_plugin(socket) {
         store.state.playback.playback_state === ENUMS.PLAYBACK_STATES.LIVE_VIEW_ACTIVE ||
         store.state.playback.playback_state === ENUMS.PLAYBACK_STATES.RECORDING
       ) {
-        store.dispatch("data/append_plate_waveforms", JSON.parse(data_json));
+        const data = JSON.parse(data_json);
+        store.dispatch("data/append_plate_waveforms", data);
+        console.log(
+          `Received waveform data, timepoints ${data.earliest_timepoint} - ${data.latest_timepoint}`
+        );
       }
 
       /* istanbul ignore else */
@@ -82,6 +86,7 @@ export default function create_web_socket_plugin(socket) {
     add_handler_with_error_handling(socket, "stimulation_data", (stim_json, cb) => {
       // Tanner (12/20/21): may want to put the same checks here as are in the waveform_data handler once stim waveforms are sent instead of subprotocol indices
       store.dispatch("data/append_stim_waveforms", JSON.parse(stim_json));
+      console.log(`Received stim data: ${stim_json}`);
       /* istanbul ignore else */
       if (cb) {
         cb("done");
@@ -208,6 +213,7 @@ export default function create_web_socket_plugin(socket) {
 
     add_handler_with_error_handling(socket, "error", (message_json, cb) => {
       const message = JSON.parse(message_json);
+      console.error(`Received error: ${message_json}`);
       store.commit("settings/set_shutdown_error_status", message);
       /* istanbul ignore else */
       if (cb) {

@@ -474,17 +474,8 @@ STIM_WELL_IDX_TO_MODULE_ID: immutabledict[int, int] = immutabledict(
 # Calibration
 CALIBRATION_RECORDING_DUR_SECONDS = 30
 
-# Live View Conversion (last updated 1/19/23)
-POST_STIFFNESS_TO_MM_PER_MT_Z_AXIS_SENSOR_0 = immutabledict(
-    {
-        1: 8,
-        # Tanner (1/19/23): using 1x stiffness value for 3x, 6x, 9x since they are currently unknown
-        3: 8,
-        6: 8,
-        9: 8,
-        12: 6.896551,
-    }
-)
+# Live View Conversion (last updated 8/7/25)
+MAGNET_TYPE_TO_MM_PER_MT_Z_AXIS_SENSOR_0 = immutabledict({"-1": 1 / 0.114, "-2": 1 / 0.114, "-5": 1 / 0.213})
 
 # Recording Snapshot
 RECORDING_SNAPSHOT_DUR_SECS = 5 + (NUM_INITIAL_MICROSECONDS_TO_PAD / MICRO_TO_BASE_CONVERSION)

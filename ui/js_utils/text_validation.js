@@ -248,8 +248,19 @@ export class TextValidation {
     if (experiment_id < 0 || experiment_id > 499) {
       return " ";
     }
-    // check if in beta one or two mode. if last digit invalid then mark the barcode as invalid
-    if ((beta_2_mode && barcode[11] !== "2") || (!beta_2_mode && barcode[11] !== "1")) {
+    // check if in beta one or two mode. if last char invalid then mark the barcode as invalid.
+    // allowed chars depend on beta version
+    const allowed_final_chars = [];
+    if (beta_2_mode) {
+      allowed_final_chars.push("2");
+      // new magnet types only allowed for ML barcodes
+      if (barcode[1] === "L") {
+        allowed_final_chars.push("5");
+      }
+    } else {
+      allowed_final_chars.push("1");
+    }
+    if (!allowed_final_chars.includes(barcode[11])) {
       return " ";
     }
     return "";

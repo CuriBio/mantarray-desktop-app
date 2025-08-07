@@ -22,8 +22,14 @@ export default {
     state.selected_wells.map((well) => delete state.protocol_assignments[well]);
     state.protocol_assignments = { ...state.protocol_assignments };
 
-    if (Object.keys(state.protocol_assignments).length === 0)
+    if (
+      Object.keys(state.protocol_assignments).length === 0 &&
+      ![STIM_STATUS.ERROR, STIM_STATUS.SHORT_CIRCUIT_ERROR, STIM_STATUS.CONFIG_CHECK_COMPLETE].includes(
+        status
+      )
+    ) {
       state.stim_status = STIM_STATUS.NO_PROTOCOLS_ASSIGNED;
+    }
   },
   set_protocol_name({ protocol_editor }, name) {
     protocol_editor.name = name;
@@ -65,6 +71,15 @@ export default {
       edit_mode: { status: false, letter: "", label: "" },
     };
     Object.assign(state, replace_state);
+    state.protocol_assignments = { ...state.protocol_assignments };
+    if (
+      Object.keys(state.protocol_assignments).length === 0 &&
+      ![STIM_STATUS.ERROR, STIM_STATUS.SHORT_CIRCUIT_ERROR, STIM_STATUS.CONFIG_CHECK_COMPLETE].includes(
+        status
+      )
+    ) {
+      state.stim_status = STIM_STATUS.NO_PROTOCOLS_ASSIGNED;
+    }
   },
   reset_state(state) {
     const replace_state = {

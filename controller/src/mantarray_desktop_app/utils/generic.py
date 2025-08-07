@@ -281,10 +281,19 @@ def _check_new_barcode(barcode: str, beta_2_mode: bool) -> str:
         return f"barcode contains invalid Julian date: '{barcode[4:7]}'"
     if not 0 <= int(barcode[7:10]) <= MAX_MINI_SKM_EXPERIMENT_ID:
         return f"barcode contains invalid experiment id: '{barcode[7:10]}'"
-    # final digit must equal beta version (1/2)
-    last_digit = int(barcode[-1])
-    if last_digit != 1 + int(beta_2_mode):
-        return f"barcode contains invalid last digit: '{last_digit}'"
+    # valid final char depends on beta version
+    allowed_final_chars = []
+    if beta_2_mode:
+        allowed_final_chars.append("2")
+        # new magnet types only allowed for ML barcodes
+        if barcode[1] == "L":
+            allowed_final_chars.append("5")
+    else:
+        allowed_final_chars.append("1")
+
+    final_char = barcode[-1]
+    if final_char not in allowed_final_chars:
+        return f"barcode contains invalid final char: '{final_char}'"
     return ""
 
 
