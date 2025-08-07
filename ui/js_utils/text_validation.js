@@ -249,17 +249,17 @@ export class TextValidation {
       return " ";
     }
     // check if in beta one or two mode. if last digit invalid then mark the barcode as invalid
-    const allowed_final_digits = [];
+    const allowed_final_chars = [];
     if (beta_2_mode) {
-      allowed_final_digits.push("2");
+      allowed_final_chars.push("2");
       // new magnet types only allowed for ML barcodes
       if (barcode[1] === "L") {
-        allowed_final_digits.push("5");
+        allowed_final_chars.push("5");
       }
     } else {
-      allowed_final_digits.push("1");
+      allowed_final_chars.push("1");
     }
-    if (!allowed_final_digits.includes(barcode[11])) {
+    if (!allowed_final_chars.includes(barcode[11])) {
       return " ";
     }
     return "";

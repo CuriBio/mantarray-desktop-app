@@ -882,7 +882,7 @@ def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
         ("ML20123199-1", "barcode contains invalid year: '20'"),
         ("ML22444199-1", "barcode contains invalid Julian date: '444'"),
         ("ML22123999-1", "barcode contains invalid experiment id: '999'"),
-        ("ML22123199-2", "barcode contains invalid last digit: '2'"),
+        ("ML22123199-2", "barcode contains invalid final char: '2'"),
     ],
 )
 def test_start_recording__returns_error_code_and_message_if_new_barcode_beta_1_mode_scheme_is_invalid(
@@ -911,7 +911,8 @@ def test_start_recording__returns_error_code_and_message_if_new_barcode_beta_1_m
         ("M*20123199-2", "barcode contains invalid year: '20'"),
         ("M*22444199-2", "barcode contains invalid Julian date: '444'"),
         ("M*22123999-2", "barcode contains invalid experiment id: '999'"),
-        ("M*22123199-1", "barcode contains invalid last digit: '1'"),
+        ("M*22123199-1", "barcode contains invalid final char: '1'"),
+        ("MS22123199-5", "barcode contains invalid final char: '5'"),
     ],
 )
 def test_start_recording__returns_error_code_and_message_if_new_barcode_beta_2_mode_scheme_is_invalid(
@@ -919,6 +920,11 @@ def test_start_recording__returns_error_code_and_message_if_new_barcode_beta_2_m
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     shared_values_dict["beta_2_mode"] = True
+
+    if test_barcode_type == "Plate" and test_barcode[1] == "S":
+        return
+    if test_barcode_type == "Stim" and test_barcode[1] == "L":
+        return
 
     shared_values_dict["stimulation_running"] = [True] * 24
 
@@ -954,17 +960,16 @@ def test_start_recording__returns_error_code_if_barcode_header_and_type_do_not_m
     assert response.status.endswith(expected_error_message)
 
 
+@pytest.mark.parametrize("final_plate_barcode_char", ["2", "5"])
 def test_start_recording__allows_correct_barcode_headers__for_correct_barcode_type(
-    client_and_server_manager_and_shared_values,
+    final_plate_barcode_char, client_and_server_manager_and_shared_values
 ):
     test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
     put_generic_beta_2_start_recording_info_in_dict(shared_values_dict)
     shared_values_dict["stimulation_running"] = [True] * 24
 
-    barcodes = {
-        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
-        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
-    }
+    plate_barcode = MantarrayMcSimulator.default_plate_barcode[:-1] + final_plate_barcode_char
+    barcodes = {"plate_barcode": plate_barcode, "stim_barcode": MantarrayMcSimulator.default_stim_barcode}
     response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
     assert response.status_code == 200
 
