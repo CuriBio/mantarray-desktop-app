@@ -248,7 +248,8 @@ export class TextValidation {
     if (experiment_id < 0 || experiment_id > 499) {
       return " ";
     }
-    // check if in beta one or two mode. if last digit invalid then mark the barcode as invalid
+    // check if in beta one or two mode. if last char invalid then mark the barcode as invalid.
+    // allowed chars depend on beta version
     const allowed_final_chars = [];
     if (beta_2_mode) {
       allowed_final_chars.push("2");

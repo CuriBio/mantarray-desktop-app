@@ -281,7 +281,7 @@ def _check_new_barcode(barcode: str, beta_2_mode: bool) -> str:
         return f"barcode contains invalid Julian date: '{barcode[4:7]}'"
     if not 0 <= int(barcode[7:10]) <= MAX_MINI_SKM_EXPERIMENT_ID:
         return f"barcode contains invalid experiment id: '{barcode[7:10]}'"
-    # valid final digit depends on beta version
+    # valid final char depends on beta version
     allowed_final_chars = []
     if beta_2_mode:
         allowed_final_chars.append("2")
