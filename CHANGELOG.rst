@@ -4,6 +4,10 @@ Changelog for Mantarray Desktop App
 1.2.8 (unreleased)
 ------------------
 
+Added:
+^^^^^^
+- ML barcodes may now also have ``5`` as the final character.
+
 Fixed:
 ^^^^^^
 - Start stim button is now disabled if an empty protocol is assigned to any well.

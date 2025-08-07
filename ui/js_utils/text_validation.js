@@ -249,7 +249,17 @@ export class TextValidation {
       return " ";
     }
     // check if in beta one or two mode. if last digit invalid then mark the barcode as invalid
-    if ((beta_2_mode && barcode[11] !== "2") || (!beta_2_mode && barcode[11] !== "1")) {
+    const allowed_final_digits = [];
+    if (beta_2_mode) {
+      allowed_final_digits.push("2");
+      // new magnet types only allowed for ML barcodes
+      if (barcode[1] === "L") {
+        allowed_final_digits.push("5");
+      }
+    } else {
+      allowed_final_digits.push("1");
+    }
+    if (!allowed_final_digits.includes(barcode[11])) {
       return " ";
     }
     return "";
