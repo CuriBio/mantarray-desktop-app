@@ -55,10 +55,18 @@ jobs:
           Get-DisplayResolution
           Set-DisplayResolution -Width 1920 -Height 1080 -Force
           Get-DisplayResolution
+
       - name: Checkout
         uses: actions/checkout@v3
         with:
+          token: ${{ secrets.CI_TOKEN }}
           fetch-depth: 1
+          submodules: true
+
+      - name: Set up submodules
+        run: |
+          git submodule init
+          git submodule update
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -153,7 +161,7 @@ jobs:
         run: |
           cd controller/
           pipenv install -v --dev --deploy
-          pip install -e vendor/barnacleboard-serial-interface
+          pipenv run pip install -e vendor/barnacleboard-serial-interface
           pipenv run pip freeze
 
       - name: Download zlib Library
