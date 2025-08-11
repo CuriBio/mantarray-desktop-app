@@ -440,7 +440,9 @@ class McCommunicationProcess(InstrumentCommProcess):
             msg["timestamp"] = _get_formatted_utc_now()
             to_main_queue.put_nowait(msg)
 
-    def _create_board_connection(self) -> Tuple[Union[MantarrayMcSimulator, serial.Serial], str]:
+    def _create_board_connection(
+        self,
+    ) -> Tuple[Union[MantarrayMcSimulator, serial.Serial, SerialDeviceFTDI], str]:
         # try to connect to instrument using FTDI driver
         try:
             serial_conn = SerialDeviceFTDI()
@@ -472,7 +474,9 @@ class McCommunicationProcess(InstrumentCommProcess):
         simulator = MantarrayMcSimulator(Queue(), Queue(), Queue(), Queue(), num_wells=self._num_wells)
         return simulator, creating_sim_msg
 
-    def set_board_connection(self, board_idx: int, board: Union[MantarrayMcSimulator, serial.Serial]) -> None:
+    def set_board_connection(
+        self, board_idx: int, board: Union[MantarrayMcSimulator, serial.Serial, SerialDeviceFTDI]
+    ) -> None:
         super().set_board_connection(board_idx, board)
         self._in_simulation_mode = _is_simulator(board)
         if self._in_simulation_mode:
