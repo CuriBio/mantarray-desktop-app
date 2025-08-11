@@ -4,10 +4,6 @@ default_language_version:
   python: python3.10
 repos:
   # Git-related
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.4.0 # Use the ref you want to point at
-    hooks:
-      - id: forbid-new-submodules
   - repo: https://github.com/jumanjihouse/pre-commit-hooks
     rev: 2.1.5 # Use the ref you want to point at
     hooks:
