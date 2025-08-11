@@ -1,7 +1,16 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.2.8 (unreleased)
+1.3.0 (unreleased)
+------------------
+
+Added:
+^^^^^^
+- Ability to connect to live instruments using FTDI D2XX drivers if they are present.
+  Connection priority is now as follows: FTDI, PySerial, Simulator.
+
+
+1.2.8 (2025-08-12)
 ------------------
 
 Added:
