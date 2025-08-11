@@ -9,6 +9,12 @@ Added:
 - Ability to connect to live instruments using FTDI D2XX drivers if they are present.
   Connection priority is now as follows: FTDI, PySerial, Simulator.
 
+Changed:
+^^^^^^^^
+- Closing the error message dialog will now shut down the software. A checkbox has been added
+  to acknowledge the error message. It must be checked before the button to close the dialog
+  will be enabled.
+
 
 1.2.8 (2025-08-12)
 ------------------
