@@ -153,6 +153,7 @@ jobs:
         run: |
           cd controller/
           pipenv install -v --dev --deploy
+          pip install -e vendor/barnacleboard-serial-interface
           pipenv run pip freeze
 
       - name: Download zlib Library
