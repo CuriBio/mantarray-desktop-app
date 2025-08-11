@@ -449,6 +449,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         except Exception as e:
             msg = f"Failed to connect using FTDI driver: {e}"
             put_log_message_into_queue(logging.INFO, msg, self._board_queues[0][1], self.get_logging_level())
+
         # try to connect to instrument using pyserial
         for port_info in list_ports.comports():
             # Tanner (6/14/21): attempt to connect to any device with the STM vendor ID
@@ -465,6 +466,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                     conn_msg += f". Setting buffer size to {SERIAL_COMM_BUFFER_RX_SIZE}"
                     serial_conn.set_buffer_size(rx_size=SERIAL_COMM_BUFFER_RX_SIZE)
                 return serial_conn, conn_msg
+
         # create simulator as no serial connection could be made
         creating_sim_msg = "No board detected. Creating simulator."
         simulator = MantarrayMcSimulator(Queue(), Queue(), Queue(), Queue(), num_wells=self._num_wells)
