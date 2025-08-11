@@ -22,6 +22,7 @@ from typing import Tuple
 from typing import Union
 from zlib import crc32
 
+from barnacleboard_serial_interface.serial_interface import SerialDeviceFTDI
 from nptyping import NDArray
 import numpy as np
 from pulse3D.constants import DATETIME_STR_FORMAT
@@ -440,6 +441,15 @@ class McCommunicationProcess(InstrumentCommProcess):
             to_main_queue.put_nowait(msg)
 
     def _create_board_connection(self) -> Tuple[Union[MantarrayMcSimulator, serial.Serial], str]:
+        # try to connect to instrument using FTDI driver
+        try:
+            serial_conn = SerialDeviceFTDI()
+            serial_conn.open()
+            return serial_conn, "Connected to board using FTDI driver/"
+        except Exception as e:
+            msg = f"Failed to connect using FTDI driver: {e}"
+            put_log_message_into_queue(logging.INFO, msg, self._board_queues[0][1], self.get_logging_level())
+        # try to connect to instrument using pyserial
         for port_info in list_ports.comports():
             # Tanner (6/14/21): attempt to connect to any device with the STM vendor ID
             if port_info.vid in (STM_VID, CURI_VID):
