@@ -449,7 +449,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             serial_conn.open()
             return serial_conn, "Connected to board using FTDI driver/"
         except Exception as e:
-            msg = f"Failed to connect using FTDI driver: {e}"
+            msg = f"Failed to connect using FTDI driver: {repr(e)}"
             put_log_message_into_queue(logging.INFO, msg, self._board_queues[0][1], self.get_logging_level())
 
         # try to connect to instrument using pyserial
