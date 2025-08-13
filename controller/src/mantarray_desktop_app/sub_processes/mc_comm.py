@@ -22,6 +22,7 @@ from typing import Tuple
 from typing import Union
 from zlib import crc32
 
+from barnacleboard_serial_interface.serial_interface import SerialDeviceFTDI
 from nptyping import NDArray
 import numpy as np
 from pulse3D.constants import DATETIME_STR_FORMAT
@@ -439,7 +440,19 @@ class McCommunicationProcess(InstrumentCommProcess):
             msg["timestamp"] = _get_formatted_utc_now()
             to_main_queue.put_nowait(msg)
 
-    def _create_board_connection(self) -> Tuple[Union[MantarrayMcSimulator, serial.Serial], str]:
+    def _create_board_connection(
+        self,
+    ) -> Tuple[Union[MantarrayMcSimulator, serial.Serial, SerialDeviceFTDI], str]:
+        # try to connect to instrument using FTDI driver
+        try:  # pragma: no cover
+            serial_conn = SerialDeviceFTDI()
+            serial_conn.open()
+            return serial_conn, "Connected to board using FTDI driver"
+        except Exception as e:  # pragma: no cover
+            msg = f"Failed to connect using FTDI driver: {repr(e)}"
+            put_log_message_into_queue(logging.INFO, msg, self._board_queues[0][1], self.get_logging_level())
+
+        # try to connect to instrument using pyserial
         for port_info in list_ports.comports():
             # Tanner (6/14/21): attempt to connect to any device with the STM vendor ID
             if port_info.vid in (STM_VID, CURI_VID):
@@ -455,12 +468,15 @@ class McCommunicationProcess(InstrumentCommProcess):
                     conn_msg += f". Setting buffer size to {SERIAL_COMM_BUFFER_RX_SIZE}"
                     serial_conn.set_buffer_size(rx_size=SERIAL_COMM_BUFFER_RX_SIZE)
                 return serial_conn, conn_msg
+
         # create simulator as no serial connection could be made
         creating_sim_msg = "No board detected. Creating simulator."
         simulator = MantarrayMcSimulator(Queue(), Queue(), Queue(), Queue(), num_wells=self._num_wells)
         return simulator, creating_sim_msg
 
-    def set_board_connection(self, board_idx: int, board: Union[MantarrayMcSimulator, serial.Serial]) -> None:
+    def set_board_connection(
+        self, board_idx: int, board: Union[MantarrayMcSimulator, serial.Serial, SerialDeviceFTDI]
+    ) -> None:
         super().set_board_connection(board_idx, board)
         self._in_simulation_mode = _is_simulator(board)
         if self._in_simulation_mode:

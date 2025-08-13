@@ -23,10 +23,7 @@ def test_MantarrayFrontPanelMixIn__get_firmware_version_calls_read_wire_out_corr
 
     expected_value = "3.2.1"
     mocked_read_wire = mocker.patch.object(
-        mantarray_mixin,
-        "read_wire_out",
-        autospec=True,
-        return_value=0x04030201,
+        mantarray_mixin, "read_wire_out", autospec=True, return_value=0x04030201
     )
 
     actual = mantarray_mixin.get_firmware_version()
@@ -46,18 +43,14 @@ def test_MantarrayFrontPanelMixIn__read_wire_out_returns_0(mocker):
     assert actual == expected_value
 
 
-def test_MantarrayFrontPanel__get_firmware_version_raises_error_if_board_not_initialized(
-    mocker,
-):
+def test_MantarrayFrontPanel__get_firmware_version_raises_error_if_board_not_initialized(mocker):
     dummy_xem = okCFrontPanel()
     mantarray_fp = MantarrayFrontPanel(dummy_xem)
     with pytest.raises(OpalKellyBoardNotInitializedError):
         mantarray_fp.get_firmware_version()
 
 
-def test_MantarrayFrontPanel__read_wire_out_raises_correct_error_if_board_not_initialized(
-    mocker,
-):
+def test_MantarrayFrontPanel__read_wire_out_raises_correct_error_if_board_not_initialized(mocker):
     dummy_xem = okCFrontPanel()
     mantarray_fp = MantarrayFrontPanel(dummy_xem)
     with pytest.raises(OpalKellyBoardNotInitializedError):
@@ -71,10 +64,7 @@ def test_MantarrayFrontPanel__get_firmware_version_returns_expected_value_from_c
 
     expected_value = "0.1.2"
     mocked_get_wire = mocker.patch.object(
-        dummy_xem,
-        "GetWireOutValue",
-        autospec=True,
-        return_value=0x00000102,
+        dummy_xem, "GetWireOutValue", autospec=True, return_value=0x00000102
     )
     mocker.patch.object(dummy_xem, "IsFrontPanelEnabled", autospec=True, return_value=True)
     mocker.patch.object(dummy_xem, "UpdateWireOuts", autospec=True, return_value=True)
@@ -109,18 +99,14 @@ def test_MantarrayFrontPanelMixIn__activate_trigger_in_raises_error_when_called_
         fp.activate_trigger_in(0x00, 0)
 
 
-def test_MantarrayFrontPanel__clear_barcode_scanner__raises_error_if_board_not_initialized(
-    mocker,
-):
+def test_MantarrayFrontPanel__clear_barcode_scanner__raises_error_if_board_not_initialized(mocker):
     dummy_xem = okCFrontPanel()
     mantarray_fp = MantarrayFrontPanel(dummy_xem)
     with pytest.raises(OpalKellyBoardNotInitializedError):
         mantarray_fp.clear_barcode_scanner()
 
 
-def test_MantarrayFrontPanel__clear_barcode_scanner__calls_activate_trigger_in_correctly(
-    mocker,
-):
+def test_MantarrayFrontPanel__clear_barcode_scanner__calls_activate_trigger_in_correctly(mocker):
     dummy_xem = okCFrontPanel()
     mantarray_fp = MantarrayFrontPanel(dummy_xem)
     mocked_ati = mocker.patch.object(dummy_xem, "ActivateTriggerIn", autospec=True, return_value=0)
@@ -132,18 +118,14 @@ def test_MantarrayFrontPanel__clear_barcode_scanner__calls_activate_trigger_in_c
     mocked_ati.assert_called_once_with(BARCODE_SCANNER_TRIGGER_IN_ADDRESS, CLEAR_BARCODE_TRIG_BIT)
 
 
-def test_MantarrayFrontPanel__get_barcode__raises_error_if_board_not_initialized(
-    mocker,
-):
+def test_MantarrayFrontPanel__get_barcode__raises_error_if_board_not_initialized(mocker):
     dummy_xem = okCFrontPanel()
     mantarray_fp = MantarrayFrontPanel(dummy_xem)
     with pytest.raises(OpalKellyBoardNotInitializedError):
         mantarray_fp.get_barcode()
 
 
-def test_MantarrayFrontPanel__get_barcode__calls_read_wire_out_correctly__and_returns_correct_value(
-    mocker,
-):
+def test_MantarrayFrontPanel__get_barcode__calls_read_wire_out_correctly__and_returns_correct_value(mocker):
     dummy_xem = okCFrontPanel()
     mantarray_fp = MantarrayFrontPanel(dummy_xem)
 
@@ -151,11 +133,11 @@ def test_MantarrayFrontPanel__get_barcode__calls_read_wire_out_correctly__and_re
 
     def get_wire_out_se(ep_addr):
         if ep_addr == BARCODE_SCANNER_TOP_WIRE_OUT_ADDRESS:
-            return 0x4D4C3230
+            return 0x4D4C3232
         if ep_addr == BARCODE_SCANNER_MID_WIRE_OUT_ADDRESS:
-            return 0x32313030
+            return 0x30303130
         if ep_addr == BARCODE_SCANNER_BOTTOM_WIRE_OUT_ADDRESS:
-            return 0x31303030
+            return 0x30302D31
         return 0
 
     mocked_get_wire = mocker.patch.object(
@@ -191,18 +173,14 @@ def test_MantarrayFrontPanel__get_barcode_returns_cleared_value_correctly(mocker
     assert actual == expected_barcode
 
 
-def test_MantarrayFrontPanel__start_barcode_scan__raises_error_if_board_not_initialized(
-    mocker,
-):
+def test_MantarrayFrontPanel__start_barcode_scan__raises_error_if_board_not_initialized(mocker):
     dummy_xem = okCFrontPanel()
     mantarray_fp = MantarrayFrontPanel(dummy_xem)
     with pytest.raises(OpalKellyBoardNotInitializedError):
         mantarray_fp.start_barcode_scan()
 
 
-def test_MantarrayFrontPanel__start_barcode_scan__calls_activate_trigger_in_correctly(
-    mocker,
-):
+def test_MantarrayFrontPanel__start_barcode_scan__calls_activate_trigger_in_correctly(mocker):
     dummy_xem = okCFrontPanel()
     mantarray_fp = MantarrayFrontPanel(dummy_xem)
     mocked_ati = mocker.patch.object(dummy_xem, "ActivateTriggerIn", autospec=True, return_value=0)

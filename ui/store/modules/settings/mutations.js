@@ -1,6 +1,9 @@
 import { ERRORS } from "./enums";
 
 export default {
+  set_error_acknowledged(state) {
+    state.error_acknowledged = true;
+  },
   set_log_path(state, new_value) {
     state.log_path = new_value;
 
@@ -21,7 +24,7 @@ export default {
       }
     } else {
       state.installer_link = null;
-      error += " Mantarray Controller is about to shutdown.";
+      error += " Mantarray Controller is about to shut down.";
     }
     state.shutdown_error_status = error;
     state.shutdown_error_message = error;

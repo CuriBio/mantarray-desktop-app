@@ -84,7 +84,7 @@ def test_McCommunicationProcess_create_connections_to_all_available_boards__popu
 
     assert actual_connections == [None] * 4
     mc_process.create_connections_to_all_available_boards()
-    confirm_queue_is_eventually_of_size(board_queues[0][1], 1)
+    confirm_queue_is_eventually_of_size(board_queues[0][1], 2)
     assert mocked_comports.call_count == 1
     assert mocked_serial.call_count == 1
     assert actual_connections[1:] == [None] * 3
@@ -98,6 +98,7 @@ def test_McCommunicationProcess_create_connections_to_all_available_boards__popu
         "stopbits": serial.STOPBITS_ONE,
     }
 
+    board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual_message = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_message["communication_type"] == "board_connection_status_change"
     assert actual_message["board_index"] == board_idx
@@ -121,7 +122,7 @@ def test_McCommunicationProcess_create_connections_to_all_available_boards__popu
 
     assert actual_connections == [None] * 4
     mc_process.create_connections_to_all_available_boards()
-    confirm_queue_is_eventually_of_size(board_queues[0][1], 1)
+    confirm_queue_is_eventually_of_size(board_queues[0][1], 2)
     assert mocked_comports.call_count == 1
     assert mocked_serial.call_count == 0
     actual_connections = mc_process.get_board_connections_list()
@@ -131,6 +132,7 @@ def test_McCommunicationProcess_create_connections_to_all_available_boards__popu
     # Tanner (8/25/21): it's important that the simulator is created with no read timeout because the connection to a real instrument will not have one either
     assert actual_serial_obj._read_timeout_seconds == 0
 
+    board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     actual_message = board_queues[0][1].get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
     assert actual_message["communication_type"] == "board_connection_status_change"
     assert actual_message["board_index"] == board_idx
@@ -388,10 +390,7 @@ def test_McCommunicationProcess__does_not_check_for_overdue_status_beacons_after
 
 
 def test_McCommunicationProcess__raises_error_if_reboot_takes_longer_than_maximum_reboot_period(
-    four_board_mc_comm_process_no_handshake,
-    mantarray_mc_simulator,
-    mocker,
-    patch_print,
+    four_board_mc_comm_process_no_handshake, mantarray_mc_simulator, mocker, patch_print
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     board_queues = four_board_mc_comm_process_no_handshake["board_queues"]
@@ -400,10 +399,7 @@ def test_McCommunicationProcess__raises_error_if_reboot_takes_longer_than_maximu
     set_connection_and_register_simulator(four_board_mc_comm_process_no_handshake, mantarray_mc_simulator)
 
     mocker.patch.object(
-        mc_comm,
-        "_get_secs_since_reboot_start",
-        autospec=True,
-        side_effect=[MAX_MC_REBOOT_DURATION_SECONDS],
+        mc_comm, "_get_secs_since_reboot_start", autospec=True, side_effect=[MAX_MC_REBOOT_DURATION_SECONDS]
     )
 
     reboot_command = {"communication_type": "to_instrument", "command": "reboot"}

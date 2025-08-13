@@ -35,7 +35,7 @@ def test_RunningFIFOSimulator__class_attributes():
     assert RunningFIFOSimulator.default_mantarray_serial_number == "M02001900"
     assert RunningFIFOSimulator.default_mantarray_nickname == "Mantarray Simulator"
     assert RunningFIFOSimulator.default_firmware_version == "0.0.0"
-    assert RunningFIFOSimulator.default_barcode == "ML2021001000"
+    assert RunningFIFOSimulator.default_barcode == "ML22001000-1"
 
 
 def test_RunningFIFOSimulator__super_is_called_during_init(mocker):
@@ -74,15 +74,11 @@ def test_RunningFIFOSimulator__super_called_during_initialize_board_with_correct
 
     fifo_simulator.initialize_board()
     mocked_super_init_board.assert_called_once_with(
-        fifo_simulator,
-        bit_file_name=None,
-        allow_board_reinitialization=False,
+        fifo_simulator, bit_file_name=None, allow_board_reinitialization=False
     )
 
 
-def test_RunningFIFOSimulator__raises_error_if_bit_file_is_given_that_cannot_be_found(
-    fifo_simulator,
-):
+def test_RunningFIFOSimulator__raises_error_if_bit_file_is_given_that_cannot_be_found(fifo_simulator):
     with pytest.raises(OpalKellyFileNotFoundError):
         fifo_simulator.initialize_board(bit_file_name="fake.bit")
 
@@ -99,9 +95,7 @@ def test_RunningFIFOSimulator__allows_board_reinitialization_with_kwarg(mocker, 
     )
 
 
-def test_RunningFIFOSimulator__initialize_board__creates_threading_utils(
-    fifo_simulator,
-):
+def test_RunningFIFOSimulator__initialize_board__creates_threading_utils(fifo_simulator):
     fifo_simulator.initialize_board()
 
     producer_error_queue = fifo_simulator._producer_error_queue
@@ -146,9 +140,7 @@ def test_RunningFIFOSimulator__super_called_during_start_spi_acquisition(mocker)
     assert spied_super_start.call_count == 1
 
 
-def test_RunningFIFOSimulator__start_spi_acquisition_creates_and_starts_fifo_read_thread(
-    fifo_simulator,
-):
+def test_RunningFIFOSimulator__start_spi_acquisition_creates_and_starts_fifo_read_thread(fifo_simulator):
     fifo_simulator.initialize_board()
     fifo_simulator.start_acquisition()
     producer_thread = fifo_simulator._fifo_read_producer
@@ -158,9 +150,7 @@ def test_RunningFIFOSimulator__start_spi_acquisition_creates_and_starts_fifo_rea
     producer_thread.join()
 
 
-def test_RunningFIFOSimulator__queue_from_read_producer_gets_populated_after_starting_spi(
-    fifo_simulator,
-):
+def test_RunningFIFOSimulator__queue_from_read_producer_gets_populated_after_starting_spi(fifo_simulator):
     fifo_simulator.initialize_board()
     queue_from_read_producer = fifo_simulator._producer_data_queue
 
@@ -198,9 +188,7 @@ def test_RunningFIFOSimulator__stop_spi_acquisition__stops_and_joins_fifo_read_t
     assert stopped_producer_thread is None
 
 
-def test_RunningFIFOSimulator__read_from_fifo__reads_all_data_from_input_data_queue(
-    fifo_simulator,
-):
+def test_RunningFIFOSimulator__read_from_fifo__reads_all_data_from_input_data_queue(fifo_simulator):
     fifo_simulator.initialize_board()
     fifo_simulator.start_acquisition()
     fifo_simulator.stop_acquisition()
@@ -241,9 +229,7 @@ def test_RunningFIFOSimulator__FPBase_get_called_during_get_num_words_fifo(mocke
     assert mocked_base_get.call_count == 1
 
 
-def test_RunningFIFOSimulator__get_num_words_fifo_returns_correct_values(
-    fifo_simulator,
-):
+def test_RunningFIFOSimulator__get_num_words_fifo_returns_correct_values(fifo_simulator):
     fifo_simulator.initialize_board()
     fifo_simulator.start_acquisition()
     time.sleep(0.5)
@@ -254,16 +240,12 @@ def test_RunningFIFOSimulator__get_num_words_fifo_returns_correct_values(
     assert actual == expected_num_words
 
 
-def test_RunningFIFOSimulator__add_data_cycles__raises_error_if_not_initialized(
-    fifo_simulator,
-):
+def test_RunningFIFOSimulator__add_data_cycles__raises_error_if_not_initialized(fifo_simulator):
     with pytest.raises(OpalKellyBoardNotInitializedError):
         fifo_simulator.add_data_cycles(1)
 
 
-def test_RunningFIFOSimulator__add_data_cycles__raises_error_if_spi_running(
-    fifo_simulator,
-):
+def test_RunningFIFOSimulator__add_data_cycles__raises_error_if_spi_running(fifo_simulator):
     fifo_simulator.initialize_board()
     fifo_simulator.start_acquisition()
     with pytest.raises(AttemptToAddCyclesWhileSPIRunningError):
@@ -294,9 +276,7 @@ def test_RunningFIFOSimulator__add_data_cycles__adds_correct_bytearray_to_fifo(
     assert actual == expected_bytearray
 
 
-def test_RunningFIFOSimulator__read_wire_out__raises_error_error_if_not_initialized(
-    fifo_simulator,
-):
+def test_RunningFIFOSimulator__read_wire_out__raises_error_error_if_not_initialized(fifo_simulator):
     with pytest.raises(OpalKellyBoardNotInitializedError):
         fifo_simulator.read_wire_out(0x00)
 
@@ -344,16 +324,12 @@ def test_RunningFIFOSimulator__read_wire_out__returns_expected_values_from_popul
     assert actual_2 == FIFO_SIMULATOR_DEFAULT_WIRE_OUT_VALUE
 
 
-def test_RunningFIFOSimulator__get_firmware_version__raises_error_if_board_not_initialized(
-    fifo_simulator,
-):
+def test_RunningFIFOSimulator__get_firmware_version__raises_error_if_board_not_initialized(fifo_simulator):
     with pytest.raises(OpalKellyBoardNotInitializedError):
         fifo_simulator.get_firmware_version()
 
 
-def test_RunningFIFOSimulator__get_firmware_version__returns_correct_value(
-    fifo_simulator,
-):
+def test_RunningFIFOSimulator__get_firmware_version__returns_correct_value(fifo_simulator):
     fifo_simulator.initialize_board()
     assert fifo_simulator.get_firmware_version() == RunningFIFOSimulator.default_firmware_version
 

@@ -264,14 +264,6 @@ def check_barcode_for_errors(barcode: str, beta_2_mode: bool, barcode_type: Opti
     header = barcode[:2]
     if header not in BARCODE_HEADERS.get(barcode_type, ALL_VALID_BARCODE_HEADERS):
         return f"barcode contains invalid header: '{header}'"
-    if "-" in barcode:
-        barcode_check_err = _check_new_barcode(barcode, beta_2_mode)
-    else:
-        barcode_check_err = _check_old_barcode(barcode)
-    return barcode_check_err
-
-
-def _check_new_barcode(barcode: str, beta_2_mode: bool) -> str:
     for char in barcode[2:10] + barcode[-1]:
         if not char.isnumeric():
             return f"barcode contains invalid character: '{char}'"
@@ -281,6 +273,8 @@ def _check_new_barcode(barcode: str, beta_2_mode: bool) -> str:
         return f"barcode contains invalid Julian date: '{barcode[4:7]}'"
     if not 0 <= int(barcode[7:10]) <= MAX_MINI_SKM_EXPERIMENT_ID:
         return f"barcode contains invalid experiment id: '{barcode[7:10]}'"
+    if barcode[10] != "-":
+        return "barcode does not contain dash in the expected position"
     # valid final char depends on beta version
     allowed_final_chars = []
     if beta_2_mode:
@@ -294,17 +288,6 @@ def _check_new_barcode(barcode: str, beta_2_mode: bool) -> str:
     final_char = barcode[-1]
     if final_char not in allowed_final_chars:
         return f"barcode contains invalid final char: '{final_char}'"
-    return ""
-
-
-def _check_old_barcode(barcode: str) -> str:
-    for char in barcode[2:]:
-        if not char.isnumeric():
-            return f"barcode contains invalid character: '{char}'"
-    if int(barcode[2:6]) < 2021:
-        return f"barcode contains invalid year: '{barcode[2:6]}'"
-    if not 0 < int(barcode[6:9]) < 366:
-        return f"barcode contains invalid Julian date: '{barcode[6:9]}'"
     return ""
 
 

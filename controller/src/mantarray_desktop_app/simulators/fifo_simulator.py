@@ -40,7 +40,7 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
     default_mantarray_serial_number = "M02001900"
     default_mantarray_nickname = "Mantarray Simulator"
     default_firmware_version = "0.0.0"
-    default_barcode = "ML2021001000"
+    default_barcode = "ML22001000-1"
 
     def __init__(self, simulated_response_queues: Optional[Dict[str, Any]] = None) -> None:
         if simulated_response_queues is None:
@@ -63,15 +63,12 @@ class RunningFIFOSimulator(FrontPanelSimulator, MantarrayFrontPanelMixIn):
                 drain_queue(wire_out_queue)
 
     def initialize_board(
-        self,
-        bit_file_name: Optional[str] = None,
-        allow_board_reinitialization: bool = False,
+        self, bit_file_name: Optional[str] = None, allow_board_reinitialization: bool = False
     ) -> None:
         board_already_initialized = self.is_board_initialized()
 
         super().initialize_board(
-            bit_file_name=bit_file_name,
-            allow_board_reinitialization=allow_board_reinitialization,
+            bit_file_name=bit_file_name, allow_board_reinitialization=allow_board_reinitialization
         )
         if not board_already_initialized:
             self._producer_error_queue = queue.Queue()

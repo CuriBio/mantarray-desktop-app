@@ -841,7 +841,7 @@ def test_MantarrayProcessesMonitor__sets_in_simulation_mode_after_connection__in
 
     mc_comm_process.create_connections_to_all_available_boards()
     assert is_queue_eventually_not_empty(instrument_comm_to_main_queue) is True
-    invoke_process_run_and_check_errors(monitor_thread)
+    invoke_process_run_and_check_errors(monitor_thread, num_iterations=2)
 
     assert shared_values_dict["in_simulation_mode"] is True
 
