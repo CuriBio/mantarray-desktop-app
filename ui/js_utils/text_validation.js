@@ -212,20 +212,6 @@ export class TextValidation {
     ) {
       return " ";
     }
-    return barcode.includes("-")
-      ? this._check_new_barcode(barcode, beta_2_mode)
-      : this._check_old_barcode(barcode);
-  }
-
-  /**
-   * Returns the feedback text for the new plate barcode validation
-   *
-   * @param  {string}  barcode The barcode string to validate
-   * @param  {bool}    beta_2_mode True if in bet 2 mode false if in beta 1 mode
-   * @return {string} "" if barcode is valid, " " otherwise
-   *
-   */
-  _check_new_barcode(barcode, beta_2_mode) {
     // check that barcode is numeric exept for header and dash
     const numeric_barcode = barcode.slice(2, 10) + barcode[11];
     if (isNaN(numeric_barcode)) {
@@ -261,41 +247,6 @@ export class TextValidation {
       allowed_final_chars.push("1");
     }
     if (!allowed_final_chars.includes(barcode[11])) {
-      return " ";
-    }
-    return "";
-  }
-  /**
-   * Returns the feedback text for the old plate barcode validation
-   *
-   * @param  {string}  barcode The barcode string to validate
-   * @return {string} "" if barcode is valid, " " otherwise
-   *
-   */
-  _check_old_barcode(barcode) {
-    const plate_barcode_len = barcode.length;
-    for (let i = 2; i < plate_barcode_len; i++) {
-      const scan_ascii = barcode.charCodeAt(i);
-      // check that remaining characters are numeric
-      if (scan_ascii < 47 || scan_ascii > 58) {
-        return " ";
-      }
-    }
-    // check year is at least 2021 [4 characters]
-    const year_code = barcode.slice(2, 6);
-    const year = parseInt(year_code);
-    if (year < 2021) {
-      return " ";
-    }
-    // check julian data is in range 001 to 366 [3 characters]
-    const day_code = barcode.slice(6, 9);
-    const day = parseInt(day_code);
-    if (day < 1 || day > 366) {
-      return " ";
-    }
-
-    const experiment_id = parseInt(barcode.slice(-3));
-    if (Number.isNaN(experiment_id)) {
       return " ";
     }
     return "";

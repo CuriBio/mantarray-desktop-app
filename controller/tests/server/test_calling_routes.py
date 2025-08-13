@@ -835,41 +835,6 @@ def test_start_recording__returns_no_error_when_mini_barcode_is_sent(
     assert response.status_code == 200
 
 
-@pytest.mark.parametrize("test_barcode_type", ["Stim", "Plate"])
-@pytest.mark.parametrize(
-    "test_barcode,expected_error_message",
-    [
-        ("M*12345678901", "barcode is incorrect length"),
-        ("M*123456789", "barcode is incorrect length"),
-        ("MA1234567890", "barcode contains invalid header: 'MA'"),
-        ("MB1234567890", "barcode contains invalid header: 'MB'"),
-        ("ME1234567890", "barcode contains invalid header: 'ME'"),
-        ("M*2021$72144", "barcode contains invalid character: '$'"),
-        ("M*20211721)4", "barcode contains invalid character: ')'"),
-        ("M*2020172144", "barcode contains invalid year: '2020'"),
-        ("M*2021000144", "barcode contains invalid Julian date: '000'"),
-        ("M*2021367144", "barcode contains invalid Julian date: '367'"),
-    ],
-)
-def test_start_recording__returns_error_code_and_message_if_barcode_is_invalid(
-    test_barcode_type, test_barcode, expected_error_message, client_and_server_manager_and_shared_values
-):
-    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
-    shared_values_dict["beta_2_mode"] = True
-    shared_values_dict["stimulation_running"] = [True] * 24
-
-    barcodes = {
-        "plate_barcode": MantarrayMcSimulator.default_plate_barcode,
-        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
-    }
-    barcode_type_letter = "S" if test_barcode_type == "Stim" else "L"
-    barcodes[f"{test_barcode_type.lower()}_barcode"] = test_barcode.replace("*", barcode_type_letter)
-
-    response = test_client.get(f"/start_recording?{urllib.parse.urlencode(barcodes)}")
-    assert response.status_code == 400
-    assert response.status.endswith(f"{test_barcode_type} {expected_error_message}")
-
-
 @pytest.mark.parametrize(
     "test_barcode,expected_error_message",
     [
