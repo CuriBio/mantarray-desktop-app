@@ -274,7 +274,7 @@ def check_barcode_for_errors(barcode: str, beta_2_mode: bool, barcode_type: Opti
     if not 0 <= int(barcode[7:10]) <= MAX_MINI_SKM_EXPERIMENT_ID:
         return f"barcode contains invalid experiment id: '{barcode[7:10]}'"
     if barcode[10] != "-":
-        return "barcode does not contain dash in the correct position"
+        return "barcode does not contain dash in the expected position"
     # valid final char depends on beta version
     allowed_final_chars = []
     if beta_2_mode:

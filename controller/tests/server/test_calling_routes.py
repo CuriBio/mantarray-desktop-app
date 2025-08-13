@@ -876,6 +876,7 @@ def test_start_recording__returns_error_code_and_message_if_new_barcode_beta_1_m
         ("M*20123199-2", "barcode contains invalid year: '20'"),
         ("M*22444199-2", "barcode contains invalid Julian date: '444'"),
         ("M*22123999-2", "barcode contains invalid experiment id: '999'"),
+        ("M*22123199A2", "barcode does not contain dash in the expected position"),
         ("M*22123199-1", "barcode contains invalid final char: '1'"),
         ("MS22123199-5", "barcode contains invalid final char: '5'"),
     ],
