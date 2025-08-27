@@ -206,6 +206,21 @@
       />
     </b-modal>
     <b-modal
+      id="live-view-warning"
+      size="sm"
+      hide-footer
+      hide-header
+      hide-header-close
+      :static="true"
+      :no-close-on-backdrop="true"
+    >
+      <StatusWarningWidget
+        id="live-view-limit-warning"
+        :modal_labels="live_view_warning_labels"
+        @handle_confirmation="close_live_view_warning"
+      />
+    </b-modal>
+    <b-modal
       id="recording-name-input-prompt-message"
       size="sm"
       hide-footer
@@ -288,6 +303,10 @@ Vue.component("BButton", BButton);
 const stateObj = playback_module.state();
 const vuex_delay = stateObj.tooltips_delay;
 
+const LIVE_VIEW_WARNING_TIMEOUT_MIN = 10;
+const LIVE_VIEW_SHUTDOWN_TIMEOUT_MIN = 1;
+const RECORDING_SHUTDOWN_TIMEOUT_MIN = 10;
+
 const options = {
   BTooltip: {
     delay: {
@@ -349,6 +368,8 @@ export default {
       schedule_tooltip_text: "(Not Yet Available)",
       default_recording_name: "",
       recording_timer: null,
+      live_view_warning_timer: null,
+      live_view_hard_stop_timer: null,
       calibration_modal_labels: {
         header: "Warning!",
         msg_one: "Please ensure no plate is present on device and the stimulation lid is not plugged in.",
@@ -358,7 +379,7 @@ export default {
       user_input_prompt_labels: {
         header: "Important!",
         msg_one: "Downloading the firmware update requires your user credentials.",
-        msg_two: "Please input them to begin the download",
+        msg_two: "Please input them to begin the download.",
         button_names: ["Okay"],
       },
       recording_limit_labels: {
@@ -366,6 +387,12 @@ export default {
         msg_one: "You've reached the maximum recording duration for your current session.",
         msg_two: "Your recording has been stopped.",
         button_names: ["Okay"],
+      },
+      live_view_warning_labels: {
+        header: "Warning!",
+        msg_one: "Live View has been running for 10 minutes.",
+        msg_two: "It will automatically stop in 60 seconds unless you choose to continue.",
+        button_names: ["Close", "Continue"],
       },
       analysis_in_progress_labels: {
         header: "Important!",
@@ -545,15 +572,37 @@ export default {
           this.$store.commit("playback/set_start_recording_from_stim", false);
         }
       }
+
+      if (new_state === this.playback_state_enums.LIVE_VIEW_ACTIVE) {
+        console.log("Starting live view warning timer"); // allow-log
+        this.live_view_warning_timer = setTimeout(() => {
+          this.handle_live_view_warning();
+        }, LIVE_VIEW_WARNING_TIMEOUT_MIN * 60e3);
+      } else if (new_state !== this.playback_state_enums.RECORDING) {
+        if (this.live_view_warning_timer !== null) {
+          console.log("Clearing live view warning timer"); // allow-log
+          clearTimeout(this.live_view_warning_timer);
+          this.live_view_warning_timer = null;
+        }
+        if (this.live_view_hard_stop_timer !== null) {
+          console.log("Clearing live view hard stop timer"); // allow-log
+          clearTimeout(this.live_view_hard_stop_timer);
+          this.live_view_hard_stop_timer = null;
+        }
+      }
+
       if (new_state === this.playback_state_enums.RECORDING) {
+        console.log("Starting recording timer"); // allow-log
         this.recording_timer = setTimeout(() => {
           if (this.playback_state === this.playback_state_enums.RECORDING) {
-            console.log("Recording time limit reached, stopping recording"); // allow-log
+            console.log("Recording time limit reached, stopping recording and live view"); // allow-log
             this.on_stop_record_click(false);
+            this.$bvModal.hide("live-view-warning");
             this.$bvModal.show("recording-limit-warning");
           }
-        }, 10 * 60e3);
+        }, RECORDING_SHUTDOWN_TIMEOUT_MIN * 60e3);
       } else if (this.recording_timer !== null) {
+        console.log("Clearing recording timer"); // allow-log
         clearTimeout(this.recording_timer);
         this.recording_timer = null;
       }
@@ -610,6 +659,36 @@ export default {
     start_recording: function () {
       this.$store.dispatch("playback/start_recording", this.default_recording_name);
     },
+    handle_live_view_warning() {
+      if (
+        this.playback_state === this.playback_state_enums.LIVE_VIEW_ACTIVE ||
+        this.playback_state === this.playback_state_enums.RECORDING
+      ) {
+        console.log(
+          "Live view warning time limit reached, showing warning and starting live view hard stop timer"
+        ); // allow-log
+        this.$bvModal.show("live-view-warning");
+        if (this.live_view_hard_stop_timer !== null) {
+          console.log("Clearing live view hard stop timer"); // allow-log
+          clearTimeout(this.live_view_hard_stop_timer);
+        }
+        this.live_view_hard_stop_timer = setTimeout(() => {
+          this.handle_live_view_hard_stop();
+        }, LIVE_VIEW_SHUTDOWN_TIMEOUT_MIN * 60e3);
+      }
+    },
+    handle_live_view_hard_stop() {
+      if (this.playback_state === this.playback_state_enums.RECORDING) {
+        console.log("Live view hard stop time limit reached, stopping recording and live view"); // allow-log
+        this.on_stop_record_click(false);
+        this.close_live_view_warning(0);
+        this.$bvModal.show("recording-limit-warning");
+      } else if (this.playback_state === this.playback_state_enums.LIVE_VIEW_ACTIVE) {
+        console.log("Live view hard stop time limit reached, stopping live view"); // allow-log
+        this.close_live_view_warning(0);
+        this.$store.dispatch("playback/stop_live_view");
+      }
+    },
     on_stop_record_click: async function (show_prompt) {
       await this.$store.dispatch("playback/stop_recording");
       await this.$store.dispatch("playback/stop_live_view");
@@ -653,7 +732,9 @@ export default {
     },
     close_calibration_modal(idx) {
       this.$bvModal.hide("calibration-warning");
-      if (idx === 1) this.$store.dispatch("playback/start_calibration");
+      if (idx === 1) {
+        this.$store.dispatch("playback/start_calibration");
+      }
     },
     close_rec_snapshot_err_modal() {
       this.$bvModal.hide("recording-snapshot-error");
@@ -673,6 +754,25 @@ export default {
     close_recording_time_limit_warning() {
       this.$bvModal.hide("recording-limit-warning");
       this.$bvModal.show("recording-name-input-prompt-message");
+    },
+    close_live_view_warning(idx) {
+      this.$bvModal.hide("live-view-warning");
+      if (idx === 1) {
+        console.log("User chose to continue live view"); // allow-log
+        if (this.live_view_warning_timer !== null) {
+          console.log("Clearing live view warning timer"); // allow-log
+          clearTimeout(this.live_view_warning_timer);
+        }
+        console.log("Restarting live view warning timer"); // allow-log
+        this.live_view_warning_timer = setTimeout(() => {
+          this.handle_live_view_warning();
+        }, LIVE_VIEW_WARNING_TIMEOUT_MIN * 60e3);
+        if (this.live_view_hard_stop_timer !== null) {
+          console.log("Clearing live view hard stop timer"); // allow-log
+          clearTimeout(this.live_view_hard_stop_timer);
+          this.live_view_hard_stop_timer = null;
+        }
+      }
     },
   },
 };
@@ -843,6 +943,7 @@ export default {
 }
 
 #recording-limit-warning,
+#live-view-warning,
 #calibration-warning,
 #user-input-prompt-message,
 #fw-update-available-message,
