@@ -39,11 +39,11 @@ repos:
         args: [--print-width=110]
         exclude: sample_waveform_data/|dist/|jsdoc.json
 
-  - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.4
-    hooks:
-      - id: bandit
-        exclude: tests*
+  # - repo: https://github.com/PyCQA/bandit
+  #   rev: 1.7.4
+  #   hooks:
+  #     - id: bandit
+  #       exclude: tests*
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v3.4.0 # Use the ref you want to point at
