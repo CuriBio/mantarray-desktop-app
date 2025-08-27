@@ -1,7 +1,6 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-
 1.3.1 (unreleased)
 ------------------
 
