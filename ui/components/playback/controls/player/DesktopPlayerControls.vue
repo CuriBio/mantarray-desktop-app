@@ -379,7 +379,7 @@ export default {
       user_input_prompt_labels: {
         header: "Important!",
         msg_one: "Downloading the firmware update requires your user credentials.",
-        msg_two: "Please input them to begin the download",
+        msg_two: "Please input them to begin the download.",
         button_names: ["Okay"],
       },
       recording_limit_labels: {
@@ -390,7 +390,7 @@ export default {
       },
       live_view_warning_labels: {
         header: "Warning!",
-        msg_one: "Live View has been running for 10 minutes",
+        msg_one: "Live View has been running for 10 minutes.",
         msg_two: "It will automatically stop in 60 seconds unless you choose to continue.",
         button_names: ["Close", "Continue"],
       },
