@@ -213,6 +213,7 @@ export default {
     ...mapState("settings", [
       "user_account",
       "allow_sw_update_install",
+      "error_acknowledged",
       "recordings_list",
       "root_recording_path",
       "new_recording_path",
@@ -238,6 +239,11 @@ export default {
   watch: {
     allow_sw_update_install: function () {
       ipcRenderer.send("set_sw_update_auto_install", this.allow_sw_update_install);
+    },
+    error_acknowledged: function () {
+      if (this.error_acknowledged) {
+        ipcRenderer.send("close_app_from_error");
+      }
     },
     start_recording_from_stim(start_rec) {
       // start recording if set to true

@@ -567,9 +567,10 @@ export default {
       const shutdown_url = "http://localhost:4567/shutdown";
       try {
         await Vue.axios.get(shutdown_url);
-      } catch (error) {
-        return;
-      }
+      } catch (error) {}
+
+      console.log("User acknowledged error and initiated shutdown"); // allow-log
+      this.$store.commit("settings/set_error_acknowledged");
     },
     close_da_check_modal: function (idx) {
       this.$bvModal.hide("active-processes-warning");

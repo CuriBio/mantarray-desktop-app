@@ -1,0 +1,3 @@
+[submodule "controller/vendor/barnacleboard-serial-interface"]
+	path = controller/vendor/barnacleboard-serial-interface
+	url = git@github.com:CuriBio/barnacleboard-serial-interface.git

@@ -86,6 +86,10 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.CI_TOKEN }}
+          fetch-depth: 1
+          submodules: true
 
       - name: Convert Workflow Inputs to Env Vars
         run: |
@@ -135,6 +139,11 @@ jobs:
         run: |
           git fetch --tags
           git checkout tags/${{steps.software-version.outputs.prop}}
+
+      - name: Set up submodules
+        run: |
+          git submodule init
+          git submodule update
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -192,7 +201,6 @@ jobs:
         run: |
           cd controller/
           pipenv --python ${{ matrix.python-version }}
-          pipenv run pip freeze
 
       - name: Install Python Dependencies
         env:
@@ -200,6 +208,8 @@ jobs:
         run: |
           cd controller/
           pipenv install -v --dev --deploy
+          pipenv run pip install -e vendor/barnacleboard-serial-interface
+          pipenv run pip freeze
 
       - name: Download zlib Library
         env:

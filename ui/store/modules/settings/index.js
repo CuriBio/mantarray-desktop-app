@@ -4,6 +4,7 @@ import mutations from "./mutations";
 import { ERRORS } from "./enums";
 
 const default_state = {
+  error_acknowledged: false,
   auto_upload: false,
   auto_delete: false,
   run_recording_snapshot_default: true,
