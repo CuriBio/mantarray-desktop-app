@@ -8,6 +8,10 @@ Added:
 ^^^^^^
 - Ability to connect to live instruments using FTDI D2XX drivers if they are present.
   Connection priority is now as follows: FTDI, PySerial, Simulator.
+- After running live view for 10 minutes, a warning message will be displayed.
+  The message will have an option to continue live view or close the message. If continue is not selected
+  within 60 seconds, live view will be stopped automatically, as well as recording if in progress. If continue
+  is selected, live view will continue for 10 more minutes before this warning message is displayed again.
 
 Changed:
 ^^^^^^^^
@@ -15,6 +19,11 @@ Changed:
   to acknowledge the error message. It must be checked before the button to close the dialog
   will be enabled.
 - Barcodes with 'MLYYYYDDDTXX' format are no longer valid.
+
+Fixed:
+^^^^^^
+- In stim studio, clicking "Apply to Selection" with no wells selected no longers enables the
+  stim configuration check button.
 
 
 1.2.8 (2025-08-12)
