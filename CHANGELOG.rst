@@ -17,7 +17,7 @@ Fixed:
   stim configuration check button.
 
 
-1.3.0 (unreleased)
+1.3.0 (2025-09-09)
 ------------------
 
 Added:
