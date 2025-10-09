@@ -23,6 +23,7 @@ const generate_flask_command_line_args = main_utils.generate_flask_command_line_
 const get_current_app_version = main_utils.get_current_app_version;
 
 const store = create_store();
+const barcode_store = main_utils.create_barcode_store();
 
 log.transports.file.resolvePath = () => {
   const filename = main_utils.FILENAME_PREFIX + "_main.txt";
@@ -35,6 +36,7 @@ process.env.TZ = "UTC";
 console.log = log.log;
 console.error = log.error;
 console.log("Electron store at: '" + main_utils.redact_username_from_logs(store.path) + "'"); // allow-log
+console.log("Barcode store at: '" + main_utils.redact_username_from_logs(barcode_store.path) + "'"); // allow-log
 
 global.__resources = undefined; // eslint-disable-line no-underscore-dangle
 // eslint-disable-next-line no-undef
@@ -65,7 +67,7 @@ let wait_for_subprocess_to_complete = null;
 
 const start_python_subprocess = () => {
   console.log("About to generate command line arguments to use when booting up server"); // allow-log
-  const python_cmd_line_args = generate_flask_command_line_args(store);
+  const python_cmd_line_args = generate_flask_command_line_args(store, barcode_store);
   if (process.argv.includes("--log-level-debug")) python_cmd_line_args.push("--log-level-debug");
   if (process.platform !== "win32") {
     // presumably running in a unix dev or CI environment

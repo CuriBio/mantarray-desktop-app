@@ -10,6 +10,7 @@ import main_utils from "./utils.js"; // Eli (1/15/21): helping to be able to spy
 
 const create_store = main_utils.create_store;
 let store = create_store();
+const barcode_store = main_utils.create_barcode_store();
 const get_flask_logs_full_path = main_utils.get_flask_logs_full_path;
 
 export default class BrowserWinHandler {
@@ -113,6 +114,9 @@ export default class BrowserWinHandler {
 
     ipcMain.once("beta_2_mode_request", (event) => {
       event.reply("beta_2_mode_response", store.get("beta_2_mode"));
+    });
+    ipcMain.once("barcode_config_request", (event) => {
+      event.reply("barcode_config_response", barcode_store.store || {});
     });
     ipcMain.once("stored_accounts_request", (event) => {
       event.reply("stored_accounts_response", {
