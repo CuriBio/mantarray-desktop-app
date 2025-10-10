@@ -27,6 +27,7 @@ from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_sti
 
 from ..fixtures import fixture_patch_print
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures import TEST_BARCODE_CONFIG
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
 from ..fixtures_data_analyzer import TEST_START_MANAGED_ACQUISITION_COMMUNICATION
@@ -47,7 +48,14 @@ def test_DataAnalyzerProcess_super_is_called_during_init(mocker):
     mocked_init = mocker.patch.object(InfiniteProcess, "__init__")
 
     with tempfile.TemporaryDirectory() as tmp_output_dir:
-        DataAnalyzerProcess((), None, None, error_queue, mag_analysis_output_dir=tmp_output_dir)
+        DataAnalyzerProcess(
+            (),
+            None,
+            None,
+            error_queue,
+            barcode_config=TEST_BARCODE_CONFIG,
+            mag_analysis_output_dir=tmp_output_dir,
+        )
         mocked_init.assert_called_once_with(error_queue, logging_level=logging.INFO)
 
 
@@ -356,9 +364,7 @@ def test_DataAnalyzerProcess__does_not_include_performance_metrics_in_first_logg
     assert "percent_use_metrics" not in actual
 
 
-def test_DataAnalyzerProcess__processes_set_sampling_period_command(
-    four_board_analyzer_process_beta_2_mode,
-):
+def test_DataAnalyzerProcess__processes_set_sampling_period_command(four_board_analyzer_process_beta_2_mode):
     da_process = four_board_analyzer_process_beta_2_mode["da_process"]
     from_main_queue = four_board_analyzer_process_beta_2_mode["from_main_queue"]
 

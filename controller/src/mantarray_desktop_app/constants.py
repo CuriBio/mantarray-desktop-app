@@ -474,9 +474,6 @@ STIM_WELL_IDX_TO_MODULE_ID: immutabledict[int, int] = immutabledict(
 # Calibration
 CALIBRATION_RECORDING_DUR_SECONDS = 30
 
-# Live View Conversion (last updated 8/7/25)
-DEFAULT_MAGNET_TYPE_TO_MT_PER_MM_Z_AXIS_SENSOR_0 = immutabledict({"1": 0.114, "2": 0.114, "5": 0.213})
-
 # Recording Snapshot
 RECORDING_SNAPSHOT_DUR_SECS = 5 + (NUM_INITIAL_MICROSECONDS_TO_PAD / MICRO_TO_BASE_CONVERSION)
 

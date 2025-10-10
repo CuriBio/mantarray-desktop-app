@@ -160,7 +160,6 @@ from mantarray_desktop_app import WELL_24_INDEX_TO_ADC_AND_CH_INDEX
 from mantarray_desktop_app.constants import ALL_VALID_BARCODE_HEADERS
 from mantarray_desktop_app.constants import BARCODE_HEADERS
 from mantarray_desktop_app.constants import BARCODE_LEN
-from mantarray_desktop_app.constants import MAGNET_TYPE_TO_MM_PER_MT_Z_AXIS_SENSOR_0
 from mantarray_desktop_app.constants import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app.constants import NUM_INITIAL_MICROSECONDS_TO_PAD
 from mantarray_desktop_app.constants import PERFOMANCE_LOGGING_PERIOD_SECS
@@ -589,10 +588,6 @@ def test_beta_2_mappings():
 
 def test_calibration_constants():
     assert CALIBRATION_RECORDING_DUR_SECONDS == 30
-
-
-def test_live_view_conversion():
-    assert MAGNET_TYPE_TO_MM_PER_MT_Z_AXIS_SENSOR_0 == {"-1": 1 / 0.114, "-2": 1 / 0.114, "-5": 1 / 0.213}
 
 
 def test_recording_snapshot():

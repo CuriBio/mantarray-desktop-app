@@ -12,6 +12,7 @@ from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import TestingQueue
 
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from .fixtures import TEST_BARCODE_CONFIG
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 TEST_REC_DIR_PATH = os.path.join("recordings", "ML2021172153__2022_01_21_023323")
@@ -67,6 +68,7 @@ def fixture_four_board_analyzer_process():
             comm_from_main_queue,
             comm_to_main_queue,
             error_queue,
+            barcode_config=TEST_BARCODE_CONFIG,
             mag_analysis_output_dir=tmp_dir,
         )
         yield p, board_queues, comm_from_main_queue, comm_to_main_queue, error_queue, tmp_dir
@@ -86,6 +88,7 @@ def fixture_four_board_analyzer_process_beta_2_mode():
             comm_from_main_queue,
             comm_to_main_queue,
             error_queue,
+            barcode_config=TEST_BARCODE_CONFIG,
             mag_analysis_output_dir=os.path.join(tmp_dir, "time_force_data"),
             beta_2_mode=True,
         )
@@ -114,6 +117,7 @@ def fixture_runnable_four_board_analyzer_process():
             comm_from_main_queue,
             comm_to_main_queue,
             error_queue,
+            barcode_config=TEST_BARCODE_CONFIG,
             mag_analysis_output_dir=tmp_dir,
         )
         yield p, board_queues, comm_from_main_queue, comm_to_main_queue, error_queue, tmp_dir

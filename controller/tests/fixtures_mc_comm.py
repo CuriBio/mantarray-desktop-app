@@ -15,6 +15,7 @@ from stdlib_utils import TestingQueue
 
 from .fixtures import generate_board_and_error_queues
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from .fixtures import TEST_BARCODE_CONFIG
 from .fixtures_mc_simulator import MantarrayMcSimulatorNoBeacons
 from .helpers import confirm_queue_is_eventually_of_size
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
@@ -46,11 +47,7 @@ def set_connection_and_register_simulator(mc_process_fixture, simulator_fixture)
     drain_queue(output_queue)
 
 
-def set_sampling_period(
-    mc_fixture,
-    simulator,
-    sampling_period=DEFAULT_SAMPLING_PERIOD,
-):
+def set_sampling_period(mc_fixture, simulator, sampling_period=DEFAULT_SAMPLING_PERIOD):
     mc_process = mc_fixture["mc_process"]
     from_main_queue = mc_fixture["board_queues"][0][0]
     to_main_queue = mc_fixture["board_queues"][0][1]
@@ -69,11 +66,7 @@ def set_sampling_period(
     to_main_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
 
 
-def set_sampling_period_and_start_streaming(
-    mc_fixture,
-    simulator,
-    sampling_period=DEFAULT_SAMPLING_PERIOD,
-):
+def set_sampling_period_and_start_streaming(mc_fixture, simulator, sampling_period=DEFAULT_SAMPLING_PERIOD):
     set_sampling_period(mc_fixture, simulator, sampling_period)
     start_data_stream(mc_fixture, simulator)
 
@@ -117,7 +110,7 @@ def fixture_four_board_mc_comm_process(mocker):
 
     # Tests using this fixture should be responsible for cleaning up the queues
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4, queue_type=TestingQueue)
-    mc_process = McCommunicationProcess(board_queues, error_queue)
+    mc_process = McCommunicationProcess(board_queues, error_queue, barcode_config=TEST_BARCODE_CONFIG)
 
     items_dict = {"mc_process": mc_process, "board_queues": board_queues, "error_queue": error_queue}
     yield items_dict
@@ -132,7 +125,7 @@ def fixture_runnable_four_board_mc_comm_process(mocker):
 
     # Tests using this fixture should be responsible for cleaning up the queues
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
-    mc_process = McCommunicationProcess(board_queues, error_queue)
+    mc_process = McCommunicationProcess(board_queues, error_queue, barcode_config=TEST_BARCODE_CONFIG)
 
     items_dict = {"mc_process": mc_process, "board_queues": board_queues, "error_queue": error_queue}
     yield items_dict
@@ -155,7 +148,9 @@ def fixture_four_board_mc_comm_process_no_handshake(mocker):
 
     # Tests using this fixture should be responsible for cleaning up the queues
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4, queue_type=TestingQueue)
-    mc_process = McCommunicationProcessNoHandshakes(board_queues, error_queue)
+    mc_process = McCommunicationProcessNoHandshakes(
+        board_queues, error_queue, barcode_config=TEST_BARCODE_CONFIG
+    )
 
     items_dict = {"mc_process": mc_process, "board_queues": board_queues, "error_queue": error_queue}
     yield items_dict

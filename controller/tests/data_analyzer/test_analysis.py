@@ -10,7 +10,6 @@ from mantarray_desktop_app import MICROSECONDS_PER_CENTIMILLISECOND
 from mantarray_desktop_app import MIN_NUM_SECONDS_NEEDED_FOR_ANALYSIS
 from mantarray_desktop_app import ROUND_ROBIN_PERIOD
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
-from mantarray_desktop_app.constants import MAGNET_TYPE_TO_MM_PER_MT_Z_AXIS_SENSOR_0
 from mantarray_desktop_app.constants import MICRO_TO_BASE_CONVERSION
 from mantarray_desktop_app.simulators.mc_simulator import MantarrayMcSimulator
 from mantarray_desktop_app.sub_processes import data_analyzer
@@ -30,6 +29,7 @@ import pytest
 from stdlib_utils import invoke_process_run_and_check_errors
 
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures import TEST_BARCODE_CONFIG
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
 from ..fixtures_data_analyzer import set_sampling_period
@@ -50,14 +50,16 @@ __fixtures__ = [
 
 
 @pytest.mark.parametrize(
-    "test_magnet_type,expected_conversion_factor", list(MAGNET_TYPE_TO_MM_PER_MT_Z_AXIS_SENSOR_0.items())
+    "test_magnet_type,expected_conversion_factor", list(TEST_BARCODE_CONFIG["S"].items())
 )
 def test_calculate_magnetic_flux_density_from_memsic__returns_correct_value(
     test_magnet_type, expected_conversion_factor
 ):
     test_mfd = np.array([list(range(15)), [randint(0, 100) for _ in range(15)]], dtype=np.float64)
     actual = data_analyzer.calculate_displacement_from_magnetic_flux_density(
-        test_mfd.copy(), test_magnet_type
+        test_mfd.copy(),
+        test_magnet_type,
+        magnet_type_to_mt_per_mm={test_magnet_type: expected_conversion_factor},
     )
 
     test_mfd[1] *= expected_conversion_factor
@@ -102,6 +104,7 @@ def test_get_force_signal__converts_to_force_correctly(is_beta_2_data, compress,
         test_well_idx,
         compress=compress,
         is_beta_2_data=is_beta_2_data,
+        magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["S"],
     )
 
     mocked_get_stiffness_factor.assert_called_once_with(
@@ -121,7 +124,9 @@ def test_get_force_signal__converts_to_force_correctly(is_beta_2_data, compress,
         mocked_array.assert_called_once_with(
             [filter_and_compress_res[0], mocked_mfd_from_memsic.return_value], dtype=np.float64
         )
-        mocked_displacement_from_mfd.assert_called_once_with(mocked_array.return_value, test_barcode[-2:])
+        mocked_displacement_from_mfd.assert_called_once_with(
+            mocked_array.return_value, test_barcode[-1:], magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["S"]
+        )
         mocked_voltage_from_gmr.assert_not_called()
         mocked_displacement_from_voltage.assert_not_called()
         displacement_res = mocked_displacement_from_mfd.return_value
@@ -309,7 +314,13 @@ def test_get_twitch_analysis__returns_force_metrics_from_given_beta_1_data(
         BUTTERWORTH_LOWPASS_30_UUID, CONSTRUCT_SENSOR_SAMPLING_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
     )
     force = get_force_signal(
-        test_data_arr, filter_coefficients, test_barcode, test_well_idx, compress=False, is_beta_2_data=False
+        test_data_arr,
+        filter_coefficients,
+        test_barcode,
+        test_well_idx,
+        compress=False,
+        is_beta_2_data=False,
+        magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["S"],
     )
     force[1] *= MICRO_TO_BASE_CONVERSION
     peak_detection_results = peak_detector(force)
@@ -343,7 +354,14 @@ def test_get_twitch_analysis__returns_force_metrics_from_given_beta_2_data(
     test_well_idx = randint(0, 23)
 
     filter_coefficients = create_filter(BUTTERWORTH_LOWPASS_30_UUID, DEFAULT_SAMPLING_PERIOD)
-    force = get_force_signal(test_data_arr, filter_coefficients, test_barcode, test_well_idx, compress=False)
+    force = get_force_signal(
+        test_data_arr,
+        filter_coefficients,
+        test_barcode,
+        test_well_idx,
+        compress=False,
+        magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["S"],
+    )
     force[1] *= MICRO_TO_BASE_CONVERSION
 
     peak_detection_results = peak_detector(force)

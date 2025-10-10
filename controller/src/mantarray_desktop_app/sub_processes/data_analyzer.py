@@ -51,7 +51,6 @@ from ..constants import CONSTRUCT_SENSOR_SAMPLING_PERIOD
 from ..constants import CONSTRUCT_SENSORS_PER_REF_SENSOR
 from ..constants import DATA_ANALYZER_BETA_1_BUFFER_SIZE
 from ..constants import DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS
-from ..constants import DEFAULT_MAGNET_TYPE_TO_MT_PER_MM_Z_AXIS_SENSOR_0
 from ..constants import DEFAULT_SAMPLING_PERIOD
 from ..constants import GENERIC_24_WELL_DEFINITION
 from ..constants import MICRO_TO_BASE_CONVERSION
@@ -81,7 +80,7 @@ def _get_post_stiffness_factor_for_well(plate_barcode: str, well_idx: int) -> in
 def calculate_displacement_from_magnetic_flux_density(
     magnetic_flux_data: NDArray[(2, Any), np.float64],
     magnet_type: str,
-    barcode_config: Dict[str, Any] = DEFAULT_MAGNET_TYPE_TO_MT_PER_MM_Z_AXIS_SENSOR_0,
+    magnet_type_to_mt_per_mm: Dict[str, float],
 ) -> NDArray[(2, Any), np.float64]:
     """Convert magnetic flux density to displacement.
 
@@ -95,7 +94,7 @@ def calculate_displacement_from_magnetic_flux_density(
     time = magnetic_flux_data[0, :]
 
     # calculate displacement
-    sample_in_mm = sample_in_milliteslas / barcode_config["S"][magnet_type]
+    sample_in_mm = sample_in_milliteslas / magnet_type_to_mt_per_mm[magnet_type]
 
     return np.vstack((time, sample_in_mm)).astype(np.float64)
 
@@ -105,9 +104,9 @@ def get_force_signal(
     filter_coefficients: NDArray[(2, Any), np.float64],
     plate_barcode: str,
     well_idx: int,
+    magnet_type_to_mt_per_mm: Dict[str, float],
     compress: bool = True,
     is_beta_2_data: bool = True,
-    barcode_config: Dict[str, Any] = DEFAULT_MAGNET_TYPE_TO_MT_PER_MM_Z_AXIS_SENSOR_0,
 ) -> NDArray[(2, Any), np.float64]:
     post_stiffness_factor = _get_post_stiffness_factor_for_well(plate_barcode, well_idx)
 
@@ -121,7 +120,7 @@ def get_force_signal(
             dtype=np.float64,
         )
         displacement = calculate_displacement_from_magnetic_flux_density(
-            mfd, plate_barcode[-1:], barcode_config=barcode_config
+            mfd, plate_barcode[-1:], magnet_type_to_mt_per_mm=magnet_type_to_mt_per_mm
         )
     else:
         filtered_gmr = apply_noise_filtering(raw_signal, filter_coefficients)
@@ -331,7 +330,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             well_idx,
             compress=False,
             is_beta_2_data=self._beta_2_mode,
-            barcode_config=self._barcode_config,
+            magnet_type_to_mt_per_mm=self._barcode_config["S"],
         )
 
         force_v_time[1] *= MICRO_TO_BASE_CONVERSION
@@ -566,7 +565,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 self._filter_coefficients,
                 self._barcode,
                 well_idx,
-                barcode_config=self._barcode_config,
+                magnet_type_to_mt_per_mm=self._barcode_config["S"],
             )
 
             # convert arrays to lists for json conversion later
@@ -613,7 +612,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 self._barcode,
                 well_index,
                 is_beta_2_data=False,
-                barcode_config=self._barcode_config,
+                magnet_type_to_mt_per_mm=self._barcode_config["S"],
             )
 
             basic_waveform_data_points[well_index] = {
