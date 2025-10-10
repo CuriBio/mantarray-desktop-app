@@ -223,7 +223,9 @@ class McCommunicationProcess(InstrumentCommProcess):
         suppress_setup_communication_to_main: if set to true (often during unit tests), messages during the _setup_before_loop will not be put into the queue to communicate back to the main process
     """
 
-    def __init__(self, *args: Any, hardware_test_mode: bool = False, **kwargs: Any):
+    def __init__(
+        self, *args: Any, hardware_test_mode: bool = False, barcode_config: Dict[str, Any], **kwargs: Any
+    ):
         super().__init__(*args, **kwargs)
         self._error: Optional[Exception] = None
         self._in_simulation_mode = False
@@ -244,6 +246,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._time_of_reboot_start: Optional[
             float
         ] = None  # Tanner (4/1/21): This value will be None until this process receives a response to a reboot command. It will be set back to None after receiving a status beacon upon reboot completion
+        # barcode
+        self._barcode_config = barcode_config
         # firmware updating values
         self._latest_versions: Optional[Dict[str, str]] = None
         self._fw_update_worker_thread: Optional[ErrorCatchingThread] = None
@@ -946,7 +950,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             barcode = packet_payload[1:].decode("ascii") if plate_was_placed else ""
             barcode_comm = {"communication_type": "barcode_comm", "board_idx": board_idx, "barcode": barcode}
             if plate_was_placed:
-                barcode_comm["valid"] = check_barcode_is_valid(barcode, True)
+                barcode_comm["valid"] = check_barcode_is_valid(barcode, True, self._barcode_config)
             self._board_queues[board_idx][1].put_nowait(barcode_comm)
         elif packet_type == SERIAL_COMM_STIM_STATUS_PACKET_TYPE:
             raise NotImplementedError("Should never receive stim status packets when not stimulating")
@@ -973,7 +977,7 @@ class McCommunicationProcess(InstrumentCommProcess):
                 "communication_type": "barcode_comm",
                 "board_idx": board_idx,
                 "barcode": barcode,
-                "valid": check_barcode_is_valid(barcode, True),
+                "valid": check_barcode_is_valid(barcode, True, self._barcode_config),
             }
             self._board_queues[board_idx][1].put_nowait(barcode_comm)
         elif packet_type == SERIAL_COMM_GET_ERROR_DETAILS_PACKET_TYPE:

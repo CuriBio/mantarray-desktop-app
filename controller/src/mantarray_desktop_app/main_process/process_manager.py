@@ -42,11 +42,7 @@ def _process_failed_to_join(process: InfiniteProcess) -> bool:
 class MantarrayProcessesManager:
     """Controls access to all the subprocesses."""
 
-    def __init__(
-        self,
-        values_to_share_to_server: SharedValues,
-        logging_level: int = logging.INFO,
-    ) -> None:
+    def __init__(self, values_to_share_to_server: SharedValues, logging_level: int = logging.INFO) -> None:
         self._logging_level = logging_level
         self._all_processes: Optional[Dict[str, InfiniteProcess]] = None
         self._subprocesses_started: bool = False
@@ -79,6 +75,7 @@ class MantarrayProcessesManager:
         self.instrument_comm_process = instrument_comm_process(
             self.queue_container.instrument_comm_boards,
             self.queue_container.instrument_comm_error,
+            barcode_config=self.values_to_share_to_server["barcode_config"],
             logging_level=self._logging_level,
         )
 
@@ -100,6 +97,7 @@ class MantarrayProcessesManager:
             mag_analysis_output_dir=self.values_to_share_to_server["config_settings"][
                 "mag_analysis_output_dir"
             ],
+            barcode_config=self.values_to_share_to_server["barcode_config"],
             logging_level=self._logging_level,
             beta_2_mode=beta_2_mode,
         )

@@ -110,7 +110,7 @@ const generate_flask_command_line_args = function (electron_store, barcode_store
     log_file_id: FILENAME_PREFIX,
     recording_directory: recording_directory_path,
     mag_analysis_output_dir: time_force_dir_path,
-    barcode_store: barcode_store.store,
+    barcode_config: barcode_store.store,
   };
 
   const settings_to_supply_json_str = JSON.stringify(settings_to_supply);
