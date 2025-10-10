@@ -25,6 +25,7 @@ from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_sti
 from stdlib_utils import TestingQueue
 
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures import TEST_BARCODE_CONFIG
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process_beta_2_mode
 from ..fixtures_data_analyzer import fixture_runnable_four_board_analyzer_process
 from ..fixtures_data_analyzer import set_sampling_period
@@ -222,6 +223,7 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
             filter_coefficients,
             test_barcode,
             well_idx,
+            magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["S"],
         )
         waveform_data_points[well_idx] = {
             "x_data_points": compressed_data[0].tolist(),

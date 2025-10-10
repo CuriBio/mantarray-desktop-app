@@ -22,17 +22,14 @@ from stdlib_utils import confirm_port_in_use
 
 from .fixtures import fixture_generic_queue_container
 from .fixtures import fixture_patch_print
+from .fixtures import TEST_BARCODE_CONFIG
 from .fixtures_file_writer import GENERIC_BETA_1_START_RECORDING_COMMAND
 from .fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
 from .fixtures_file_writer import TEST_CUSTOMER_ID
 from .fixtures_file_writer import TEST_USER_NAME
 from .fixtures_process_monitor import fixture_test_monitor
 
-__fixtures__ = [
-    fixture_patch_print,
-    fixture_generic_queue_container,
-    fixture_test_monitor,
-]
+__fixtures__ = [fixture_patch_print, fixture_generic_queue_container, fixture_test_monitor]
 
 
 def convert_formatted_platemap_to_query_param(formatted_platemap_info):
@@ -61,6 +58,7 @@ def fixture_server_manager(generic_queue_container):
     shared_values_dict["log_file_id"] = "log-ID"
     shared_values_dict["beta_2_mode"] = False
     shared_values_dict["config_settings"] = dict()
+    shared_values_dict["barcode_config"] = TEST_BARCODE_CONFIG
 
     yield sm, to_main_queue
 
@@ -103,10 +101,7 @@ def put_generic_beta_1_start_recording_info_in_dict(shared_values_dict):
     shared_values_dict["adc_gain"] = 32
     shared_values_dict["adc_offsets"] = dict()
     for well_idx in range(24):
-        shared_values_dict["adc_offsets"][well_idx] = {
-            "construct": well_idx * 2,
-            "ref": well_idx * 2 + 1,
-        }
+        shared_values_dict["adc_offsets"][well_idx] = {"construct": well_idx * 2, "ref": well_idx * 2 + 1}
     shared_values_dict["main_firmware_version"] = {board_idx: RunningFIFOSimulator.default_firmware_version}
     shared_values_dict["sleep_firmware_version"] = {board_idx: 2.0}
     shared_values_dict["xem_serial_number"] = {board_idx: RunningFIFOSimulator.default_xem_serial_number}

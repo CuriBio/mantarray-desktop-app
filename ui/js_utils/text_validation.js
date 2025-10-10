@@ -29,15 +29,16 @@ export class TextValidation {
    * @param  {string}  text The text on which the validation rules are verified
    * @param  {string}  type The type of value being checked: ID, passkey, or user_name
    * @param  {bool}    beta_2_mode True if in beta2 mode false if in beta 1 mode
+   * @param {Object} barcode_config
    * @return {string} The string is either empty on valid and <space> or <invalid meessage>
    */
-  validate(text, type, beta_2_mode) {
+  validate(text, type, beta_2_mode, barcode_config) {
     let feedback = "";
     const obj = {};
     try {
       switch (this.rule) {
         case "plate_barcode":
-          feedback = this.validate_barcode(text, type, beta_2_mode);
+          feedback = this.validate_barcode(text, type, beta_2_mode, barcode_config);
           break;
         case "platemap_editor_input":
           feedback = this.validate_platemap_editor_input(text);
@@ -191,10 +192,11 @@ export class TextValidation {
    * @param  {string}  barcode The barcode string to validate
    * @param {string} type The barcode type "stim_barcode" or "plate_barcode"
    * @param {bool} beta_2_mode True if in bet 2 mode false if in beta 1 mode
+   * @param {Object} barcode_config
    * @return {string} "" if barcode is valid, " " otherwise
    *
    */
-  validate_barcode(barcode, type, beta_2_mode) {
+  validate_barcode(barcode, type, beta_2_mode, barcode_config) {
     if (barcode == null) {
       return " ";
     }
@@ -236,15 +238,16 @@ export class TextValidation {
     }
     // check if in beta one or two mode. if last char invalid then mark the barcode as invalid.
     // allowed chars depend on beta version
-    const allowed_final_chars = [];
+    let allowed_final_chars = [];
     if (beta_2_mode) {
-      allowed_final_chars.push("2");
-      // new magnet types only allowed for ML barcodes
       if (barcode[1] === "L") {
-        allowed_final_chars.push("5");
+        // new magnet types only allowed for ML barcodes
+        allowed_final_chars = Object.keys((barcode_config || {})["S"] || {}).filter((s) => s !== "1");
+      } else {
+        allowed_final_chars = ["2"];
       }
     } else {
-      allowed_final_chars.push("1");
+      allowed_final_chars = ["1"];
     }
     if (!allowed_final_chars.includes(barcode[11])) {
       return " ";

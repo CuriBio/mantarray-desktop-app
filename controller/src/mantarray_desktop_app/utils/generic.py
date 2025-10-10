@@ -253,7 +253,9 @@ def get_current_software_version() -> str:
         return version
 
 
-def check_barcode_for_errors(barcode: str, beta_2_mode: bool, barcode_type: Optional[str] = None) -> str:
+def check_barcode_for_errors(
+    barcode: str, beta_2_mode: bool, barcode_config: Dict[str, Any], barcode_type: Optional[str] = None
+) -> str:
     """Return error message if barcode contains an error.
 
     barcode_type kwarg should always be given unless checking a scanned
@@ -278,12 +280,13 @@ def check_barcode_for_errors(barcode: str, beta_2_mode: bool, barcode_type: Opti
     # valid final char depends on beta version
     allowed_final_chars = []
     if beta_2_mode:
-        allowed_final_chars.append("2")
-        # new magnet types only allowed for ML barcodes
         if barcode[1] == "L":
-            allowed_final_chars.append("5")
+            # new magnet types only allowed for ML barcodes
+            allowed_final_chars = list(barcode_config.get("S", {}).keys())
+        else:
+            allowed_final_chars = ["2"]
     else:
-        allowed_final_chars.append("1")
+        allowed_final_chars = ["1"]
 
     final_char = barcode[-1]
     if final_char not in allowed_final_chars:
@@ -291,8 +294,8 @@ def check_barcode_for_errors(barcode: str, beta_2_mode: bool, barcode_type: Opti
     return ""
 
 
-def check_barcode_is_valid(barcode: str, mode: bool) -> bool:
-    error_msg = check_barcode_for_errors(barcode, mode)
+def check_barcode_is_valid(barcode: str, mode: bool, barcode_config: Dict[str, Any]) -> bool:
+    error_msg = check_barcode_for_errors(barcode, mode, barcode_config)
     return error_msg == ""
 
 

@@ -194,7 +194,12 @@ export default {
     context.dispatch("flask/start_status_pinging", null, { root: true });
   },
   async validate_barcode({ commit, state, dispatch }, { type, new_value }) {
-    const result = TextValidation_plate_barcode.validate(new_value, type, this.state.settings.beta_2_mode);
+    const result = TextValidation_plate_barcode.validate(
+      new_value,
+      type,
+      this.state.settings.beta_2_mode,
+      this.state.settings.barcode_config
+    );
     const is_valid = result == "";
 
     // if this is the first barcode scanned, can skip these
