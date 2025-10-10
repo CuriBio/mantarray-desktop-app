@@ -10,6 +10,7 @@ Added:
   The message will have an option to continue live view or close the message. If continue is not selected
   within 60 seconds, live view will be stopped automatically, as well as recording if in progress. If continue
   is selected, live view will continue for 10 more minutes before this warning message is displayed again.
+- Barcode config
 
 Fixed:
 ^^^^^^
