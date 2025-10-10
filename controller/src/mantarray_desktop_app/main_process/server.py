@@ -590,7 +590,7 @@ def start_recording() -> Response:
     for barcode_type in barcodes_to_check:
         barcode = request.args[barcode_type]
         if error_message := check_barcode_for_errors(
-            barcode, shared_values_dict["beta_2_mode"], barcode_type
+            barcode, shared_values_dict["beta_2_mode"], shared_values_dict["barcode_config"], barcode_type
         ):
             barcode_label = barcode_type.split("_")[0].title()
             return Response(status=f"400 {barcode_label} {error_message}")
@@ -738,7 +738,10 @@ def start_managed_acquisition() -> Response:
     if not plate_barcode:
         return Response(status="400 Request missing 'plate_barcode' parameter")
     if error_message := check_barcode_for_errors(
-        plate_barcode, shared_values_dict["beta_2_mode"], "plate_barcode"
+        plate_barcode,
+        shared_values_dict["beta_2_mode"],
+        shared_values_dict["barcode_config"],
+        "plate_barcode",
     ):
         return Response(status=f"400 Plate {error_message}")
 

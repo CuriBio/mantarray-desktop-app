@@ -1,7 +1,24 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.3.0 (unreleased)
+1.3.1 (unreleased)
+------------------
+
+Added:
+^^^^^^
+- After running live view for 10 minutes, a warning message will be displayed.
+  The message will have an option to continue live view or close the message. If continue is not selected
+  within 60 seconds, live view will be stopped automatically, as well as recording if in progress. If continue
+  is selected, live view will continue for 10 more minutes before this warning message is displayed again.
+- Barcode config
+
+Fixed:
+^^^^^^
+- In stim studio, clicking "Apply to Selection" with no wells selected no longers enables the
+  stim configuration check button.
+
+
+1.3.0 (2025-09-09)
 ------------------
 
 Added:

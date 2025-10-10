@@ -19,13 +19,11 @@ from stdlib_utils import InfiniteProcess
 from .fixtures import fixture_patch_subprocess_is_stopped_to_false
 from .fixtures import fixture_patched_firmware_folder
 from .fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from .fixtures import TEST_BARCODE_CONFIG
 from .helpers import confirm_queue_is_eventually_of_size
 from .helpers import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
-__fixtures__ = [
-    fixture_patched_firmware_folder,
-    fixture_patch_subprocess_is_stopped_to_false,
-]
+__fixtures__ = [fixture_patched_firmware_folder, fixture_patch_subprocess_is_stopped_to_false]
 
 
 def create_process_manager(
@@ -34,7 +32,7 @@ def create_process_manager(
     recording_directory="",
     mag_analysis_output_dir="",
     logging_level=None,
-    server_port_number=None
+    server_port_number=None,
 ):
     values_to_share_to_server = {
         "beta_2_mode": beta_2_mode,
@@ -42,6 +40,7 @@ def create_process_manager(
             "recording_directory": recording_directory,
             "mag_analysis_output_dir": mag_analysis_output_dir,
         },
+        "barcode_config": TEST_BARCODE_CONFIG,
     }
     if server_port_number is not None:
         values_to_share_to_server["server_port_number"] = server_port_number
@@ -87,8 +86,7 @@ def test_MantarrayProcessesManager__stop_processes__calls_stop_on_all_processes_
 
 
 def test_MantarrayProcessesManager__soft_stop_processes__calls_soft_stop_on_all_processes_and_shuts_down_server(
-    generic_manager,
-    mocker,
+    generic_manager, mocker
 ):
     generic_manager.create_processes()
     mocked_ok_comm_soft_stop = mocker.patch.object(OkCommunicationProcess, "soft_stop")
@@ -369,6 +367,7 @@ def test_MantarrayProcessesManager__passes_shared_values_dict_to_server():
     expected_dict = {
         "beta_2_mode": False,
         "config_settings": {"recording_directory": "", "mag_analysis_output_dir": ""},
+        "barcode_config": TEST_BARCODE_CONFIG,
     }
     manager = MantarrayProcessesManager(values_to_share_to_server=expected_dict)
     manager.create_processes()
@@ -411,10 +410,7 @@ def test_MantarrayProcessesManager__boot_up_instrument__populates_ok_comm_queue_
     }
 
     actual_communication_2 = main_to_instrument_comm_queue.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
-    assert actual_communication_2 == {
-        "communication_type": "xem_scripts",
-        "script_type": "start_up",
-    }
+    assert actual_communication_2 == {"communication_type": "xem_scripts", "script_type": "start_up"}
 
 
 def test_MantarrayProcessesManager__are_processes_stopped__waits_correct_amount_of_time_with_default_timeout_before_returning_false(
@@ -535,10 +531,7 @@ def test_MantarrayProcessesManager__are_processes_stopped__sleeps_for_correct_am
 ):
     generic_manager.create_processes()
     mocker.patch.object(
-        process_manager,
-        "perf_counter",
-        side_effect=[0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS],
-        autospec=True,
+        process_manager, "perf_counter", side_effect=[0, SUBPROCESS_SHUTDOWN_TIMEOUT_SECONDS], autospec=True
     )
     mocked_sleep = mocker.patch.object(process_manager, "sleep", autospec=True)
 
@@ -576,17 +569,12 @@ def test_MantarrayProcessesManager__are_subprocess_start_ups_complete__returns_f
     generic_manager, mocker
 ):
     generic_manager.create_processes()
-    for iter_process in (
-        generic_manager.instrument_comm_process,
-        generic_manager.data_analyzer_process,
-    ):
+    for iter_process in (generic_manager.instrument_comm_process, generic_manager.data_analyzer_process):
         mocker.patch.object(iter_process, "is_start_up_complete", autospec=True, return_value=True)
     assert generic_manager.are_subprocess_start_ups_complete() is False
 
 
-def test_MantarrayProcessesManager__passes_beta_2_flag_to_subprocesses_other_than_instrument_comm(
-    mocker,
-):
+def test_MantarrayProcessesManager__passes_beta_2_flag_to_subprocesses_other_than_instrument_comm(mocker):
     expected_beta_2_flag = True
     manager = create_process_manager(beta_2_mode=expected_beta_2_flag)
 
@@ -599,9 +587,7 @@ def test_MantarrayProcessesManager__passes_beta_2_flag_to_subprocesses_other_tha
     assert spied_da_init.call_args.kwargs["beta_2_mode"] is expected_beta_2_flag
 
 
-def test_MantarrayProcessesManager__creates_mc_comm_instead_of_ok_comm_when_beta_2_flag_is_set_true(
-    mocker,
-):
+def test_MantarrayProcessesManager__creates_mc_comm_instead_of_ok_comm_when_beta_2_flag_is_set_true(mocker):
     manager = create_process_manager(beta_2_mode=True)
     manager.create_processes()
 

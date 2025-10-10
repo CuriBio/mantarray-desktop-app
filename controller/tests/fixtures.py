@@ -15,6 +15,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 
+from immutabledict import immutabledict
 from mantarray_desktop_app import clear_server_singletons
 from mantarray_desktop_app import clear_the_server_manager
 from mantarray_desktop_app import DataAnalyzerProcess
@@ -42,6 +43,8 @@ QUEUE_CHECK_TIMEOUT_SECONDS = 1.3  # for confirm_queue_is_eventually_empty, conf
 GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS = 20
 GENERIC_STORED_CUSTOMER_ID = {"id": "test_id", "password": "test_password"}
 
+TEST_BARCODE_CONFIG = immutabledict({"S": {"2": 1.0, "5": 1.0}})
+
 
 def random_semver():
     return f"{randint(0,1000)}.{randint(0,1000)}.{randint(0,1000)}"
@@ -66,6 +69,7 @@ def get_generic_base64_args(
         "log_file_id": "any",
         "recording_directory": recording_directory,
         "mag_analysis_output_dir": analysis_output_dir,
+        "barcode_config": dict(TEST_BARCODE_CONFIG),
     }
     json_str = json.dumps(test_dict)
     b64_encoded = base64.urlsafe_b64encode(json_str.encode("utf-8")).decode("utf-8")
@@ -158,7 +162,8 @@ def fixture_test_process_manager_creator(mocker):
                         "recording_directory": recording_dir,
                         "mag_analysis_output_dir": mag_analysis_output_dir,
                     },
-                },
+                    "barcode_config": TEST_BARCODE_CONFIG,
+                }
             )
             if use_testing_queues:
                 mocker.patch.object(
@@ -185,9 +190,7 @@ def fixture_test_process_manager_creator(mocker):
     clear_the_server_manager()
 
 
-def start_processes_and_wait_for_start_ups_to_complete(
-    test_manager: MantarrayProcessesManager,
-) -> None:
+def start_processes_and_wait_for_start_ups_to_complete(test_manager: MantarrayProcessesManager) -> None:
     timeout_seconds = 12
     test_manager.start_processes()
     start_time = perf_counter()
@@ -293,9 +296,6 @@ def fixture_patched_firmware_folder(mocker):
         os.path.join(PATH_TO_CURRENT_FILE, "test_firmware", patched_firmware)
     )
     mocker.patch.object(
-        process_manager,
-        "get_latest_firmware",
-        autospec=True,
-        return_value=patched_firmware_path,
+        process_manager, "get_latest_firmware", autospec=True, return_value=patched_firmware_path
     )
     yield patched_firmware_path

@@ -64,6 +64,9 @@ export default {
   set_pulse3d_version_info(state, version_info) {
     state.pulse3d_version_info = version_info;
   },
+  set_barcode_config(state, barcode_config) {
+    state.barcode_config = barcode_config;
+  },
   set_selected_pulse3d_version(state, version) {
     state.selected_pulse3d_version = version;
   },

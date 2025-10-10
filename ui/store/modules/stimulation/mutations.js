@@ -7,6 +7,10 @@ export default {
     state.selected_wells = wells;
   },
   apply_selected_protocol(state, protocol) {
+    if (state.selected_wells.length === 0) {
+      return;
+    }
+
     state.selected_wells.map((well) => {
       state.protocol_assignments[well] = protocol;
     });
@@ -14,9 +18,10 @@ export default {
     const previous_state = state.protocol_assignments;
     state.protocol_assignments = { ...state.protocol_assignments };
 
-    if (Object.keys(previous_state) !== Object.keys(state.protocol_assignments))
+    if (Object.keys(previous_state) !== Object.keys(state.protocol_assignments)) {
       // checks if indices are different because this mutation gets called when existing assignments get edited
       state.stim_status = STIM_STATUS.CONFIG_CHECK_NEEDED;
+    }
   },
   clear_selected_protocol(state) {
     state.selected_wells.map((well) => delete state.protocol_assignments[well]);

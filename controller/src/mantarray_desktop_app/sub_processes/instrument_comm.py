@@ -46,6 +46,7 @@ class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
         fatal_error_reporter: Queue[Tuple[Exception, str]],
         suppress_setup_communication_to_main: bool = False,
         logging_level: int = logging.INFO,
+        **kwargs: Any,
     ):
         super().__init__(fatal_error_reporter, logging_level=logging_level)
         self._board_queues = board_queues
@@ -80,16 +81,12 @@ class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
         pass
 
     def set_board_connection(
-        self,
-        board_idx: int,
-        board: Union[FrontPanelBase, MantarrayMcSimulator, serial.Serial],
+        self, board_idx: int, board: Union[FrontPanelBase, MantarrayMcSimulator, serial.Serial]
     ) -> None:
         board_connections = self.get_board_connections_list()
         board_connections[board_idx] = board
 
-    def get_board_connections_list(
-        self,
-    ) -> List[Union[None, okCFrontPanel, MantarrayMcSimulator]]:
+    def get_board_connections_list(self) -> List[Union[None, okCFrontPanel, MantarrayMcSimulator]]:
         return self._board_connections
 
     def _send_performance_metrics(self, performance_metrics: Dict[str, Any]) -> None:
@@ -101,10 +98,7 @@ class InstrumentCommProcess(InfiniteProcess, metaclass=abc.ABCMeta):
         for metric in ("periods_between_iterations", "sleep_durations"):
             performance_metrics[metric] = tracker.get(metric)
         put_log_message_into_queue(
-            logging.INFO,
-            performance_metrics,
-            self._board_queues[0][1],
-            self.get_logging_level(),
+            logging.INFO, performance_metrics, self._board_queues[0][1], self.get_logging_level()
         )
 
     def _drain_all_queues(self) -> Dict[str, Any]:

@@ -27,6 +27,7 @@ from stdlib_utils import invoke_process_run_and_check_errors
 from ..fixtures import fixture_patch_print
 from ..fixtures import generate_board_and_error_queues
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures import TEST_BARCODE_CONFIG
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process
 from ..fixtures_mc_comm import fixture_four_board_mc_comm_process_no_handshake
 from ..fixtures_mc_comm import set_connection_and_register_simulator
@@ -52,7 +53,7 @@ __fixtures__ = [
 def test_McCommunicationProcess_super_is_called_during_init(mocker):
     error_queue = Queue()
     spied_init = mocker.spy(InfiniteProcess, "__init__")
-    mc_process = McCommunicationProcess((), error_queue)
+    mc_process = McCommunicationProcess((), error_queue, barcode_config=TEST_BARCODE_CONFIG)
     spied_init.assert_called_once_with(mc_process, error_queue, logging_level=logging.INFO)
 
 
@@ -98,7 +99,12 @@ def test_McCommunicationProcess_setup_before_loop__does_not_send_message_to_main
     mocker.patch.object(mc_comm, "set_keepawake", autospec=True)
 
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
-    mc_process = McCommunicationProcess(board_queues, error_queue, suppress_setup_communication_to_main=True)
+    mc_process = McCommunicationProcess(
+        board_queues,
+        error_queue,
+        barcode_config=TEST_BARCODE_CONFIG,
+        suppress_setup_communication_to_main=True,
+    )
     mocked_create_connections = mocker.patch.object(
         mc_process, "create_connections_to_all_available_boards", autospec=True
     )
@@ -126,7 +132,12 @@ def test_McCommunicationProcess_setup_before_loop__does_not_set_process_priority
     mocker.patch.object(mc_comm, "set_keepawake", autospec=True)
 
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
-    mc_process = McCommunicationProcess(board_queues, error_queue, suppress_setup_communication_to_main=True)
+    mc_process = McCommunicationProcess(
+        board_queues,
+        error_queue,
+        barcode_config=TEST_BARCODE_CONFIG,
+        suppress_setup_communication_to_main=True,
+    )
     mc_process.set_board_connection(0, simulator)
 
     mc_process._setup_before_loop()
@@ -134,8 +145,7 @@ def test_McCommunicationProcess_setup_before_loop__does_not_set_process_priority
 
 
 def test_McCommunicationProcess_setup_before_loop__sets_process_priority_and_keepawake_when_not_connected_to_a_simulator(
-    four_board_mc_comm_process_no_handshake,
-    mocker,
+    four_board_mc_comm_process_no_handshake, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
 
@@ -225,9 +235,7 @@ def test_McCommunicationProcess_soft_stop_not_allowed_if_waiting_for_command_res
     assert mc_process.is_stopped() is False
 
 
-def test_McCommunicationProcess_teardown_after_loop__sets_teardown_complete_event(
-    four_board_mc_comm_process,
-):
+def test_McCommunicationProcess_teardown_after_loop__sets_teardown_complete_event(four_board_mc_comm_process):
     mc_process = four_board_mc_comm_process["mc_process"]
 
     mc_process.soft_stop()
@@ -288,8 +296,7 @@ def test_McCommunicationProcess_teardown_after_loop__flushes_and_logs_remaining_
 
 
 def test_McCommunicationProcess_teardown_after_loop__unsets_keepawake_if_not_in_simulation_mode(
-    four_board_mc_comm_process_no_handshake,
-    mocker,
+    four_board_mc_comm_process_no_handshake, mocker
 ):
     mc_process = four_board_mc_comm_process_no_handshake["mc_process"]
     mc_process.set_board_connection(0, mocker.MagicMock())
@@ -307,12 +314,14 @@ def test_McCommunicationProcess_teardown_after_loop__unsets_keepawake_if_not_in_
 @pytest.mark.timeout(15)
 def test_McCommunicationProcess_teardown_after_loop__stops_running_simulator():
     board_queues, error_queue = generate_board_and_error_queues(num_boards=4)
-    mc_process = McCommunicationProcess(board_queues, error_queue, suppress_setup_communication_to_main=True)
+    mc_process = McCommunicationProcess(
+        board_queues,
+        error_queue,
+        barcode_config=TEST_BARCODE_CONFIG,
+        suppress_setup_communication_to_main=True,
+    )
     invoke_process_run_and_check_errors(
-        mc_process,
-        num_iterations=1,
-        perform_teardown_after_loop=True,
-        perform_setup_before_loop=True,
+        mc_process, num_iterations=1, perform_teardown_after_loop=True, perform_setup_before_loop=True
     )
     mc_process.soft_stop()
     simulator = mc_process.get_board_connections_list()[0]

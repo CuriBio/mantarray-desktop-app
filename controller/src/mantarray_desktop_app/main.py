@@ -157,20 +157,14 @@ def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[
             action="store_true",
             help="bypasses automatic run of boot_up for hardware testing",
         )
-        parser.add_argument(
-            "--port-number",
-            type=int,
-            help="allow manual setting of server port number",
-        )
+        parser.add_argument("--port-number", type=int, help="allow manual setting of server port number")
         parser.add_argument(
             "--log-file-dir",
             type=str,
             help="allow manual setting of the directory in which log files will be stored",
         )
         parser.add_argument(
-            "--initial-base64-settings",
-            type=str,
-            help="allow initial configuration of user settings",
+            "--initial-base64-settings", type=str, help="allow initial configuration of user settings"
         )
         parser.add_argument(
             "--expected-software-version",
@@ -259,7 +253,10 @@ def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[
                 "recording_directory": os.path.join(os.getcwd(), "recordings"),
                 "mag_analysis_output_dir": os.path.join(os.getcwd(), "analysis"),
                 "log_file_id": str(uuid.uuid4()),
+                "barcode_config": {},
             }
+
+        logger.info(f"Barcode config: {settings_dict['barcode_config']}")
 
         fw_update_directory = os.path.join(
             os.path.dirname(settings_dict["recording_directory"]), "firmware_updates"
@@ -271,6 +268,7 @@ def main(command_line_args: List[str], object_access_for_testing: Optional[Dict[
             "mag_analysis_output_dir": settings_dict["mag_analysis_output_dir"],
             "fw_update_directory": fw_update_directory,
         }
+        shared_values_dict["barcode_config"] = settings_dict["barcode_config"]
 
         if parsed_args.expected_software_version:
             if not parsed_args.skip_software_version_verification:

@@ -55,6 +55,26 @@ const create_store = function ({ file_path = undefined, file_name = "mantarray_c
   return store;
 };
 
+const create_barcode_store = function () {
+  const store = new ElectronStore({
+    cwd: undefined,
+    name: "mantarray_controller_barcode_config",
+    fileExtension: "json",
+    serialize: JSON.stringify,
+    deserialize: JSON.parse,
+    defaults: {
+      S: {
+        // mT/mm
+        1: 0.114,
+        2: 0.114,
+        5: 0.213,
+        6: 0.213,
+      },
+    },
+  });
+  return store;
+};
+
 const redact_username_from_logs = (dir_path) => {
   const username = dir_path.includes("\\") ? dir_path.split("\\")[2] : dir_path.split("/")[2];
   return dir_path.replace(username, "****");
@@ -69,10 +89,11 @@ const get_flask_logs_full_path = function (electron_store) {
  * Generate the command line arguments to pass to the local server as it is initialized. This also creates the necessary directories if they don't exist to hold the log files and recordings...although (Eli 1/15/21) unclear why the server doesn't do that itself...
  *
  * @param {Object} electron_store - the ElectronStore object
+ * @param {Object} barcode_store - the ElectronStore barcode config object
  *
  * @return {Array} a list of command line arguments
  */
-const generate_flask_command_line_args = function (electron_store) {
+const generate_flask_command_line_args = function (electron_store, barcode_store) {
   console.log("node env: " + process.env.NODE_ENV); // allow-log
 
   const electron_store_dir = path.dirname(electron_store.path);
@@ -89,6 +110,7 @@ const generate_flask_command_line_args = function (electron_store) {
     log_file_id: FILENAME_PREFIX,
     recording_directory: recording_directory_path,
     mag_analysis_output_dir: time_force_dir_path,
+    barcode_config: barcode_store.store,
   };
 
   const settings_to_supply_json_str = JSON.stringify(settings_to_supply);
@@ -109,6 +131,7 @@ const export_functions = {
   get_flask_logs_full_path,
   generate_flask_command_line_args,
   create_store,
+  create_barcode_store,
   get_current_app_version,
   FILENAME_PREFIX,
   redact_username_from_logs,

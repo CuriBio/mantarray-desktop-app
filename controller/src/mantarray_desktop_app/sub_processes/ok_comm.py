@@ -170,9 +170,7 @@ def _create_activate_trigger_in_callable(
     return functools.partial(front_panel.activate_trigger_in, ep_addr, bit)
 
 
-def _comm_delay(
-    communication: Dict[str, Any],
-) -> str:
+def _comm_delay(communication: Dict[str, Any]) -> str:
     """Pause communications to XEM for given number of milliseconds."""
     num_milliseconds = communication["num_milliseconds"]
     sleep_val = num_milliseconds / 1000
@@ -216,20 +214,14 @@ def parse_data_frame(data_bytes: bytearray, data_format_name: str) -> Dict[int, 
             start_byte_idx = 12 + byte_idx * 4
             end_byte_idx = start_byte_idx + 4
             # add data
-            formatted_data[byte_idx] = (
-                sample_index,
-                data_bytes[start_byte_idx:end_byte_idx],
-            )
+            formatted_data[byte_idx] = (sample_index, data_bytes[start_byte_idx:end_byte_idx])
         return formatted_data
 
     raise UnrecognizedDataFrameFormatNameError(data_format_name)
 
 
 def build_file_writer_objects(
-    data_bytes: bytearray,
-    data_format_name: str,
-    logging_queue: Queue[Dict[str, Any]],
-    logging_threshold: int,
+    data_bytes: bytearray, data_format_name: str, logging_queue: Queue[Dict[str, Any]], logging_threshold: int
 ) -> Dict[Any, Dict[str, Any]]:
     """Take raw data from the XEM and format into dicts for the FileWriter.
 
@@ -259,11 +251,7 @@ def build_file_writer_objects(
         channel_dicts: Dict[Any, Dict[str, Any]] = dict()
         # add construct sensors to dict
         for ch_num in range(24):
-            channel_dicts[ch_num] = {
-                "is_reference_sensor": False,
-                "well_index": ch_num,
-                "data": None,
-            }
+            channel_dicts[ch_num] = {"is_reference_sensor": False, "well_index": ch_num, "data": None}
         # add reference sensors to dict
         for ref_num in range(6):
             channel_dicts[f"ref{ref_num}"] = {
@@ -282,10 +270,7 @@ def build_file_writer_objects(
                 first_frame_sample_idx = formatted_data[0][0]
             elif frame_idx == 1:
                 _check_data_frame_period(
-                    first_frame_sample_idx,
-                    formatted_data[0][0],
-                    logging_queue,
-                    logging_threshold,
+                    first_frame_sample_idx, formatted_data[0][0], logging_queue, logging_threshold
                 )
             for ch_num in range(6):
                 sample_index = formatted_data[ch_num][0]
@@ -318,12 +303,7 @@ def _check_data_frame_period(
         msg = f"Detected period between first two data frames of FIFO read: {period} does not matched expected value: {DATA_FRAME_PERIOD}. Actual time indices: {hex(first_frame_sample_idx)}, {hex(second_frame_sample_idx)}"
         if logging_threshold >= logging.INFO:
             raise InvalidDataFramePeriodError(msg)
-        put_log_message_into_queue(
-            logging.DEBUG,
-            msg,
-            logging_queue,
-            logging_threshold,
-        )
+        put_log_message_into_queue(logging.DEBUG, msg, logging_queue, logging_threshold)
 
 
 def parse_scripting_log_line(log_line: str) -> Dict[str, Any]:
@@ -427,10 +407,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
         self._is_managed_acquisition_running = [False] * len(self._board_queues)
         self._is_first_managed_read = [False] * len(self._board_queues)
         self._is_barcode_cleared = [False, False]
-        self._barcode_scan_start_time: List[Optional[float]] = [
-            None,
-            None,
-        ]
+        self._barcode_scan_start_time: List[Optional[float]] = [None, None]
         # performance tracking values
         self._performance_logging_cycles = OK_COMM_PERFOMANCE_LOGGING_NUM_CYCLES
         self._reads_since_last_logging: List[int] = [0] * len(self._board_queues)
@@ -448,10 +425,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
         num_connected_boards = self.determine_how_many_boards_are_connected()
         comm_to_main_queue = self._board_queues[0][1]
         for i in range(num_connected_boards):
-            msg = {
-                "communication_type": "board_connection_status_change",
-                "board_index": i,
-            }
+            msg = {"communication_type": "board_connection_status_change", "board_index": i}
             try:
                 xem = open_board()
                 front_panel_constructor = functools.partial(MantarrayFrontPanel, xem)
@@ -489,20 +463,10 @@ class OkCommunicationProcess(InstrumentCommProcess):
 
     def _teardown_after_loop(self) -> None:
         msg = f"OpalKelly Communication Process beginning teardown at {_get_formatted_utc_now()}"
-        put_log_message_into_queue(
-            logging.INFO,
-            msg,
-            self._board_queues[0][1],
-            self.get_logging_level(),
-        )
+        put_log_message_into_queue(logging.INFO, msg, self._board_queues[0][1], self.get_logging_level())
         if self._is_managed_acquisition_running[0]:
             msg = "Board acquisition still running. Stopping acquisition to complete teardown"
-            put_log_message_into_queue(
-                logging.INFO,
-                msg,
-                self._board_queues[0][1],
-                self.get_logging_level(),
-            )
+            put_log_message_into_queue(logging.INFO, msg, self._board_queues[0][1], self.get_logging_level())
             self._is_managed_acquisition_running[0] = False
             board_connections = self.get_board_connections_list()
             if board_connections[0] is None:
@@ -621,7 +585,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
                 raise BarcodeScannerNotRespondingError()
 
             trimmed_barcode = _trim_barcode(barcode)
-            if check_barcode_is_valid(trimmed_barcode, False):
+            if check_barcode_is_valid(trimmed_barcode, False, {}):
                 self._send_barcode_to_main(board_idx, trimmed_barcode, True)
                 return
             if scan_attempt == 1:
@@ -635,12 +599,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
                 if barcode == NO_PLATE_DETECTED_BARCODE_VALUE
                 else f"Invalid barcode detected: {barcode}, retrying scan"
             )
-            put_log_message_into_queue(
-                logging.INFO,
-                msg,
-                self._board_queues[0][1],
-                self.get_logging_level(),
-            )
+            put_log_message_into_queue(logging.INFO, msg, self._board_queues[0][1], self.get_logging_level())
             board.clear_barcode_scanner()
             self._barcode_scan_start_time[1] = time.perf_counter()
         elif (
@@ -818,20 +777,10 @@ class OkCommunicationProcess(InstrumentCommProcess):
 
         num_words_in_fifo = board.get_num_words_fifo()
         msg = f"Timestamp: {_get_formatted_utc_now()} {num_words_in_fifo} words in the FIFO currently."
-        put_log_message_into_queue(
-            logging.DEBUG,
-            msg,
-            comm_to_main_queue,
-            logging_threshold,
-        )
+        put_log_message_into_queue(logging.DEBUG, msg, comm_to_main_queue, logging_threshold)
 
         msg = f"Timestamp: {_get_formatted_utc_now()} About to read from FIFO"
-        put_log_message_into_queue(
-            logging.DEBUG,
-            msg,
-            comm_to_main_queue,
-            logging_threshold,
-        )
+        put_log_message_into_queue(logging.DEBUG, msg, comm_to_main_queue, logging_threshold)
 
         read_start = time.perf_counter()
         raw_data = board.read_from_fifo()
@@ -866,10 +815,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
 
             try:
                 build_file_writer_objects(
-                    first_round_robin_data,
-                    self._data_frame_format,
-                    comm_to_main_queue,
-                    logging_threshold,
+                    first_round_robin_data, self._data_frame_format, comm_to_main_queue, logging_threshold
                 )
             except UnrecognizedDataFrameFormatNameError as e:
                 raise e
@@ -879,10 +825,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
         try:
             data_parse_start = time.perf_counter()
             channel_dicts = build_file_writer_objects(
-                raw_data,
-                self._data_frame_format,
-                comm_to_main_queue,
-                logging_threshold,
+                raw_data, self._data_frame_format, comm_to_main_queue, logging_threshold
             )
             data_parse_dur = time.perf_counter() - data_parse_start
             self._data_parsing_durations.append(data_parse_dur)
@@ -897,10 +840,7 @@ class OkCommunicationProcess(InstrumentCommProcess):
             for i in range(rounded_num_words):
                 formatted_read.append(hex(unformatted_words[i]))
             put_log_message_into_queue(
-                logging.ERROR,
-                f"Converted words: {formatted_read}",
-                comm_to_main_queue,
-                logging_threshold,
+                logging.ERROR, f"Converted words: {formatted_read}", comm_to_main_queue, logging_threshold
             )
 
             raise e
@@ -918,36 +858,19 @@ class OkCommunicationProcess(InstrumentCommProcess):
         )
 
         put_log_message_into_queue(
-            logging_level,
-            f"{error}\n{stack_trace}",
-            self._board_queues[0][1],
-            self.get_logging_level(),
+            logging_level, f"{error}\n{stack_trace}", self._board_queues[0][1], self.get_logging_level()
         )
 
     def _handle_performance_logging(self) -> None:
-        performance_metrics: Dict[str, Any] = {
-            "communication_type": "performance_metrics",
-        }
+        performance_metrics: Dict[str, Any] = {"communication_type": "performance_metrics"}
         okc_measurements: List[
             Union[int, float]
         ]  # Tanner (5/28/20): This type annotation and the 'ignore' on the following line are necessary for mypy to not incorrectly type this variable
         for name, okc_measurements in (  # type: ignore
-            (
-                "fifo_read_num_bytes",
-                self._fifo_read_lengths,
-            ),
-            (
-                "fifo_read_duration",
-                self._fifo_read_durations,
-            ),
-            (
-                "data_parsing_duration",
-                self._data_parsing_durations,
-            ),
-            (
-                "duration_between_acquisition",
-                self._durations_between_acquisition,
-            ),
+            ("fifo_read_num_bytes", self._fifo_read_lengths),
+            ("fifo_read_duration", self._fifo_read_durations),
+            ("data_parsing_duration", self._data_parsing_durations),
+            ("duration_between_acquisition", self._durations_between_acquisition),
         ):
             performance_metrics[name] = create_metrics_stats(okc_measurements)
         self._send_performance_metrics(performance_metrics)

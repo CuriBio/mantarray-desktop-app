@@ -36,6 +36,7 @@ const default_state = {
   user_cred_input_needed: false,
   confirmation_request: false,
   pulse3d_version_info: [{ version: "Error", state: "external" }],
+  barcode_config: {},
   selected_pulse3d_version: "Error",
   job_limit_reached: false,
 };

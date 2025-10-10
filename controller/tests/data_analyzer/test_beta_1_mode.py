@@ -29,6 +29,7 @@ from stdlib_utils import invoke_process_run_and_check_errors
 from stdlib_utils import put_object_into_queue_and_raise_error_if_eventually_still_empty
 
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures import TEST_BARCODE_CONFIG
 from ..fixtures_data_analyzer import fixture_four_board_analyzer_process
 from ..fixtures_data_analyzer import fixture_runnable_four_board_analyzer_process
 from ..fixtures_data_analyzer import TEST_START_MANAGED_ACQUISITION_COMMUNICATION
@@ -42,16 +43,11 @@ __fixtures__ = [fixture_four_board_analyzer_process, fixture_runnable_four_board
 def test_DataAnalyzerProcess_commands_for_each_run_iteration__checks_for_calibration_update_from_main(
     four_board_analyzer_process,
 ):
-    calibration_comm = {
-        "communication_type": "calibration",
-        "calibration_settings": 1,
-    }
+    calibration_comm = {"communication_type": "calibration", "calibration_settings": 1}
 
     p, _, comm_from_main_queue, *_ = four_board_analyzer_process
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        calibration_comm,
-        comm_from_main_queue,
-        timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS,
+        calibration_comm, comm_from_main_queue, timeout_seconds=QUEUE_CHECK_TIMEOUT_SECONDS
     )
     invoke_process_run_and_check_errors(p)
 
@@ -62,21 +58,9 @@ def test_DataAnalyzerProcess_commands_for_each_run_iteration__checks_for_calibra
 @pytest.mark.parametrize(
     "test_well_index,test_construct_data,test_description",
     [
-        (
-            0,
-            np.array([[0, 1000, 2000], [0, 48, 96]], dtype=np.int32),
-            "correctly loads well 0 data",
-        ),
-        (
-            9,
-            np.array([[250, 1250, 2250], [13, 61, 109]], dtype=np.int32),
-            "correctly loads well 9 data",
-        ),
-        (
-            18,
-            np.array([[750, 1750, 2750], [41, 89, 137]], dtype=np.int32),
-            "correctly loads well 18 data",
-        ),
+        (0, np.array([[0, 1000, 2000], [0, 48, 96]], dtype=np.int32), "correctly loads well 0 data"),
+        (9, np.array([[250, 1250, 2250], [13, 61, 109]], dtype=np.int32), "correctly loads well 9 data"),
+        (18, np.array([[750, 1750, 2750], [41, 89, 137]], dtype=np.int32), "correctly loads well 18 data"),
     ],
 )
 def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_when_empty(
@@ -87,8 +71,7 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
     incoming_data = board_queues[0][0]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION),
-        comm_from_main_queue,
+        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION), comm_from_main_queue
     )
     invoke_process_run_and_check_errors(p)
 
@@ -108,21 +91,9 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
 @pytest.mark.parametrize(
     "test_well_index,test_construct_data,test_description",
     [
-        (
-            0,
-            [[0, 1000, 2000], [0, 48, 96]],
-            "correctly loads well 0 data",
-        ),
-        (
-            9,
-            [[250, 1250, 2250], [13, 61, 109]],
-            "correctly loads well 9 data",
-        ),
-        (
-            18,
-            [[750, 1750, 2750], [41, 89, 137]],
-            "correctly loads well 18 data",
-        ),
+        (0, [[0, 1000, 2000], [0, 48, 96]], "correctly loads well 0 data"),
+        (9, [[250, 1250, 2250], [13, 61, 109]], "correctly loads well 9 data"),
+        (18, [[750, 1750, 2750], [41, 89, 137]], "correctly loads well 18 data"),
     ],
 )
 def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_when_not_empty(
@@ -133,8 +104,7 @@ def test_DataAnalyzerProcess__correctly_loads_construct_sensor_data_to_buffer_wh
     incoming_data = board_queues[0][0]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION),
-        comm_from_main_queue,
+        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION), comm_from_main_queue
     )
     invoke_process_run_and_check_errors(p)
 
@@ -163,8 +133,7 @@ def test_DataAnalyzerProcess__correctly_pairs_ascending_order_ref_sensor_data_in
     incoming_data = board_queues[0][0]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION),
-        comm_from_main_queue,
+        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION), comm_from_main_queue
     )
     invoke_process_run_and_check_errors(p)
 
@@ -202,8 +171,7 @@ def test_DataAnalyzerProcess__correctly_pairs_descending_order_ref_sensor_data_i
     incoming_data = board_queues[0][0]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION),
-        comm_from_main_queue,
+        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION), comm_from_main_queue
     )
     invoke_process_run_and_check_errors(p)
 
@@ -240,18 +208,12 @@ def test_DataAnalyzerProcess__correctly_pairs_descending_order_ref_sensor_data_i
         (None, False, "correctly sets falg when empty"),
         (np.array([0], dtype=np.int32), False, "correctly sets flag when containing one item"),
         (
-            np.array(
-                [0, DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS - 1],
-                dtype=np.int32,
-            ),
+            np.array([0, DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS - 1], dtype=np.int32),
             False,
             "correctly sets flag when not full",
         ),
         (
-            np.array(
-                [0, DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS],
-                dtype=np.int32,
-            ),
+            np.array([0, DATA_ANALYZER_BUFFER_SIZE_CENTIMILLISECONDS], dtype=np.int32),
             True,
             "correctly sets flag when full",
         ),
@@ -284,10 +246,7 @@ def test_DataAnalyzerProcess__dumps_all_data_when_buffer_is_full_and_clears_buff
     # Tanner (6/16/20): The tiny amount of data used in this test doesn't work with mantarray_waveform_analysis functions, so we can mock them to prevent errors
     mocked_force_vals = [np.array([expected_x_vals, expected_y_vals[i]]) for i in range(24)]
     mocked_get_force = mocker.patch.object(
-        data_analyzer,
-        "get_force_signal",
-        autospec=True,
-        side_effect=mocked_force_vals,
+        data_analyzer, "get_force_signal", autospec=True, side_effect=mocked_force_vals
     )
 
     p, board_queues, *_ = four_board_analyzer_process
@@ -339,10 +298,7 @@ def test_DataAnalyzerProcess__dump_data_into_queue__sends_message_to_main_indica
 ):
     p, _, _, comm_to_main_queue, *_ = four_board_analyzer_process
 
-    dummy_well_data = [
-        [CONSTRUCT_SENSOR_SAMPLING_PERIOD * i for i in range(3)],
-        [0, 0, 0],
-    ]
+    dummy_well_data = [[CONSTRUCT_SENSOR_SAMPLING_PERIOD * i for i in range(3)], [0, 0, 0]]
     dummy_data_dict = {
         "well0": dummy_well_data,
         "earliest_timepoint": dummy_well_data[0][0],
@@ -399,14 +355,24 @@ def test_DataAnalyzerProcess__create_outgoing_data__normalizes_and_flips_raw_dat
         BUTTERWORTH_LOWPASS_30_UUID, ROUND_ROBIN_PERIOD * MICROSECONDS_PER_CENTIMILLISECOND
     )
     expected_compressed_data_0 = get_force_signal(
-        normalized_data, filter_coefficients, test_barcode, 0, is_beta_2_data=False
+        normalized_data,
+        filter_coefficients,
+        test_barcode,
+        0,
+        is_beta_2_data=False,
+        magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["S"],
     )
     np.testing.assert_equal(actual[0]["x_data_points"], expected_compressed_data_0[0, :])
     np.testing.assert_equal(
         actual[0]["y_data_points"], expected_compressed_data_0[1, :] * MICRO_TO_BASE_CONVERSION
     )
     expected_compressed_data_23 = get_force_signal(
-        normalized_data, filter_coefficients, test_barcode, 23, is_beta_2_data=False
+        normalized_data,
+        filter_coefficients,
+        test_barcode,
+        23,
+        is_beta_2_data=False,
+        magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["S"],
     )
     np.testing.assert_equal(actual[23]["x_data_points"], expected_compressed_data_23[0, :])
     np.testing.assert_equal(
@@ -444,14 +410,11 @@ def test_DataAnalyzerProcess__does_not_load_data_to_buffer_if_managed_acquisitio
     assert data_buffer[test_well_index]["ref_data"] is None
 
 
-def test_DataAnalyzerProcess__processes_stop_managed_acquisition_command(
-    four_board_analyzer_process,
-):
+def test_DataAnalyzerProcess__processes_stop_managed_acquisition_command(four_board_analyzer_process):
     p, _, comm_from_main_queue, *_ = four_board_analyzer_process
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION),
-        comm_from_main_queue,
+        dict(TEST_START_MANAGED_ACQUISITION_COMMUNICATION), comm_from_main_queue
     )
     invoke_process_run_and_check_errors(p)
 
@@ -461,8 +424,7 @@ def test_DataAnalyzerProcess__processes_stop_managed_acquisition_command(
         data_buffer[well_idx]["ref_data"] = [[0, 0, 0], [4, 5, 6]]
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        STOP_MANAGED_ACQUISITION_COMMUNICATION,
-        comm_from_main_queue,
+        STOP_MANAGED_ACQUISITION_COMMUNICATION, comm_from_main_queue
     )
 
     invoke_process_run_and_check_errors(p)

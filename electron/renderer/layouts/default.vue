@@ -197,6 +197,7 @@ export default {
       current_year: "2025", // TODO look into better ways of handling this. Not sure if just using the system's current year is the best approach
       beta_2_mode: process.env.SPECTRON || undefined,
       pulse3d_version_info: undefined,
+      barcode_config: null,
       log_dir_name: undefined,
       data_acquisition_visibility: true,
       stim_studio_visibility: false,
@@ -329,6 +330,16 @@ export default {
     });
     if (this.pulse3d_version_info === undefined) {
       ipcRenderer.send("pulse3d_versions_request");
+    }
+
+    ipcRenderer.on("barcode_config_response", (_, barcode_config) => {
+      barcode_config = barcode_config || {};
+      console.log(`Barcode config: ${JSON.stringify(barcode_config)}`); // allow-log
+      this.barcode_config = barcode_config;
+      this.$store.commit("settings/set_barcode_config", barcode_config);
+    });
+    if (this.barcode_config === null) {
+      ipcRenderer.send("barcode_config_request");
     }
 
     ipcRenderer.on("beta_2_mode_response", (_, beta_2_mode) => {
