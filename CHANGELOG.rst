@@ -14,7 +14,7 @@ Fixed:
   is stopped.
 
 
-1.3.1 (unreleased)
+1.3.1 (2025-10-21)
 ------------------
 
 Added:
