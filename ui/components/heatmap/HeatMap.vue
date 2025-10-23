@@ -173,6 +173,8 @@ import PlateHeatMap from "@/components/plate_based_widgets/heatmap/PlateHeatMap.
 import playback_module from "@/store/modules/playback";
 import { METRIC_UNITS } from "@/store/modules/heatmap/enums";
 
+const MAX_RANGE_VALUE = 1000000000;
+
 export default {
   name: "HeatMap",
   components: {
@@ -334,8 +336,8 @@ export default {
         this.max_value_error_msg = "invalid";
       } else if (this.upper < 0 || new_value[0] == "-") {
         this.max_value_error_msg = "cannot be negative";
-      } else if (this.upper > 1000) {
-        this.max_value_error_msg = "larger than 1000";
+      } else if (this.upper > MAX_RANGE_VALUE) {
+        this.max_value_error_msg = `larger than ${MAX_RANGE_VALUE}`;
       } else if (this.upper < this.lower) {
         this.max_value_error_msg = "min is more than max";
       } else if (this.upper == this.lower) {
@@ -359,8 +361,8 @@ export default {
         this.min_value_error_msg = "invalid";
       } else if (this.lower < 0 || new_value[0] == "-") {
         this.min_value_error_msg = "cannot be negative";
-      } else if (this.lower > 1000) {
-        this.min_value_error_msg = "larger than 1000";
+      } else if (this.lower > MAX_RANGE_VALUE) {
+        this.min_value_error_msg = `larger than ${MAX_RANGE_VALUE}`;
       } else if (this.lower > this.upper) {
         this.min_value_error_msg = "min is more than max";
       } else if (this.lower == this.upper) {
