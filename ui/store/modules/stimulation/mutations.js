@@ -176,4 +176,7 @@ export default {
   set_stim_start_time_idx(state, val) {
     state.stim_start_time_idx = val;
   },
+  clear_stim_protocol_completion_timepoints(state) {
+    state.protocol_completion_timepoints = Array(24).fill(-1);
+  },
 };

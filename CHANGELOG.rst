@@ -1,7 +1,20 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.3.1 (unreleased)
+1.3.2 (unreleased)
+------------------
+
+Changed:
+^^^^^^^^
+- The maximum value for range bounds of the HeatMap is now 1000000000
+
+Fixed:
+^^^^^^
+- Issue with "Stimulation is Running" banner remaining visible after stim completes on its own and live view
+  is stopped.
+
+
+1.3.1 (2025-10-21)
 ------------------
 
 Added:

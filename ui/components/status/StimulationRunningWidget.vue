@@ -29,10 +29,8 @@ export default {
     has_all_stim_completed() {
       return this.protocol_completion_timepoints.every((t) => t !== null && this.x_time_index >= t);
     },
-    is_data_streaming() {
-      return [STATUS.MESSAGE.BUFFERING, STATUS.MESSAGE.LIVE_VIEW_ACTIVE, STATUS.MESSAGE.RECORDING].includes(
-        this.status_uuid
-      );
+    is_data_displayed() {
+      return [STATUS.MESSAGE.LIVE_VIEW_ACTIVE, STATUS.MESSAGE.RECORDING].includes(this.status_uuid);
     },
   },
   watch: {
@@ -44,7 +42,14 @@ export default {
     stim_play_state(state) {
       if (state) {
         this.show_stim_banner = true;
-      } else if (!this.is_data_streaming) {
+      } else if (!this.is_data_displayed) {
+        this.$store.commit("stimulation/clear_stim_protocol_completion_timepoints");
+        this.show_stim_banner = false;
+      }
+    },
+    status_uuid() {
+      if (!this.is_data_displayed && !this.stim_play_state) {
+        this.$store.commit("stimulation/clear_stim_protocol_completion_timepoints");
         this.show_stim_banner = false;
       }
     },
