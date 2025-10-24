@@ -47,7 +47,13 @@
       >
         {{ value }}
       </div>
-      <input ref="file" type="file" style="display: none" @change="handle_import($event.target.files)" />
+      <input
+        ref="file"
+        type="file"
+        multiple
+        style="display: none"
+        @change="handle_import($event.target.files)"
+      />
     </div>
     <div class="div__platemap-lower-buttons-container">
       <div
