@@ -7,6 +7,7 @@ Changelog for Mantarray Desktop App
 Changed:
 ^^^^^^^^
 - The maximum value for range bounds of the HeatMap is now 1000000000
+- Multiple plate map files can be imported at the same time
 
 Fixed:
 ^^^^^^
