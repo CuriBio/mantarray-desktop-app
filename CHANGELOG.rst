@@ -28,7 +28,7 @@ Added:
 
 Fixed:
 ^^^^^^
-- In stim studio, clicking "Apply to Selection" with no wells selected no longers enables the
+- In stim studio, clicking "Apply to Selection" with no wells selected no longer enables the
   stim configuration check button.
 
 
