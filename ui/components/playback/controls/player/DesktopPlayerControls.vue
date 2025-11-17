@@ -221,6 +221,21 @@
       />
     </b-modal>
     <b-modal
+      id="live-view-hard-stop"
+      size="sm"
+      hide-footer
+      hide-header
+      hide-header-close
+      :static="true"
+      :no-close-on-backdrop="true"
+    >
+      <StatusWarningWidget
+        id="live-view-limit-hard-stop"
+        :modal_labels="live_view_hard_stop_labels"
+        @handle_confirmation="close_live_view_hard_stop"
+      />
+    </b-modal>
+    <b-modal
       id="recording-name-input-prompt-message"
       size="sm"
       hide-footer
@@ -390,9 +405,15 @@ export default {
       },
       live_view_warning_labels: {
         header: "Warning!",
-        msg_one: "Live View has been running for 10 minutes.",
+        msg_one: "Live view has been running for 10 minutes.",
         msg_two: "It will automatically stop in 60 seconds unless you choose to continue.",
-        button_names: ["Close", "Continue"],
+        button_names: ["Stop Now", "Continue"],
+      },
+      live_view_hard_stop_labels: {
+        header: "Warning!",
+        msg_one: "You've reached the maximum live view duration for your current session.",
+        msg_two: "Live view has been stopped.",
+        button_names: ["Okay"],
       },
       analysis_in_progress_labels: {
         header: "Important!",
@@ -559,7 +580,7 @@ export default {
     user_cred_input_needed() {
       if (this.user_cred_input_needed) this.$bvModal.show("user-input-prompt-message");
     },
-    playback_state(new_state) {
+    playback_state(new_state, old_state) {
       // if live view had to be started from stim studio, then catch it here and then start recording after buffering state. Start recording cannot happen right after starting live view because of buffering state
       if (this.start_recording_from_stim) {
         if (new_state === this.playback_state_enums.LIVE_VIEW_ACTIVE) {
@@ -573,24 +594,17 @@ export default {
         }
       }
 
+      // handle live view timers
       if (new_state === this.playback_state_enums.LIVE_VIEW_ACTIVE) {
-        console.log("Starting live view warning timer"); // allow-log
-        this.live_view_warning_timer = setTimeout(() => {
-          this.handle_live_view_warning();
-        }, LIVE_VIEW_WARNING_TIMEOUT_MIN * 60e3);
-      } else if (new_state !== this.playback_state_enums.RECORDING) {
-        if (this.live_view_warning_timer !== null) {
-          console.log("Clearing live view warning timer"); // allow-log
-          clearTimeout(this.live_view_warning_timer);
-          this.live_view_warning_timer = null;
+        if (old_state !== this.playback_state_enums.RECORDING) {
+          this.start_live_view_warning_timer();
         }
-        if (this.live_view_hard_stop_timer !== null) {
-          console.log("Clearing live view hard stop timer"); // allow-log
-          clearTimeout(this.live_view_hard_stop_timer);
-          this.live_view_hard_stop_timer = null;
-        }
+      } else {
+        this.clear_live_view_warning_timer();
+        this.clear_live_view_hard_stop_timer();
       }
 
+      // handle recording timer
       if (new_state === this.playback_state_enums.RECORDING) {
         console.log("Starting recording timer"); // allow-log
         this.recording_timer = setTimeout(() => {
@@ -659,34 +673,58 @@ export default {
     start_recording: function () {
       this.$store.dispatch("playback/start_recording", this.default_recording_name);
     },
-    handle_live_view_warning() {
-      if (
-        this.playback_state === this.playback_state_enums.LIVE_VIEW_ACTIVE ||
-        this.playback_state === this.playback_state_enums.RECORDING
-      ) {
-        console.log(
-          "Live view warning time limit reached, showing warning and starting live view hard stop timer"
-        ); // allow-log
-        this.$bvModal.show("live-view-warning");
-        if (this.live_view_hard_stop_timer !== null) {
-          console.log("Clearing live view hard stop timer"); // allow-log
-          clearTimeout(this.live_view_hard_stop_timer);
-        }
-        this.live_view_hard_stop_timer = setTimeout(() => {
-          this.handle_live_view_hard_stop();
-        }, LIVE_VIEW_SHUTDOWN_TIMEOUT_MIN * 60e3);
+    clear_live_view_warning_timer() {
+      if (this.live_view_warning_timer !== null) {
+        console.log("Clearing live view warning timer"); // allow-log
+        clearTimeout(this.live_view_warning_timer);
+        this.live_view_warning_timer = null;
       }
     },
-    handle_live_view_hard_stop() {
-      if (this.playback_state === this.playback_state_enums.RECORDING) {
-        console.log("Live view hard stop time limit reached, stopping recording and live view"); // allow-log
-        this.on_stop_record_click(false);
-        this.close_live_view_warning(0);
-        this.$bvModal.show("recording-limit-warning");
-      } else if (this.playback_state === this.playback_state_enums.LIVE_VIEW_ACTIVE) {
+    start_live_view_warning_timer() {
+      this.clear_live_view_hard_stop_timer();
+      this.clear_live_view_warning_timer();
+      console.log("Starting live view warning timer"); // allow-log
+      const timer_id = setTimeout(() => {
+        this.handle_live_view_warning(timer_id);
+      }, LIVE_VIEW_WARNING_TIMEOUT_MIN * 60e3);
+      this.live_view_warning_timer = timer_id;
+    },
+    clear_live_view_hard_stop_timer() {
+      if (this.live_view_hard_stop_timer !== null) {
+        console.log("Clearing live view hard stop timer"); // allow-log
+        clearTimeout(this.live_view_hard_stop_timer);
+        this.live_view_hard_stop_timer = null;
+      }
+    },
+    start_live_view_hard_stop_timer() {
+      this.clear_live_view_hard_stop_timer();
+      console.log("Starting live view hard stop timer"); // allow-log
+      const timer_id = setTimeout(() => {
+        this.handle_live_view_hard_stop(timer_id);
+      }, LIVE_VIEW_SHUTDOWN_TIMEOUT_MIN * 60e3);
+      this.live_view_hard_stop_timer = timer_id;
+    },
+    handle_live_view_warning(timer_id) {
+      if (
+        this.playback_state === this.playback_state_enums.LIVE_VIEW_ACTIVE &&
+        this.live_view_warning_timer === timer_id
+      ) {
+        console.log("Live view warning time limit reached, showing warning"); // allow-log
+        this.$bvModal.show("live-view-warning");
+        this.clear_live_view_warning_timer();
+        this.start_live_view_hard_stop_timer();
+      }
+    },
+    handle_live_view_hard_stop(timer_id) {
+      if (
+        this.playback_state === this.playback_state_enums.LIVE_VIEW_ACTIVE &&
+        this.live_view_hard_stop_timer === timer_id
+      ) {
         console.log("Live view hard stop time limit reached, stopping live view"); // allow-log
-        this.close_live_view_warning(0);
+        this.$bvModal.hide("live-view-warning");
         this.$store.dispatch("playback/stop_live_view");
+        this.$bvModal.show("live-view-hard-stop");
+        this.clear_live_view_hard_stop_timer();
       }
     },
     on_stop_record_click: async function (show_prompt) {
@@ -757,22 +795,18 @@ export default {
     },
     close_live_view_warning(idx) {
       this.$bvModal.hide("live-view-warning");
-      if (idx === 1) {
+      if (idx === 0) {
+        console.log("User chose to stop live view");
+        this.clear_live_view_warning_timer();
+        this.clear_live_view_hard_stop_timer();
+        this.$store.dispatch("playback/stop_live_view");
+      } else {
         console.log("User chose to continue live view"); // allow-log
-        if (this.live_view_warning_timer !== null) {
-          console.log("Clearing live view warning timer"); // allow-log
-          clearTimeout(this.live_view_warning_timer);
-        }
-        console.log("Restarting live view warning timer"); // allow-log
-        this.live_view_warning_timer = setTimeout(() => {
-          this.handle_live_view_warning();
-        }, LIVE_VIEW_WARNING_TIMEOUT_MIN * 60e3);
-        if (this.live_view_hard_stop_timer !== null) {
-          console.log("Clearing live view hard stop timer"); // allow-log
-          clearTimeout(this.live_view_hard_stop_timer);
-          this.live_view_hard_stop_timer = null;
-        }
+        this.start_live_view_warning_timer();
       }
+    },
+    close_live_view_hard_stop() {
+      this.$bvModal.hide("live-view-hard-stop");
     },
   },
 };
@@ -944,6 +978,7 @@ export default {
 
 #recording-limit-warning,
 #live-view-warning,
+#live-view-hard-stop,
 #calibration-warning,
 #user-input-prompt-message,
 #fw-update-available-message,

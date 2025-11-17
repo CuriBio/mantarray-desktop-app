@@ -1,7 +1,26 @@
 Changelog for Mantarray Desktop App
 ===================================
 
-1.3.1 (unreleased)
+1.3.2 (unreleased)
+------------------
+
+Changed:
+^^^^^^^^
+- The maximum value for range bounds of the HeatMap is now 1000000000.
+- Multiple plate map files can be imported at the same time.
+- The "Close" button of live view warning message has been changed to "Stop Now" and will now stop live view
+  immediately.
+- The live view warning message will no longer be displayed during recordings.
+- A message is now displayed when live view stops automatically.
+
+Fixed:
+^^^^^^
+- Issue with "Stimulation is Running" banner remaining visible after stim completes on its own and live view
+  is stopped.
+- Live view warning timer not resetting correctly between live view sessions.
+
+
+1.3.1 (2025-10-21)
 ------------------
 
 Added:
@@ -10,11 +29,11 @@ Added:
   The message will have an option to continue live view or close the message. If continue is not selected
   within 60 seconds, live view will be stopped automatically, as well as recording if in progress. If continue
   is selected, live view will continue for 10 more minutes before this warning message is displayed again.
-- Barcode config
+- Barcode config.
 
 Fixed:
 ^^^^^^
-- In stim studio, clicking "Apply to Selection" with no wells selected no longers enables the
+- In stim studio, clicking "Apply to Selection" with no wells selected no longer enables the
   stim configuration check button.
 
 

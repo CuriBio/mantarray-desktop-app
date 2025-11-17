@@ -65,7 +65,7 @@
       <InputWidget
         :placeholder="max_min_placeholder.max.toString()"
         :invalid_text="max_value_error_msg"
-        :input_width="105"
+        :input_width="115"
         :dom_id_suffix="'heatmap-max'"
         :disabled="autoscale"
         :initial_value="upper.toString()"
@@ -81,7 +81,7 @@
       <InputWidget
         :placeholder="max_min_placeholder.min.toString()"
         :invalid_text="min_value_error_msg"
-        :input_width="105"
+        :input_width="115"
         :dom_id_suffix="'heatmap-min'"
         :disabled="autoscale"
         :initial_value="lower.toString()"
@@ -172,6 +172,8 @@ import GradientBar from "@/components/status/GradientBar.vue";
 import PlateHeatMap from "@/components/plate_based_widgets/heatmap/PlateHeatMap.vue";
 import playback_module from "@/store/modules/playback";
 import { METRIC_UNITS } from "@/store/modules/heatmap/enums";
+
+const MAX_RANGE_VALUE = 1000000000;
 
 export default {
   name: "HeatMap",
@@ -334,8 +336,8 @@ export default {
         this.max_value_error_msg = "invalid";
       } else if (this.upper < 0 || new_value[0] == "-") {
         this.max_value_error_msg = "cannot be negative";
-      } else if (this.upper > 1000) {
-        this.max_value_error_msg = "larger than 1000";
+      } else if (this.upper > MAX_RANGE_VALUE) {
+        this.max_value_error_msg = "value too large";
       } else if (this.upper < this.lower) {
         this.max_value_error_msg = "min is more than max";
       } else if (this.upper == this.lower) {
@@ -359,8 +361,8 @@ export default {
         this.min_value_error_msg = "invalid";
       } else if (this.lower < 0 || new_value[0] == "-") {
         this.min_value_error_msg = "cannot be negative";
-      } else if (this.lower > 1000) {
-        this.min_value_error_msg = "larger than 1000";
+      } else if (this.lower > MAX_RANGE_VALUE) {
+        this.min_value_error_msg = "value too large";
       } else if (this.lower > this.upper) {
         this.min_value_error_msg = "min is more than max";
       } else if (this.lower == this.upper) {
@@ -733,7 +735,7 @@ export default {
   overflow: hidden;
   position: absolute;
   width: 121px;
-  height: 59px;
+  height: 61px;
   top: 134px;
   left: 1473.44px;
   visibility: visible;
@@ -767,7 +769,7 @@ export default {
   overflow: hidden;
   position: absolute;
   width: 121px;
-  height: 59px;
+  height: 61px;
   top: 196px;
   left: 1473.44px;
   visibility: visible;
@@ -1007,5 +1009,18 @@ export default {
 .div__heatmap-layout-display-input-dropdown-container > .div__input-dropdown-background {
   background: none;
   border: none;
+}
+
+.form-control.is-valid {
+  padding-left: 10px;
+  padding-right: 8px;
+}
+.form-control.is-invalid {
+  padding-left: 10px;
+  padding-right: 8px;
+}
+.form-control {
+  padding-left: 10px;
+  padding-right: 8px;
 }
 </style>
