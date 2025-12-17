@@ -28,6 +28,9 @@ export default {
       return state.current_assignment;
     }
   },
+  get_protocol_is_empty({ protocol_editor }) {
+    return protocol_editor.subprotocols.length === 0;
+  },
   get_protocol_name({ protocol_editor }) {
     return protocol_editor.name;
   },

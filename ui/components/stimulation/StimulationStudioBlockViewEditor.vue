@@ -18,10 +18,11 @@
           <SmallDropDown
             :input_height="25"
             :input_width="200"
-            :disable_selection="true"
+            :disable_selection="stim_type_selection_disabled"
             :options_text="stimulation_types_array"
-            :options_idx="0"
+            :options_idx="stimulation_type_idx"
             :dom_id_suffix="'stimulation_type'"
+            @selection-changed="handle_stim_type_setting"
           />
           <SmallDropDown
             :style="'margin-left: 5%;'"
@@ -122,7 +123,8 @@ export default {
       disabled_time: false,
       current_letter: "",
       current_color: "",
-      stimulation_types_array: ["Current Controlled Stimulation", "(Not Yet Available)"],
+      stimulation_types_array: ["Electrical", "Optical"],
+      stimulation_type_idx: 0,
       stop_options_array: ["Stimulate Until Stopped", "Stimulate Until Complete"],
       protocol_name: "",
       stop_option_idx: 0,
@@ -146,6 +148,7 @@ export default {
     }),
     ...mapGetters("stimulation", [
       "get_protocol_name",
+      "get_protocol_is_empty",
       "get_rest_duration",
       "get_protocols",
       "get_next_protocol",
@@ -155,6 +158,9 @@ export default {
         content: 'Cannot set this value if using "Stimulate Until Complete"',
         disabled: !this.disabled_time,
       };
+    },
+    stim_type_selection_disabled: function () {
+      return !this.get_protocol_is_empty;
     },
   },
   watch: {
@@ -211,6 +217,10 @@ export default {
       if (idx === 0) {
         this.handle_protocol_editor_reset();
       }
+    },
+    handle_stim_type_setting(idx) {
+      this.stimulation_type_idx = idx;
+      // TODO
     },
     handle_stop_setting(idx) {
       const setting = this.stop_options_array[idx];
