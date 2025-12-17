@@ -43,7 +43,9 @@ QUEUE_CHECK_TIMEOUT_SECONDS = 1.3  # for confirm_queue_is_eventually_empty, conf
 GENERIC_MAIN_LAUNCH_TIMEOUT_SECONDS = 20
 GENERIC_STORED_CUSTOMER_ID = {"id": "test_id", "password": "test_password"}
 
-TEST_BARCODE_CONFIG = immutabledict({"plate": {"S": {"2": 1.0, "5": 1.0}}})
+TEST_BARCODE_CONFIG = immutabledict(
+    {"plate": {"S": {"2": 1.0, "5": 1.0}}, "stim": {"C": {"2": {"a": 0.8, "b": 27}}}}
+)
 
 
 def random_semver():

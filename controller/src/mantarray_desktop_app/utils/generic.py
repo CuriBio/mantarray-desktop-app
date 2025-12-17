@@ -284,7 +284,7 @@ def check_barcode_for_errors(
             # new magnet types only allowed for ML barcodes
             allowed_final_chars = [s for s in barcode_config.get("plate", {}).get("S", {}).keys() if s != "1"]
         else:
-            list(barcode_config.get("stim", {}).get("C", {}).keys())
+            allowed_final_chars = list(barcode_config.get("stim", {}).get("C", {}).keys())
     else:
         allowed_final_chars = ["1"]
 
