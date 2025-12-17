@@ -246,7 +246,7 @@ export class TextValidation {
           (s) => s !== "1"
         );
       } else {
-        allowed_final_chars = ["2"];
+        allowed_final_chars = Object.keys(((barcode_config || {})["stim"] || {})["C"] || {});
       }
     } else {
       allowed_final_chars = ["1"];
