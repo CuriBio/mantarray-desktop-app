@@ -569,7 +569,7 @@ body {
 /* STIM STUDIO */
 .div__stim-status-container {
   position: relative;
-  margin-top: 8px;
+  margin-top: 14px;
 }
 
 .div__stim-barcode-container {
