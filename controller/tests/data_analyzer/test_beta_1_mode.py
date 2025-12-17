@@ -360,7 +360,7 @@ def test_DataAnalyzerProcess__create_outgoing_data__normalizes_and_flips_raw_dat
         test_barcode,
         0,
         is_beta_2_data=False,
-        magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["S"],
+        magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["plate"]["S"],
     )
     np.testing.assert_equal(actual[0]["x_data_points"], expected_compressed_data_0[0, :])
     np.testing.assert_equal(
@@ -372,7 +372,7 @@ def test_DataAnalyzerProcess__create_outgoing_data__normalizes_and_flips_raw_dat
         test_barcode,
         23,
         is_beta_2_data=False,
-        magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["S"],
+        magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["plate"]["S"],
     )
     np.testing.assert_equal(actual[23]["x_data_points"], expected_compressed_data_23[0, :])
     np.testing.assert_equal(

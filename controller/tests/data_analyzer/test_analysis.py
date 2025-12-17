@@ -50,7 +50,7 @@ __fixtures__ = [
 
 
 @pytest.mark.parametrize(
-    "test_magnet_type,expected_conversion_factor", list(TEST_BARCODE_CONFIG["S"].items())
+    "test_magnet_type,expected_conversion_factor", list(TEST_BARCODE_CONFIG["plate"]["S"].items())
 )
 def test_calculate_magnetic_flux_density_from_memsic__returns_correct_value(
     test_magnet_type, expected_conversion_factor
@@ -104,7 +104,7 @@ def test_get_force_signal__converts_to_force_correctly(is_beta_2_data, compress,
         test_well_idx,
         compress=compress,
         is_beta_2_data=is_beta_2_data,
-        magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["S"],
+        magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["plate"]["S"],
     )
 
     mocked_get_stiffness_factor.assert_called_once_with(
@@ -125,7 +125,9 @@ def test_get_force_signal__converts_to_force_correctly(is_beta_2_data, compress,
             [filter_and_compress_res[0], mocked_mfd_from_memsic.return_value], dtype=np.float64
         )
         mocked_displacement_from_mfd.assert_called_once_with(
-            mocked_array.return_value, test_barcode[-1:], magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["S"]
+            mocked_array.return_value,
+            test_barcode[-1:],
+            magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["plate"]["S"],
         )
         mocked_voltage_from_gmr.assert_not_called()
         mocked_displacement_from_voltage.assert_not_called()
@@ -320,7 +322,7 @@ def test_get_twitch_analysis__returns_force_metrics_from_given_beta_1_data(
         test_well_idx,
         compress=False,
         is_beta_2_data=False,
-        magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["S"],
+        magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["plate"]["S"],
     )
     force[1] *= MICRO_TO_BASE_CONVERSION
     peak_detection_results = peak_detector(force)
@@ -360,7 +362,7 @@ def test_get_twitch_analysis__returns_force_metrics_from_given_beta_2_data(
         test_barcode,
         test_well_idx,
         compress=False,
-        magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["S"],
+        magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["plate"]["S"],
     )
     force[1] *= MICRO_TO_BASE_CONVERSION
 

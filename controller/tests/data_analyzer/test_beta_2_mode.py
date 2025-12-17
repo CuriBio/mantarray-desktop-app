@@ -223,7 +223,7 @@ def test_DataAnalyzerProcess__sends_outgoing_data_dict_to_main_as_soon_as_it_ret
             filter_coefficients,
             test_barcode,
             well_idx,
-            magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["S"],
+            magnet_type_to_mt_per_mm=TEST_BARCODE_CONFIG["plate"]["S"],
         )
         waveform_data_points[well_idx] = {
             "x_data_points": compressed_data[0].tolist(),

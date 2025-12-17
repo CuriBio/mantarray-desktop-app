@@ -330,7 +330,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             well_idx,
             compress=False,
             is_beta_2_data=self._beta_2_mode,
-            magnet_type_to_mt_per_mm=self._barcode_config["S"],
+            magnet_type_to_mt_per_mm=self._barcode_config["plate"]["S"],
         )
 
         force_v_time[1] *= MICRO_TO_BASE_CONVERSION
@@ -565,7 +565,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 self._filter_coefficients,
                 self._barcode,
                 well_idx,
-                magnet_type_to_mt_per_mm=self._barcode_config["S"],
+                magnet_type_to_mt_per_mm=self._barcode_config["plate"]["S"],
             )
 
             # convert arrays to lists for json conversion later
@@ -612,7 +612,7 @@ class DataAnalyzerProcess(InfiniteProcess):
                 self._barcode,
                 well_index,
                 is_beta_2_data=False,
-                magnet_type_to_mt_per_mm=self._barcode_config["S"],
+                magnet_type_to_mt_per_mm=self._barcode_config["plate"]["S"],
             )
 
             basic_waveform_data_points[well_index] = {

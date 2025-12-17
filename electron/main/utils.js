@@ -63,12 +63,39 @@ const create_barcode_store = function () {
     serialize: JSON.stringify,
     deserialize: JSON.parse,
     defaults: {
-      S: {
-        // mT/mm
-        1: 0.114,
-        2: 0.114,
-        5: 0.213,
-        6: 0.213,
+      plate: {
+        S: {
+          // mT/mm
+          1: 0.114,
+          2: 0.114,
+          5: 0.213,
+          6: 0.213,
+        },
+      },
+      stim: {
+        T: {
+          0: {
+            t: "E",
+          },
+          1: {
+            t: "E",
+          },
+          2: {
+            t: "E",
+          },
+          3: {
+            t: "E",
+          },
+          4: {
+            t: "L",
+          },
+        },
+        C: {
+          2: {
+            a: 0.8,
+            b: 27,
+          },
+        },
       },
     },
   });
