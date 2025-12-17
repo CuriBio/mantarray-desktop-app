@@ -40,7 +40,7 @@ export default {
     protocol_editor.name = name;
   },
   set_stimulation_type({ protocol_editor }, type) {
-    if (type[0] === "C") protocol_editor.stimulation_type = "C";
+    protocol_editor.stimulation_type = type;
   },
   set_time_unit({ protocol_editor }, unit) {
     protocol_editor.time_unit = unit;

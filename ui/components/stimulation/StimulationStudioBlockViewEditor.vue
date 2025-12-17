@@ -150,6 +150,7 @@ export default {
       "get_protocol_name",
       "get_protocol_is_empty",
       "get_rest_duration",
+      "get_stim_type",
       "get_protocols",
       "get_next_protocol",
     ]),
@@ -188,6 +189,7 @@ export default {
         this.protocol_name = this.get_protocol_name;
         this.rest_duration = JSON.stringify(this.get_rest_duration);
 
+        this.stimulation_type_idx = this.get_stim_type === "C" ? 0 : 1;
         this.stop_option_idx = +!this.run_until_stopped;
         this.disabled_time = !this.run_until_stopped;
       }
@@ -202,7 +204,7 @@ export default {
   },
   methods: {
     ...mapActions("stimulation", ["handle_protocol_editor_reset", "handle_new_rest_duration"]),
-    ...mapMutations("stimulation", ["set_protocol_name", "set_stop_setting"]),
+    ...mapMutations("stimulation", ["set_protocol_name", "set_stop_setting", "set_stimulation_type"]),
     update_protocols() {
       this.protocol_list = this.get_protocols;
       const { letter, color } = this.get_next_protocol;
@@ -220,7 +222,7 @@ export default {
     },
     handle_stim_type_setting(idx) {
       this.stimulation_type_idx = idx;
-      // TODO
+      this.set_stimulation_type(idx === 0 ? "C" : "O");
     },
     handle_stop_setting(idx) {
       const setting = this.stop_options_array[idx];

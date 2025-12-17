@@ -31,6 +31,9 @@ export default {
   get_protocol_is_empty({ protocol_editor }) {
     return protocol_editor.subprotocols.length === 0;
   },
+  get_stim_type({ protocol_editor }) {
+    return protocol_editor.stimulation_type;
+  },
   get_protocol_name({ protocol_editor }) {
     return protocol_editor.name;
   },
