@@ -16,23 +16,23 @@
     </div>
     <canvas class="canvas__stimulationstudio-button-separator" />
     <div
-      v-for="(key, value, idx) in btn_labels"
-      :id="value"
-      :key="value"
+      v-for="(value, key, idx) in btn_labels"
+      :id="key"
+      :key="key"
       :class="get_class(idx)"
-      :style="key"
+      :style="value"
       @click.exact="handle_click(idx)"
     >
-      <span :class="get_label_class(idx)">{{ value }}</span>
+      <span :class="get_label_class(idx)">{{ key }}</span>
     </div>
     <div
-      v-for="(key, value, idx) in import_export_btn_labels"
+      v-for="(value, key, idx) in import_export_btn_labels"
       id="import_export_button"
-      :key="value"
+      :key="key"
       @click.exact="handle_import_export(idx)"
     >
-      <div :class="'div__stimulationstudio-btn-container'" :style="key">
-        <span type="button" :class="'span__stimulationstudio-btn-label'">{{ value }}</span>
+      <div :class="'div__stimulationstudio-btn-container'" :style="value">
+        <span type="button" :class="'span__stimulationstudio-btn-label'">{{ key }}</span>
       </div>
     </div>
   </div>
@@ -40,7 +40,7 @@
 
 <script>
 import SelectDropDown from "@/components/basic_widgets/SelectDropDown.vue";
-import { mapActions, mapState, mapMutations } from "vuex";
+import { mapActions, mapState, mapMutations, mapGetters } from "vuex";
 
 /**
  * @vue-data {Object} btn_labels - Label and style of buttons
@@ -84,6 +84,7 @@ export default {
   },
   computed: {
     ...mapState("stimulation", ["protocol_list", "edit_mode"]),
+    ...mapGetters("stimulation", ["get_platemap_stim_type", "get_stim_type"]),
     edit_mode_status: function () {
       return this.edit_mode.status;
     },
@@ -93,8 +94,9 @@ export default {
       this.selected_protocol_idx = 0;
     },
     edit_mode_status: function () {
-      if (!this.edit_mode_status) this.selected_protocol_idx = 0;
-      else {
+      if (!this.edit_mode_status) {
+        this.selected_protocol_idx = 0;
+      } else {
         const { letter } = this.edit_mode;
         this.selected_protocol_idx = this.protocol_list.findIndex((protocol) => protocol.letter === letter);
       }
@@ -130,7 +132,15 @@ export default {
       this.$bvModal.show("del-protocol-modal");
     },
     disable_selection_btn(idx) {
-      return this.disable_edits || (this.selected_protocol_idx === 0 && idx === 0);
+      if (this.disable_edits) {
+        return true;
+      } else if (idx === 0) {
+        return (
+          this.selected_protocol_idx === 0 ||
+          (this.get_platemap_stim_type !== null && this.get_platemap_stim_type !== this.get_stim_type)
+        );
+      }
+      return false;
     },
     handle_click(idx) {
       if (this.disable_selection_btn(idx)) {

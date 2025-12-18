@@ -28,6 +28,13 @@ export default {
       return state.current_assignment;
     }
   },
+  get_platemap_stim_type({ protocol_assignments }) {
+    const first_assigned_protocol = Object.values(protocol_assignments)[0];
+    if (first_assigned_protocol == null) {
+      return null;
+    }
+    return first_assigned_protocol.protocol.stimulation_type;
+  },
   get_protocol_is_empty({ protocol_editor }) {
     return protocol_editor.subprotocols.length === 0;
   },
