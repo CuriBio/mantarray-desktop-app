@@ -15,8 +15,7 @@
         />
         <span class="error-message">{{ error_message }}</span>
         <div class="div__right-settings-panel">
-          <LightningLogo v-if="stimulation_type_idx === 0" class="div__stim-type-logo" />
-          <SunLogo v-if="stimulation_type_idx === 1" class="div__stim-type-logo" style="margin-top: -5px" />
+          <StimTypeLogo :stimulation_type="get_stim_type" class="div__stim-type-logo" />
           <SmallDropDown
             :input_height="25"
             :input_width="200"
@@ -79,6 +78,7 @@
 <script>
 import Vue from "vue";
 import SmallDropDown from "@/components/basic_widgets/SmallDropDown.vue";
+import StimTypeLogo from "@/components/stimulation/StimTypeLogo.vue";
 import { mapState, mapGetters, mapActions, mapMutations } from "vuex";
 import { library } from "@fortawesome/fontawesome-svg-core";
 import { faTrashAlt } from "@fortawesome/free-solid-svg-icons";
@@ -88,8 +88,6 @@ import BootstrapVue from "bootstrap-vue";
 import { BModal } from "bootstrap-vue";
 import InputWidget from "@/components/basic_widgets/InputWidget.vue";
 import { MAX_SUBPROTOCOL_DURATION_MS } from "@/store/modules/stimulation/enums";
-import LightningLogo from "@/components/svgs/LightningLogo.vue";
-import SunLogo from "@/components/svgs/SunLogo.vue";
 Vue.use(BootstrapVue);
 Vue.component("BModal", BModal);
 library.add(faTrashAlt);
@@ -121,8 +119,7 @@ export default {
     FontAwesomeIcon,
     StatusWarningWidget,
     InputWidget,
-    LightningLogo,
-    SunLogo,
+    StimTypeLogo,
   },
   data() {
     return {
@@ -348,7 +345,7 @@ export default {
 
 .div__stim-type-logo {
   height: 21px;
-  width: 18px;
+  width: 19px;
   fill: white;
   margin-right: 2px;
 }
