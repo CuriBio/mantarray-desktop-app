@@ -15,6 +15,8 @@
         />
         <span class="error-message">{{ error_message }}</span>
         <div class="div__right-settings-panel">
+          <LightningLogo v-if="stimulation_type_idx === 0" class="div__stim-type-logo" />
+          <SunLogo v-if="stimulation_type_idx === 1" class="div__stim-type-logo" style="margin-top: -5px" />
           <SmallDropDown
             :input_height="25"
             :input_width="200"
@@ -86,6 +88,8 @@ import BootstrapVue from "bootstrap-vue";
 import { BModal } from "bootstrap-vue";
 import InputWidget from "@/components/basic_widgets/InputWidget.vue";
 import { MAX_SUBPROTOCOL_DURATION_MS } from "@/store/modules/stimulation/enums";
+import LightningLogo from "@/components/svgs/LightningLogo.vue";
+import SunLogo from "@/components/svgs/SunLogo.vue";
 Vue.use(BootstrapVue);
 Vue.component("BModal", BModal);
 library.add(faTrashAlt);
@@ -117,6 +121,8 @@ export default {
     FontAwesomeIcon,
     StatusWarningWidget,
     InputWidget,
+    LightningLogo,
+    SunLogo,
   },
   data() {
     return {
@@ -338,6 +344,13 @@ export default {
   justify-content: flex-end;
   align-items: center;
   margin: 5px;
+}
+
+.div__stim-type-logo {
+  height: 21px;
+  width: 18px;
+  fill: white;
+  margin-right: 2px;
 }
 
 .number-input-container {
