@@ -187,7 +187,6 @@ export default {
   },
   data() {
     return {
-      icon_types: ["Monophasic", "Biphasic", "Delay"],
       time_units_array: ["milliseconds", "seconds", "minutes", "hours"],
       selected_pulse_settings: {},
       protocol_order: [],
@@ -232,6 +231,13 @@ export default {
     },
     is_modal_open: function () {
       return this.modal_type !== null || this.open_delay_modal || this.open_repeat_modal;
+    },
+    icon_types: function () {
+      if (this.get_stim_type === "C") {
+        return ["Monophasic", "Biphasic", "Delay"];
+      } else {
+        return ["Monophasic", "Delay"];
+      }
     },
   },
   watch: {
