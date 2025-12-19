@@ -174,9 +174,9 @@
 <script>
 import { library } from "@fortawesome/fontawesome-svg-core";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { mapMutations, mapState } from "vuex";
+import { mapMutations, mapState, mapGetters } from "vuex";
 import playback_module from "@/store/modules/playback";
-import { STIM_STATUS } from "@/store/modules/stimulation/enums";
+import { STIM_STATUS, STIM_LID_TYPE_TO_STIM_TYPE } from "@/store/modules/stimulation/enums";
 import StatusWarningWidget from "@/components/status/StatusWarningWidget.vue";
 import {
   faPlayCircle as fa_play_circle,
@@ -262,6 +262,8 @@ export default {
     ]),
     ...mapState("playback", ["playback_state", "enable_stim_controls", "barcodes"]),
     ...mapState("data", ["stimulator_circuit_statuses"]),
+    ...mapState("settings", ["barcode_config"]),
+    ...mapGetters("stimulation", ["get_platemap_stim_type"]),
     is_start_stop_button_enabled: function () {
       if (this.is_stim_in_waiting) {
         return false;
@@ -347,7 +349,8 @@ export default {
       return (
         [STIM_STATUS.CONFIG_CHECK_NEEDED, STIM_STATUS.READY].includes(this.stim_status) &&
         this.barcodes.stim_barcode.valid &&
-        this.playback_state === playback_module.ENUMS.PLAYBACK_STATES.CALIBRATED
+        this.playback_state === playback_module.ENUMS.PLAYBACK_STATES.CALIBRATED &&
+        this.stim_types_match()
       );
     },
     svg__stimulation_controls_config_check_button__dynamic_class: function () {
@@ -368,6 +371,8 @@ export default {
         return "Cannot run configuration check while Live View is active.";
       } else if (this.playback_state !== playback_module.ENUMS.PLAYBACK_STATES.CALIBRATED) {
         return "Cannot run a configuration check while other processes are active.";
+      } else if (!this.stim_types_match()) {
+        return "The current stim protocols are not supported by this stim lid.";
       } else if (
         this.stim_status == STIM_STATUS.ERROR ||
         this.stim_status == STIM_STATUS.SHORT_CIRCUIT_ERROR
@@ -469,6 +474,14 @@ export default {
     close_invalid_protocol_modal: function () {
       this.$bvModal.hide("invalid-imported-protocols");
       this.$store.commit("stimulation/set_invalid_imported_protocols", []);
+    },
+    stim_types_match: function () {
+      if (this.get_platemap_stim_type === null) {
+        return true;
+      }
+      const lid_types = ((this.barcode_config || {})["stim"] || {})["T"] || {};
+      const lid_type = (lid_types[this.barcodes.stim_barcode.value[7]] || {}).t;
+      return STIM_LID_TYPE_TO_STIM_TYPE[lid_type] === this.get_platemap_stim_type;
     },
   },
 };

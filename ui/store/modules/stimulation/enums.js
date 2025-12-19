@@ -20,6 +20,11 @@ export const STIM_STATUS = {
   ERROR: "Error Occurred",
 };
 
+export const STIM_LID_TYPE_TO_STIM_TYPE = {
+  E: "C",
+  L: "O",
+};
+
 export const MIN_SUBPROTOCOL_DURATION_MS = 100;
 export const MIN_PHASE_DURATION_US = 25; // Making this us because 0.025 is difficult to read in the error text below text box when user goes below. 25 is more visible.
 export const MIN_CHARGE_MA = 1;

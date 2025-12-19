@@ -1,7 +1,7 @@
 import mutations from "./mutations";
 import { default as getters, get_default_protocol_editor_state } from "./getters";
 import actions from "./actions";
-import { STIM_STATUS } from "./enums";
+import { STIM_STATUS, STIM_LID_TYPE_TO_STIM_TYPE } from "./enums";
 
 const state = () => ({
   selected_wells: [],
@@ -37,4 +37,5 @@ export default {
   getters,
   actions,
   STIM_STATUS,
+  STIM_LID_TYPE_TO_STIM_TYPE,
 };
