@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div style="overflow: hidden">
     <LightningLogo v-if="stimulation_type === 'C'" />
     <SunLogo v-if="stimulation_type === 'O'" style="margin-top: -0.7em" />
   </div>

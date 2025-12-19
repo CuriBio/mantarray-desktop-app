@@ -20,9 +20,11 @@
             @start="is_dragging = true"
             @end="is_dragging = false"
           >
-            <div v-for="(type, idx) in icon_types" :id="type" :key="idx" style="position: relative">
-              <StimTypeLogo :stimulation_type="get_stim_type" class="div__stim-type-logo" />
-              <img :src="require(`@/assets/img/${type}.png`)" />
+            <div v-for="(type, idx) in icon_types" :id="type" :key="idx">
+              <div style="position: relative">
+                <StimTypeLogo :stimulation_type="get_stim_type" class="div__stim-type-logo" />
+                <img :src="require(`@/assets/img/${type}.png`)" />
+              </div>
             </div>
           </draggable>
         </div>
@@ -63,14 +65,17 @@
                   </span>
                 </div>
               </div>
-              <img
-                v-if="pulse.type !== 'loop'"
-                id="img__waveform-tile"
-                :src="require(`@/assets/img/${pulse.type}.png`)"
-                @dblclick="open_modal_for_edit(pulse.type, idx)"
-                @mouseenter="on_pulse_enter(idx)"
-                @mouseleave="on_pulse_leave"
-              />
+              <div style="position: relative">
+                <StimTypeLogo :stimulation_type="get_stim_type" class="div__stim-type-logo" />
+                <img
+                  v-if="pulse.type !== 'loop'"
+                  id="img__waveform-tile"
+                  :src="require(`@/assets/img/${pulse.type}.png`)"
+                  @dblclick="open_modal_for_edit(pulse.type, idx)"
+                  @mouseenter="on_pulse_enter(idx)"
+                  @mouseleave="on_pulse_leave"
+                />
+              </div>
               <!-- Below is nested dropzone, can be disabled if needed -->
               <draggable
                 v-model="pulse.subprotocols"
@@ -93,6 +98,11 @@
                   @mouseenter="on_pulse_enter(idx, nested_idx)"
                   @mouseleave="on_pulse_leave"
                 >
+                  <StimTypeLogo
+                    :stimulation_type="get_stim_type"
+                    class="div__stim-type-logo"
+                    style="top: 9px"
+                  />
                   <img :src="require(`@/assets/img/${nested_pulse.type}.png`)" :style="'margin-top: 4px;'" />
                 </div>
               </draggable>
@@ -637,6 +647,7 @@ img {
   height: 21px;
   width: 19px;
   fill: white;
+  cursor: pointer;
 }
 
 .div__modal-overlay {
