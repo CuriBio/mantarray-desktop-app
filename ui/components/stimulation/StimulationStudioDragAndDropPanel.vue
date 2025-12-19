@@ -20,7 +20,8 @@
             @start="is_dragging = true"
             @end="is_dragging = false"
           >
-            <div v-for="(type, idx) in icon_types" :id="type" :key="idx">
+            <div v-for="(type, idx) in icon_types" :id="type" :key="idx" style="position: relative">
+              <StimTypeLogo :stimulation_type="get_stim_type" class="div__stim-type-logo" />
               <img :src="require(`@/assets/img/${type}.png`)" />
             </div>
           </draggable>
@@ -132,12 +133,13 @@
 </template>
 <script>
 import draggable from "vuedraggable";
-import { mapState, mapActions, mapMutations } from "vuex";
+import { mapState, mapActions, mapMutations, mapGetters } from "vuex";
 import StimulationStudioWaveformSettingModal from "@/components/stimulation/StimulationStudioWaveformSettingModal.vue";
 import StimulationStudioInputModal from "@/components/stimulation/StimulationStudioInputModal.vue";
 import SmallDropDown from "@/components/basic_widgets/SmallDropDown.vue";
 import { generate_random_color } from "@/js_utils/waveform_data_formatter";
 import { DEFAULT_SUBPROTOCOL_TEMPLATES } from "@/js_utils/protocol_validation";
+import StimTypeLogo from "@/components/stimulation/StimTypeLogo.vue";
 /**
  * @vue-data {Array} icon_type - The source for the draggable pulse tiles
  * @vue-data {Array} is_dragging - Boolean to determine if user is currently dragging a tile in the scrollable window
@@ -168,6 +170,7 @@ export default {
     StimulationStudioWaveformSettingModal,
     StimulationStudioInputModal,
     SmallDropDown,
+    StimTypeLogo,
   },
   props: {
     disable_edits: { type: Boolean, default: false },
@@ -201,6 +204,7 @@ export default {
       run_until_stopped: (state) => state.protocol_editor.run_until_stopped,
       detailed_subprotocols: (state) => state.protocol_editor.detailed_subprotocols,
     }),
+    ...mapGetters("stimulation", ["get_stim_type"]),
     is_nesting_disabled: function () {
       // disable nesting if the dragged pulse is a nested loop already to prevent deep nesting
       // OR a new pulse is being placed
@@ -624,6 +628,15 @@ img {
   justify-items: center;
   align-items: center;
   margin-top: 80px;
+}
+
+.div__stim-type-logo {
+  position: absolute;
+  top: 5px;
+  left: 3px;
+  height: 21px;
+  width: 19px;
+  fill: white;
 }
 
 .div__modal-overlay {
