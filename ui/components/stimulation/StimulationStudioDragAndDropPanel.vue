@@ -98,12 +98,10 @@
                   @mouseenter="on_pulse_enter(idx, nested_idx)"
                   @mouseleave="on_pulse_leave"
                 >
-                  <StimTypeLogo
-                    :stimulation_type="get_stim_type"
-                    class="div__stim-type-logo"
-                    style="top: 9px"
-                  />
-                  <img :src="require(`@/assets/img/${nested_pulse.type}.png`)" :style="'margin-top: 4px;'" />
+                  <div style="position: relative">
+                    <StimTypeLogo :stimulation_type="get_stim_type" class="div__stim-type-logo" />
+                    <img :src="require(`@/assets/img/${nested_pulse.type}.png`)" />
+                  </div>
                 </div>
               </draggable>
             </div>
@@ -592,18 +590,22 @@ export default {
 
 .img__icon-container {
   cursor: pointer;
-  height: 93px;
-  width: 92px;
+  height: 90px;
+  width: 90px;
 }
 
 img {
-  height: 92px;
-  width: 92px;
+  height: 90px;
+  width: 90px;
   cursor: pointer;
+  margin: 0px 1px;
 }
 
 .ghost {
-  padding: 0 7px;
+  padding-left: 7px;
+  padding-right: 7px;
+  display: flex;
+  align-items: center;
 }
 
 .modal-container {
@@ -723,7 +725,7 @@ img {
 
 .dropzone {
   visibility: visible;
-  height: 102px;
+  height: 90px;
   display: flex;
   right: 31px;
   position: relative;
