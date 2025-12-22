@@ -18,9 +18,12 @@
       >
         <div class="div__chosen-option-container">
           <span class="span__input-controls-content-dropdown-widget">
-            <span :style="'color:' + chosen_option.color">{{ chosen_option.letter }}</span>
-            {{ chosen_option.name }}</span
-          >
+            <slot></slot>
+            <span v-if="show_letter" style="margin-right: 5px" :style="'color:' + chosen_option.color">{{
+              chosen_option.letter
+            }}</span>
+            <span>{{ chosen_option.name }}</span>
+          </span>
         </div>
       </div>
       <div class="arrow" :class="{ expanded: visible }"></div>
@@ -98,6 +101,9 @@ export default {
         this.input_height +
         "px;"
       );
+    },
+    show_letter: function () {
+      return typeof this.chosen_option.letter === "string" && this.chosen_option.letter.trim().length > 0;
     },
   },
   watch: {
@@ -225,6 +231,7 @@ body {
   font-size: 15px;
   color: #b7b7b7;
   background-color: #1c1c1c;
+  display: flex;
 }
 .div__select-dropdown-controls-content-widget {
   pointer-events: all;

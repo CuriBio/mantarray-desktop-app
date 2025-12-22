@@ -12,7 +12,11 @@
         :input_height="input_height"
         @selection-changed="selected_protocol_change"
         @handle-delete="handle_delete"
-      />
+      >
+        <span class="span__stim-type-logo">
+          <StimTypeLogo :stimulation_type="get_stim_type" style="overflow: visible; margin-top: 4px" />
+        </span>
+      </SelectDropDown>
     </div>
     <canvas class="canvas__stimulationstudio-button-separator" />
     <div
@@ -39,6 +43,7 @@
 </template>
 
 <script>
+import StimTypeLogo from "@/components/stimulation/StimTypeLogo.vue";
 import SelectDropDown from "@/components/basic_widgets/SelectDropDown.vue";
 import { mapActions, mapState, mapMutations, mapGetters } from "vuex";
 
@@ -63,6 +68,7 @@ export default {
   name: "StimulationStudioCreateAndEdit",
   components: {
     SelectDropDown,
+    StimTypeLogo,
   },
   props: {
     disable_edits: { type: Boolean, default: false }, // TODO actually pass this prop in
@@ -251,6 +257,13 @@ export default {
   right: 410px;
   padding: 5px;
   z-index: 3;
+}
+
+.span__stim-type-logo {
+  height: 21px;
+  width: 19px;
+  fill: white;
+  margin-right: 5px;
 }
 
 .div__stimulationstudio-select-dropdown-container > .div__input-dropdown-background {
