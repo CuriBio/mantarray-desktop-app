@@ -13,9 +13,11 @@
         @selection-changed="selected_protocol_change"
         @handle-delete="handle_delete"
       >
-        <span class="span__stim-type-logo">
-          <StimTypeLogo :stimulation_type="get_stim_type" style="overflow: visible; margin-top: 4px" />
-        </span>
+        <template v-for="item in protocol_list" #[item.letter]>
+          <span :key="item.letter" class="span__stim-type-logo">
+            <StimTypeLogo :stimulation_type="stim_type(item)" style="overflow: visible; margin-top: 4px" />
+          </span>
+        </template>
       </SelectDropDown>
     </div>
     <canvas class="canvas__stimulationstudio-button-separator" />
@@ -133,6 +135,9 @@ export default {
       }
 
       this.$emit("handle_selection_change", selected_protocol);
+    },
+    stim_type(item) {
+      return (item.protocol || {}).stimulation_type || "C";
     },
     handle_delete(item) {
       this.$bvModal.show("del-protocol-modal");
@@ -264,6 +269,7 @@ export default {
   width: 19px;
   fill: white;
   margin-right: 5px;
+  font-size: 3px;
 }
 
 .div__stimulationstudio-select-dropdown-container > .div__input-dropdown-background {

@@ -18,10 +18,13 @@
       >
         <div class="div__chosen-option-container">
           <span class="span__input-controls-content-dropdown-widget">
-            <slot></slot>
-            <span v-if="show_letter" style="margin-right: 5px" :style="'color:' + chosen_option.color">{{
-              chosen_option.letter
-            }}</span>
+            <slot :name="chosen_option.letter"></slot>
+            <span
+              v-if="show_letter(chosen_option)"
+              style="margin-right: 5px"
+              :style="'color:' + chosen_option.color"
+              >{{ chosen_option.letter }}</span
+            >
             <span>{{ chosen_option.name }}</span>
           </span>
         </div>
@@ -29,12 +32,23 @@
       <div class="arrow" :class="{ expanded: visible }"></div>
       <div :class="{ hidden: !visible, visible }">
         <ul class="ul__dropdown-content-container" :style="'max-height: ' + max_height + 'px;'">
-          <li v-for="item in options_list" :key="item.id" :value="item" @click="change_selection(item.id)">
-            <span :style="`width: ${show_delete_option(item) ? '97' : '100'}%; display: inline-block;`">
-              <span :style="'color:' + item.color">
+          <li
+            v-for="item in options_list"
+            :key="item.id"
+            :value="item"
+            style="display: flex; align-items: center"
+            @click="change_selection(item.id)"
+          >
+            <span
+              :style="`width: ${
+                show_delete_option(item) ? '97' : '100'
+              }%; display: flex; align-items: center;`"
+            >
+              <slot :name="item.letter"></slot>
+              <span v-if="show_letter(item)" style="margin-right: 5px" :style="'color:' + item.color">
                 {{ item.letter }}
               </span>
-              {{ item.name }}
+              <span>{{ item.name }}</span>
             </span>
             <span v-if="show_delete_option(item)" class="span__dropdown-delete-icon">
               <FontAwesomeIcon
@@ -101,9 +115,6 @@ export default {
         this.input_height +
         "px;"
       );
-    },
-    show_letter: function () {
-      return typeof this.chosen_option.letter === "string" && this.chosen_option.letter.trim().length > 0;
     },
   },
   watch: {
@@ -173,7 +184,7 @@ export default {
           : {
               id: i,
               name: opt.label,
-              letter: opt.letter + " ",
+              letter: opt.letter,
               color: opt.color,
             }
       );
@@ -182,6 +193,9 @@ export default {
       this.options_list = this.dropdown_options.filter((option) => {
         return option !== this.chosen_option;
       });
+    },
+    show_letter: function (option) {
+      return typeof option.letter === "string" && option.letter.trim().length > 0;
     },
   },
 };
@@ -218,7 +232,7 @@ body {
   cursor: pointer;
 }
 .span__input-controls-content-dropdown-widget {
-  padding-left: 10px;
+  padding-left: 2px;
   padding-right: 10px;
   white-space: nowrap;
   transform: translateZ(0px);
