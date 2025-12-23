@@ -209,7 +209,8 @@ export default {
   transform: rotate(0deg);
   box-sizing: border-box;
   padding: 0px;
-  margin: 0px;
+  margin-top: 250px;
+  margin-left: -100px;
   background: rgb(17, 17, 17);
   position: absolute;
   width: 522px;

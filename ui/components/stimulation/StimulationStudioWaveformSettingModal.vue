@@ -2,7 +2,9 @@
   <div
     id="cmpD2f15f130a7c848b6dfa50e77a7bd35ad"
     class="div__stimulationstudio-current-settings-background"
-    :style="pulse_type === 'Monophasic' ? 'height: 570px; margin-top: 100px;' : 'height: 840px;'"
+    :style="
+      pulse_type === 'Monophasic' ? 'height: 570px; margin-top: 100px;' : 'height: 840px; margin-top: 50px'
+    "
   >
     <span id="cmpD5b2290fff52de686574ddc4481707a03" class="span__stimulationstudio-current-settings-title"
       >{{ pulse_type }}&nbsp;<wbr />Pulse&nbsp;<wbr />Details
@@ -686,7 +688,7 @@ export default {
   transform: rotate(0deg);
   box-sizing: border-box;
   padding: 0px;
-  margin: 0px;
+  margin-left: -300px;
   background: rgb(17, 17, 17);
   position: absolute;
   width: 950px;

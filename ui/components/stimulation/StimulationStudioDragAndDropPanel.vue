@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div :class="is_modal_open ? 'div__modal-overlay' : null">
+    <div>
       <div>
         <div class="div__drag-and-drop-panel">
           <span class="span__stimulationstudio-drag-drop-header-label">Drag/Drop Waveforms</span>
@@ -109,26 +109,53 @@
         </div>
       </div>
     </div>
-    <div v-if="modal_type !== null" class="modal-container">
+    <b-modal
+      id="waveform-settings"
+      size="sm"
+      hide-footer
+      hide-header
+      hide-header-close
+      :static="true"
+      :no-close-on-backdrop="true"
+    >
       <StimulationStudioWaveformSettingModal
+        v-if="modal_type !== null"
         :pulse_type="modal_type"
         :modal_open_for_edit="modal_open_for_edit"
         :selected_pulse_settings="selected_pulse_settings"
         :current_color="selected_color"
         @close="on_modal_close"
       />
-    </div>
-    <div v-if="open_delay_modal" class="modal-container delay-container">
+    </b-modal>
+    <b-modal
+      id="delay-settings"
+      size="sm"
+      hide-footer
+      hide-header
+      hide-header-close
+      :static="true"
+      :no-close-on-backdrop="true"
+    >
       <StimulationStudioInputModal
+        v-if="open_delay_modal"
         :modal_open_for_edit="modal_open_for_edit"
         :current_unit="current_delay_unit"
         :current_input="current_input"
         :current_color="selected_color"
         @input-close="on_modal_close"
       />
-    </div>
-    <div v-if="open_repeat_modal" class="modal-container repeat-container">
+    </b-modal>
+    <b-modal
+      id="repeat-settings"
+      size="sm"
+      hide-footer
+      hide-header
+      hide-header-close
+      :static="true"
+      :no-close-on-backdrop="true"
+    >
       <StimulationStudioInputModal
+        v-if="open_repeat_modal"
         :modal_open_for_edit="modal_open_for_edit"
         :current_input="current_input"
         :input_label="'Number of Iterations:'"
@@ -136,7 +163,7 @@
         :modal_title="'Setup Subprotocol Loop'"
         @input-close="close_repeat_modal"
       />
-    </div>
+    </b-modal>
   </div>
 </template>
 <script>
@@ -148,6 +175,12 @@ import SmallDropDown from "@/components/basic_widgets/SmallDropDown.vue";
 import { generate_random_color } from "@/js_utils/waveform_data_formatter";
 import { DEFAULT_SUBPROTOCOL_TEMPLATES } from "@/js_utils/protocol_validation";
 import StimTypeLogo from "@/components/stimulation/StimTypeLogo.vue";
+
+import BootstrapVue from "bootstrap-vue";
+import { BModal } from "bootstrap-vue";
+import Vue from "vue";
+Vue.use(BootstrapVue);
+Vue.component("BModal", BModal);
 /**
  * @vue-data {Array} icon_type - The source for the draggable pulse tiles
  * @vue-data {Array} is_dragging - Boolean to determine if user is currently dragging a tile in the scrollable window
@@ -256,6 +289,27 @@ export default {
           )
         )
       );
+    },
+    modal_type: function () {
+      if (this.modal_type !== null) {
+        this.$bvModal.show("waveform-settings");
+      } else {
+        this.$bvModal.hide("waveform-settings");
+      }
+    },
+    open_delay_modal: function () {
+      if (this.open_delay_modal) {
+        this.$bvModal.show("delay-settings");
+      } else {
+        this.$bvModal.hide("delay-settings");
+      }
+    },
+    open_repeat_modal: function () {
+      if (this.open_repeat_modal) {
+        this.$bvModal.show("repeat-settings");
+      } else {
+        this.$bvModal.hide("repeat-settings");
+      }
     },
   },
   created() {
@@ -608,11 +662,6 @@ img {
   align-items: center;
 }
 
-.modal-container {
-  left: 22%;
-  position: absolute;
-}
-
 .dropdown-container {
   position: absolute;
   z-index: 2;
@@ -656,16 +705,6 @@ img {
   width: 19px;
   fill: white;
   cursor: pointer;
-}
-
-.div__modal-overlay {
-  width: 1629px;
-  height: 885px;
-  position: absolute;
-  top: 0;
-  background: rgb(0, 0, 0);
-  z-index: 5;
-  opacity: 0.6;
 }
 
 .div__scroll-container {
@@ -729,10 +768,5 @@ img {
   display: flex;
   right: 31px;
   position: relative;
-}
-
-.delay-container,
-.repeat-container {
-  top: 15%;
 }
 </style>
