@@ -7,7 +7,7 @@
     "
   >
     <span id="cmpD5b2290fff52de686574ddc4481707a03" class="span__stimulationstudio-current-settings-title"
-      >{{ pulse_type }}&nbsp;<wbr />Pulse&nbsp;<wbr />Details
+      >{{ stim_type_info.type_name }}&nbsp;<wbr />{{ pulse_type }}&nbsp;<wbr />Pulse&nbsp;<wbr />Details
     </span>
     <div class="div__color-block" :style="color_to_display" />
     <div class="div__color-label" @click="$bvModal.show('change-color-modal')">Change color</div>
@@ -56,7 +56,7 @@
       id="cmpDf2d0dbfd2edb4ffa3b8615863fa1b9a7"
       class="span__stimulationstudio-current-settings-label-left"
       :style="'top: 179.5px;'"
-      >Current</span
+      >{{ stim_type_info.output_name }}</span
     >
     <div
       id="cmpDf6ba8560cb2fbd91276a29c46743e99a"
@@ -78,7 +78,7 @@
       id="cmpD7695902a49c6eaeb81d267812f0a90cd"
       class="span__stimulationstudio-current-settings-label-right"
       :style="'top: 179.5px;'"
-      >mA</span
+      >{{ stim_type_info.output_units }}</span
     >
     <div v-if="pulse_type === 'Biphasic'">
       <canvas id="cmpDefb479b0caa166978ebed24ab8c44baf" :style="'top: 246px;'" />
@@ -147,7 +147,7 @@
         id="cmpDdd1b9fc6423c3af17206292a54489078"
         class="span__stimulationstudio-current-settings-label-left"
         :style="'top: 466.5px;'"
-        >Current</span
+        >{{ stim_type_info.output_name }}</span
       >
       <div
         id="cmpD8ecdf9c4a418509adff741b988ad0676"
@@ -169,7 +169,7 @@
         id="cmpDbc629158eb67226e3134f41509394ec9"
         class="span__stimulationstudio-current-settings-label-right"
         :style="'top: 466.5px;'"
-        >mA</span
+        >{{ stim_type_info.output_units }}</span
       >
     </div>
     <canvas :style="pulse_type === 'Monophasic' ? 'top: 240px;' : 'top: 533px;'" />
@@ -275,7 +275,7 @@
     <div class="div__waveform-preview-title">Waveform Preview</div>
     <div class="div__pulse-diagram-container">
       <img
-        :src="require(`@/assets/img/${pulse_type}-diagram-Current.png`)"
+        :src="require(`@/assets/img/${pulse_type}-diagram-${stim_type_info.output_name}.png`)"
         :class="pulse_type === 'Monophasic' ? 'img__mononphasic-diagram' : 'img__biphasic-diagram'"
       />
     </div>
@@ -305,6 +305,7 @@
 </template>
 <script>
 import Vue from "vue";
+import { mapGetters } from "vuex";
 import SmallDropDown from "@/components/basic_widgets/SmallDropDown.vue";
 import InputWidget from "@/components/basic_widgets/InputWidget.vue";
 import CheckBoxWidget from "@/components/basic_widgets/CheckBoxWidget.vue";
@@ -400,25 +401,6 @@ export default {
       active_duration_idx: 0,
       input_pulse_frequency: "",
       max_pulse_duration_for_freq: 50,
-      diagram_keys: {
-        Monophasic: [
-          "A. Stimulus Duration",
-          "B. Current",
-          "C. Pulse Frequency",
-          "D. Total Active Duration",
-          "E. Number of Cycles",
-        ],
-        Biphasic: [
-          "A. Phase 1 Stimulus Duration",
-          "B. Phase 1 Current",
-          "C. Interphase Interval",
-          "D. Phase 2 Stimulus Duration",
-          "E. Phase 2 Current",
-          "F. Pulse Frequency",
-          "G. Active Duration",
-          "H. Number of Cycles",
-        ],
-      },
       calculated_active_dur: "",
       calculated_num_cycles: "",
       num_cycles: "",
@@ -430,6 +412,7 @@ export default {
     };
   },
   computed: {
+    ...mapGetters("stimulation", ["get_stim_type"]),
     total_pulse_duration: function () {
       return this.pulse_type === "Monophasic"
         ? +this.pulse_settings.phase_one_duration
@@ -450,6 +433,35 @@ export default {
     },
     color_to_display: function () {
       return "background-color: " + this.selected_color;
+    },
+    stim_type_info: function () {
+      if (this.get_stim_type === "O") {
+        return { type_name: "Optical", output_name: "Power", output_units: "mW" };
+      } else {
+        return { type_name: "Electrical", output_name: "Current", output_units: "mA" };
+      }
+    },
+    diagram_keys: function () {
+      const output_name = this.stim_type_info.output_name;
+      return {
+        Monophasic: [
+          "A. Stimulus Duration",
+          `B. ${output_name}`,
+          "C. Pulse Frequency",
+          "D. Total Active Duration",
+          "E. Number of Cycles",
+        ],
+        Biphasic: [
+          "A. Phase 1 Stimulus Duration",
+          `B. Phase 1 ${output_name}`,
+          "C. Interphase Interval",
+          "D. Phase 2 Stimulus Duration",
+          `B. Phase 2 ${output_name}`,
+          "F. Pulse Frequency",
+          "G. Active Duration",
+          "H. Number of Cycles",
+        ],
+      };
     },
   },
   watch: {

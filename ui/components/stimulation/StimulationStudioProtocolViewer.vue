@@ -7,7 +7,7 @@
       :plot_area_pixel_height="160"
       :plot_area_pixel_width="dynamic_plot_width"
       :data_points="datapoints"
-      :y_axis_label="'Current'"
+      :y_axis_label="y_axis_label"
       :x_axis_label="x_axis_label"
       :repeat_colors="repeat_colors"
       :delay_blocks="delay_blocks"
@@ -17,6 +17,7 @@
 <script>
 import StimulationStudioWaveform from "@/components/stimulation/StimulationStudioWaveform.vue";
 import { convert_x_y_arrays_to_d3_array } from "@/js_utils/waveform_data_formatter.js";
+import { mapGetters } from "vuex";
 
 /**
  * @vue-data {Int} y_min_max - The y axis min and max values
@@ -45,6 +46,16 @@ export default {
       x_axis_label: "Time",
       last_x_value: 0,
     };
+  },
+  computed: {
+    ...mapGetters("stimulation", ["get_stim_type"]),
+    y_axis_label() {
+      if (this.get_stim_type === "O") {
+        return "Power";
+      } else {
+        return "Current";
+      }
+    },
   },
   created: function () {
     const state = this.$store.state.stimulation;
