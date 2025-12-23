@@ -149,8 +149,10 @@ export default {
       run_until_stopped: (state) => state.protocol_editor.run_until_stopped,
       rest_time_unit: (state) => state.protocol_editor.time_unit,
     }),
+    ...mapState("stimulation", ["protocol_assignments"]),
     ...mapGetters("stimulation", [
       "get_protocol_name",
+      "get_protocol_letter",
       "get_protocol_is_empty",
       "get_rest_duration",
       "get_stim_type",
@@ -164,7 +166,10 @@ export default {
       };
     },
     stim_type_selection_disabled: function () {
-      return !this.get_protocol_is_empty;
+      return (
+        !this.get_protocol_is_empty ||
+        Object.values(this.protocol_assignments).some((p) => p.letter === this.get_protocol_letter)
+      );
     },
   },
   watch: {

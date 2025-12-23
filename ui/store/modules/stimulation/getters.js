@@ -44,6 +44,9 @@ export default {
   get_protocol_name({ protocol_editor }) {
     return protocol_editor.name;
   },
+  get_protocol_letter({ current_assignment }) {
+    return current_assignment.letter;
+  },
   get_rest_duration({ protocol_editor }) {
     return protocol_editor.rest_duration;
   },
