@@ -2,12 +2,14 @@ import {
   MIN_SUBPROTOCOL_DURATION_MS,
   TIME_CONVERSION_TO_MILLIS,
   MAX_SUBPROTOCOL_DURATION_MS,
-  MIN_CHARGE_MA,
-  MAX_CHARGE_MA,
+  MIN_ABS_STIM_CURRENT_MA,
+  MAX_ABS_STIM_CURRENT_MA,
+  MIN_STIM_OPTICAL_POWER_MW,
+  MAX_STIM_OPTICAL_POWER_MW,
   MIN_PHASE_DURATION_US,
 } from "@/store/modules/stimulation/enums";
 
-const invalid_err_msg = {
+const INVALID_ERR_MSG = {
   num_err: "Must be a number",
   required: "Required",
   max_pulse_duration: "Duration must be <= 50ms",
@@ -15,7 +17,8 @@ const invalid_err_msg = {
   min_interphase_duration: `Duration must be 0ms or >= ${MIN_PHASE_DURATION_US}μs`,
   min_active_duration: "Duration must be >= 100ms",
   valid: "",
-  max_min_current: `Must be within [-${MIN_CHARGE_MA}, -${MAX_CHARGE_MA}] or [${MIN_CHARGE_MA}, ${MAX_CHARGE_MA}]`,
+  max_min_current: `Must be within [-${MIN_ABS_STIM_CURRENT_MA}, -${MAX_ABS_STIM_CURRENT_MA}] or [${MIN_ABS_STIM_CURRENT_MA}, ${MAX_ABS_STIM_CURRENT_MA}]`,
+  max_min_power: `Must be within [${MIN_STIM_OPTICAL_POWER_MW}, ${MAX_STIM_OPTICAL_POWER_MW}]`,
   max_voltage: "Must be within +/- 1200",
   frequency: "Must be a non-zero value <= 100",
   num_cycles: "Must be a whole number > 0",
@@ -67,26 +70,40 @@ export const check_num_cycles_validity = (num_cycles) => {
   // check if value is a whole number greater than 0
   const error_msg_label =
     num_cycles === "" || !Number.isInteger(+num_cycles) || +num_cycles <= 0 ? "num_cycles" : "valid";
-  return invalid_err_msg[error_msg_label];
+  return INVALID_ERR_MSG[error_msg_label];
 };
 
-export const check_pulse_charge_validity = (value_str) => {
+export const check_pulse_charge_validity = (value_str, stim_type) => {
   let error_message;
-  // if empty
   if (value_str === "") {
-    error_message = invalid_err_msg.required;
-    // else if not a number
+    error_message = INVALID_ERR_MSG.required;
   } else if (isNaN(+value_str)) {
-    error_message = invalid_err_msg.num_err;
-    // else if it's a current controlled stim and the value is not within [+/-1, +/-100]
-  } else if (Math.abs(+value_str) > MAX_CHARGE_MA || Math.abs(+value_str) < MIN_CHARGE_MA) {
-    error_message = invalid_err_msg.max_min_current;
-    // else valid
+    error_message = INVALID_ERR_MSG.num_err;
+  } else if (check_pulse_charge_in_range(value_str, stim_type) !== null) {
+    error_message = check_pulse_charge_in_range(value_str, stim_type);
   } else {
-    error_message = invalid_err_msg.valid;
+    error_message = INVALID_ERR_MSG.valid;
   }
 
   return error_message;
+};
+
+const check_pulse_charge_in_range = (value_str, stim_type) => {
+  if (stim_type === "C") {
+    if (Math.abs(+value_str) > MAX_ABS_STIM_CURRENT_MA || Math.abs(+value_str) < MIN_ABS_STIM_CURRENT_MA) {
+      return INVALID_ERR_MSG.max_min_current;
+    } else {
+      return null;
+    }
+  } else if (stim_type === "O") {
+    if (+value_str > MAX_STIM_OPTICAL_POWER_MW || +value_str < MIN_STIM_OPTICAL_POWER_MW) {
+      return INVALID_ERR_MSG.max_min_power;
+    } else {
+      return null;
+    }
+  } else {
+    return "Invalid";
+  }
 };
 
 export const check_pulse_duration_validity = (
@@ -100,22 +117,22 @@ export const check_pulse_duration_validity = (
 
   // if empty
   if (value_str === "") {
-    error_message = invalid_err_msg.required;
+    error_message = INVALID_ERR_MSG.required;
     // else if value is not a valid number
   } else if (isNaN(+value_str)) {
-    error_message = invalid_err_msg.num_err;
+    error_message = INVALID_ERR_MSG.num_err;
     // else if value is less than allowed minimum and no interphase interval because interphase has it's own limits
   } else if (is_value_less_than_min && !is_interphase_dur) {
-    error_message = invalid_err_msg.min_pulse_duration;
+    error_message = INVALID_ERR_MSG.min_pulse_duration;
     // else if it is interphase interval and value is less than min and not 0
   } else if (is_value_less_than_min && +value_str !== 0 && is_interphase_dur) {
-    error_message = invalid_err_msg.min_interphase_duration;
+    error_message = INVALID_ERR_MSG.min_interphase_duration;
     // else total duration of all durations is too high for the frequency input
   } else if (total_pulse_duration > max_pulse_duration_for_freq) {
-    error_message = invalid_err_msg.max_pulse_duration;
+    error_message = INVALID_ERR_MSG.max_pulse_duration;
     // else valid
   } else {
-    error_message = invalid_err_msg.valid;
+    error_message = INVALID_ERR_MSG.valid;
   }
 
   return error_message;
@@ -128,7 +145,7 @@ export const check_active_duration_validity = (value_str, selected_unit, total_p
 
   // if empty
   if (value_str === "") {
-    error_message = invalid_err_msg.required;
+    error_message = INVALID_ERR_MSG.required;
     // else if not a valid number
   } else if (isNaN(+value_str)) {
     error_message = "Invalid number";
@@ -141,7 +158,7 @@ export const check_active_duration_validity = (value_str, selected_unit, total_p
     error_message = `Must be <= ${max_in_hrs}hrs`;
     // else valid
   } else {
-    error_message = invalid_err_msg.valid;
+    error_message = INVALID_ERR_MSG.valid;
   }
 
   return error_message;
@@ -151,14 +168,14 @@ export const check_pulse_frequency_validity = (value_str, max_pulse_dur_for_freq
   let error_message;
   // if empty
   if (value_str === "") {
-    error_message = invalid_err_msg.required;
+    error_message = INVALID_ERR_MSG.required;
     // else if not a number or is less than the minimum or greater than the maximum
   } else if (isNaN(+value_str) || +value_str <= 0 || +value_str > 100) {
-    error_message = invalid_err_msg.frequency;
+    error_message = INVALID_ERR_MSG.frequency;
     // else valid and set max pulse duration error message if needed
   } else {
-    error_message = invalid_err_msg.valid;
-    invalid_err_msg.max_pulse_duration = `Duration must be <= ${max_pulse_dur_for_freq}ms`;
+    error_message = INVALID_ERR_MSG.valid;
+    INVALID_ERR_MSG.max_pulse_duration = `Duration must be <= ${max_pulse_dur_for_freq}ms`;
   }
   return error_message;
 };
@@ -168,17 +185,17 @@ export const check_delay_pulse_validity = (value_str, selected_unit) => {
   let error_message;
 
   if (value_str === "") {
-    error_message = invalid_err_msg.required;
+    error_message = INVALID_ERR_MSG.required;
   } else if (isNaN(+value_str)) {
-    error_message = invalid_err_msg.delay_num_err;
+    error_message = INVALID_ERR_MSG.delay_num_err;
   } else if (value_in_millis < MIN_SUBPROTOCOL_DURATION_MS) {
-    error_message = invalid_err_msg.min_delay_duration;
+    error_message = INVALID_ERR_MSG.min_delay_duration;
   } else if (value_in_millis > MAX_SUBPROTOCOL_DURATION_MS) {
-    error_message = invalid_err_msg.max_delay_duration;
+    error_message = INVALID_ERR_MSG.max_delay_duration;
   } else if (!Number.isInteger(value_in_millis)) {
-    error_message = invalid_err_msg.non_integer;
+    error_message = INVALID_ERR_MSG.non_integer;
   } else {
-    error_message = invalid_err_msg.valid;
+    error_message = INVALID_ERR_MSG.valid;
   }
 
   return error_message;
@@ -202,12 +219,15 @@ export const calculate_num_cycles = (selected_unit, total_active_duration, pulse
 
 export const are_valid_pulses = (subprotocols) => {
   return subprotocols.some((proto) => {
-    if (proto.type === "loop") return are_valid_pulses(proto.subprotocols);
-    else return proto.type === "Delay" ? !_is_valid_delay_pulse(proto) : !_is_valid_single_pulse(proto);
+    if (proto.type === "loop") {
+      return are_valid_pulses(proto.subprotocols);
+    } else {
+      return proto.type === "Delay" ? !_is_valid_delay_pulse(proto) : !_is_valid_single_pulse(proto);
+    }
   });
 };
 
-export const _is_valid_single_pulse = (protocol) => {
+const _is_valid_single_pulse = (protocol) => {
   const { duration, unit } = protocol.total_active_duration;
   const is_monophasic = protocol.type === "Monophasic";
   const charges_to_check = is_monophasic ? ["phase_one_charge"] : ["phase_one_charge", "phase_two_charge"];
@@ -230,9 +250,12 @@ export const _is_valid_single_pulse = (protocol) => {
         ) !== ""
     ).length === 0;
 
+  // TODO test this
   // check if charges are within max and min bounds
   const charges_are_valid =
-    charges_to_check.filter((charge) => check_pulse_charge_validity(protocol[charge]) !== "").length === 0;
+    charges_to_check.filter(
+      (charge) => check_pulse_charge_validity(protocol[charge], protocol.stimulation_type) !== ""
+    ).length === 0;
 
   const complete_pulse_validity =
     check_pulse_frequency_validity(protocol.frequency, max_pulse_duration_for_freq) === "" &&

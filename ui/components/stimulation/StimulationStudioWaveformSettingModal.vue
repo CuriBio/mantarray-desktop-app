@@ -667,16 +667,21 @@ export default {
       }
     },
     check_charge_validity(value_str, label) {
-      this.err_msgs[label] = check_pulse_charge_validity(value_str);
+      // TODO test this
+      this.err_msgs[label] = check_pulse_charge_validity(value_str, this.get_stim_type);
       const is_valid = this.err_msgs[label] === "";
-      if (is_valid) this.pulse_settings[label] = +value_str;
+      if (is_valid) {
+        this.pulse_settings[label] = +value_str;
+      }
     },
     check_num_cycles() {
       const num_cycles_as_num = +this.num_cycles;
       this.err_msgs.num_cycles = check_num_cycles_validity(this.num_cycles);
       const is_valid = this.err_msgs.num_cycles === "";
 
-      if (is_valid) this.num_cycles = num_cycles_as_num;
+      if (is_valid) {
+        this.num_cycles = num_cycles_as_num;
+      }
     },
     handle_total_duration_unit_change(idx) {
       this.active_duration_idx = idx;
