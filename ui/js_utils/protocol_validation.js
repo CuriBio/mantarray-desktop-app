@@ -217,17 +217,19 @@ export const calculate_num_cycles = (selected_unit, total_active_duration, pulse
   return isFinite(num_cycles) ? num_cycles : "";
 };
 
-export const are_valid_pulses = (subprotocols) => {
-  return subprotocols.some((proto) => {
-    if (proto.type === "loop") {
-      return are_valid_pulses(proto.subprotocols);
+export const are_valid_pulses = (protocol) => {
+  return protocol.subprotocols.some((subprotocol) => {
+    if (subprotocol.type === "loop") {
+      return are_valid_pulses(subprotocol.subprotocols);
     } else {
-      return proto.type === "Delay" ? !_is_valid_delay_pulse(proto) : !_is_valid_single_pulse(proto);
+      return subprotocol.type === "Delay"
+        ? !_is_valid_delay_pulse(subprotocol)
+        : !_is_valid_single_pulse(subprotocol, protocol.stimulation_type);
     }
   });
 };
 
-const _is_valid_single_pulse = (protocol) => {
+const _is_valid_single_pulse = (protocol, stimulation_type) => {
   const { duration, unit } = protocol.total_active_duration;
   const is_monophasic = protocol.type === "Monophasic";
   const charges_to_check = is_monophasic ? ["phase_one_charge"] : ["phase_one_charge", "phase_two_charge"];
@@ -254,7 +256,7 @@ const _is_valid_single_pulse = (protocol) => {
   // check if charges are within max and min bounds
   const charges_are_valid =
     charges_to_check.filter(
-      (charge) => check_pulse_charge_validity(protocol[charge], protocol.stimulation_type) !== ""
+      (charge) => check_pulse_charge_validity(protocol[charge], stimulation_type) !== ""
     ).length === 0;
 
   const complete_pulse_validity =
@@ -265,7 +267,7 @@ const _is_valid_single_pulse = (protocol) => {
   return durations_are_valid && charges_are_valid && complete_pulse_validity;
 };
 
-export const _is_valid_delay_pulse = (protocol) => {
+const _is_valid_delay_pulse = (protocol) => {
   const { duration, unit } = protocol;
   return check_delay_pulse_validity(duration, unit) === "";
 };

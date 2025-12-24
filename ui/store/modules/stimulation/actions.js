@@ -244,7 +244,7 @@ export default {
     await commit("reset_protocol_editor");
 
     for (const [idx, protocol] of Object.entries(protocols)) {
-      const invalid_pulses = are_valid_pulses(protocol.subprotocols);
+      const invalid_pulses = are_valid_pulses(protocol);
 
       if (!invalid_pulses) {
         await commit("set_edit_mode_off");
