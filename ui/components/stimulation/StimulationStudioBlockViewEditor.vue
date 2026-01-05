@@ -17,9 +17,10 @@
         <div class="div__right-settings-panel">
           <StimTypeLogo :stimulation_type="get_stim_type" class="div__stim-type-logo" />
           <SmallDropDown
+            v-b-popover.hover.bottom="stim_type_selection_details.msg"
             :input_height="25"
             :input_width="200"
-            :disable_selection="stim_type_selection_disabled"
+            :disable_toggle="stim_type_selection_details.disabled"
             :options_text="stimulation_types_array"
             :options_idx="stimulation_type_idx"
             :dom_id_suffix="'stimulation_type'"
@@ -35,7 +36,7 @@
             @selection-changed="handle_stop_setting"
           />
           <span class="span__settings-label">every</span>
-          <div v-b-popover.hover.bottom="rest_input_hover" class="number-input-container">
+          <div v-b-popover.hover.bottom="rest_input_tooltip" class="number-input-container">
             <InputWidget
               :style="'position: relative;'"
               :initial_value="rest_duration"
@@ -159,17 +160,27 @@ export default {
       "get_protocols",
       "get_next_protocol",
     ]),
-    rest_input_hover: function () {
+    rest_input_tooltip: function () {
       return {
         content: 'Cannot set this value if using "Stimulate Until Complete"',
         disabled: !this.disabled_time,
       };
     },
-    stim_type_selection_disabled: function () {
-      return (
-        !this.get_protocol_is_empty ||
+    stim_type_selection_details: function () {
+      if (!this.get_protocol_is_empty) {
+        return {
+          msg: "Cannot change the stimulation type of this protocol while it is not empty.",
+          disabled: true,
+        };
+      } else if (
         Object.values(this.protocol_assignments).some((p) => p.letter === this.get_protocol_letter)
-      );
+      ) {
+        return {
+          msg: "Cannot change the stimulation type of this protocol while it is assigned to any wells.",
+          disabled: true,
+        };
+      }
+      return { msg: "", disabled: false };
     },
   },
   watch: {

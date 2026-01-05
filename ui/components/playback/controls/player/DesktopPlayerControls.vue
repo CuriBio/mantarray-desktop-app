@@ -468,9 +468,9 @@ export default {
         return "Cannot calibrate during firmware update.";
       }
       if (this.stim_status === STIM_STATUS.CONFIG_CHECK_IN_PROGRESS)
-        return "Cannot calibrate while stimulation configuration check is in progress";
+        return "Cannot calibrate while stimulation configuration check is in progress.";
       if (this.stim_status === STIM_STATUS.STIM_ACTIVE) {
-        return "Cannot calibrate while stimulating";
+        return "Cannot calibrate while stimulating.";
       }
       if (this.playback_state == this.playback_state_enums.CALIBRATION_NEEDED) {
         return "Calibration needed. Click to calibrate.";
@@ -495,7 +495,7 @@ export default {
         return "Must stop recording before deactivating.";
       }
       if (this.stim_status === STIM_STATUS.CONFIG_CHECK_IN_PROGRESS)
-        return "Cannot start live view while stimulation configuration check is in progress";
+        return "Cannot start live view while stimulation configuration check is in progress.";
       if (
         this.playback_state === this.playback_state_enums.CALIBRATION_NEEDED ||
         this.playback_state === this.playback_state_enums.CALIBRATING
