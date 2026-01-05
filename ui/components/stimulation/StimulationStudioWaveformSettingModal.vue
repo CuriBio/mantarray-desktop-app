@@ -314,7 +314,7 @@ import ButtonWidget from "@/components/basic_widgets/ButtonWidget.vue";
 import { library } from "@fortawesome/fontawesome-svg-core";
 import { faBalanceScale, faQuestionCircle } from "@fortawesome/free-solid-svg-icons";
 import { VBPopover } from "bootstrap-vue";
-import { TIME_CONVERSION_TO_MILLIS } from "@/store/modules/stimulation/enums";
+import { TIME_CONVERSION_TO_MILLIS, get_stim_type_info } from "@/store/modules/stimulation/enums";
 import {
   check_num_cycles_validity,
   check_pulse_charge_validity,
@@ -435,11 +435,7 @@ export default {
       return "background-color: " + this.selected_color;
     },
     stim_type_info: function () {
-      if (this.get_stim_type === "O") {
-        return { type_name: "Optical", output_name: "Power", output_units: "mW" };
-      } else {
-        return { type_name: "Electrical", output_name: "Current", output_units: "mA" };
-      }
+      return get_stim_type_info(this.get_stim_type);
     },
     diagram_keys: function () {
       const output_name = this.stim_type_info.output_name;
@@ -667,7 +663,6 @@ export default {
       }
     },
     check_charge_validity(value_str, label) {
-      // TODO test this
       this.err_msgs[label] = check_pulse_charge_validity(value_str, this.get_stim_type);
       const is_valid = this.err_msgs[label] === "";
       if (is_valid) {

@@ -83,3 +83,11 @@ export const verify_stim_types_match = (platemap_stim_type, barcode_config, barc
   const lid_type = (lid_types[(stim_barcode || "")[7]] || {}).t;
   return STIM_LID_TYPE_TO_STIM_TYPE[lid_type] === platemap_stim_type;
 };
+
+export const get_stim_type_info = (stim_type) => {
+  if (stim_type === "O") {
+    return { type_name: "Optical", output_name: "Power", output_units: "mW" };
+  } else {
+    return { type_name: "Electrical", output_name: "Current", output_units: "mA" };
+  }
+};

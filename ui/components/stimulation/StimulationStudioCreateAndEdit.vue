@@ -25,6 +25,7 @@
       v-for="(value, key, idx) in btn_labels"
       :id="key"
       :key="key"
+      v-b-popover.hover.bottom="selection_btn_details(idx).msg"
       :class="get_class(idx)"
       :style="value"
       @click.exact="handle_click(idx)"
@@ -48,6 +49,7 @@
 import StimTypeLogo from "@/components/stimulation/StimTypeLogo.vue";
 import SelectDropDown from "@/components/basic_widgets/SelectDropDown.vue";
 import { mapActions, mapState, mapMutations, mapGetters } from "vuex";
+import { get_stim_type_info } from "@/store/modules/stimulation/enums";
 
 /**
  * @vue-data {Object} btn_labels - Label and style of buttons
@@ -142,19 +144,34 @@ export default {
     handle_delete(item) {
       this.$bvModal.show("del-protocol-modal");
     },
-    disable_selection_btn(idx) {
+    selection_btn_details(idx) {
       if (this.disable_edits) {
-        return true;
+        return { msg: "", disabled: true };
       } else if (idx === 0) {
-        return (
-          this.selected_protocol_idx === 0 ||
-          (this.get_platemap_stim_type !== null && this.get_platemap_stim_type !== this.get_stim_type)
-        );
+        const selected_protocol = this.protocol_list[this.selected_protocol_idx];
+        const saved_stim_type = this.stim_type(selected_protocol);
+        if (this.selected_protocol_idx === 0) {
+          return { msg: "Cannot add this protocol until it is saved.", disabled: true };
+        } else if (saved_stim_type !== this.get_stim_type) {
+          return {
+            msg:
+              "Cannot add this protocol to the platemap while there are unsaved changes to its stimulation type.",
+            disabled: true,
+          };
+        } else if (this.get_platemap_stim_type !== null && this.get_platemap_stim_type !== saved_stim_type) {
+          const saved_stim_type_name = get_stim_type_info(saved_stim_type).type_name;
+          const platemap_stim_type_name = get_stim_type_info(this.get_platemap_stim_type).type_name;
+          return {
+            msg: `Cannot add ${saved_stim_type_name} protocols to the platemap while it contains ${platemap_stim_type_name} protocols. To add ${saved_stim_type_name} protocols, first remove all ${platemap_stim_type_name} protocols.`,
+            disabled: true,
+          };
+        }
+        return { msg: "", disabled: false };
       }
-      return false;
+      return { msg: "", disabled: false };
     },
     handle_click(idx) {
-      if (this.disable_selection_btn(idx)) {
+      if (this.selection_btn_details(idx).disabled) {
         return;
       }
 
@@ -166,12 +183,12 @@ export default {
       }
     },
     get_class(idx) {
-      return this.disable_selection_btn(idx)
+      return this.selection_btn_details(idx).disabled
         ? "div__stimulationstudio-btn-container-disable"
         : "div__stimulationstudio-btn-container";
     },
     get_label_class(idx) {
-      return this.disable_selection_btn(idx)
+      return this.selection_btn_details(idx).disabled
         ? "span__stimulationstudio-btn-label-disable"
         : "span__stimulationstudio-btn-label";
     },
