@@ -353,6 +353,7 @@ export default {
   width: 19px;
   fill: white;
   margin-right: 2px;
+  font-size: 15px;
 }
 
 .number-input-container {

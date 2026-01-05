@@ -2,6 +2,9 @@
   <div class="div__stimulationstudio-layout-background">
     <span class="span__stimulationstudio-header-label">Stimulation Studio</span>
     <StimulationStudioWidget class="stimulationstudio_widget-container" />
+    <div v-show="!stim_types_match" class="div__stimulationstudio-error-msg">
+      Protocol type is incompatible with identified lid.
+    </div>
     <StimulationStudioCreateAndEdit
       class="stimulationstudio_createandedit-container"
       :disable_edits="disable_edits"
@@ -32,9 +35,9 @@ import StimulationStudioWidget from "@/components/plate_based_widgets/stimulatio
 import StimulationStudioDragAndDropPanel from "@/components/stimulation/StimulationStudioDragAndDropPanel.vue";
 import StimulationStudioBlockViewEditor from "@/components/stimulation/StimulationStudioBlockViewEditor.vue";
 import StimulationStudioProtocolViewer from "@/components/stimulation/StimulationStudioProtocolViewer.vue";
-import { mapState } from "vuex";
+import { mapState, mapGetters } from "vuex";
 import playback_module from "@/store/modules/playback";
-import { STIM_STATUS } from "@/store/modules/stimulation/enums";
+import { STIM_STATUS, verify_stim_types_match } from "@/store/modules/stimulation/enums";
 
 /**
  * @vue-data {Array} btn_labels - button labels for base of stim studio component
@@ -60,8 +63,10 @@ export default {
     };
   },
   computed: {
-    ...mapState("playback", ["playback_state"]),
+    ...mapState("playback", ["playback_state", "barcodes"]),
     ...mapState("stimulation", ["stim_status"]),
+    ...mapState("settings", ["barcode_config"]),
+    ...mapGetters("stimulation", ["get_platemap_stim_type"]),
     disable_edits: function () {
       return (
         this.playback_state === playback_module.ENUMS.PLAYBACK_STATES.RECORDING ||
@@ -73,6 +78,9 @@ export default {
         content: "Cannot make changes to stim settings while actively stimulating or recording",
         disabled: !this.disable_edits,
       };
+    },
+    stim_types_match: function () {
+      return verify_stim_types_match(this.get_platemap_stim_type, this.barcode_config, this.barcodes);
     },
   },
   methods: {
@@ -203,6 +211,15 @@ body {
 .stimulationstudio_widget-container {
   top: 77px;
   left: 132px;
+}
+
+.div__stimulationstudio-error-msg {
+  position: absolute;
+  top: 356px;
+  left: 133px;
+  color: red;
+  font-size: 16px;
+  z-index: 2;
 }
 
 .stimulationstudio_createandedit-container {

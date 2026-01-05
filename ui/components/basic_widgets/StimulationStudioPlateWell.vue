@@ -180,7 +180,6 @@ export default {
   left: 7px;
   height: 48px;
   width: 48px;
-  fill: white;
   fill: #000;
   opacity: 0.5;
   cursor: pointer;
