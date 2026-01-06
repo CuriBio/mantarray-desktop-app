@@ -25,7 +25,9 @@ from mantarray_desktop_app import SYSTEM_STATUS_UUIDS
 from mantarray_desktop_app.constants import GENERIC_24_WELL_DEFINITION
 from mantarray_desktop_app.constants import SERIAL_COMM_NICKNAME_BYTES_LENGTH
 from mantarray_desktop_app.constants import STIM_MAX_DUTY_CYCLE_PERCENTAGE
+from mantarray_desktop_app.constants import STIM_MAX_OPTICAL_POWER_MILLIWATTS
 from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
+from mantarray_desktop_app.constants import STIM_MIN_OPTICAL_POWER_MILLIWATTS
 from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import StimulatorCircuitStatuses
 from mantarray_desktop_app.constants import SystemActionTransitionStates
@@ -43,7 +45,7 @@ from ..fixtures_mc_simulator import create_random_stim_info
 from ..fixtures_mc_simulator import get_random_biphasic_pulse
 from ..fixtures_mc_simulator import get_random_monophasic_pulse
 from ..fixtures_mc_simulator import get_random_stim_pulse
-from ..fixtures_mc_simulator import random_stim_type
+from ..fixtures_mc_simulator import random_electrical_stim_type
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
 from ..fixtures_server import fixture_server_manager
 from ..fixtures_server import fixture_test_client
@@ -1277,7 +1279,7 @@ def test_set_protocols__returns_error_if_invalid_subprotocol_type_given(
         "protocols": [
             {
                 "protocol_id": test_protocol_id,
-                "stimulation_type": random_stim_type(),
+                "stimulation_type": random_electrical_stim_type(),
                 "subprotocols": [{"type": test_subprotocol_type}],
             }
         ]
@@ -1289,6 +1291,33 @@ def test_set_protocols__returns_error_if_invalid_subprotocol_type_given(
     )
 
 
+def test_set_protocols__returns_error_if_biphasic_optical_pulse_given(
+    client_and_server_manager_and_shared_values,
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    shared_values_dict["stimulation_running"] = [False] * 24
+
+    test_subprotocol_type = "biphasic"
+    test_protocol_id = random_protocol_id()
+
+    test_stim_info_dict = {
+        "protocols": [
+            {
+                "protocol_id": test_protocol_id,
+                "stimulation_type": "O",
+                "subprotocols": [{"type": test_subprotocol_type}],
+            }
+        ]
+    }
+    response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
+    assert response.status_code == 400
+    assert response.status.endswith(
+        f"Protocol {test_protocol_id}, Subprotocol 0, Optical protocols cannot include biphasic pulses"
+    )
+
+
 @pytest.mark.parametrize(
     "test_subprotocol_type,test_subprotocol_component,test_value,test_stim_type,expected_error_message",
     [
@@ -1296,20 +1325,38 @@ def test_set_protocols__returns_error_if_invalid_subprotocol_type_given(
             "delay",
             "duration",
             STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS - 1,
-            random_stim_type(),
+            random_electrical_stim_type(),
             "Subprotocol duration not long enough",
         ),
         (
             "delay",
             "duration",
             STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS + 1,
-            random_stim_type(),
+            random_electrical_stim_type(),
             "Subprotocol duration too long",
         ),
-        ("monophasic", "phase_one_duration", 0, random_stim_type(), "Invalid phase one duration: 0"),
-        ("monophasic", "phase_one_duration", -1, random_stim_type(), "Invalid phase one duration: -1"),
-        ("biphasic", "phase_one_duration", 0, random_stim_type(), "Invalid phase one duration: 0"),
-        ("biphasic", "phase_one_duration", -1, random_stim_type(), "Invalid phase one duration: -1"),
+        (
+            "monophasic",
+            "phase_one_duration",
+            0,
+            random_electrical_stim_type(),
+            "Invalid phase one duration: 0",
+        ),
+        (
+            "monophasic",
+            "phase_one_duration",
+            -1,
+            random_electrical_stim_type(),
+            "Invalid phase one duration: -1",
+        ),
+        ("biphasic", "phase_one_duration", 0, random_electrical_stim_type(), "Invalid phase one duration: 0"),
+        (
+            "biphasic",
+            "phase_one_duration",
+            -1,
+            random_electrical_stim_type(),
+            "Invalid phase one duration: -1",
+        ),
         (
             "monophasic",
             "phase_one_charge",
@@ -1338,7 +1385,27 @@ def test_set_protocols__returns_error_if_invalid_subprotocol_type_given(
             "V",
             f"Invalid phase one charge: {-STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS - 1}",
         ),
-        ("biphasic", "interphase_interval", -1, random_stim_type(), "Invalid interphase interval: -1"),
+        (
+            "monophasic",
+            "phase_one_charge",
+            STIM_MAX_OPTICAL_POWER_MILLIWATTS + 0.1,
+            "O",
+            f"Invalid phase one charge: {STIM_MAX_OPTICAL_POWER_MILLIWATTS + .1}",
+        ),
+        (
+            "monophasic",
+            "phase_one_charge",
+            STIM_MIN_OPTICAL_POWER_MILLIWATTS - 0.1,
+            "O",
+            f"Invalid phase one charge: {STIM_MIN_OPTICAL_POWER_MILLIWATTS - .1}",
+        ),
+        (
+            "biphasic",
+            "interphase_interval",
+            -1,
+            random_electrical_stim_type(),
+            "Invalid interphase interval: -1",
+        ),
         (
             "biphasic",
             "phase_two_charge",
@@ -1367,9 +1434,27 @@ def test_set_protocols__returns_error_if_invalid_subprotocol_type_given(
             "V",
             f"Invalid phase two charge: {-STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS - 1}",
         ),
-        ("biphasic", "phase_two_duration", -1, random_stim_type(), "Invalid phase two duration: -1"),
-        ("monophasic", "postphase_interval", -1, random_stim_type(), "Invalid postphase interval: -1"),
-        ("biphasic", "postphase_interval", -1, random_stim_type(), "Invalid postphase interval: -1"),
+        (
+            "biphasic",
+            "phase_two_duration",
+            -1,
+            random_electrical_stim_type(),
+            "Invalid phase two duration: -1",
+        ),
+        (
+            "monophasic",
+            "postphase_interval",
+            -1,
+            random_electrical_stim_type(),
+            "Invalid postphase interval: -1",
+        ),
+        (
+            "biphasic",
+            "postphase_interval",
+            -1,
+            random_electrical_stim_type(),
+            "Invalid postphase interval: -1",
+        ),
     ],
 )
 def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value(
@@ -1440,7 +1525,7 @@ def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value
     "test_subprotocol_type,test_subprotocol_component,is_too_long",
     itertools.product(["monophasic", "biphasic"], ["postphase_interval", "num_cycles"], [True, False]),
 )
-def test_set_protocol__returns_error_code_with_invalid_subprotocol_duration_for_pulse(
+def test_set_protocols__returns_error_code_with_invalid_subprotocol_duration_for_pulse(
     client_and_server_manager_and_shared_values,
     mocker,
     test_subprotocol_type,
@@ -1454,7 +1539,7 @@ def test_set_protocol__returns_error_code_with_invalid_subprotocol_duration_for_
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
-    test_stim_type = random_stim_type()
+    test_stim_type = random_electrical_stim_type()
 
     # create an arbitrary protocol to which an invalid value can easily be added
     test_base_charge = (
@@ -1733,7 +1818,7 @@ def test_set_protocols__returns_error_code_if_any_of_the_given_protocols_are_not
             {
                 "protocol_id": protocol_id,
                 "run_until_stopped": False,
-                "stimulation_type": random_stim_type(),
+                "stimulation_type": random_electrical_stim_type(),
                 "subprotocols": [get_random_stim_pulse()],
             }
             for protocol_id in test_ids

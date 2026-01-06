@@ -335,7 +335,7 @@ export default {
         if (!unique_protocol_ids.has(letter)) {
           unique_protocol_ids.add(letter);
           // this needs to be converted before sent because stim type changes independently of pulse settings
-          const converted_subprotocols = await _get_converted_settings(subprotocols);
+          const converted_subprotocols = await _get_converted_settings(subprotocols, stimulation_type);
           const protocol_model = {
             protocol_id: letter,
             stimulation_type,
@@ -487,35 +487,38 @@ export default {
   },
 };
 
-const _get_converted_settings = (subprotocols) => {
+const _get_converted_settings = (subprotocols, stimulation_type) => {
   const milli_to_micro = 1e3;
-  const charge_conversion = milli_to_micro;
+  // no charge conversion needed for optical
+  const charge_conversion = stimulation_type === "O" ? 1 : milli_to_micro;
 
   return subprotocols.map((pulse) => {
     let type_specific_settings = {};
     if (pulse.type === "loop") {
       type_specific_settings = {
         num_iterations: pulse.num_iterations,
-        subprotocols: _get_converted_settings(pulse.subprotocols),
+        subprotocols: _get_converted_settings(pulse.subprotocols, stimulation_type),
       };
-    } else if (pulse.type === "Delay")
+    } else if (pulse.type === "Delay") {
       type_specific_settings.duration =
         pulse.duration * TIME_CONVERSION_TO_MILLIS[pulse.unit] * milli_to_micro;
-    else
+    } else {
       type_specific_settings = {
         num_cycles: pulse.num_cycles,
         postphase_interval: Math.round(pulse.postphase_interval * milli_to_micro), // sent in µs, also needs to be an integer value
         phase_one_duration: pulse.phase_one_duration * milli_to_micro, // sent in µs
-        phase_one_charge: pulse.phase_one_charge * charge_conversion, // sent in mV
+        phase_one_charge: pulse.phase_one_charge * charge_conversion,
       };
+    }
 
-    if (pulse.type === "Biphasic")
+    if (pulse.type === "Biphasic") {
       type_specific_settings = {
         ...type_specific_settings,
         interphase_interval: pulse.interphase_interval * milli_to_micro, // sent in µs
-        phase_two_charge: pulse.phase_two_charge * charge_conversion, // sent in mV or µA
+        phase_two_charge: pulse.phase_two_charge * charge_conversion,
         phase_two_duration: pulse.phase_two_duration * milli_to_micro, // sent in µs
       };
+    }
 
     return {
       type: pulse.type,

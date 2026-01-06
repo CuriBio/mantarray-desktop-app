@@ -543,7 +543,7 @@ def test_serial_comm():
     assert STIM_OPEN_CIRCUIT_THRESHOLD_OHMS == 20000
     assert STIM_SHORT_CIRCUIT_THRESHOLD_OHMS == 10
 
-    assert VALID_STIMULATION_TYPES == frozenset(["C", "V"])
+    assert VALID_STIMULATION_TYPES == frozenset(["C", "V", "O"])
     assert VALID_SUBPROTOCOL_TYPES == frozenset(["delay", "monophasic", "biphasic", "loop"])
 
     assert issubclass(StimulatorCircuitStatuses, IntEnum) is True

@@ -32,7 +32,7 @@ from ..fixtures_mc_simulator import fixture_mantarray_mc_simulator_no_beacon
 from ..fixtures_mc_simulator import get_random_stim_delay
 from ..fixtures_mc_simulator import get_random_stim_pulse
 from ..fixtures_mc_simulator import get_random_subprotocol
-from ..fixtures_mc_simulator import random_stim_type
+from ..fixtures_mc_simulator import random_electrical_stim_type
 from ..fixtures_mc_simulator import set_stim_info_and_start_stimulating
 from ..helpers import assert_serial_packet_is_expected
 from ..helpers import get_full_packet_size_from_payload_len
@@ -85,7 +85,7 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
         "protocols": [
             {
                 "protocol_id": protocol_id,
-                "stimulation_type": random_stim_type(),
+                "stimulation_type": random_electrical_stim_type(),
                 "run_until_stopped": choice([True, False]),
                 "subprotocols": [
                     {
@@ -146,7 +146,7 @@ def test_MantarrayMcSimulator__processes_set_stimulation_protocol_command__when_
         "protocols": [
             {
                 "protocol_id": protocol_id,
-                "stimulation_type": random_stim_type(),
+                "stimulation_type": random_electrical_stim_type(),
                 "run_until_stopped": choice([True, False]),
                 "subprotocols": [get_random_stim_pulse(num_cycles=10)],
             }
@@ -315,12 +315,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_packet_for_initial_subproto
     testing_queue = mantarray_mc_simulator_no_beacon["testing_queue"]
 
     spied_global_timer = mocker.spy(simulator, "_get_global_timer")
-    mocker.patch.object(
-        mc_simulator,
-        "_get_us_since_subprotocol_start",
-        autospec=True,
-        side_effect=[0, 1, 0],
-    )
+    mocker.patch.object(mc_simulator, "_get_us_since_subprotocol_start", autospec=True, side_effect=[0, 1, 0])
 
     test_protocol_ids = ("A", "B", "C")
     test_stim_info = create_converted_stim_info(
@@ -397,13 +392,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_packet_when_a_new_subprotoc
                     "protocol_id": protocol_id,
                     "stimulation_type": "C",
                     "run_until_stopped": True,
-                    "subprotocols": [
-                        {
-                            "type": "loop",
-                            "num_iterations": 1,
-                            "subprotocols": subprotocols,
-                        }
-                    ],
+                    "subprotocols": [{"type": "loop", "num_iterations": 1, "subprotocols": subprotocols}],
                 }
                 for protocol_id, subprotocols in zip(test_protocol_ids, test_subprotocols)
             ],
@@ -733,10 +722,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
     test_protocol_assignments[test_well_name_to_continue] = "B"
 
     mocked_get_us = mocker.patch.object(
-        mc_simulator,
-        "_get_us_since_subprotocol_start",
-        autospec=True,
-        return_value=0,
+        mc_simulator, "_get_us_since_subprotocol_start", autospec=True, return_value=0
     )
 
     test_stim_info = create_converted_stim_info(
@@ -833,10 +819,7 @@ def test_MantarrayMcSimulator__sends_protocol_status_with_finished_status_correc
 
     test_duration_us = get_subprotocol_dur_us(test_subprotocol)
     mocker.patch.object(
-        mc_simulator,
-        "_get_us_since_subprotocol_start",
-        autospec=True,
-        side_effect=[test_duration_us] * 2,
+        mc_simulator, "_get_us_since_subprotocol_start", autospec=True, side_effect=[test_duration_us] * 2
     )
 
     invoke_process_run_and_check_errors(simulator)
@@ -939,7 +922,7 @@ def test_MantarrayMcSimulator__handles_looping_correctly(
                     "stimulation_type": "C",
                     "run_until_stopped": True,
                     "subprotocols": test_subprotocol_nodes,
-                },
+                }
             ],
             "protocol_assignments": test_protocol_assignments,
         }

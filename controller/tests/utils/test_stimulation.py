@@ -18,7 +18,7 @@ import pytest
 from ..fixtures_mc_simulator import get_random_stim_delay
 from ..fixtures_mc_simulator import get_random_stim_pulse
 from ..fixtures_mc_simulator import get_random_subprotocol
-from ..fixtures_mc_simulator import random_stim_type
+from ..fixtures_mc_simulator import random_electrical_stim_type
 from ..helpers import random_bool
 
 TEST_MIN_PULSE_FREQ = 0.1
@@ -346,13 +346,13 @@ def test_chunk_protocols_in_stim_info__returns_correct_values(mocker):
         "protocols": [
             {
                 "protocol_id": "A",
-                "stimulation_type": random_stim_type(),
+                "stimulation_type": random_electrical_stim_type(),
                 "run_until_stopped": random_bool(),
                 "subprotocols": [get_random_subprotocol() for _ in range(2)],
             },
             {
                 "protocol_id": "B",
-                "stimulation_type": random_stim_type(),
+                "stimulation_type": random_electrical_stim_type(),
                 "run_until_stopped": random_bool(),
                 "subprotocols": [get_random_subprotocol() for _ in range(3)],
             },

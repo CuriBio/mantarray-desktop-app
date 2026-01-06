@@ -48,8 +48,8 @@ TEST_HANDSHAKE = create_data_packet(TEST_HANDSHAKE_TIMESTAMP, SERIAL_COMM_HANDSH
 DEFAULT_SIMULATOR_STATUS_CODES = bytes([SERIAL_COMM_OKAY_CODE] * (24 + 2))
 
 
-def random_stim_type():
-    return choice(list(VALID_STIMULATION_TYPES))
+def random_electrical_stim_type():
+    return choice(list(t for t in VALID_STIMULATION_TYPES if t != "O"))
 
 
 def random_time_index():
@@ -233,8 +233,9 @@ def get_random_stim_pulse(*, pulse_type=None, total_subprotocol_dur_us=None, fre
     # add duration components
     pulse.update({comp: _rand_dur_for_duty_cycle_comp() for comp in duty_cycle_dur_comps})
     pulse["postphase_interval"] = pulse_dur_us - get_pulse_duty_cycle_dur_us(pulse)
-    # add charge components
-    pulse.update({comp: randint(1, 100) * 10 for comp in charge_components})
+    # add charge components, arbitrary bounds that work for both C and V stim,
+    # the digit in the ones place is trucated for C stim, so make sure it is always 0 (hence the x10)
+    pulse.update({comp: randint(100, 110) * 10 for comp in charge_components})
 
     return pulse
 
@@ -265,7 +266,7 @@ def create_random_stim_info():
         "protocols": [
             {
                 "protocol_id": pid,
-                "stimulation_type": random_stim_type(),
+                "stimulation_type": random_electrical_stim_type(),
                 "run_until_stopped": choice([True, False]),
                 "subprotocols": [
                     {

@@ -14,7 +14,11 @@ from mantarray_desktop_app.constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
 from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_MAX_DUTY_CYCLE_PERCENTAGE
+from mantarray_desktop_app.constants import STIM_MAX_OPTICAL_POWER_MILLIWATTS
 from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
+from mantarray_desktop_app.constants import STIM_MIN_ABSOLUTE_CURRENT_MICROAMPS
+from mantarray_desktop_app.constants import STIM_MIN_ABSOLUTE_VOLTAGE_MILLIVOLTS
+from mantarray_desktop_app.constants import STIM_MIN_OPTICAL_POWER_MILLIWATTS
 from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import VALID_SUBPROTOCOL_TYPES
 from mantarray_desktop_app.exceptions import InvalidSubprotocolError
@@ -263,22 +267,34 @@ def validate_stim_subprotocol(
             subprotocol["duration"] = int(subprotocol["duration"])
             total_subprotocol_duration_us = subprotocol["duration"]
         else:  # monophasic and biphasic
-            max_abs_charge = (
-                STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
-                if stim_type == "V"
-                else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
+            charge_validator = (
+                lambda n: STIM_MIN_ABSOLUTE_CURRENT_MICROAMPS <= abs(n) <= STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
             )
+            if stim_type == "V":
+                charge_validator = (
+                    lambda n: STIM_MIN_ABSOLUTE_VOLTAGE_MILLIVOLTS
+                    <= abs(n)
+                    <= STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+                )
+            elif stim_type == "O":
+                charge_validator = (
+                    lambda n: STIM_MIN_OPTICAL_POWER_MILLIWATTS <= n <= STIM_MAX_OPTICAL_POWER_MILLIWATTS
+                )
 
             subprotocol_component_validators = {
                 "phase_one_duration": lambda n: n > 0,
-                "phase_one_charge": lambda n: abs(n) <= max_abs_charge,
+                "phase_one_charge": charge_validator,
                 "postphase_interval": lambda n: n >= 0,
             }
             if subprotocol_type == "biphasic":
+                if stim_type == "O":
+                    raise InvalidSubprotocolError(
+                        f"400 Protocol {protocol_id}, Subprotocol {idx}, Optical protocols cannot include biphasic pulses"
+                    )
                 subprotocol_component_validators.update(
                     {
                         "phase_two_duration": lambda n: n > 0,
-                        "phase_two_charge": lambda n: abs(n) <= max_abs_charge,
+                        "phase_two_charge": charge_validator,
                         "interphase_interval": lambda n: n >= 0,
                     }
                 )
