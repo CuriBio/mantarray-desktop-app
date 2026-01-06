@@ -353,7 +353,11 @@ export default {
 
     const message_url = `/set_protocols`;
     const body = { data: JSON.stringify(message) };
-    await call_axios_post_from_vuex(message_url, body);
+    const res = await call_axios_post_from_vuex(message_url, body);
+    if (res && res.status !== 200) {
+      commit("set_stim_status", STIM_STATUS.ERROR);
+      return;
+    }
 
     const status_url = `/set_stim_status?running=${status}`;
     await call_axios_post_from_vuex(status_url);

@@ -373,11 +373,10 @@ export default {
         return "Cannot run a configuration check while other processes are active.";
       } else if (!this.stim_types_match()) {
         return "Protocol type is incompatible with identified lid.";
-      } else if (
-        this.stim_status == STIM_STATUS.ERROR ||
-        this.stim_status == STIM_STATUS.SHORT_CIRCUIT_ERROR
-      ) {
-        return "Cannot run a configuration on this stim lid as a short has been detected on it";
+      } else if (this.stim_status == STIM_STATUS.ERROR) {
+        return "Cannot run a configuration check with an error";
+      } else if (this.stim_status == STIM_STATUS.SHORT_CIRCUIT_ERROR) {
+        return "Cannot run a configuration check on this stim lid as a short has been detected on it";
       } else if (this.stim_status === STIM_STATUS.NO_PROTOCOLS_ASSIGNED) {
         return "Cannot run configuration check until protocols have been assigned.";
       } else if (this.stim_status == STIM_STATUS.CONFIG_CHECK_NEEDED) {
