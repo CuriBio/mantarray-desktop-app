@@ -151,7 +151,6 @@ def chunk_protocols_in_stim_info(
     return chunked_stim_info, subprotocol_idx_mappings, max_subprotocol_idx_counts
 
 
-# TODO add a test for this
 def convert_optical_protocol_to_current(
     protocol: dict[str, Any], *, a: Union[int, float], b: Union[int, float]
 ) -> None:
@@ -167,7 +166,6 @@ def _convert_optical_subprotocol_to_current(
         for inner_subprotocol in subprotocol["subprotocols"]:
             _convert_optical_subprotocol_to_current(inner_subprotocol, a, b)
     elif subprotocol["type"] == "monophasic":
-        # TODO make sure the transfer actually does output mA
         current_ma = int((subprotocol["phase_one_charge"] / a) + b)
         # the transfer fn above converts mW to mA, but stim info uses µA
         current_ua = current_ma * MICROS_PER_MILLI

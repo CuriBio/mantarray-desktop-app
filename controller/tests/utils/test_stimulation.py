@@ -13,6 +13,7 @@ from mantarray_desktop_app.utils import stimulation
 from mantarray_desktop_app.utils.stimulation import chunk_protocols_in_stim_info
 from mantarray_desktop_app.utils.stimulation import chunk_stim_nodes
 from mantarray_desktop_app.utils.stimulation import chunk_subprotocol
+from mantarray_desktop_app.utils.stimulation import convert_optical_protocol_to_current
 import pytest
 
 from ..fixtures_mc_simulator import get_random_stim_delay
@@ -424,3 +425,34 @@ def test_chunk_protocols_in_stim_info__returns_correct_values(mocker):
         for protocol in test_stim_info["protocols"]
         for subprotocol in protocol["subprotocols"]
     ]
+
+
+def test_convert_optical_protocol_to_current__returns_correct_current_protocol():
+    test_protocol = {
+        "protocol_id": "A",
+        "stimulation_type": "O",
+        "run_until_stopped": True,
+        "subprotocols": [
+            {
+                "type": "loop",
+                "num_iterations": 3,
+                "subprotocols": [
+                    {
+                        "type": "monophasic",
+                        "num_cycles": 75,
+                        "phase_one_charge": 10.5,
+                        "phase_one_duration": 1,
+                        "postphase_interval": 1234,
+                    }
+                ],
+            },
+            {"type": "delay", "duration": 1111},
+        ],
+    }
+    expected = copy.deepcopy(test_protocol)
+    expected["stimulation_type"] = "C"
+    expected["subprotocols"][0]["subprotocols"][0]["phase_one_charge"] = 40000
+
+    convert_optical_protocol_to_current(test_protocol, a=0.8, b=27)
+
+    assert test_protocol == expected

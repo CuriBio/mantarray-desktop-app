@@ -46,6 +46,7 @@ from ..fixtures_mc_simulator import get_random_biphasic_pulse
 from ..fixtures_mc_simulator import get_random_monophasic_pulse
 from ..fixtures_mc_simulator import get_random_stim_pulse
 from ..fixtures_mc_simulator import random_electrical_stim_type
+from ..fixtures_mc_simulator import TEST_OPTICAL_STIM_BARCODE
 from ..fixtures_server import fixture_client_and_server_manager_and_shared_values
 from ..fixtures_server import fixture_server_manager
 from ..fixtures_server import fixture_test_client
@@ -1217,7 +1218,12 @@ def test_set_protocols__returns_error_code_if_protocol_list_is_empty(
     shared_values_dict["system_status"] = CALIBRATED_STATE
     shared_values_dict["stimulation_running"] = [False] * 24
 
-    response = test_client.post("/set_protocols", json={"data": json.dumps({"protocols": []})})
+    response = test_client.post(
+        "/set_protocols",
+        json={
+            "data": json.dumps({"protocols": [], "stim_barcode": MantarrayMcSimulator.default_stim_barcode})
+        },
+    )
     assert response.status_code == 400
     assert response.status.endswith("Protocol list empty")
 
@@ -1240,7 +1246,8 @@ def test_set_protocols__returns_error_code_if_two_protocols_are_given_with_the_s
                 "subprotocols": [get_random_stim_pulse()],
             }
         ]
-        * 2
+        * 2,
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
@@ -1257,11 +1264,36 @@ def test_set_protocols__returns_error_code_with_invalid_stimulation_type(
     shared_values_dict["stimulation_running"] = [False] * 24
 
     test_stim_info_dict = {
-        "protocols": [{"protocol_id": random_protocol_id(), "stimulation_type": test_stimulation_type}]
+        "protocols": [{"protocol_id": random_protocol_id(), "stimulation_type": test_stimulation_type}],
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
     assert response.status.endswith(f"Invalid stimulation type: {test_stimulation_type}")
+
+
+@pytest.mark.parametrize(
+    "test_stimulation_type,test_stim_barcode",
+    [("C", TEST_OPTICAL_STIM_BARCODE), ("O", MantarrayMcSimulator.default_stim_barcode)],
+)
+def test_set_protocols__returns_error_code_when_stim_type_of_a_protocol_is_incompatible_with_lid_type(
+    client_and_server_manager_and_shared_values, test_stimulation_type, test_stim_barcode
+):
+    test_client, _, shared_values_dict = client_and_server_manager_and_shared_values
+    shared_values_dict["beta_2_mode"] = True
+    shared_values_dict["system_status"] = CALIBRATED_STATE
+    shared_values_dict["stimulation_running"] = [False] * 24
+
+    test_protocol_id = random_protocol_id()
+    test_stim_info_dict = {
+        "protocols": [{"protocol_id": test_protocol_id, "stimulation_type": test_stimulation_type}],
+        "stim_barcode": test_stim_barcode,
+    }
+    response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
+    assert response.status_code == 400
+    assert response.status.endswith(
+        f"Protocol {test_protocol_id}, Stimulation type {test_stimulation_type} not compatible with current lid"
+    )
 
 
 def test_set_protocols__returns_error_if_invalid_subprotocol_type_given(
@@ -1282,7 +1314,8 @@ def test_set_protocols__returns_error_if_invalid_subprotocol_type_given(
                 "stimulation_type": random_electrical_stim_type(),
                 "subprotocols": [{"type": test_subprotocol_type}],
             }
-        ]
+        ],
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
@@ -1309,7 +1342,8 @@ def test_set_protocols__returns_error_if_biphasic_optical_pulse_given(
                 "stimulation_type": "O",
                 "subprotocols": [{"type": test_subprotocol_type}],
             }
-        ]
+        ],
+        "stim_barcode": TEST_OPTICAL_STIM_BARCODE,
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
@@ -1504,6 +1538,9 @@ def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value
     test_subprotocol[test_subprotocol_component] = test_value
 
     # create stim info
+    test_stim_barcode = MantarrayMcSimulator.default_stim_barcode
+    if test_stim_type == "O":
+        test_stim_barcode = TEST_OPTICAL_STIM_BARCODE
     test_protocol_id = random_protocol_id()
     test_stim_info_dict = {
         "protocols": [
@@ -1513,7 +1550,8 @@ def test_set_protocols__returns_error_code_with_single_invalid_subprotocol_value
                 "run_until_stopped": False,
                 "subprotocols": [test_subprotocol],
             }
-        ]
+        ],
+        "stim_barcode": test_stim_barcode,
     }
 
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
@@ -1594,7 +1632,8 @@ def test_set_protocols__returns_error_code_with_invalid_subprotocol_duration_for
                 "run_until_stopped": False,
                 "subprotocols": [test_subprotocol],
             }
-        ]
+        ],
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
     }
 
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
@@ -1631,7 +1670,8 @@ def test_set_protocols__returns_error_code_when_duty_cycle_exceeds_the_max_durat
                 "run_until_stopped": True,
                 "subprotocols": [test_pulse],
             }
-        ]
+        ],
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
@@ -1671,7 +1711,8 @@ def test_set_protocols__returns_error_code_when_duty_cycle_exceeds_max_percentag
                 "run_until_stopped": True,
                 "subprotocols": [test_pulse],
             }
-        ]
+        ],
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
@@ -1709,6 +1750,7 @@ def test_set_protocols__returns_error_code_if_any_well_is_missing_from_protocol_
             }
         ],
         "protocol_assignments": protocol_assignments,
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
@@ -1746,6 +1788,7 @@ def test_set_protocols__returns_error_code_with_invalid_well_name(
             }
         ],
         "protocol_assignments": protocol_assignments,
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
     }
 
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
@@ -1781,6 +1824,7 @@ def test_set_protocols__returns_error_code_if_protocol_assignments_contains_any_
             }
         ],
         "protocol_assignments": protocol_assignments,
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
@@ -1824,6 +1868,7 @@ def test_set_protocols__returns_error_code_if_any_of_the_given_protocols_are_not
             for protocol_id in test_ids
         ],
         "protocol_assignments": protocol_assignments,
+        "stim_barcode": MantarrayMcSimulator.default_stim_barcode,
     }
     response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
     assert response.status_code == 400
@@ -1855,7 +1900,14 @@ def test_set_protocols__returns_success_code_if_protocols_would_not_be_updated(
     }
     shared_values_dict["stimulation_info"] = test_stim_info_dict
 
-    response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info_dict)})
+    response = test_client.post(
+        "/set_protocols",
+        json={
+            "data": json.dumps(
+                test_stim_info_dict | {"stim_barcode": MantarrayMcSimulator.default_stim_barcode}
+            )
+        },
+    )
     assert response.status_code == 200
 
 
@@ -1877,7 +1929,12 @@ def test_set_protocols__returns_no_error_code_if_called_correctly(
         server, "_get_stim_info_from_process_monitor", autospec=True, return_value=test_stim_info
     )
 
-    response = test_client.post("/set_protocols", json={"data": json.dumps(test_stim_info)})
+    response = test_client.post(
+        "/set_protocols",
+        json={
+            "data": json.dumps(test_stim_info | {"stim_barcode": MantarrayMcSimulator.default_stim_barcode})
+        },
+    )
     assert response.status_code == 200
 
 

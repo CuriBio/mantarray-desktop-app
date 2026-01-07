@@ -48,6 +48,9 @@ TEST_HANDSHAKE = create_data_packet(TEST_HANDSHAKE_TIMESTAMP, SERIAL_COMM_HANDSH
 DEFAULT_SIMULATOR_STATUS_CODES = bytes([SERIAL_COMM_OKAY_CODE] * (24 + 2))
 
 
+TEST_OPTICAL_STIM_BARCODE = "MS22001400-2"
+
+
 def random_electrical_stim_type():
     return choice(list(t for t in VALID_STIMULATION_TYPES if t != "O"))
 

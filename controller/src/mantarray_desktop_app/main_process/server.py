@@ -495,7 +495,6 @@ def set_protocols() -> Response:
         if stim_type not in VALID_STIMULATION_TYPES:
             return Response(status=f"400 Protocol {protocol_id}, Invalid stimulation type: {stim_type}")
 
-        # TODO add testing for this
         stim_type_mismatch_err_msg = (
             f"400 Protocol {protocol_id}, Stimulation type {stim_type} not compatible with current lid"
         )
@@ -505,7 +504,7 @@ def set_protocols() -> Response:
         elif lid_type == "L":
             if stim_type != "O":
                 return Response(status=stim_type_mismatch_err_msg)
-        else:
+        else:  # pragma: no cover
             return Response(status=stim_type_mismatch_err_msg)
 
         # validate subprotocol dictionaries

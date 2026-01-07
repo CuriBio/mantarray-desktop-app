@@ -252,7 +252,6 @@ const _is_valid_single_pulse = (protocol, stimulation_type) => {
         ) !== ""
     ).length === 0;
 
-  // TODO test this
   // check if charges are within max and min bounds
   const charges_are_valid =
     charges_to_check.filter(

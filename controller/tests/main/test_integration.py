@@ -233,7 +233,12 @@ def test_full_datapath_and_recorded_files_in_beta_2_mode(
 
         # Tanner (10/22/21): Set stimulation protocols and start stimulation
         response = requests.post(
-            f"{get_api_endpoint()}set_protocols", json={"data": json.dumps(test_stim_info)}
+            f"{get_api_endpoint()}set_protocols",
+            json={
+                "data": json.dumps(
+                    test_stim_info | {"stim_barcode": MantarrayMcSimulator.default_stim_barcode}
+                )
+            },
         )
         assert response.status_code == 200
         response = requests.post(f"{get_api_endpoint()}set_stim_status?running=true")

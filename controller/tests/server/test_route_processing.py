@@ -1279,7 +1279,14 @@ def test_set_protocols__waits_for_stim_info_in_shared_values_dict_to_be_updated_
     )
     mocked_sleep = mocker.patch.object(server, "sleep", autospec=True)
 
-    response = test_client.post("/set_protocols", json={"data": json.dumps(test_protocol_dict)})
+    response = test_client.post(
+        "/set_protocols",
+        json={
+            "data": json.dumps(
+                test_protocol_dict | {"stim_barcode": MantarrayMcSimulator.default_stim_barcode}
+            )
+        },
+    )
     assert response.status_code == 200
     assert mocked_sleep.call_args_list == [mocker.call(0.1), mocker.call(0.1)]
 
