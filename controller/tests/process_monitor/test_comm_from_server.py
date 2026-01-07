@@ -47,7 +47,9 @@ from ..fixtures import fixture_patch_print
 from ..fixtures import fixture_patch_subprocess_joins
 from ..fixtures import fixture_test_process_manager_creator
 from ..fixtures import QUEUE_CHECK_TIMEOUT_SECONDS
+from ..fixtures import TEST_BARCODE_CONFIG
 from ..fixtures_file_writer import GENERIC_BETA_2_START_RECORDING_COMMAND
+from ..fixtures_file_writer import GENERIC_STIM_INFO
 from ..fixtures_ok_comm import fixture_patch_connection_to_board
 from ..fixtures_process_monitor import fixture_test_monitor
 from ..fixtures_server import put_generic_beta_2_start_recording_info_in_dict
@@ -380,8 +382,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     server_to_main_queue = test_process_manager.queue_container.from_flask
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        dict(START_MANAGED_ACQUISITION_COMMUNICATION),
-        server_to_main_queue,
+        dict(START_MANAGED_ACQUISITION_COMMUNICATION), server_to_main_queue
     )
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
@@ -431,8 +432,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
     )
 
     put_object_into_queue_and_raise_error_if_eventually_still_empty(
-        copy.deepcopy(STOP_MANAGED_ACQUISITION_COMMUNICATION),
-        server_to_main_queue,
+        copy.deepcopy(STOP_MANAGED_ACQUISITION_COMMUNICATION), server_to_main_queue
     )
     invoke_process_run_and_check_errors(monitor_thread)
     confirm_queue_is_eventually_empty(server_to_main_queue)
@@ -700,7 +700,7 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
                     "communication_type": "log",
                     "log_level": 20,
                     "message": "Remaining serial data in cache: [], in buffer: []",
-                },
+                }
             ],
             "instrument_comm_to_file_writer": [],
         },
@@ -713,38 +713,26 @@ def test_MantarrayProcessesMonitor__check_and_handle_server_to_main_queue__handl
             {
                 "communication_type": "update_user_settings",
                 "content": {"user_password": "password_to_redact", "user_name": "username_to_redact"},
-            },
+            }
         ],
         "from_file_writer_to_main": [
             {
                 "communication_type": "update_user_settings",
                 "content": {"user_password": "password_to_redact", "user_name": "username_to_redact"},
-            },
+            }
         ],
     }
     expected_da_item = {
         "board_0": {
             "file_writer_to_data_analyzer": [
-                {
-                    "communication_type": "log",
-                    "log_level": 20,
-                    "message": "TestMessage",
-                },
-            ],
+                {"communication_type": "log", "log_level": 20, "message": "TestMessage"}
+            ]
         },
         "from_main_to_data_analyzer": [
-            {
-                "communication_type": "log",
-                "log_level": 20,
-                "message": "TestMessage",
-            },
+            {"communication_type": "log", "log_level": 20, "message": "TestMessage"}
         ],
         "from_data_analyzer_to_main": [
-            {
-                "communication_type": "log",
-                "log_level": 20,
-                "message": "TestMessage",
-            },
+            {"communication_type": "log", "log_level": 20, "message": "TestMessage"}
         ],
     }
 
@@ -964,12 +952,11 @@ def test_MantarrayProcessesMonitor__processes_set_protocols_command(
 
     shared_values_dict["stimulation_running"] = [False] * 24
 
-    test_stim_info = {"protocols": [None] * 3, "protocol_assignments": {"dummy": "values"}}
-
     test_command = {
         "communication_type": "stimulation",
         "command": "set_protocols",
-        "stim_info": test_stim_info,
+        "stim_info": dict(GENERIC_STIM_INFO),
+        "optical_lid_info": copy.deepcopy(TEST_BARCODE_CONFIG["stim"]["C"]["2"]),
     }
     put_object_into_queue_and_raise_error_if_eventually_still_empty(test_command, server_to_main_queue)
 
@@ -1068,8 +1055,7 @@ def test_MantarrayProcessesMonitor__processes_firmware_update_confirmation_comma
 
 
 def test_MantarrayProcessesMonitor___check_and_handle_websocket_to_main_queue_sets_flag_when_websocket_connection_success(
-    test_process_manager_creator,
-    test_monitor,
+    test_process_manager_creator, test_monitor
 ):
     test_process_manager = test_process_manager_creator(use_testing_queues=True)
     monitor_thread, shared_values_dict, *_ = test_monitor(test_process_manager)
