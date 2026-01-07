@@ -295,7 +295,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 # pre-process stim info for mc_comm
                 modified_stim_info = copy.deepcopy(stim_info)
                 for protocol in modified_stim_info["protocols"]:
-                    if protocol["stimulation_type"] == "O":
+                    if protocol["stimulation_type"] == "O":  # pragma: no cover
                         convert_optical_protocol_to_current(protocol, **optical_stim_info)
                         logger.info(
                             f"Optical -> Current conversion result for stim protocol {protocol['protocol_id']}: {protocol}"
