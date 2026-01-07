@@ -244,9 +244,9 @@ export default {
     await commit("reset_protocol_editor");
 
     for (const [idx, protocol] of Object.entries(protocols)) {
-      const invalid_pulses = are_valid_pulses(protocol);
+      const valid_pulses = are_valid_pulses(protocol.subprotocols, protocol.stimulation_type);
 
-      if (!invalid_pulses) {
+      if (valid_pulses) {
         await commit("set_edit_mode_off");
         // needs to be set to off every iteration because an action elsewhere triggers it on
         const letter = get_protocol_editor_letter(state.protocol_list);
@@ -296,9 +296,13 @@ export default {
     }
   },
 
-  async create_protocol_message({ commit, state }) {
+  async create_protocol_message({ commit, state, rootState }) {
     const status = true;
-    const message = { protocols: [], protocol_assignments: {} };
+    const message = {
+      protocols: [],
+      protocol_assignments: {},
+      stim_barcode: rootState.playback.barcodes.stim_barcode.value,
+    };
 
     const { protocol_assignments } = state;
     const { stimulator_circuit_statuses } = this.state.data;

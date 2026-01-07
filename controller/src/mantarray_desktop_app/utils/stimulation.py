@@ -9,6 +9,7 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 
+from mantarray_desktop_app.constants import MICROS_PER_MILLI
 from mantarray_desktop_app.constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from mantarray_desktop_app.constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
 from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
@@ -148,6 +149,33 @@ def chunk_protocols_in_stim_info(
         max_subprotocol_idx_counts[protocol_id] = tuple(original_idx_counts)
 
     return chunked_stim_info, subprotocol_idx_mappings, max_subprotocol_idx_counts
+
+
+# TODO add a test for this
+def convert_optical_protocol_to_current(
+    protocol: dict[str, Any], *, a: Union[int, float], b: Union[int, float]
+) -> None:
+    protocol["stimulation_type"] = "C"
+    for subprotocol in protocol["subprotocols"]:
+        _convert_optical_subprotocol_to_current(subprotocol, a, b)
+
+
+def _convert_optical_subprotocol_to_current(
+    subprotocol: dict[str, Any], a: Union[int, float], b: Union[int, float]
+) -> None:
+    if subprotocol["type"] == "loop":
+        for inner_subprotocol in subprotocol["subprotocols"]:
+            _convert_optical_subprotocol_to_current(inner_subprotocol, a, b)
+    elif subprotocol["type"] == "monophasic":
+        # TODO make sure the transfer actually does output mA
+        current_ma = int((subprotocol["phase_one_charge"] / a) + b)
+        # the transfer fn above converts mW to mA, but stim info uses µA
+        current_ua = current_ma * MICROS_PER_MILLI
+        subprotocol["phase_one_charge"] = current_ua
+    elif subprotocol["type"] == "delay":
+        pass
+    else:  # pragma: no cover
+        raise ValueError(subprotocol["type"])
 
 
 class StimulationProtocolManager:

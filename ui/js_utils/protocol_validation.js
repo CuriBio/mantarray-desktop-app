@@ -217,14 +217,14 @@ export const calculate_num_cycles = (selected_unit, total_active_duration, pulse
   return isFinite(num_cycles) ? num_cycles : "";
 };
 
-export const are_valid_pulses = (protocol) => {
-  return protocol.subprotocols.some((subprotocol) => {
-    if (subprotocol.type === "loop") {
-      return are_valid_pulses(subprotocol.subprotocols);
+export const are_valid_pulses = (subprotocols, stimulation_type) => {
+  return subprotocols.every((sp) => {
+    if (sp.type === "loop") {
+      return are_valid_pulses(sp.subprotocols, stimulation_type);
+    } else if (sp.type === "Delay") {
+      return _is_valid_delay_pulse(sp);
     } else {
-      return subprotocol.type === "Delay"
-        ? !_is_valid_delay_pulse(subprotocol)
-        : !_is_valid_single_pulse(subprotocol, protocol.stimulation_type);
+      return _is_valid_single_pulse(sp, stimulation_type);
     }
   });
 };

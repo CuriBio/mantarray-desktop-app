@@ -459,7 +459,9 @@ def set_protocols() -> Response:
         return Response(status="403 Route cannot be called in beta 1 mode")
     if _is_stimulating_on_any_well():
         return Response(status="403 Cannot change protocols while stimulation is running")
-    system_status = _get_values_from_process_monitor()["system_status"]
+    svd = _get_values_from_process_monitor()
+    system_status = svd["system_status"]
+    stim_barcode_config = svd["barcode_config"]["stim"]
 
     if system_status not in (CALIBRATED_STATE, BUFFERING_STATE, LIVE_VIEW_ACTIVE_STATE, RECORDING_STATE):
         return Response(status=f"403 Cannot change protocols while {system_status}")
@@ -470,6 +472,13 @@ def set_protocols() -> Response:
     # make sure at least one protocol is given
     if not protocol_list:
         return Response(status="400 Protocol list empty")
+
+    stim_barcode = stim_info.pop("stim_barcode")
+    lid_type = stim_barcode_config["T"][stim_barcode[7]]["t"]
+    if lid_type == "L":
+        optical_stim_info = stim_barcode_config["C"][stim_barcode[-1]]
+    else:
+        optical_stim_info = None
 
     # validate protocols
     given_protocol_ids = set()
@@ -485,6 +494,19 @@ def set_protocols() -> Response:
         stim_type = protocol["stimulation_type"]
         if stim_type not in VALID_STIMULATION_TYPES:
             return Response(status=f"400 Protocol {protocol_id}, Invalid stimulation type: {stim_type}")
+
+        # TODO add testing for this
+        stim_type_mismatch_err_msg = (
+            f"400 Protocol {protocol_id}, Stimulation type {stim_type} not compatible with current lid"
+        )
+        if lid_type == "E":
+            if stim_type not in ("C", "V"):
+                return Response(status=stim_type_mismatch_err_msg)
+        elif lid_type == "L":
+            if stim_type != "O":
+                return Response(status=stim_type_mismatch_err_msg)
+        else:
+            return Response(status=stim_type_mismatch_err_msg)
 
         # validate subprotocol dictionaries
         try:
@@ -515,13 +537,22 @@ def set_protocols() -> Response:
         )
 
     queue_command_to_main(
-        {"communication_type": "stimulation", "command": "set_protocols", "stim_info": stim_info}
+        {
+            "communication_type": "stimulation",
+            "command": "set_protocols",
+            "stim_info": stim_info,
+            "optical_lid_info": optical_stim_info,
+        }
     )
     # wait for process monitor to update stim info in shared values dictionary
+    count = 200
     while _get_stim_info_from_process_monitor() != stim_info:
         sleep(0.1)
+        count -= 1
+        if count <= 0:  # pragma: no cover
+            raise Exception("Timeout waiting for process monitor to update stim info")
 
-    return Response(json.dumps(stim_info), mimetype="application/json")
+    return Response(status=200)
 
 
 @flask_app.route("/set_stim_status", methods=["POST"])
