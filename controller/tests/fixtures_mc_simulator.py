@@ -237,7 +237,7 @@ def get_random_stim_pulse(*, pulse_type=None, total_subprotocol_dur_us=None, fre
     pulse.update({comp: _rand_dur_for_duty_cycle_comp() for comp in duty_cycle_dur_comps})
     pulse["postphase_interval"] = pulse_dur_us - get_pulse_duty_cycle_dur_us(pulse)
     # add charge components, arbitrary bounds that work for both C and V stim,
-    # the digit in the ones place is trucated for C stim, so make sure it is always 0 (hence the x10)
+    # the digit in the ones place is truncated for C stim, so make sure it is always 0 (hence the x10)
     pulse.update({comp: randint(100, 110) * 10 for comp in charge_components})
 
     return pulse
