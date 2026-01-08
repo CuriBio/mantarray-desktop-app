@@ -25,7 +25,7 @@
         :title="barcode_label"
         class="div__disabled-input-popover"
       />
-      <div v-if="barcode_type == 'plate_barcode'" class="div__barcode-description">
+      <div class="div__barcode-description" :style="barcode_type === 'stim_barcode' && 'left: 143px;'">
         {{ barcode_description }}
       </div>
       <b-modal id="edit-plate-barcode-modal" size="sm" hide-footer hide-header hide-header-close>
@@ -118,6 +118,7 @@ export default {
     ...mapState("playback", ["playback_state", "barcodes", "barcode_warning"]),
     ...mapState("flask", ["barcode_manual_mode"]),
     ...mapState("stimulation", ["stim_play_state"]),
+    ...mapState("settings", ["barcode_config"]),
     barcode_info: function () {
       return this.barcodes[this.barcode_type];
     },
@@ -129,19 +130,31 @@ export default {
     },
     barcode_description: function () {
       if (this.barcode_info.valid) {
-        const experiment_id = parseInt(this.barcode_info.value.split("-")[0].slice(-3));
-        if (experiment_id <= 99) {
-          return "Standard Plate (1x)";
-        } else if (experiment_id <= 199) {
-          return "Standard Plate (12x)";
-        } else if (experiment_id <= 299) {
-          return "Standard Plate (Variable)";
-        } else if (experiment_id <= 399) {
-          return "Mini Plate (1x)";
-        } else if (experiment_id <= 499) {
-          return "Mini Plate (12x)";
+        if (this.barcode_type === "plate_barcode") {
+          const experiment_id = parseInt(this.barcode_info.value.split("-")[0].slice(-3));
+          if (experiment_id <= 99) {
+            return "Standard Plate (1x)";
+          } else if (experiment_id <= 199) {
+            return "Standard Plate (12x)";
+          } else if (experiment_id <= 299) {
+            return "Standard Plate (Variable)";
+          } else if (experiment_id <= 399) {
+            return "Mini Plate (1x)";
+          } else if (experiment_id <= 499) {
+            return "Mini Plate (12x)";
+          } else {
+            return "Invalid barcode";
+          }
         } else {
-          return "Invalid barcode";
+          const lid_types = ((this.barcode_config || {})["stim"] || {})["T"] || {};
+          const lid_type = (lid_types[this.barcode_info.value[7]] || {}).t;
+          if (lid_type === "E") {
+            return "Stimulation Lid";
+          } else if (lid_type === "L") {
+            return "Lasarray";
+          } else {
+            return "Unknown";
+          }
         }
       } else {
         return "Invalid barcode";

@@ -58,11 +58,16 @@
       >
         {{ protocol_type }}
       </span>
+      <span v-if="!disable && protocol_type" class="div__stim-type-logo">
+        <StimTypeLogo :stimulation_type="get_platemap_stim_type" class="div__stim-type-logo" />
+      </span>
     </div>
   </div>
 </template>
 <script>
+import { mapGetters } from "vuex";
 import PlateWell from "@/components/basic_widgets/PlateWell.vue";
+import StimTypeLogo from "@/components/stimulation/StimTypeLogo.vue";
 import Vue from "vue";
 import { VBPopover } from "bootstrap-vue";
 Vue.directive("b-popover", VBPopover);
@@ -70,6 +75,7 @@ export default {
   name: "StimulationStudioPlateWell",
   components: {
     PlateWell,
+    StimTypeLogo,
   },
   props: {
     disable: { type: Boolean, default: false },
@@ -89,6 +95,7 @@ export default {
     protocol_type: { type: String, default: "" },
   },
   computed: {
+    ...mapGetters("stimulation", ["get_platemap_stim_type"]),
     /*   0 4  8 12 16 20     In order to speed the rendering its better to pre-compute
          1 5  9 13 17 21     top and left postions for the simulated well and center
          2 6 10 14 18 22
@@ -143,7 +150,7 @@ export default {
   },
 };
 </script>
-<style>
+<style scoped>
 .div__simulationstudio-plate-well-location {
   pointer-events: all;
   transform: rotate(0deg);
@@ -157,7 +164,7 @@ export default {
   width: 20px;
   height: 20px;
   position: fixed;
-  bottom: 19px;
+  bottom: 19.5px;
   font-weight: bold;
   visibility: visible;
   font-family: Muli;
@@ -165,6 +172,17 @@ export default {
   cursor: pointer;
   text-shadow: -1px -1px 0 #6f7173, 1px -1px 0 #6f7173, -1px 1px 0 #6f7173, 1px 1px 0 #6f7173;
   /* creates a light outline for light protocol colors */
+  z-index: 1;
+}
+.div__stim-type-logo {
+  position: absolute;
+  top: 11px;
+  left: 7px;
+  height: 48px;
+  width: 48px;
+  fill: #000;
+  opacity: 0.5;
+  cursor: pointer;
 }
 .div__popover-overlay {
   height: 50px;

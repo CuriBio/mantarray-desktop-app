@@ -1,6 +1,17 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+1.4.0 (unreleased)
+------------------
+
+Added:
+^^^^^^
+- Lasarray support.
+
+Fixed:
+^^^^^^
+- Misc styling + tooltips.
+
 1.3.2 (2025-12-09)
 ------------------
 

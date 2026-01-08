@@ -12,35 +12,44 @@
         :input_height="input_height"
         @selection-changed="selected_protocol_change"
         @handle-delete="handle_delete"
-      />
+      >
+        <template v-for="item in protocol_list" #[item.letter]>
+          <span :key="item.letter" class="span__stim-type-logo">
+            <StimTypeLogo :stimulation_type="stim_type(item)" style="overflow: visible; margin-top: 4px" />
+          </span>
+        </template>
+      </SelectDropDown>
     </div>
     <canvas class="canvas__stimulationstudio-button-separator" />
     <div
-      v-for="(key, value, idx) in btn_labels"
-      :id="value"
-      :key="value"
+      v-for="(value, key, idx) in btn_labels"
+      :id="key"
+      :key="key"
+      v-b-popover.hover.bottom="selection_btn_details(idx).msg"
       :class="get_class(idx)"
-      :style="key"
+      :style="value"
       @click.exact="handle_click(idx)"
     >
-      <span :class="get_label_class(idx)">{{ value }}</span>
+      <span :class="get_label_class(idx)">{{ key }}</span>
     </div>
     <div
-      v-for="(key, value, idx) in import_export_btn_labels"
+      v-for="(value, key, idx) in import_export_btn_labels"
       id="import_export_button"
-      :key="value"
+      :key="key"
       @click.exact="handle_import_export(idx)"
     >
-      <div :class="'div__stimulationstudio-btn-container'" :style="key">
-        <span type="button" :class="'span__stimulationstudio-btn-label'">{{ value }}</span>
+      <div :class="'div__stimulationstudio-btn-container'" :style="value">
+        <span type="button" :class="'span__stimulationstudio-btn-label'">{{ key }}</span>
       </div>
     </div>
   </div>
 </template>
 
 <script>
+import StimTypeLogo from "@/components/stimulation/StimTypeLogo.vue";
 import SelectDropDown from "@/components/basic_widgets/SelectDropDown.vue";
-import { mapActions, mapState, mapMutations } from "vuex";
+import { mapActions, mapState, mapMutations, mapGetters } from "vuex";
+import { get_stim_type_info } from "@/store/modules/stimulation/enums";
 
 /**
  * @vue-data {Object} btn_labels - Label and style of buttons
@@ -63,6 +72,7 @@ export default {
   name: "StimulationStudioCreateAndEdit",
   components: {
     SelectDropDown,
+    StimTypeLogo,
   },
   props: {
     disable_edits: { type: Boolean, default: false }, // TODO actually pass this prop in
@@ -84,6 +94,7 @@ export default {
   },
   computed: {
     ...mapState("stimulation", ["protocol_list", "edit_mode"]),
+    ...mapGetters("stimulation", ["get_platemap_stim_type", "get_stim_type"]),
     edit_mode_status: function () {
       return this.edit_mode.status;
     },
@@ -93,8 +104,9 @@ export default {
       this.selected_protocol_idx = 0;
     },
     edit_mode_status: function () {
-      if (!this.edit_mode_status) this.selected_protocol_idx = 0;
-      else {
+      if (!this.edit_mode_status) {
+        this.selected_protocol_idx = 0;
+      } else {
         const { letter } = this.edit_mode;
         this.selected_protocol_idx = this.protocol_list.findIndex((protocol) => protocol.letter === letter);
       }
@@ -126,14 +138,40 @@ export default {
 
       this.$emit("handle_selection_change", selected_protocol);
     },
+    stim_type(item) {
+      return (item.protocol || {}).stimulation_type || "C";
+    },
     handle_delete(item) {
       this.$bvModal.show("del-protocol-modal");
     },
-    disable_selection_btn(idx) {
-      return this.disable_edits || (this.selected_protocol_idx === 0 && idx === 0);
+    selection_btn_details(idx) {
+      if (this.disable_edits) {
+        return { msg: "", disabled: true };
+      } else if (idx === 0) {
+        const selected_protocol = this.protocol_list[this.selected_protocol_idx];
+        const saved_stim_type = this.stim_type(selected_protocol);
+        if (this.selected_protocol_idx === 0) {
+          return { msg: "Cannot add this protocol until it is saved.", disabled: true };
+        } else if (saved_stim_type !== this.get_stim_type) {
+          return {
+            msg:
+              "Cannot add this protocol to the platemap while there are unsaved changes to its stimulation type.",
+            disabled: true,
+          };
+        } else if (this.get_platemap_stim_type !== null && this.get_platemap_stim_type !== saved_stim_type) {
+          const saved_stim_type_name = get_stim_type_info(saved_stim_type).type_name;
+          const platemap_stim_type_name = get_stim_type_info(this.get_platemap_stim_type).type_name;
+          return {
+            msg: `Cannot add ${saved_stim_type_name} protocols to the platemap while it contains ${platemap_stim_type_name} protocols. To add ${saved_stim_type_name} protocols, first remove all ${platemap_stim_type_name} protocols.`,
+            disabled: true,
+          };
+        }
+        return { msg: "", disabled: false };
+      }
+      return { msg: "", disabled: false };
     },
     handle_click(idx) {
-      if (this.disable_selection_btn(idx)) {
+      if (this.selection_btn_details(idx).disabled) {
         return;
       }
 
@@ -145,12 +183,12 @@ export default {
       }
     },
     get_class(idx) {
-      return this.disable_selection_btn(idx)
+      return this.selection_btn_details(idx).disabled
         ? "div__stimulationstudio-btn-container-disable"
         : "div__stimulationstudio-btn-container";
     },
     get_label_class(idx) {
-      return this.disable_selection_btn(idx)
+      return this.selection_btn_details(idx).disabled
         ? "span__stimulationstudio-btn-label-disable"
         : "span__stimulationstudio-btn-label";
     },
@@ -241,6 +279,14 @@ export default {
   right: 410px;
   padding: 5px;
   z-index: 3;
+}
+
+.span__stim-type-logo {
+  height: 21px;
+  width: 19px;
+  fill: white;
+  margin-right: 5px;
+  font-size: 3px;
 }
 
 .div__stimulationstudio-select-dropdown-container > .div__input-dropdown-background {

@@ -242,9 +242,11 @@ export class TextValidation {
     if (beta_2_mode) {
       if (barcode[1] === "L") {
         // new magnet types only allowed for ML barcodes
-        allowed_final_chars = Object.keys((barcode_config || {})["S"] || {}).filter((s) => s !== "1");
+        allowed_final_chars = Object.keys(((barcode_config || {})["plate"] || {})["S"] || {}).filter(
+          (s) => s !== "1"
+        );
       } else {
-        allowed_final_chars = ["2"];
+        allowed_final_chars = Object.keys(((barcode_config || {})["stim"] || {})["C"] || {});
       }
     } else {
       allowed_final_chars = ["1"];

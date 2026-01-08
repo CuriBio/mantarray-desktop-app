@@ -1402,7 +1402,14 @@ def test_set_protocols__populates_queue_to_process_monitor_with_new_protocol(
     mocker.patch.object(
         server, "_get_stim_info_from_process_monitor", autospec=True, side_effect=[expected_protocol_dict]
     )
-    response = test_client.post("/set_protocols", json={"data": json.dumps(test_protocol_dict)})
+    response = test_client.post(
+        "/set_protocols",
+        json={
+            "data": json.dumps(
+                test_protocol_dict | {"stim_barcode": MantarrayMcSimulator.default_stim_barcode}
+            )
+        },
+    )
     assert response.status_code == 200
 
     comm_queue = server_manager.get_queue_to_main()

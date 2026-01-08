@@ -26,11 +26,10 @@ export default {
   clear_selected_protocol(state) {
     state.selected_wells.map((well) => delete state.protocol_assignments[well]);
     state.protocol_assignments = { ...state.protocol_assignments };
-
     if (
       Object.keys(state.protocol_assignments).length === 0 &&
       ![STIM_STATUS.ERROR, STIM_STATUS.SHORT_CIRCUIT_ERROR, STIM_STATUS.CONFIG_CHECK_COMPLETE].includes(
-        status
+        state.stim_status
       )
     ) {
       state.stim_status = STIM_STATUS.NO_PROTOCOLS_ASSIGNED;
@@ -40,7 +39,7 @@ export default {
     protocol_editor.name = name;
   },
   set_stimulation_type({ protocol_editor }, type) {
-    if (type[0] === "C") protocol_editor.stimulation_type = "C";
+    protocol_editor.stimulation_type = type;
   },
   set_time_unit({ protocol_editor }, unit) {
     protocol_editor.time_unit = unit;
@@ -80,7 +79,7 @@ export default {
     if (
       Object.keys(state.protocol_assignments).length === 0 &&
       ![STIM_STATUS.ERROR, STIM_STATUS.SHORT_CIRCUIT_ERROR, STIM_STATUS.CONFIG_CHECK_COMPLETE].includes(
-        status
+        state.stim_status
       )
     ) {
       state.stim_status = STIM_STATUS.NO_PROTOCOLS_ASSIGNED;

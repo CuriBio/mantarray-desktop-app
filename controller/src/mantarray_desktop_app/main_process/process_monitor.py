@@ -75,6 +75,7 @@ from ..utils.generic import redact_sensitive_info
 from ..utils.generic import redact_sensitive_info_from_path
 from ..utils.generic import upload_log_files_to_s3
 from ..utils.stimulation import chunk_protocols_in_stim_info
+from ..utils.stimulation import convert_optical_protocol_to_current
 
 logger = logging.getLogger(__name__)
 
@@ -287,14 +288,24 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 )
             elif command == "set_protocols":
                 stim_info = communication["stim_info"]
+                optical_stim_info = communication.pop("optical_lid_info")
+
                 self._values_to_share_to_server["stimulation_info"] = stim_info
 
+                # pre-process stim info for mc_comm
+                modified_stim_info = copy.deepcopy(stim_info)
+                for protocol in modified_stim_info["protocols"]:
+                    if protocol["stimulation_type"] == "O":  # pragma: no cover
+                        convert_optical_protocol_to_current(protocol, **optical_stim_info)
+                        logger.info(
+                            f"Optical -> Current conversion result for stim protocol {protocol['protocol_id']}: {protocol}"
+                        )
                 (
                     chunked_stim_info,
                     subprotocol_idx_mappings,
                     max_subprotocol_idx_counts,
-                ) = chunk_protocols_in_stim_info(stim_info)
-
+                ) = chunk_protocols_in_stim_info(modified_stim_info)
+                # send to subprocesses
                 self._put_communication_into_instrument_comm_queue(
                     {**communication, "stim_info": chunked_stim_info}
                 )

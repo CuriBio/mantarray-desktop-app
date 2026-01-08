@@ -9,12 +9,17 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 
+from mantarray_desktop_app.constants import MICROS_PER_MILLI
 from mantarray_desktop_app.constants import STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
 from mantarray_desktop_app.constants import STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
 from mantarray_desktop_app.constants import STIM_MAX_CHUNKED_SUBPROTOCOL_DUR_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_MAX_DUTY_CYCLE_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import STIM_MAX_DUTY_CYCLE_PERCENTAGE
+from mantarray_desktop_app.constants import STIM_MAX_OPTICAL_POWER_MILLIWATTS
 from mantarray_desktop_app.constants import STIM_MAX_SUBPROTOCOL_DURATION_MICROSECONDS
+from mantarray_desktop_app.constants import STIM_MIN_ABSOLUTE_CURRENT_MICROAMPS
+from mantarray_desktop_app.constants import STIM_MIN_ABSOLUTE_VOLTAGE_MILLIVOLTS
+from mantarray_desktop_app.constants import STIM_MIN_OPTICAL_POWER_MILLIWATTS
 from mantarray_desktop_app.constants import STIM_MIN_SUBPROTOCOL_DURATION_MICROSECONDS
 from mantarray_desktop_app.constants import VALID_SUBPROTOCOL_TYPES
 from mantarray_desktop_app.exceptions import InvalidSubprotocolError
@@ -146,6 +151,31 @@ def chunk_protocols_in_stim_info(
     return chunked_stim_info, subprotocol_idx_mappings, max_subprotocol_idx_counts
 
 
+def convert_optical_protocol_to_current(
+    protocol: dict[str, Any], *, a: Union[int, float], b: Union[int, float]
+) -> None:
+    protocol["stimulation_type"] = "C"
+    for subprotocol in protocol["subprotocols"]:
+        _convert_optical_subprotocol_to_current(subprotocol, a, b)
+
+
+def _convert_optical_subprotocol_to_current(
+    subprotocol: dict[str, Any], a: Union[int, float], b: Union[int, float]
+) -> None:
+    if subprotocol["type"] == "loop":
+        for inner_subprotocol in subprotocol["subprotocols"]:
+            _convert_optical_subprotocol_to_current(inner_subprotocol, a, b)
+    elif subprotocol["type"] == "monophasic":
+        current_ma = int((subprotocol["phase_one_charge"] / a) + b)
+        # the transfer fn above converts mW to mA, but stim info uses µA
+        current_ua = current_ma * MICROS_PER_MILLI
+        subprotocol["phase_one_charge"] = current_ua
+    elif subprotocol["type"] == "delay":
+        pass
+    else:  # pragma: no cover
+        raise ValueError(subprotocol["type"])
+
+
 class StimulationProtocolManager:
     def __init__(
         self, subprotocols: List[Dict[str, Any]], num_iterations: Optional[int] = None, start_idx: int = 0
@@ -263,22 +293,34 @@ def validate_stim_subprotocol(
             subprotocol["duration"] = int(subprotocol["duration"])
             total_subprotocol_duration_us = subprotocol["duration"]
         else:  # monophasic and biphasic
-            max_abs_charge = (
-                STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
-                if stim_type == "V"
-                else STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
+            charge_validator = (
+                lambda n: STIM_MIN_ABSOLUTE_CURRENT_MICROAMPS <= abs(n) <= STIM_MAX_ABSOLUTE_CURRENT_MICROAMPS
             )
+            if stim_type == "V":
+                charge_validator = (
+                    lambda n: STIM_MIN_ABSOLUTE_VOLTAGE_MILLIVOLTS
+                    <= abs(n)
+                    <= STIM_MAX_ABSOLUTE_VOLTAGE_MILLIVOLTS
+                )
+            elif stim_type == "O":
+                charge_validator = (
+                    lambda n: STIM_MIN_OPTICAL_POWER_MILLIWATTS <= n <= STIM_MAX_OPTICAL_POWER_MILLIWATTS
+                )
 
             subprotocol_component_validators = {
                 "phase_one_duration": lambda n: n > 0,
-                "phase_one_charge": lambda n: abs(n) <= max_abs_charge,
+                "phase_one_charge": charge_validator,
                 "postphase_interval": lambda n: n >= 0,
             }
             if subprotocol_type == "biphasic":
+                if stim_type == "O":
+                    raise InvalidSubprotocolError(
+                        f"400 Protocol {protocol_id}, Subprotocol {idx}, Optical protocols cannot include biphasic pulses"
+                    )
                 subprotocol_component_validators.update(
                     {
                         "phase_two_duration": lambda n: n > 0,
-                        "phase_two_charge": lambda n: abs(n) <= max_abs_charge,
+                        "phase_two_charge": charge_validator,
                         "interphase_interval": lambda n: n >= 0,
                     }
                 )

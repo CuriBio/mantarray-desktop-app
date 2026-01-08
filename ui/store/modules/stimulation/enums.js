@@ -20,10 +20,17 @@ export const STIM_STATUS = {
   ERROR: "Error Occurred",
 };
 
+export const STIM_LID_TYPE_TO_STIM_TYPE = {
+  E: "C",
+  L: "O",
+};
+
 export const MIN_SUBPROTOCOL_DURATION_MS = 100;
 export const MIN_PHASE_DURATION_US = 25; // Making this us because 0.025 is difficult to read in the error text below text box when user goes below. 25 is more visible.
-export const MIN_CHARGE_MA = 1;
-export const MAX_CHARGE_MA = 100;
+export const MIN_ABS_STIM_CURRENT_MA = 1;
+export const MAX_ABS_STIM_CURRENT_MA = 100;
+export const MIN_STIM_OPTICAL_POWER_MW = 5;
+export const MAX_STIM_OPTICAL_POWER_MW = 40;
 export const MAX_SUBPROTOCOL_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export const TIME_CONVERSION_TO_MILLIS = {
@@ -63,3 +70,24 @@ export const COLOR_PALETTE = [
 ];
 
 export const ALPHABET = Array.from(Array(26).keys()).map((i) => String.fromCharCode(65 + i));
+
+export const verify_stim_types_match = (platemap_stim_type, barcode_config, barcodes) => {
+  if (platemap_stim_type === null) {
+    return true;
+  }
+  const lid_types = ((barcode_config || {})["stim"] || {})["T"] || {};
+  const stim_barcode = ((barcodes || {}).stim_barcode || {}).value;
+  if (stim_barcode === null) {
+    return true;
+  }
+  const lid_type = (lid_types[(stim_barcode || "")[7]] || {}).t;
+  return STIM_LID_TYPE_TO_STIM_TYPE[lid_type] === platemap_stim_type;
+};
+
+export const get_stim_type_info = (stim_type) => {
+  if (stim_type === "O") {
+    return { type_name: "Optical", output_name: "Power", output_units: "mW" };
+  } else {
+    return { type_name: "Electrical", output_name: "Current", output_units: "mA" };
+  }
+};

@@ -244,9 +244,9 @@ export default {
     await commit("reset_protocol_editor");
 
     for (const [idx, protocol] of Object.entries(protocols)) {
-      const invalid_pulses = are_valid_pulses(protocol.subprotocols);
+      const valid_pulses = are_valid_pulses(protocol.subprotocols, protocol.stimulation_type);
 
-      if (!invalid_pulses) {
+      if (valid_pulses) {
         await commit("set_edit_mode_off");
         // needs to be set to off every iteration because an action elsewhere triggers it on
         const letter = get_protocol_editor_letter(state.protocol_list);
@@ -296,9 +296,13 @@ export default {
     }
   },
 
-  async create_protocol_message({ commit, state }) {
+  async create_protocol_message({ commit, state, rootState }) {
     const status = true;
-    const message = { protocols: [], protocol_assignments: {} };
+    const message = {
+      protocols: [],
+      protocol_assignments: {},
+      stim_barcode: rootState.playback.barcodes.stim_barcode.value,
+    };
 
     const { protocol_assignments } = state;
     const { stimulator_circuit_statuses } = this.state.data;
@@ -335,7 +339,7 @@ export default {
         if (!unique_protocol_ids.has(letter)) {
           unique_protocol_ids.add(letter);
           // this needs to be converted before sent because stim type changes independently of pulse settings
-          const converted_subprotocols = await _get_converted_settings(subprotocols);
+          const converted_subprotocols = await _get_converted_settings(subprotocols, stimulation_type);
           const protocol_model = {
             protocol_id: letter,
             stimulation_type,
@@ -353,7 +357,11 @@ export default {
 
     const message_url = `/set_protocols`;
     const body = { data: JSON.stringify(message) };
-    await call_axios_post_from_vuex(message_url, body);
+    const res = await call_axios_post_from_vuex(message_url, body);
+    if (res && res.status !== 200) {
+      commit("set_stim_status", STIM_STATUS.ERROR);
+      return;
+    }
 
     const status_url = `/set_stim_status?running=${status}`;
     await call_axios_post_from_vuex(status_url);
@@ -483,35 +491,38 @@ export default {
   },
 };
 
-const _get_converted_settings = (subprotocols) => {
+const _get_converted_settings = (subprotocols, stimulation_type) => {
   const milli_to_micro = 1e3;
-  const charge_conversion = milli_to_micro;
+  // no charge conversion needed for optical
+  const charge_conversion = stimulation_type === "O" ? 1 : milli_to_micro;
 
   return subprotocols.map((pulse) => {
     let type_specific_settings = {};
     if (pulse.type === "loop") {
       type_specific_settings = {
         num_iterations: pulse.num_iterations,
-        subprotocols: _get_converted_settings(pulse.subprotocols),
+        subprotocols: _get_converted_settings(pulse.subprotocols, stimulation_type),
       };
-    } else if (pulse.type === "Delay")
+    } else if (pulse.type === "Delay") {
       type_specific_settings.duration =
         pulse.duration * TIME_CONVERSION_TO_MILLIS[pulse.unit] * milli_to_micro;
-    else
+    } else {
       type_specific_settings = {
         num_cycles: pulse.num_cycles,
         postphase_interval: Math.round(pulse.postphase_interval * milli_to_micro), // sent in µs, also needs to be an integer value
         phase_one_duration: pulse.phase_one_duration * milli_to_micro, // sent in µs
-        phase_one_charge: pulse.phase_one_charge * charge_conversion, // sent in mV
+        phase_one_charge: pulse.phase_one_charge * charge_conversion,
       };
+    }
 
-    if (pulse.type === "Biphasic")
+    if (pulse.type === "Biphasic") {
       type_specific_settings = {
         ...type_specific_settings,
         interphase_interval: pulse.interphase_interval * milli_to_micro, // sent in µs
-        phase_two_charge: pulse.phase_two_charge * charge_conversion, // sent in mV or µA
+        phase_two_charge: pulse.phase_two_charge * charge_conversion,
         phase_two_duration: pulse.phase_two_duration * milli_to_micro, // sent in µs
       };
+    }
 
     return {
       type: pulse.type,

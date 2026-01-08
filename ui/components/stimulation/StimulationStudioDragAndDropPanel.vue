@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div :class="is_modal_open ? 'div__modal-overlay' : null">
+    <div>
       <div>
         <div class="div__drag-and-drop-panel">
           <span class="span__stimulationstudio-drag-drop-header-label">Drag/Drop Waveforms</span>
@@ -21,7 +21,10 @@
             @end="is_dragging = false"
           >
             <div v-for="(type, idx) in icon_types" :id="type" :key="idx">
-              <img :src="require(`@/assets/img/${type}.png`)" />
+              <div style="position: relative">
+                <StimTypeLogo :stimulation_type="get_stim_type" class="div__stim-type-logo" />
+                <img :src="require(`@/assets/img/${type}.png`)" />
+              </div>
             </div>
           </draggable>
         </div>
@@ -62,14 +65,17 @@
                   </span>
                 </div>
               </div>
-              <img
-                v-if="pulse.type !== 'loop'"
-                id="img__waveform-tile"
-                :src="require(`@/assets/img/${pulse.type}.png`)"
-                @dblclick="open_modal_for_edit(pulse.type, idx)"
-                @mouseenter="on_pulse_enter(idx)"
-                @mouseleave="on_pulse_leave"
-              />
+              <div style="position: relative">
+                <StimTypeLogo :stimulation_type="get_stim_type" class="div__stim-type-logo" />
+                <img
+                  v-if="pulse.type !== 'loop'"
+                  id="img__waveform-tile"
+                  :src="require(`@/assets/img/${pulse.type}.png`)"
+                  @dblclick="open_modal_for_edit(pulse.type, idx)"
+                  @mouseenter="on_pulse_enter(idx)"
+                  @mouseleave="on_pulse_leave"
+                />
+              </div>
               <!-- Below is nested dropzone, can be disabled if needed -->
               <draggable
                 v-model="pulse.subprotocols"
@@ -92,7 +98,10 @@
                   @mouseenter="on_pulse_enter(idx, nested_idx)"
                   @mouseleave="on_pulse_leave"
                 >
-                  <img :src="require(`@/assets/img/${nested_pulse.type}.png`)" :style="'margin-top: 4px;'" />
+                  <div style="position: relative">
+                    <StimTypeLogo :stimulation_type="get_stim_type" class="div__stim-type-logo" />
+                    <img :src="require(`@/assets/img/${nested_pulse.type}.png`)" />
+                  </div>
                 </div>
               </draggable>
             </div>
@@ -100,26 +109,53 @@
         </div>
       </div>
     </div>
-    <div v-if="modal_type !== null" class="modal-container">
+    <b-modal
+      id="waveform-settings"
+      size="sm"
+      hide-footer
+      hide-header
+      hide-header-close
+      :static="true"
+      :no-close-on-backdrop="true"
+    >
       <StimulationStudioWaveformSettingModal
+        v-if="modal_type !== null"
         :pulse_type="modal_type"
         :modal_open_for_edit="modal_open_for_edit"
         :selected_pulse_settings="selected_pulse_settings"
         :current_color="selected_color"
         @close="on_modal_close"
       />
-    </div>
-    <div v-if="open_delay_modal" class="modal-container delay-container">
+    </b-modal>
+    <b-modal
+      id="delay-settings"
+      size="sm"
+      hide-footer
+      hide-header
+      hide-header-close
+      :static="true"
+      :no-close-on-backdrop="true"
+    >
       <StimulationStudioInputModal
+        v-if="open_delay_modal"
         :modal_open_for_edit="modal_open_for_edit"
         :current_unit="current_delay_unit"
         :current_input="current_input"
         :current_color="selected_color"
         @input-close="on_modal_close"
       />
-    </div>
-    <div v-if="open_repeat_modal" class="modal-container repeat-container">
+    </b-modal>
+    <b-modal
+      id="repeat-settings"
+      size="sm"
+      hide-footer
+      hide-header
+      hide-header-close
+      :static="true"
+      :no-close-on-backdrop="true"
+    >
       <StimulationStudioInputModal
+        v-if="open_repeat_modal"
         :modal_open_for_edit="modal_open_for_edit"
         :current_input="current_input"
         :input_label="'Number of Iterations:'"
@@ -127,17 +163,24 @@
         :modal_title="'Setup Subprotocol Loop'"
         @input-close="close_repeat_modal"
       />
-    </div>
+    </b-modal>
   </div>
 </template>
 <script>
 import draggable from "vuedraggable";
-import { mapState, mapActions, mapMutations } from "vuex";
+import { mapState, mapActions, mapMutations, mapGetters } from "vuex";
 import StimulationStudioWaveformSettingModal from "@/components/stimulation/StimulationStudioWaveformSettingModal.vue";
 import StimulationStudioInputModal from "@/components/stimulation/StimulationStudioInputModal.vue";
 import SmallDropDown from "@/components/basic_widgets/SmallDropDown.vue";
 import { generate_random_color } from "@/js_utils/waveform_data_formatter";
 import { DEFAULT_SUBPROTOCOL_TEMPLATES } from "@/js_utils/protocol_validation";
+import StimTypeLogo from "@/components/stimulation/StimTypeLogo.vue";
+
+import BootstrapVue from "bootstrap-vue";
+import { BModal } from "bootstrap-vue";
+import Vue from "vue";
+Vue.use(BootstrapVue);
+Vue.component("BModal", BModal);
 /**
  * @vue-data {Array} icon_type - The source for the draggable pulse tiles
  * @vue-data {Array} is_dragging - Boolean to determine if user is currently dragging a tile in the scrollable window
@@ -168,13 +211,13 @@ export default {
     StimulationStudioWaveformSettingModal,
     StimulationStudioInputModal,
     SmallDropDown,
+    StimTypeLogo,
   },
   props: {
     disable_edits: { type: Boolean, default: false },
   },
   data() {
     return {
-      icon_types: ["Monophasic", "Biphasic", "Delay"],
       time_units_array: ["milliseconds", "seconds", "minutes", "hours"],
       selected_pulse_settings: {},
       protocol_order: [],
@@ -201,6 +244,7 @@ export default {
       run_until_stopped: (state) => state.protocol_editor.run_until_stopped,
       detailed_subprotocols: (state) => state.protocol_editor.detailed_subprotocols,
     }),
+    ...mapGetters("stimulation", ["get_stim_type"]),
     is_nesting_disabled: function () {
       // disable nesting if the dragged pulse is a nested loop already to prevent deep nesting
       // OR a new pulse is being placed
@@ -218,6 +262,13 @@ export default {
     },
     is_modal_open: function () {
       return this.modal_type !== null || this.open_delay_modal || this.open_repeat_modal;
+    },
+    icon_types: function () {
+      if (this.get_stim_type === "C") {
+        return ["Monophasic", "Biphasic", "Delay"];
+      } else {
+        return ["Monophasic", "Delay"];
+      }
     },
   },
   watch: {
@@ -238,6 +289,27 @@ export default {
           )
         )
       );
+    },
+    modal_type: function () {
+      if (this.modal_type !== null) {
+        this.$bvModal.show("waveform-settings");
+      } else {
+        this.$bvModal.hide("waveform-settings");
+      }
+    },
+    open_delay_modal: function () {
+      if (this.open_delay_modal) {
+        this.$bvModal.show("delay-settings");
+      } else {
+        this.$bvModal.hide("delay-settings");
+      }
+    },
+    open_repeat_modal: function () {
+      if (this.open_repeat_modal) {
+        this.$bvModal.show("repeat-settings");
+      } else {
+        this.$bvModal.hide("repeat-settings");
+      }
     },
   },
   created() {
@@ -572,23 +644,22 @@ export default {
 
 .img__icon-container {
   cursor: pointer;
-  height: 93px;
-  width: 92px;
+  height: 90px;
+  width: 90px;
 }
 
 img {
-  height: 92px;
-  width: 92px;
+  height: 90px;
+  width: 90px;
   cursor: pointer;
+  margin: 0px 1px;
 }
 
 .ghost {
-  padding: 0 7px;
-}
-
-.modal-container {
-  left: 22%;
-  position: absolute;
+  padding-left: 7px;
+  padding-right: 7px;
+  display: flex;
+  align-items: center;
 }
 
 .dropdown-container {
@@ -626,14 +697,14 @@ img {
   margin-top: 80px;
 }
 
-.div__modal-overlay {
-  width: 1629px;
-  height: 885px;
+.div__stim-type-logo {
   position: absolute;
-  top: 0;
-  background: rgb(0, 0, 0);
-  z-index: 5;
-  opacity: 0.6;
+  top: 5px;
+  left: 3px;
+  height: 21px;
+  width: 19px;
+  fill: white;
+  cursor: pointer;
 }
 
 .div__scroll-container {
@@ -693,14 +764,9 @@ img {
 
 .dropzone {
   visibility: visible;
-  height: 102px;
+  height: 90px;
   display: flex;
   right: 31px;
   position: relative;
-}
-
-.delay-container,
-.repeat-container {
-  top: 15%;
 }
 </style>

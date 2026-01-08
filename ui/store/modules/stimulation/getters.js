@@ -28,8 +28,24 @@ export default {
       return state.current_assignment;
     }
   },
+  get_platemap_stim_type({ protocol_assignments }) {
+    const first_assigned_protocol = Object.values(protocol_assignments)[0];
+    if (first_assigned_protocol == null) {
+      return null;
+    }
+    return first_assigned_protocol.protocol.stimulation_type;
+  },
+  get_protocol_is_empty({ protocol_editor }) {
+    return protocol_editor.subprotocols.length === 0;
+  },
+  get_stim_type({ protocol_editor }) {
+    return protocol_editor.stimulation_type;
+  },
   get_protocol_name({ protocol_editor }) {
     return protocol_editor.name;
+  },
+  get_protocol_letter({ current_assignment }) {
+    return current_assignment.letter;
   },
   get_rest_duration({ protocol_editor }) {
     return protocol_editor.rest_duration;

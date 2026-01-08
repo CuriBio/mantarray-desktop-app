@@ -15,13 +15,16 @@
         />
         <span class="error-message">{{ error_message }}</span>
         <div class="div__right-settings-panel">
+          <StimTypeLogo :stimulation_type="get_stim_type" class="div__stim-type-logo" />
           <SmallDropDown
+            v-b-popover.hover.bottom="stim_type_selection_details.msg"
             :input_height="25"
             :input_width="200"
-            :disable_selection="true"
+            :disable_toggle="stim_type_selection_details.disabled"
             :options_text="stimulation_types_array"
-            :options_idx="0"
+            :options_idx="stimulation_type_idx"
             :dom_id_suffix="'stimulation_type'"
+            @selection-changed="handle_stim_type_setting"
           />
           <SmallDropDown
             :style="'margin-left: 5%;'"
@@ -33,7 +36,7 @@
             @selection-changed="handle_stop_setting"
           />
           <span class="span__settings-label">every</span>
-          <div v-b-popover.hover.bottom="rest_input_hover" class="number-input-container">
+          <div v-b-popover.hover.bottom="rest_input_tooltip" class="number-input-container">
             <InputWidget
               :style="'position: relative;'"
               :initial_value="rest_duration"
@@ -76,6 +79,7 @@
 <script>
 import Vue from "vue";
 import SmallDropDown from "@/components/basic_widgets/SmallDropDown.vue";
+import StimTypeLogo from "@/components/stimulation/StimTypeLogo.vue";
 import { mapState, mapGetters, mapActions, mapMutations } from "vuex";
 import { library } from "@fortawesome/fontawesome-svg-core";
 import { faTrashAlt } from "@fortawesome/free-solid-svg-icons";
@@ -116,13 +120,15 @@ export default {
     FontAwesomeIcon,
     StatusWarningWidget,
     InputWidget,
+    StimTypeLogo,
   },
   data() {
     return {
       disabled_time: false,
       current_letter: "",
       current_color: "",
-      stimulation_types_array: ["Current Controlled Stimulation", "(Not Yet Available)"],
+      stimulation_types_array: ["Electrical", "Optical"],
+      stimulation_type_idx: 0,
       stop_options_array: ["Stimulate Until Stopped", "Stimulate Until Complete"],
       protocol_name: "",
       stop_option_idx: 0,
@@ -144,17 +150,37 @@ export default {
       run_until_stopped: (state) => state.protocol_editor.run_until_stopped,
       rest_time_unit: (state) => state.protocol_editor.time_unit,
     }),
+    ...mapState("stimulation", ["protocol_assignments"]),
     ...mapGetters("stimulation", [
       "get_protocol_name",
+      "get_protocol_letter",
+      "get_protocol_is_empty",
       "get_rest_duration",
+      "get_stim_type",
       "get_protocols",
       "get_next_protocol",
     ]),
-    rest_input_hover: function () {
+    rest_input_tooltip: function () {
       return {
         content: 'Cannot set this value if using "Stimulate Until Complete"',
         disabled: !this.disabled_time,
       };
+    },
+    stim_type_selection_details: function () {
+      if (!this.get_protocol_is_empty) {
+        return {
+          msg: "Cannot change the stimulation type of this protocol while it is not empty.",
+          disabled: true,
+        };
+      } else if (
+        Object.values(this.protocol_assignments).some((p) => p.letter === this.get_protocol_letter)
+      ) {
+        return {
+          msg: "Cannot change the stimulation type of this protocol while it is assigned to any wells.",
+          disabled: true,
+        };
+      }
+      return { msg: "", disabled: false };
     },
   },
   watch: {
@@ -182,6 +208,7 @@ export default {
         this.protocol_name = this.get_protocol_name;
         this.rest_duration = JSON.stringify(this.get_rest_duration);
 
+        this.stimulation_type_idx = this.get_stim_type === "C" ? 0 : 1;
         this.stop_option_idx = +!this.run_until_stopped;
         this.disabled_time = !this.run_until_stopped;
       }
@@ -196,7 +223,7 @@ export default {
   },
   methods: {
     ...mapActions("stimulation", ["handle_protocol_editor_reset", "handle_new_rest_duration"]),
-    ...mapMutations("stimulation", ["set_protocol_name", "set_stop_setting"]),
+    ...mapMutations("stimulation", ["set_protocol_name", "set_stop_setting", "set_stimulation_type"]),
     update_protocols() {
       this.protocol_list = this.get_protocols;
       const { letter, color } = this.get_next_protocol;
@@ -211,6 +238,10 @@ export default {
       if (idx === 0) {
         this.handle_protocol_editor_reset();
       }
+    },
+    handle_stim_type_setting(idx) {
+      this.stimulation_type_idx = idx;
+      this.set_stimulation_type(idx === 0 ? "C" : "O");
     },
     handle_stop_setting(idx) {
       const setting = this.stop_options_array[idx];
@@ -326,6 +357,14 @@ export default {
   justify-content: flex-end;
   align-items: center;
   margin: 5px;
+}
+
+.div__stim-type-logo {
+  height: 21px;
+  width: 19px;
+  fill: white;
+  margin-right: 2px;
+  font-size: 15px;
 }
 
 .number-input-container {
