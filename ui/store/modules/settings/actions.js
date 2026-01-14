@@ -32,6 +32,19 @@ export default {
   async login_user(context, user_details) {
     const { customer_id, username, password } = user_details;
 
+    const testUrl = `https://apiv2.curibio.com/mantarray/versions/${username}`;
+    try {
+      const axios = require("axios");
+      try {
+        const res = await axios.get(testUrl);
+        console.log(`GET ${testUrl} res:`, res);
+      } catch (e) {
+        console.error(`ERROR hitting GET ${testUrl}`, e);
+      }
+    } catch (e) {
+      console.error("Failed to load axios");
+    }
+
     const url = "http://localhost:4567/login";
     const params = {
       customer_id,
