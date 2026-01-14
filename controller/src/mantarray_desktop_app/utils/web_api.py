@@ -2,6 +2,7 @@
 from abc import ABC
 from abc import abstractmethod
 from collections import namedtuple
+import logging
 from typing import Any
 from typing import Callable
 from typing import Dict
@@ -15,6 +16,7 @@ from requests import Response
 from ..exceptions import LoginFailedError
 from ..exceptions import RefreshFailedError
 
+logger = logging.getLogger(__name__)
 
 AuthTokens = namedtuple("AuthTokens", ["access", "refresh"])
 
@@ -43,7 +45,11 @@ def get_cloud_api_tokens(
             "client_type": f"mantarray:{CURRENT_SOFTWARE_VERSION}",
         },
     )
-    response_json = response.json()
+    try:
+        response_json = response.json()
+    except Exception:
+        logger.exception("Failed to get response as json")
+        raise
     if response.status_code != 200:
         raise LoginFailedError(response.status_code, response_json["detail"])
 

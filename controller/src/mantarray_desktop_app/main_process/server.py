@@ -403,6 +403,7 @@ def login_user() -> Response:
     except LoginFailedError as e:
         return Response(json.dumps(str(e)), status=f"401 {repr(e)}")
     except requests.exceptions.ConnectionError:  # pragma: no cover
+        logger.exception("Connection error when trying to login")
         return Response(json.dumps({"err": "network"}), mimetype="application/json")
 
     queue_command_to_main(
