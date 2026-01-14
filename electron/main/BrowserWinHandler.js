@@ -68,6 +68,7 @@ export default class BrowserWinHandler {
         devTools: !process.env.SPECTRON, // disable on e2e test environment
       },
     });
+    this.browserWindow.openDevTools();
     this.browserWindow.on("closed", () => {
       // Dereference the window object
       this.browserWindow = null;
