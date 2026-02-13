@@ -6,7 +6,7 @@ Changelog for Mantarray Desktop App
 
 Added:
 ^^^^^^
-- Lasarray support.
+- Optogenetic Lid support.
 
 Fixed:
 ^^^^^^
