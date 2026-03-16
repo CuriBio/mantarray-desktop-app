@@ -90,6 +90,7 @@
     "prettier-plugin-organize-imports": "~1.1.1",
     "python-shell": "~2.0.3",
     "regenerator-runtime": "^0.13.9",
+    "semver": "^6.3.0",
     "style-loader": "~2.0.0",
     "tmp": "~0.2.1",
     "ts-loader": "~8.0.18",
