@@ -2,6 +2,7 @@ const path = require("path");
 const url_safe_base64 = require("urlsafe-base64");
 import ElectronStore from "./electron_store.js";
 const yaml = require("js-yaml");
+const semver = require("semver");
 
 const now = new Date();
 const utc_month = (now.getUTCMonth() + 1).toString().padStart(2, "0"); // Eli (3/29/21) for some reason getUTCMonth returns a zero-based number, while everything else is a month, so adjusting here
@@ -55,51 +56,70 @@ const create_store = function ({ file_path = undefined, file_name = "mantarray_c
   return store;
 };
 
-const create_barcode_store = function () {
-  const store = new ElectronStore({
-    cwd: undefined,
-    name: "mantarray_controller_barcode_config",
-    fileExtension: "json",
-    serialize: JSON.stringify,
-    deserialize: JSON.parse,
-    defaults: {
-      plate: {
-        S: {
-          // mT/mm
-          1: 0.114,
-          2: 0.114,
-          5: 0.213,
-          6: 0.213,
+let BARCODE_STORE = null;
+
+const barcode_store_defaults = function () {
+  return {
+    // This can't be the real version in case it is not present at all in the config file.
+    // the version will be set correctly after updating the file below
+    version: "0.0.0",
+    plate: {
+      S: {
+        // mT/mm
+        1: 0.114,
+        2: 0.114,
+        5: 0.213,
+        6: 0.213,
+      },
+    },
+    stim: {
+      T: {
+        0: {
+          t: "E",
+        },
+        1: {
+          t: "E",
+        },
+        2: {
+          t: "E",
+        },
+        3: {
+          t: "E",
+        },
+        4: {
+          t: "L",
         },
       },
-      stim: {
-        T: {
-          0: {
-            t: "E",
-          },
-          1: {
-            t: "E",
-          },
-          2: {
-            t: "E",
-          },
-          3: {
-            t: "E",
-          },
-          4: {
-            t: "L",
-          },
-        },
-        C: {
-          2: {
-            a: 0.8,
-            b: 27,
-          },
+      C: {
+        2: {
+          a: 1.2117,
+          b: 28.746115,
         },
       },
     },
-  });
-  return store;
+  };
+};
+
+const create_barcode_store = function () {
+  if (BARCODE_STORE === null) {
+    BARCODE_STORE = new ElectronStore({
+      cwd: undefined,
+      name: "mantarray_controller_barcode_config",
+      fileExtension: "json",
+      serialize: JSON.stringify,
+      deserialize: JSON.parse,
+      defaults: barcode_store_defaults(),
+    });
+    const current_config_version = ((BARCODE_STORE || {}).store || {}).version || "0.0.0";
+    if (semver.gt(get_current_app_version(), current_config_version)) {
+      console.log(`Barcode store at version ${current_config_version}, updating now`); // allow-log
+      BARCODE_STORE.clear();
+      BARCODE_STORE.set("version", get_current_app_version());
+    } else {
+      console.log("Barcode store up to date"); // allow-log
+    }
+  }
+  return BARCODE_STORE;
 };
 
 const redact_username_from_logs = (dir_path) => {

@@ -151,7 +151,7 @@ export default {
           if (lid_type === "E") {
             return "Stimulation Lid";
           } else if (lid_type === "L") {
-            return "Lasarray";
+            return "Optogenetic Lid";
           } else {
             return "Unknown";
           }

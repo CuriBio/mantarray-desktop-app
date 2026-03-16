@@ -23,7 +23,6 @@ const generate_flask_command_line_args = main_utils.generate_flask_command_line_
 const get_current_app_version = main_utils.get_current_app_version;
 
 const store = create_store();
-const barcode_store = main_utils.create_barcode_store();
 
 log.transports.file.resolvePath = () => {
   const filename = main_utils.FILENAME_PREFIX + "_main.txt";
@@ -35,8 +34,11 @@ log.transports.file.resolvePath = () => {
 process.env.TZ = "UTC";
 console.log = log.log;
 console.error = log.error;
+console.log(`Mantarray Controller v${get_current_app_version()} started`); // allow-log
 console.log("Electron store at: '" + main_utils.redact_username_from_logs(store.path) + "'"); // allow-log
-console.log("Barcode store at: '" + main_utils.redact_username_from_logs(barcode_store.path) + "'"); // allow-log
+const barcode_store = main_utils.create_barcode_store();
+console.log("Barcode config at: '" + main_utils.redact_username_from_logs(barcode_store.path) + "'"); // allow-log
+console.log(`Barcode config: ${JSON.stringify(barcode_store.store)}`);
 
 global.__resources = undefined; // eslint-disable-line no-underscore-dangle
 // eslint-disable-next-line no-undef
