@@ -35,6 +35,7 @@ log.transports.file.resolvePath = () => {
 process.env.TZ = "UTC";
 console.log = log.log;
 console.error = log.error;
+console.log(`Mantarray Controller v${get_current_app_version()} started`); // allow-log
 console.log("Electron store at: '" + main_utils.redact_username_from_logs(store.path) + "'"); // allow-log
 console.log("Barcode store at: '" + main_utils.redact_username_from_logs(barcode_store.path) + "'"); // allow-log
 

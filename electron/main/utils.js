@@ -92,8 +92,8 @@ const create_barcode_store = function () {
         },
         C: {
           2: {
-            a: 0.8,
-            b: 27,
+            a: 1.2117,
+            b: 28.746115,
           },
         },
       },
