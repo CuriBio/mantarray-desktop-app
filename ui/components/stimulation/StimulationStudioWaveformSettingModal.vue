@@ -321,7 +321,7 @@ import {
   check_pulse_duration_validity,
   check_active_duration_validity,
   check_pulse_frequency_validity,
-  get_max_pulse_duration_for_freq,
+  // get_max_pulse_duration_for_freq,
   calculate_num_cycles,
 } from "@/js_utils/protocol_validation";
 import BootstrapVue from "bootstrap-vue";
@@ -650,7 +650,9 @@ export default {
     },
     check_pulse_frequency() {
       const value_str = this.input_pulse_frequency;
-      const max_pulse_dur_for_freq = get_max_pulse_duration_for_freq(this.input_pulse_frequency);
+      // TODO change back to this once testing is done
+      // const max_pulse_dur_for_freq = get_max_pulse_duration_for_freq(this.input_pulse_frequency);
+      const max_pulse_dur_for_freq = Number.POSITIVE_INFINITY;
 
       this.err_msgs.pulse_frequency = check_pulse_frequency_validity(value_str, max_pulse_dur_for_freq);
       const is_valid = this.err_msgs.pulse_frequency === "";

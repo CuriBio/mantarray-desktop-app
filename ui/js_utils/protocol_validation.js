@@ -237,7 +237,9 @@ const _is_valid_single_pulse = (protocol, stimulation_type) => {
     ? ["phase_one_duration"]
     : ["phase_one_duration", "phase_two_duration", "interphase_interval"];
 
-  const max_pulse_duration_for_freq = get_max_pulse_duration_for_freq(protocol.frequency);
+  // TODO change back to this once testing is done
+  // const max_pulse_duration_for_freq = get_max_pulse_duration_for_freq(protocol.frequency);
+  const max_pulse_duration_for_freq = Number.POSITIVE_INFINITY;
   const total_active_duration = get_total_active_duration(protocol.type, protocol);
 
   // first check all durations are within max and min bounds
