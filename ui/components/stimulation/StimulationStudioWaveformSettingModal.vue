@@ -400,7 +400,8 @@ export default {
       is_enabled_array: [false, true],
       active_duration_idx: 0,
       input_pulse_frequency: "",
-      max_pulse_duration_for_freq: 50,
+      // max_pulse_duration_for_freq: 50,  // TODO change this back
+      max_pulse_duration_for_freq: Number.POSITIVE_INFINITY,
       calculated_active_dur: "",
       calculated_num_cycles: "",
       num_cycles: "",

@@ -512,8 +512,11 @@ def set_protocols() -> Response:
             for idx, subprotocol in enumerate(protocol["subprotocols"]):
                 validate_stim_subprotocol(subprotocol, stim_type, protocol_id, idx)
 
-        except InvalidSubprotocolError as e:
-            return Response(status=str(e))
+        # TODO Add this back and remove pass
+        # except InvalidSubprotocolError as e:
+        #     return Response(status=str(e))
+        except InvalidSubprotocolError:
+            pass
 
     protocol_assignments_dict = stim_info["protocol_assignments"]
     # make sure protocol assignments are not missing any wells and do not contain any invalid wells
