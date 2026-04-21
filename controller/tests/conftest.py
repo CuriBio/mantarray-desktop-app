@@ -17,28 +17,22 @@ multiprocessing.set_start_method(
 
 def pytest_addoption(parser: Parser) -> None:
     parser.addoption(
-        "--full-ci",
-        action="store_true",
-        default=False,
-        help="include tests that are marked as only for CI",
+        "--full-ci", action="store_true", default=False, help="include tests that are marked as only for CI"
     )
     parser.addoption(
-        "--include-slow-tests",
-        action="store_true",
-        default=False,
-        help="include tests that are a bit slow",
+        "--include-slow-tests", action="store_true", default=False, help="include tests that are a bit slow"
     )
     parser.addoption(
         "--only-exe",
         action="store_true",
         default=False,
-        help="onlyrun tests that are marked for the compiled exe",
+        help="only run tests that are marked for the compiled exe",
     )
     parser.addoption(
         "--live-test",
         action="store_true",
         default=False,
-        help="only run tests that are marked for the real (live) instrument",
+        help="include tests that are marked for the real (live) instrument",
     )
 
 
