@@ -135,9 +135,9 @@ def get_data_slice_within_timepoints(
 def _find_bounds(
     time_arr: NDArray[(1, Any), int], min_timepoint: int, max_timepoint: Optional[int] = None
 ) -> Tuple[int, int]:
+    """Return a tuple of the first and last valid indices."""
     length_of_data = time_arr.shape[0]
     last_valid_index_in_packet = length_of_data - 1
-    """Return a tuple of the first and last valid indices."""
     if time_arr[-1] == min_timepoint:
         return -1, last_valid_index_in_packet
 
@@ -276,6 +276,7 @@ class FileWriterProcess(InfiniteProcess):
             {well_idx: (deque(), deque()) for well_idx in range(self._num_wells)}
             for _ in range(len(self._board_queues))
         )
+        # stim chunking values
         self._subprotocol_idx_mappings: Dict[str, Dict[int, int]] = {}
         self._max_original_subprotocol_idx_counts: Dict[str, Tuple[int, ...]] = {}
         self._curr_original_subprotocol_idx_for_wells: List[Optional[int]]
@@ -397,10 +398,12 @@ class FileWriterProcess(InfiniteProcess):
         return self._current_recording_dir
 
     def _setup_before_loop(self) -> None:
+        """Run any setup needed prior to running the main loop of this process."""
         super()._setup_before_loop()
         self._check_dirs()
 
     def _teardown_after_loop(self) -> None:
+        """Run any teardown needed after breaking out of the main loop of this process."""
         msg = f"File Writer Process beginning teardown at {_get_formatted_utc_now()}"
         put_log_message_into_queue(logging.INFO, msg, self._to_main_queue, self.get_logging_level())
         if self._board_has_open_files(0):
@@ -416,6 +419,7 @@ class FileWriterProcess(InfiniteProcess):
         super()._teardown_after_loop()
 
     def _commands_for_each_run_iteration(self) -> None:
+        """Ordered actions to perform each iteration of the main loop of this process."""
         if not self._is_finalizing_files_after_recording():
             self._process_next_command_from_main()
         self._process_next_incoming_packet()
@@ -430,6 +434,7 @@ class FileWriterProcess(InfiniteProcess):
                 self._iterations_since_last_logging = 0
 
     def _process_next_command_from_main(self) -> None:
+        """Process the next message from the main process if any."""
         input_queue = self._from_main_queue
         try:
             communication = input_queue.get_nowait()
@@ -790,7 +795,7 @@ class FileWriterProcess(InfiniteProcess):
                 )
 
     def _process_next_incoming_packet(self) -> None:
-        """Process the next incoming packet for that board.
+        """Process the next incoming data packet for that board (instrument).
 
         If no data present, will just return.
 
@@ -1009,6 +1014,7 @@ class FileWriterProcess(InfiniteProcess):
                 self._handle_recording_of_stim_statuses(well_idx, well_statuses)
 
     def _reduce_subprotocol_chunks(self, well_statuses: Dict[int, Any]) -> Dict[int, Any]:
+        """Reduce stim idxs to the minimum required for the purpose of display in live view."""
         reduced_well_statuses = {}
         for well_idx, well_status_arr in well_statuses.items():
             well_name = GENERIC_24_WELL_DEFINITION.get_well_name_from_well_index(well_idx)
@@ -1083,6 +1089,7 @@ class FileWriterProcess(InfiniteProcess):
         stimulation_dataset[:, previous_data_size:] = stim_data_arr
 
     def _convert_subprotocol_idx(self, protocol_id: str, chunked_subprotocol_idx: int) -> int:
+        """Convert chunked stim idxs to their original idxs."""
         return (
             chunked_subprotocol_idx
             if chunked_subprotocol_idx == STIM_COMPLETE_SUBPROTOCOL_IDX
@@ -1090,6 +1097,10 @@ class FileWriterProcess(InfiniteProcess):
         )
 
     def _update_buffers(self) -> None:
+        """Update buffers of mag/stim data.
+
+        Buffers for each data stream are kept in memory in order to allow starting/stopping data at old timepoints.
+        """
         board_idx = 0
         data_packet_buffer = self._data_packet_buffers[board_idx]
         if not data_packet_buffer:

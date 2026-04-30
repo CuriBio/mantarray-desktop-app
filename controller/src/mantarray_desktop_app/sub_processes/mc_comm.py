@@ -263,7 +263,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             float
         ] = None  # Tanner (11/17/21): This value will only be a float when from the moment the end of firmware packet is received to the moment the firmware update complete packet is received
         # data streaming values
-        self._base_global_time_of_data_stream = 0
+        self._base_global_time_of_data_stream = 0  # the instrument will not reset the timestamps of magnetometer or stim data when starting a new data stream, so must keep track of it here to gets samples starting at t=0
         self._sampling_period_us = DEFAULT_SAMPLING_PERIOD
         self._is_data_streaming = False
         self._has_data_packet_been_sent = False
@@ -303,6 +303,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._wells_actively_stimulating = set()
 
     def _setup_before_loop(self) -> None:
+        """Run any setup needed prior to running the main loop of this process."""
         super()._setup_before_loop()
 
         msg = {
@@ -331,6 +332,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._metadata_status = MetadataStatuses.NEED
 
     def _teardown_after_loop(self) -> None:
+        """Run any teardown needed after breaking out of the main loop of this process."""
         board_idx = 0
         log_msg = f"Microcontroller Communication Process beginning teardown at {_get_formatted_utc_now()}"
         put_log_message_into_queue(
@@ -386,6 +388,8 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._fatal_error_reporter.put_nowait((err, formatted_stack_trace))
 
     def _reset_mag_data_cache(self) -> None:
+        # raw_bytes:   the raw, unparsed magnetometer data payloads
+        # num packets: the number of magnetometer payloads contained in raw_bytes
         self._mag_data_cache_dict = {"raw_bytes": bytearray(0), "num_packets": 0}
 
     def _reset_stim_status_buffers(self) -> None:
@@ -447,6 +451,10 @@ class McCommunicationProcess(InstrumentCommProcess):
     def _create_board_connection(
         self,
     ) -> Tuple[Union[MantarrayMcSimulator, serial.Serial, SerialDeviceFTDI], str]:
+        """Attempt to connect to a live instrument, fallback on simulator if not live intsrument is found
+
+        Prioritize using FTDI over Pyserial
+        """
         # try to connect to instrument using FTDI driver
         try:  # pragma: no cover
             serial_conn = SerialDeviceFTDI()
@@ -507,7 +515,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             )
 
     def _commands_for_each_run_iteration(self) -> None:
-        """Ordered actions to perform each iteration.
+        """Ordered actions to perform each iteration of the main loop of this process.
 
         This process must be responsive to communication from the main process and then the instrument before anything else.
 
@@ -560,7 +568,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         elif self._is_updating_firmware:
             self._check_firmware_update_status()
 
-        self._check_worker_thread()
+        self._check_fw_worker_thread()
 
         # process can be soft stopped if no commands in queue from main and no command responses needed from instrument
         self._process_can_be_soft_stopped = (
@@ -810,6 +818,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._send_data_packet(board_idx, SERIAL_COMM_HANDSHAKE_PACKET_TYPE, track_command=False)
 
     def _process_comm_from_instrument(self, packet_type: int, packet_payload: bytes) -> None:
+        """Handle all comm from the instrument that is not a data stream (i.e. not magnetometer or stim data)."""
         if packet_type == SERIAL_COMM_CHECKSUM_FAILURE_PACKET_TYPE:
             returned_packet = SERIAL_COMM_MAGIC_WORD_BYTES + packet_payload
             raise SerialCommIncorrectChecksumFromPCError(returned_packet)
@@ -1001,6 +1010,14 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._handle_status_codes(status_codes_dict, "Status Beacon")
 
     def _register_magic_word(self, board_idx: int) -> None:
+        """Sync with the data stream coming from the instrument by finding the magic word header.
+
+        There is no guarantee that the first byte received will be the first byte of a packet. This will search
+        for a full magic word header in order to sync with data stream coming from the instruments. This will
+        timeout if magic word is not found fast enough, if not enough bytes are read to form a complete magic word,
+        or if enough bytes are read that a magic word should have been found (i.e. when the number of bytes read
+        is equal to the maximum complete packet size).
+        """
         board = self._board_connections[board_idx]
         if board is None:
             return
@@ -1045,6 +1062,10 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._handle_data_stream()
 
     def _handle_data_stream(self) -> None:
+        """Read all data from the instrument currently available and process any complete packets.
+
+        Incomplete packets will be put into a buffer and processed later as the rest of their bytes are read.
+        """
         board_idx = 0
         board = self._board_connections[board_idx]
         if not board:
@@ -1085,7 +1106,9 @@ class McCommunicationProcess(InstrumentCommProcess):
                 self._timepoints_of_prev_actions["packet_sort"]
             )
         self._timepoints_of_prev_actions["packet_sort"] = perf_counter()
-        # sort packets by into packet type groups: magnetometer data, stim status, other
+        # sort packets by into packet type groups: magnetometer data, stim status, other.
+        # This step will only parse out payloads of each packet and verify the checksum,
+        # it will not process the payloads
         try:
             sorted_packet_dict = sort_serial_packets(bytearray(self._serial_packet_cache))
         except InstrumentBadDataError:  # pragma: no cover
@@ -1133,6 +1156,7 @@ class McCommunicationProcess(InstrumentCommProcess):
 
     # Tanner (10/15/21): if performance needs to be improved, consider converting some of this function to cython
     def _handle_mag_data_packets(self, mag_stream_info: Dict[str, Union[bytes, int]]) -> None:
+        """Process magnetometer data stream."""
         # don't update cache if not streaming or there are no packets to add
         if not (self._is_data_streaming and mag_stream_info["num_packets"]):
             return
@@ -1214,11 +1238,13 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._update_performance_metrics(new_performance_tracking_values)
 
     def _dump_mag_data_packet(self, mag_data_packet: Dict[Any, Any]) -> None:
+        """Send magnetometer data to file writer."""
         to_fw_queue = self._board_queues[0][2]
         to_fw_queue.put_nowait(mag_data_packet)
         self._has_data_packet_been_sent = True
 
     def _handle_stim_packets(self, stim_stream_info: Dict[str, Union[bytes, int]]) -> None:
+        """Process stimulation data stream."""
         if not stim_stream_info["num_packets"]:
             return
 
@@ -1262,6 +1288,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._dump_stim_packet(well_statuses)
 
     def _dump_stim_packet(self, well_statuses: NDArray[(2, Any), int]) -> None:
+        """Send stim data to file writer."""
         to_fw_queue = self._board_queues[0][2]
         to_fw_queue.put_nowait(
             {
@@ -1273,6 +1300,7 @@ class McCommunicationProcess(InstrumentCommProcess):
         self._has_stim_packet_been_sent = True
 
     def _handle_beacon_tracking(self) -> None:
+        """Check for status beacon timeouts."""
         if (
             self._time_of_last_beacon_secs is None
             or self._is_waiting_for_reboot
@@ -1298,6 +1326,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             raise SerialCommStatusBeaconTimeoutError()
 
     def _handle_command_tracking(self) -> None:
+        """Check for command response timeouts."""
         try:
             oldest_command = self._commands_awaiting_response.oldest()
         except IndexError:
@@ -1389,7 +1418,7 @@ class McCommunicationProcess(InstrumentCommProcess):
             self._report_fatal_error(*simulator_error_queue.get(timeout=5))
         return simulator_has_error
 
-    def _check_worker_thread(self) -> None:
+    def _check_fw_worker_thread(self) -> None:
         if self._fw_update_worker_thread is None or self._fw_update_worker_thread.is_alive():
             return
 

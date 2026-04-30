@@ -215,7 +215,7 @@ def _drain_board_queues(board_queues: Tuple[Queue[Any], Queue[Any]]) -> Dict[str
 
 
 class DataAnalyzerProcess(InfiniteProcess):
-    """Process that analyzes data.
+    """Process that analyzes data for live view and handles the local analysis feature of the MA Controller.
 
     Args:
         board_queues: A tuple (the max number of board connections should be predefined, so not a mutable list) of tuples of 2 queues. The first queue is for incoming data for that board that should be analyzed. The second queue is for finalized outgoing data to main process
@@ -376,6 +376,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         self.init_streams()
 
     def _setup_before_loop(self) -> None:
+        """Run any setup needed prior to running the main loop of this process."""
         super()._setup_before_loop()
         if self._beta_2_mode:
             self.set_sampling_period(DEFAULT_SAMPLING_PERIOD)
@@ -384,6 +385,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             self.init_streams()
 
     def _commands_for_each_run_iteration(self) -> None:
+        """Ordered actions to perform each iteration of the main loop of this process."""
         self._process_next_command_from_main()
         self._handle_incoming_packet()
         if self._beta_2_mode:
@@ -395,6 +397,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             self._dump_data_into_queue(outgoing_data)
 
     def _process_next_command_from_main(self) -> None:
+        """Process the next message from the main process if any."""
         input_queue = self._comm_from_main_queue
         try:
             communication = input_queue.get_nowait()
@@ -455,6 +458,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             raise UnrecognizedCommandFromMainToDataAnalyzerError(communication_type)
 
     def _handle_incoming_packet(self) -> None:
+        """Process incoming mag/stim data packet."""
         input_queue = self._board_queues[0][0]
         try:
             packet = input_queue.get_nowait()
@@ -643,6 +647,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._data_buffer[well_idx]["construct_data"] = tissue_data
 
     def _process_stim_packet(self, stim_packet: Dict[Any, Any]) -> None:
+        """Process stim data and then send to main process."""
         # Tanner (6/21/21): converting to json may not be necessary for outgoing data, check with frontend
         outgoing_data_json = json.dumps(
             {
@@ -732,6 +737,7 @@ class DataAnalyzerProcess(InfiniteProcess):
             self._reset_performance_tracking_values()
 
     def _dump_data_into_queue(self, outgoing_data: Dict[str, Any]) -> None:
+        """Send magnetometer data to main process."""
         timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")
         if self._beta_2_mode:
             num_data_points = outgoing_data["num_data_points"]
@@ -754,6 +760,7 @@ class DataAnalyzerProcess(InfiniteProcess):
         self._board_queues[0][1].put_nowait(outgoing_msg)
 
     def _dump_outgoing_well_metrics(self, well_tuples: Tuple[Tuple[int, Dict[int, Any]], ...]) -> None:
+        """Send twitch metrics created from magnetometer data to main process."""
         outgoing_metrics: Dict[int, Dict[str, List[Any]]] = dict()
         for well_idx, per_twitch_dict in well_tuples:
             if not per_twitch_dict:

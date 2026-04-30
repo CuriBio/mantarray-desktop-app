@@ -8,6 +8,8 @@ from typing import Dict
 
 
 class SharedValues:
+    """Thread-safe wrapper around a dictionary."""
+
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._values: Dict[str, Any] = dict()
