@@ -115,11 +115,16 @@ class MantarrayProcessesMonitor(InfiniteThread):
         load_firmware_file: bool = True,
     ) -> None:
         super().__init__(fatal_error_reporter, lock=the_lock)
-        self._values_to_share_to_server = values_to_share_to_server
+        self._values_to_share_to_server = (
+            values_to_share_to_server  # dictionary of system state shared with the server
+        )
         self._process_manager = process_manager
+        # count of magnetometer data chunks that are ready to be send to the UI. Used when buffering data at
+        # that start of a new data stream
+        self._data_dump_buffer_size = 0
+        # beta 1 values
         self._boot_up_after_processes_start = boot_up_after_processes_start
         self._load_firmware_file = load_firmware_file
-        self._data_dump_buffer_size = 0
         self._last_barcode_clear_time: Optional[float] = None
 
     def _report_fatal_error(self, the_err: Exception) -> None:
@@ -134,6 +139,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self._process_manager.shutdown_server()
 
     def _check_and_handle_file_writer_to_main_queue(self) -> None:
+        """Handle communication coming from the file writer subprocess."""
         process_manager = self._process_manager
         file_writer_to_main = process_manager.queue_container.from_file_writer
         try:
@@ -190,6 +196,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
             logger.info(msg)
 
     def _check_and_handle_server_to_main_queue(self) -> None:
+        """Handle communication coming from the server thread."""
         process_manager = self._process_manager
         to_main_queue = process_manager.queue_container.from_flask
         try:
@@ -424,6 +431,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         main_to_instrument_comm_queue.put_nowait(communication)
 
     def _check_and_handle_data_analyzer_to_main_queue(self) -> None:
+        """Handle communication coming from the data analyzer subprocess."""
         process_manager = self._process_manager
 
         data_analyzer_to_main = process_manager.queue_container.from_data_analyzer
@@ -458,6 +466,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
                 drain_queue(da_data_out_queue)
 
     def _check_and_handle_data_analyzer_data_out_queue(self) -> None:
+        """Handle magnetometer/stimulation data ready to be sent to the UI."""
         da_data_out_queue = self._process_manager.queue_container.data_analyzer_boards[0][1]
         try:
             outgoing_data_json = da_data_out_queue.get(timeout=SECONDS_TO_WAIT_WHEN_POLLING_QUEUES)
@@ -466,6 +475,7 @@ class MantarrayProcessesMonitor(InfiniteThread):
         self._queue_websocket_message(outgoing_data_json)
 
     def _check_and_handle_instrument_comm_to_main_queue(self) -> None:
+        """Handle communication coming from the instrument comm subprocess."""
         # TODO Tanner (10/25/21): refactor this into smaller methods
         process_manager = self._process_manager
         board_idx = 0

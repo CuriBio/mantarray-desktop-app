@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Python Flask Server controlling Mantarray."""
+"""Python Flask Server receiving user commands from the UI."""
 from __future__ import annotations
 
 import copy

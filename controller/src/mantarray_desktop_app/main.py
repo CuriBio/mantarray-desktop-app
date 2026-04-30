@@ -71,6 +71,8 @@ def get_server_port_number() -> int:
 def _set_up_socketio_handlers(
     to_websocket_queue: LightQueue, from_websocket_queue: queue.Queue[Dict[str, Any]]
 ) -> Callable[[], None]:
+    """SocketIO is used to push data streams to the UI."""
+
     def data_sender() -> (
         None
     ):  # pragma: no cover  # Tanner (6/21/21): code coverage can't follow into start_background_task where this function is run
