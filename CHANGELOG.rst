@@ -1,6 +1,15 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+1.4.1 (2026-10-27)
+------------------
+
+Fixed:
+^^^^^^
+- Error when starting optical stimulation with a power above 40 mW. The backend now accepts the same
+  2-50 mW range as the Stimulation Studio UI.
+
+
 1.4.0 (2026-04-21)
 ------------------
 
