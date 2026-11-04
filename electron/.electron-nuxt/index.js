@@ -50,6 +50,11 @@ const webpackConfig = Webpack.getBaseConfig({
   ],
   devtool: "sourcemap",
 });
+// webpack 4 ignores package.json "exports" and picks axios-retry's ESM build, which uses syntax it can't parse
+// (optional chaining). The CommonJS build is transpiled, so point webpack at that instead
+webpackConfig.resolve.alias = {
+  "axios-retry$": path.join(__dirname, "..", "node_modules", "axios-retry", "dist", "cjs", "index.js"),
+};
 
 const webpackMain = new Webpack({
   logger: new Logger("Main", "olive"),

@@ -155,18 +155,18 @@ const CLOUD_DOMAIN = CLOUD_ENDPOINT_VALID_OPTIONS[CLOUD_ENDPOINT_USER_OPTION] ||
 const CLOUD_PULSE3D_ENDPOINT = `pulse3d.${CLOUD_DOMAIN}.com`;
 
 ipcMain.once("pulse3d_versions_request", (event) => {
-  http_client
-    .request_with_retry(
-      { url: `https://${CLOUD_PULSE3D_ENDPOINT}/versions` },
-      { retries: 4, initial_delay_ms: 5000 }
-    )
+  http_client.cloud_client
+    .get(`https://${CLOUD_PULSE3D_ENDPOINT}/versions`)
     .then((response) => {
       const version_info = response.data;
+      // a captive portal or proxy can respond with a 200 and an HTML page
+      if (!Array.isArray(version_info)) {
+        throw new Error(`Unexpected response body: ${JSON.stringify(version_info).slice(0, 200)}`);
+      }
       console.log(`Found pulse3d versions: ${version_info.map(({ version }) => version)}`); // allow-log
       event.reply("pulse3d_versions_response", version_info);
     })
     .catch((error) => {
-      // the reason each attempt failed has already been logged
       console.log(`Error getting pulse3d versions: ${error.message}`); // allow-log
       event.reply("pulse3d_versions_response", null);
     });

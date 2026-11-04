@@ -1,110 +1,38 @@
 const axios = require("axios");
-const dns = require("dns");
-const https = require("https");
+const axiosRetry = require("axios-retry").default;
 
-const DEFAULT_RETRIES = 3;
 const MS_IN_SEC = 1000;
-const DEFAULT_INITIAL_DELAY_MS = MS_IN_SEC * 3;
 // making this 10 seconds to get around Windows' 21 second connection timeout
-const DEFAULT_TIMEOUT_MS = MS_IN_SEC * 10;
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const is_retryable = (error) =>
-  !error.response || error.response.status >= 500 || error.response.status === 429;
-
-/**
- * Create an HTTPS agent that records the IP address the host name resolved to, so a failed request can log
- * which address it tried to connect to. Timeout and certificate errors don't include it.
- *
- * @return {Object} an https.Agent whose `resolved_ip` property holds the most recently resolved address
- */
-const create_ip_recording_agent = function () {
-  const agent = new https.Agent({
-    lookup: (hostname, options, callback) => {
-      dns.lookup(hostname, options, (error, address, family) => {
-        // address is an array of {address, family} objects when options.all is set
-        agent.resolved_ip = Array.isArray(address)
-          ? address.map((entry) => entry.address).join(", ")
-          : address;
-        callback(error, address, family);
-      });
-    },
-  });
-  return agent;
-};
+const TIMEOUT_MS = MS_IN_SEC * 10;
+const RETRIES = 4;
+// axios-retry doubles this before the first retry, so the waits are about 5s, 10s, 20s, 40s (plus up to 20% jitter)
+const RETRY_DELAY_FACTOR_MS = MS_IN_SEC * 2.5;
 
 /**
- * Describe why a request failed in a form that is useful in the logs.
+ * Decide whether a failed request to the cloud should be sent again. axios-retry's default condition
+ * doesn't retry timeouts (ECONNABORTED) or DNS failures (ENOTFOUND), which are the main failures we want to
+ * retry, so this replaces it. Only GETs are retried since a request that timed out may still have reached
+ * the server.
  *
  * @param {Object} error - the error raised by axios
- * @param {String} resolved_ip - the IP address the host name resolved to, if known
  *
- * @return {String} a short description of the failure
+ * @return {Boolean} true if the request should be retried
  */
-const describe_request_error = function (error, resolved_ip) {
-  const cause = error.response
-    ? `HTTP ${error.response.status} ${error.response.statusText}`
-    : `${error.code || "no error code"} ${error.message}`;
-  return `${cause} (resolved IP: ${resolved_ip || "unknown"})`;
-};
+const should_retry = (error) =>
+  error.config.method === "get" &&
+  (!error.response || error.response.status >= 500 || error.response.status === 429);
 
-/**
- * Send a request with axios, retrying with exponential backoff if it fails
- * WARNING: Safe for GET, but double check if your call is idempotent for other verbs
- *
- * @param {Object} request_config - an axios request config, e.g. { url, method, data, headers, timeout }
- * @param {Object} options
- * @param {Number} options.retries - how many times to retry after the first attempt fails
- * @param {Number} options.initial_delay_ms - how long to wait before the first retry, doubled for each one after
- *
- * @return {Promise<Object>} the axios response from the first attempt that succeeds. Rejects with the error from
- * the last attempt, or from the first one that isn't worth retrying.
- */
-const request_with_retry = async function (
-  request_config,
-  { retries = DEFAULT_RETRIES, initial_delay_ms = DEFAULT_INITIAL_DELAY_MS } = {}
-) {
-  const method = (request_config.method || "get").toUpperCase();
-  // stripping off the querystring here incase there is sensitive info
-  const request_description = `${method} ${request_config.url.split("?")[0]}`;
-  const num_attempts = retries + 1;
-  for (let attempt = 1; ; attempt++) {
-    const agent = export_functions.create_ip_recording_agent();
+// only use this for cloud requests. Requests to the local Flask server should keep using axios directly
+const cloud_client = axios.create({ timeout: TIMEOUT_MS });
+axiosRetry(cloud_client, {
+  retries: RETRIES,
+  retryCondition: should_retry,
+  retryDelay: (retry_count, error) => axiosRetry.exponentialDelay(retry_count, error, RETRY_DELAY_FACTOR_MS),
+  // give each attempt its own timeout instead of sharing one timeout across every attempt
+  shouldResetTimeout: true,
+  onRetry: (retry_count, error, request_config) => {
+    console.log(`Retry ${retry_count} of ${RETRIES} for ${request_config.url} after: ${error.message}`); // allow-log
+  },
+});
 
-    try {
-      const response = await axios.request({
-        timeout: DEFAULT_TIMEOUT_MS,
-        httpsAgent: agent,
-        ...request_config,
-      });
-
-      if (attempt > 1) {
-        console.log(`${request_description} succeeded on attempt ${attempt} of ${num_attempts}`); // allow-log
-      }
-
-      return response;
-    } catch (error) {
-      console.log(
-        // allow-log
-        `${request_description} failed on attempt ${attempt} of ${num_attempts}: ` +
-          describe_request_error(error, agent.resolved_ip)
-      );
-
-      if (attempt === num_attempts || !is_retryable(error)) {
-        throw error;
-      }
-
-      // exponential backoff, doubling up each attempt
-      await sleep(initial_delay_ms * 2 ** (attempt - 1));
-    }
-  }
-};
-
-// making spying/mocking with Jest easier. It's the same as utils.js
-const export_functions = {
-  create_ip_recording_agent,
-  describe_request_error,
-  request_with_retry,
-};
-
-export default export_functions;
+export default { cloud_client };
