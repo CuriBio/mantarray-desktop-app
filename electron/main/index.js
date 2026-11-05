@@ -18,6 +18,7 @@ const fs = require("fs");
 const axios = require("axios");
 
 import main_utils from "./utils.js"; // Eli (1/15/21): helping to be able to spy on functions within utils. https://stackoverflow.com/questions/49457451/jest-spyon-a-function-not-class-or-object-type
+import http_client from "./http_client.js";
 const create_store = main_utils.create_store;
 const generate_flask_command_line_args = main_utils.generate_flask_command_line_args;
 const get_current_app_version = main_utils.get_current_app_version;
@@ -154,18 +155,19 @@ const CLOUD_DOMAIN = CLOUD_ENDPOINT_VALID_OPTIONS[CLOUD_ENDPOINT_USER_OPTION] ||
 const CLOUD_PULSE3D_ENDPOINT = `pulse3d.${CLOUD_DOMAIN}.com`;
 
 ipcMain.once("pulse3d_versions_request", (event) => {
-  axios
+  http_client.cloud_client
     .get(`https://${CLOUD_PULSE3D_ENDPOINT}/versions`)
     .then((response) => {
       const version_info = response.data;
+      // a captive portal or proxy can respond with a 200 and an HTML page
+      if (!Array.isArray(version_info)) {
+        throw new Error(`Unexpected response body: ${JSON.stringify(version_info).slice(0, 200)}`);
+      }
       console.log(`Found pulse3d versions: ${version_info.map(({ version }) => version)}`); // allow-log
       event.reply("pulse3d_versions_response", version_info);
     })
-    .catch((response) => {
-      console.log(
-        // allow-log
-        `Error getting pulse3d versions: ${response.status} ${response.statusText}`
-      );
+    .catch((error) => {
+      console.log(`Error getting pulse3d versions: ${error.message}`); // allow-log
       event.reply("pulse3d_versions_response", null);
     });
 });

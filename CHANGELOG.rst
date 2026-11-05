@@ -1,6 +1,15 @@
 Changelog for Mantarray Desktop App
 ===================================
 
+1.4.2 (unreleased)
+------------------
+
+Fixed:
+^^^^^^
+- Pulse3D versions not loading when the first request at startup fails. The request is now
+  retried, and each failed attempt is logged with its error.
+
+
 1.4.1 (2026-10-27)
 ------------------
 
