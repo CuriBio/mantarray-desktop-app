@@ -190,7 +190,10 @@ def redact_sensitive_info(communication: Dict[str, Any]) -> Dict[str, Any]:
             "content": copy.copy(communication["content"]),
         }
         if data_type == "recording_snapshot_data":
-            comm_copy["content"].pop("data_json")
+            # we want to log the details of a failed snapshot so it can be diagnosed
+            snapshot_result = json.loads(comm_copy["content"].pop("data_json"))
+            if isinstance(snapshot_result, dict) and "error" in snapshot_result:
+                comm_copy["content"]["snapshot_error"] = snapshot_result
     elif communication_type == "metadata_comm":
         comm_copy = copy.deepcopy(communication)
         comm_copy["metadata"][MANTARRAY_NICKNAME_UUID] = get_redacted_string(
@@ -226,6 +229,20 @@ def redact_sensitive_info_from_path(file_path: Optional[str]) -> Optional[str]:
     scrubbed_path += get_redacted_string(len(split_path[2]))
     scrubbed_path += split_path[3] + split_path[4]
     return scrubbed_path
+
+
+def redact_usernames_from_text(text: str) -> str:
+    """Scrubs the username from every Windows user path in the given text.
+
+    Unlike redact_sensitive_info_from_path, this is meant for free text such as
+    tracebacks which may contain any number of paths, or none at all. Repeated
+    backslashes are allowed as separators since repr() escapes them.
+    """
+    return re.sub(
+        r"(Users\\+)([^\\\r\n]+)(\\)",
+        lambda match: match.group(1) + get_redacted_string(len(match.group(2))) + match.group(3),
+        text,
+    )
 
 
 def get_redacted_string(length: int) -> str:

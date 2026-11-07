@@ -9,6 +9,7 @@ from mantarray_desktop_app import get_redacted_string
 from mantarray_desktop_app import redact_sensitive_info_from_path
 from mantarray_desktop_app.utils import generic
 from mantarray_desktop_app.utils.generic import redact_sensitive_info
+from mantarray_desktop_app.utils.generic import redact_usernames_from_text
 from mantarray_desktop_app.utils.generic import validate_user_credentials
 from pulse3D.constants import MANTARRAY_NICKNAME_UUID
 import pytest
@@ -127,6 +128,47 @@ def test_redact_sensitive_info_from_path__scrubs_everything_if_does_not_match_pa
 ):
     actual = redact_sensitive_info_from_path(test_path)
     assert actual == get_redacted_string(len(test_path))
+
+
+@pytest.mark.parametrize(
+    "test_text,expected_text,test_description",
+    [
+        ("no paths here", "no paths here", "leaves text without paths unchanged"),
+        (
+            r"C:\Program Files\MantarrayController\file.py",
+            r"C:\Program Files\MantarrayController\file.py",
+            "leaves paths outside of Users unchanged",
+        ),
+        (
+            r"C:\Users\username\AppData\Local\Temp\rec",
+            r"C:\Users\********\AppData\Local\Temp\rec",
+            "scrubs username from a single path",
+        ),
+        (
+            r"C:\Users\username\Documents\recordings",
+            r"C:\Users\********\Documents\recordings",
+            "scrubs username from path that does not contain AppData",
+        ),
+        (
+            r"FileNotFoundError('C:\\Users\\username\\AppData\\Local')",
+            r"FileNotFoundError('C:\\Users\\********\\AppData\\Local')",
+            "scrubs username from path with escaped backslashes",
+        ),
+        (
+            "Traceback (most recent call last):\n"
+            '  File "C:\\Users\\name1\\AppData\\Local\\a.py", line 1, in f\n'
+            '  File "C:\\Users\\name22\\AppData\\Local\\b.py", line 2, in g\n'
+            "Exception: err\n",
+            "Traceback (most recent call last):\n"
+            '  File "C:\\Users\\*****\\AppData\\Local\\a.py", line 1, in f\n'
+            '  File "C:\\Users\\******\\AppData\\Local\\b.py", line 2, in g\n'
+            "Exception: err\n",
+            "scrubs usernames from every path in multi-line text",
+        ),
+    ],
+)
+def test_redact_usernames_from_text__scrubs_usernames_correctly(test_text, expected_text, test_description):
+    assert redact_usernames_from_text(test_text) == expected_text
 
 
 @pytest.mark.parametrize(

@@ -307,6 +307,54 @@ def test_MantarrayProcessesMonitor__handles_completed_mag_analysis_command_corre
     assert str(expected_comm) in mocked_logger.call_args[0][0]
 
 
+def test_MantarrayProcessesMonitor__logs_error_details_when_recording_snapshot_fails(
+    mocker, test_process_manager_creator, test_monitor
+):
+    test_process_manager = test_process_manager_creator(use_testing_queues=True)
+    monitor_thread, *_ = test_monitor(test_process_manager)
+
+    mocked_logger = mocker.patch.object(process_monitor.logger, "info", autospec=True)
+
+    queue_to_server_ws = test_process_manager.queue_container.to_websocket
+    data_analyzer_to_main = test_process_manager.queue_container.from_data_analyzer
+
+    test_traceback = (
+        "Traceback (most recent call last):\n"
+        '  File "magnet_finder.py", line 57, in run_magnet_finding_alg\n'
+        "Exception: err\n"
+    )
+    test_snapshot_error = {
+        "name": "test_recording",
+        "error": "Something went wrong",
+        "expanded_err": repr(Exception("err")),
+        "traceback": test_traceback,
+    }
+    test_content = {"data_type": "recording_snapshot_data", "data_json": json.dumps(test_snapshot_error)}
+
+    data_analyzer_to_main.put_nowait(
+        {"communication_type": "mag_analysis_complete", "content": copy.deepcopy(test_content)}
+    )
+    assert is_queue_eventually_not_empty(data_analyzer_to_main) is True
+
+    invoke_process_run_and_check_errors(monitor_thread)
+    confirm_queue_is_eventually_empty(data_analyzer_to_main)
+
+    # the full message, including the error, should still be sent to the frontend unmodified
+    ws_message = queue_to_server_ws.get(timeout=QUEUE_CHECK_TIMEOUT_SECONDS)
+    assert ws_message == test_content
+
+    mocked_logger.assert_called_once()
+    logged_msg = mocked_logger.call_args[0][0]
+
+    expected_logged_comm = {
+        "communication_type": "mag_analysis_complete",
+        "content": {"data_type": "recording_snapshot_data", "snapshot_error": test_snapshot_error},
+    }
+    assert str(expected_logged_comm) in logged_msg
+    # the traceback is logged as a repr inside the dict, so check for that form explicitly as well
+    assert repr(test_traceback) in logged_msg
+
+
 def test_MantarrayProcessesMonitor__pulls_outgoing_data_from_data_analyzer_and_makes_it_available_to_websocket(
     test_process_manager_creator, test_monitor
 ):
