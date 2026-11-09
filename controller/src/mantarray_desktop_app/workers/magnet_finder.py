@@ -2,6 +2,7 @@
 import os
 import shutil
 import tempfile
+import traceback
 from typing import Any
 from typing import Dict
 from typing import List
@@ -13,6 +14,7 @@ from pulse3D.plate_recording import PlateRecording
 
 from ..constants import GENERIC_24_WELL_DEFINITION
 from ..constants import MICRO_TO_BASE_CONVERSION
+from ..utils.generic import redact_usernames_from_text
 
 
 ALL_VALID_WELL_NAMES = {
@@ -82,7 +84,12 @@ def run_magnet_finding_alg(
                 # Leaving in plain text because this error message is used directly in pop up modal to user when rec snapshot fails
                 # It is never displayed to user in local analysis
                 failed_recordings.append(
-                    {"name": recording_name, "error": "Something went wrong", "expanded_err": repr(e)}
+                    {
+                        "name": recording_name,
+                        "error": "Something went wrong",
+                        "expanded_err": redact_usernames_from_text(repr(e)),
+                        "traceback": redact_usernames_from_text(traceback.format_exc()),
+                    }
                 )
 
     if failed_recordings:

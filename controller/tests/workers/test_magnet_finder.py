@@ -144,11 +144,36 @@ def test_run_magnet_finding_alg__handles_failed_recordings_correctly(failure, mo
     run_magnet_finding_alg(result_dict, test_recording_paths, "")
 
     if failure:
-        assert result_dict["failed_recordings"] == [
+        failed_recordings = result_dict["failed_recordings"]
+        assert len(failed_recordings) == 1
+        # traceback contents depend on line numbers, so only check that it is for the correct error
+        actual_traceback = failed_recordings[0].pop("traceback")
+        assert actual_traceback.startswith("Traceback (most recent call last):")
+        assert actual_traceback.endswith(f"Exception: {test_error}\n")
+        assert failed_recordings == [
             {"name": test_recordings[1], "error": "Something went wrong", "expanded_err": repr(test_error)}
         ]
     else:
         assert "failed_recordings" not in result_dict
+
+
+def test_run_magnet_finding_alg__redacts_usernames_from_error_details(mocker):
+    mocker.patch.object(magnet_finder.shutil, "copytree", autospec=True)
+    mocked_pr = mocker.patch.object(magnet_finder, "PlateRecording", autospec=True)
+
+    test_error = FileNotFoundError(r"C:\Users\testuser\AppData\Local\Temp\tmpabc\rec0\file.h5")
+    mocked_pr.return_value.to_dataframe.side_effect = test_error
+
+    result_dict = {}
+    run_magnet_finding_alg(result_dict, ["path/to/rec0"])
+
+    failed_recording = result_dict["failed_recordings"][0]
+    # expanded_err is a repr, so its backslashes are escaped. The traceback's are not
+    assert failed_recording["expanded_err"] == repr(
+        FileNotFoundError(r"C:\Users\********\AppData\Local\Temp\tmpabc\rec0\file.h5")
+    )
+    assert r"C:\Users\********\AppData" in failed_recording["traceback"]
+    assert "testuser" not in failed_recording["traceback"]
 
 
 def test_run_magnet_finding_alg__correctly_raises_exception_if_pr_raises_convergence_error(mocker):
