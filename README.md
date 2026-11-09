@@ -18,7 +18,7 @@ They work on Windows, macOS, and Linux.
 
 - Python 3.10, the version required by `controller/Pipfile` and used by CI. Any installation method
   works (python.org installer, pyenv, Homebrew, apt, etc.).
-    - We recommend pyenv. It allows you to switch between python versions easily
+  - We recommend pyenv. It allows you to switch between python versions easily
 - git, with access to the CuriBio GitHub organization.
 - The [GitHub CLI](https://cli.github.com/) (`gh`), logged in with `gh auth login`.
 
@@ -29,6 +29,7 @@ gh repo clone CuriBio/mantarray-desktop-app
 cd mantarray-desktop-app
 git submodule update --init
 ```
+
 The submodule that needs to be updated is in `controller/vendor/barnacleboard-serial-interface`
 
 ## 2. Create and activate the virtual environment
@@ -116,8 +117,7 @@ changes, repeat step 4. If you edit `data_parsing_cy.pyx`, repeat the last comma
 
 ## Troubleshooting
 
-- **The Cython extension fails to compile with errors such as `use of undeclared identifier
-  'PyDataType_ELSIZE'`.** A `data_parsing_cy.cpp` left over from an earlier build was generated
+- **The Cython extension fails to compile with errors such as `use of undeclared identifier 'PyDataType_ELSIZE'`.** A `data_parsing_cy.cpp` left over from an earlier build was generated
   with a different Cython/numpy version, and it is not regenerated automatically. Delete
   `src/mantarray_desktop_app/utils/data_parsing_cy.cpp` and any `data_parsing_cy*.so` /
   `data_parsing_cy*.pyd` in that folder, then repeat step 6.
